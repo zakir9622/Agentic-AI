@@ -27,7 +27,8 @@ export const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(
     },
     ref
   ) => {
-    const inputId   = id ?? React.useId();
+    const generatedId = React.useId();
+    const inputId   = id ?? generatedId;
     const errorId   = `${inputId}-error`;
     const hintId    = `${inputId}-hint`;
     const described = [error && errorId, hint && hintId].filter(Boolean).join(" ");
