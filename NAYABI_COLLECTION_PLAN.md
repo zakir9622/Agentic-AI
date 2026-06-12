@@ -74,8 +74,11 @@ nayabi-collection/
 - [ ] Dark/light mode via CSS variables + `next-themes`
 
 ### Step 1.3 — Database Schema (Prisma)
-- [ ] `User` — customers (name, email, password, role, addresses)
-- [ ] `AdminUser` — admin accounts with role permissions
+- [ ] `User` — id, name, email, hashedPassword, role, emailVerified, createdAt, updatedAt
+- [ ] `VerificationToken` — token, userId, expiresAt, usedAt (email verification)
+- [ ] `PasswordResetToken` — token, userId, expiresAt, usedAt (single-use, 1hr TTL)
+- [ ] `Session` — sessionToken, userId, expiresAt (NextAuth managed)
+- [ ] `AdminUser` — admin accounts with role permissions (`SUPER_ADMIN` / `MANAGER` / `FULFILLMENT`), loginAttempts, lockedUntil
 - [ ] `Product` — id, name, slug, description, category, price, comparePrice, images, stock, tags, isActive
 - [ ] `ProductVariant` — size, color, SKU, stock, price override
 - [ ] `Category` — Hijabs, Abayas, Namaz Scarfs, Accessories
@@ -152,12 +155,123 @@ nayabi-collection/
 - [ ] Order notes field
 - [ ] Progress indicator bar (glassmorphic stepper)
 
-### Step 2.6 — Authentication
-- [ ] Register page (name, email, password)
-- [ ] Login page (email/password + Google OAuth)
-- [ ] Forgot password / reset password flow
-- [ ] Email verification
-- [ ] Protected routes middleware
+### Step 2.6 — Authentication Pages (Full Suite)
+
+> All auth pages share a **split-layout**: animated gradient mesh background on the left (brand visual / quote), glass form card centered on the right. Mobile: full-screen glass card.
+
+#### 2.6.1 — Register / Sign Up Page (`/register`)
+- [ ] Glass card with soft inner glow, backdrop-blur backdrop
+- [ ] Fields: Full Name, Email, Password, Confirm Password
+- [ ] Password strength meter (visual bar: weak / fair / strong / very strong)
+  - Color-coded: red → amber → green
+  - Minimum contrast ratio 4.5:1 against glass card background (WCAG AA)
+- [ ] Show/hide password toggle (eye icon, keyboard accessible)
+- [ ] Real-time inline validation with readable error messages
+  - Error text: `#FF6B6B` on dark glass — verified ≥ 4.5:1 contrast
+  - Success tick: `#4ADE80` with sufficient contrast
+- [ ] "Already have an account? Sign in" link
+- [ ] Google OAuth "Continue with Google" button (glass variant)
+- [ ] Terms & Privacy checkbox with links
+- [ ] Submit button: gold shimmer CTA (`<GlassButton />`)
+- [ ] On success: redirect to `/verify-email` with toast notification
+- [ ] ARIA: `role="form"`, `aria-label="Create account"`, `aria-describedby` on all error messages
+- [ ] Autofocus on Full Name field, logical tab order
+
+#### 2.6.2 — Login / Sign In Page (`/login`)
+- [ ] Glass card centered, brand logo above
+- [ ] Fields: Email, Password
+- [ ] Show/hide password toggle
+- [ ] "Remember me" checkbox
+- [ ] "Forgot your password?" link (right-aligned, gold color, underline on focus)
+- [ ] Google OAuth "Continue with Google" button
+- [ ] Divider: `── or ──` between OAuth and form
+- [ ] Submit button with loading spinner state (no layout shift)
+- [ ] Error state: glass card border turns amber, error banner inside card
+  - Error banner bg: `rgba(239,68,68,0.15)` with `#FCA5A5` text — ≥ 4.5:1 against banner bg
+- [ ] "Don't have an account? Register" link
+- [ ] Rate limiting feedback: after 5 failed attempts, show lockout timer
+- [ ] ARIA: `aria-live="polite"` on error region, `autocomplete="email"` + `autocomplete="current-password"`
+
+#### 2.6.3 — Email Verification Page (`/verify-email`)
+- [ ] Sent-confirmation state: glass card with animated mail icon, instructions text
+- [ ] "Resend verification email" button (disabled with countdown timer after click)
+- [ ] Deep-link handler: `/verify-email?token=xxx` → auto-verifies → redirect to account
+- [ ] Success state: animated checkmark, "Email verified! Redirecting..." message
+- [ ] Expired token state: clear error message + resend option
+
+#### 2.6.4 — Forgot Password Page (`/forgot-password`)
+- [ ] Single email field on glass card
+- [ ] Submit sends reset link via Resend email service
+- [ ] Success state (same page, no redirect): glass card transforms to confirmation view
+  - "Check your inbox" message with email address displayed
+  - Resend link with 60-second cooldown timer
+- [ ] Input error: "No account found with this email" — neutral wording to prevent user enumeration
+- [ ] Back to login link
+- [ ] ARIA: `aria-live="polite"` announces state change to screen readers
+
+#### 2.6.5 — Reset Password Page (`/reset-password?token=xxx`)
+- [ ] Token validated on page load; if invalid/expired → error state with "Request new link" CTA
+- [ ] Fields: New Password, Confirm New Password
+- [ ] Password strength meter (same as register page)
+- [ ] Show/hide toggles on both fields
+- [ ] Validation: passwords match, meets strength requirements
+- [ ] On success: auto-login + redirect to `/account` with toast "Password updated successfully"
+- [ ] If token already used: "This link has already been used" error
+
+#### 2.6.6 — Change Password Page (`/account/security`) — Authenticated
+- [ ] Located within Customer Account settings under "Security" tab
+- [ ] Fields: Current Password, New Password, Confirm New Password
+- [ ] Current password verification before accepting new password
+- [ ] Password strength meter on new password field
+- [ ] Show/hide toggles on all three fields
+- [ ] Success: inline success message (no page reload), session remains active
+- [ ] Wrong current password: inline error with attempt counter
+- [ ] Option: "Sign out all other devices" checkbox alongside save
+
+#### 2.6.7 — Admin Login Page (`/admin/login`) — Separate
+- [ ] Darker glass variant (`rgba(255,255,255,0.04)`) to visually distinguish from storefront
+- [ ] "Admin Portal — Nayabi Collection" heading
+- [ ] Email + Password fields only (no OAuth for admin)
+- [ ] IP-based rate limiting feedback (5 attempts → 15-min lockout)
+- [ ] 2FA prompt page (TOTP code input) after credentials validated — future-ready stub
+- [ ] No "register" link — admin accounts are invitation-only
+- [ ] Redirect to `/admin/dashboard` on success
+
+---
+
+#### Auth — Glassmorphic Visual Spec (All Pages)
+| Element | Style |
+|---|---|
+| Page background | Animated gradient mesh: deep navy → amethyst → midnight purple |
+| Form card | `backdrop-filter: blur(24px)`, `background: rgba(255,255,255,0.07)`, `border: 1px solid rgba(255,255,255,0.14)`, `border-radius: 24px`, inner box-shadow glow |
+| Card max-width | `440px` (desktop), full-width `16px` margin (mobile) |
+| Input fields | `background: rgba(255,255,255,0.05)`, white border on focus, `color: #F0EEF8` (≥ 7:1 contrast on glass bg) |
+| Input placeholder | `rgba(240,238,248,0.45)` — passes 3:1 (decorative threshold) |
+| Label text | `#E8E4F4` — ≥ 7:1 contrast on glass background |
+| Primary button | Gold gradient with shimmer sweep animation, `color: #0A0A14` (dark text on gold — ≥ 7:1) |
+| Link color | `#C9A96E` gold — ≥ 4.5:1 on dark glass background |
+| Error text | `#FCA5A5` — ≥ 4.5:1 on glass background |
+| Success text | `#86EFAC` — ≥ 4.5:1 on glass background |
+| Focus ring | `outline: 2px solid #C9A96E`, `outline-offset: 3px` — visible on all backgrounds |
+
+#### Auth — Accessibility Checklist (All Pages)
+- [ ] All color combinations verified ≥ 4.5:1 contrast ratio (WCAG AA normal text)
+- [ ] Interactive elements ≥ 3:1 contrast (WCAG AA UI components)
+- [ ] Focus indicators visible on glass + dark backgrounds
+- [ ] No information conveyed by color alone (icons + text accompany color states)
+- [ ] Form errors linked via `aria-describedby`, not just color
+- [ ] `autocomplete` attributes on all credential fields
+- [ ] Logical heading hierarchy (`h1` per page, no skipped levels)
+- [ ] Mobile touch targets ≥ 44×44px
+- [ ] `prefers-reduced-motion`: disable animated background mesh, keep static gradient
+- [ ] Screen reader tested: VoiceOver (macOS) + NVDA (Windows)
+
+#### Auth — Email Templates (Resend + React Email)
+- [ ] **Verification email** — branded glass-style HTML, Nayabi logo, verify button CTA
+- [ ] **Password reset email** — "You requested a password reset" + reset button + 1-hour expiry notice
+- [ ] **Password changed confirmation** — "Your password was changed" + "Not you? Contact us" link
+- [ ] **Welcome email** — post-registration, brief onboarding CTA to browse collections
+- [ ] All emails: plain-text fallback, unsubscribe footer, accessible HTML structure
 
 ### Step 2.7 — Customer Account
 - [ ] Dashboard — recent orders, saved addresses, loyalty points
@@ -314,12 +428,47 @@ nayabi-collection/
 - [ ] Canonical URLs
 - [ ] Arabic/Urdu language meta support (optional)
 
-### Step 4.3 — Accessibility
-- [ ] Keyboard navigation for all interactive elements
-- [ ] ARIA labels on glass UI components
-- [ ] Focus-visible rings styled for glass theme
-- [ ] Sufficient color contrast (WCAG AA)
-- [ ] Screen reader announcements for cart updates
+### Step 4.3 — Accessibility (Site-Wide)
+
+> Glassmorphic UI introduces readability risks — low-opacity backgrounds, subtle borders, blurred layers. Every glass surface must pass WCAG AA contrast before shipping.
+
+#### Contrast Compliance Rules (all pages)
+- [ ] Body text on glass panels: ≥ **7:1** (WCAG AAA target where possible)
+- [ ] UI component text (buttons, labels, badges): ≥ **4.5:1** (WCAG AA)
+- [ ] Interactive UI elements (borders, icons, controls): ≥ **3:1**
+- [ ] Placeholder text: documented as decorative (< 4.5:1 acceptable per spec), but kept ≥ 3:1
+- [ ] Never rely on color alone to convey meaning — always pair with icon or text label
+- [ ] Verified with: Colour Contrast Analyser + automated `axe-core` in CI
+
+#### Interactive Element Accessibility
+- [ ] Full keyboard navigation: Tab, Shift+Tab, Enter, Space, Arrow keys
+- [ ] `focus-visible` rings: `2px solid #C9A96E`, `outline-offset: 3px` — renders on all bg types
+- [ ] Skip-to-content link at top of every page
+- [ ] No focus traps except intentional modal dialogs (escapable via Escape key)
+- [ ] All icon-only buttons have `aria-label`
+- [ ] All images have meaningful `alt` text; decorative images use `alt=""`
+
+#### Semantic Structure
+- [ ] Logical `<h1>`→`<h2>`→`<h3>` hierarchy on every page (no skipped levels)
+- [ ] Landmark regions: `<header>`, `<nav>`, `<main>`, `<footer>`, `<aside>`
+- [ ] Product lists use `<ul>`/`<li>` for screen reader list count announcements
+- [ ] Data tables (order history, admin tables) use `<th scope>` and `<caption>`
+- [ ] Form fields: every `<input>` has associated `<label>` (not just placeholder)
+
+#### Dynamic Content
+- [ ] Cart drawer open/close: `aria-expanded`, `aria-controls`, focus management
+- [ ] Toast notifications: `role="status"` or `role="alert"` based on urgency
+- [ ] Filter changes: `aria-live="polite"` announces updated product count
+- [ ] Page transitions: no full-page flash; `aria-busy="true"` during loading
+- [ ] Modal dialogs: `role="dialog"`, `aria-modal="true"`, focus trapped inside
+
+#### Glass-Specific Accessibility
+- [ ] Every `backdrop-filter` element has an opaque fallback background (for browsers without support)
+- [ ] Text on glass always sits above a minimum-opacity backing layer — no raw text on pure glass
+- [ ] `@supports (backdrop-filter: blur())` progressive enhancement — solid card fallback
+- [ ] Dark mode: all contrast ratios re-verified for dark mode variant
+- [ ] `prefers-contrast: more` media query: increase glass opacity + border weight
+- [ ] `prefers-reduced-motion`: animated mesh → static gradient, no hover transform animations
 
 ### Step 4.4 — Mobile Experience
 - [ ] Touch-optimized swipe gestures (product gallery, cart drawer)
@@ -385,7 +534,7 @@ nayabi-collection/
 |---|---|---|
 | **M1** | Design system + DB schema + project setup | Phase 1 |
 | **M2** | Homepage + PLP + PDP | Phase 2 (2.1–2.3) |
-| **M3** | Cart + Checkout + Auth | Phase 2 (2.4–2.6) |
+| **M3** | Cart + Checkout + Full Auth Suite (Register, Login, Email Verify, Forgot/Reset/Change Password, Admin Login) + Email Templates | Phase 2 (2.4–2.6) |
 | **M4** | Customer account + Search + Static pages | Phase 2 (2.7–2.9) |
 | **M5** | Admin: Dashboard + Orders + Products | Phase 3 (3.1–3.5) |
 | **M6** | Admin: Customers + Discounts + Shipping + Analytics | Phase 3 (3.6–3.11) |
