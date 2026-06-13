@@ -94,9 +94,9 @@ export function Footer() {
       <div
         className="absolute inset-0 footer-glass"
         style={{
-          background: "rgba(8,8,22,0.88)",
-          backdropFilter: "blur(40px)",
-          WebkitBackdropFilter: "blur(40px)",
+          background: "rgba(10,0,30,0.82)",
+          backdropFilter: "blur(40px) saturate(200%) brightness(108%)",
+          WebkitBackdropFilter: "blur(40px) saturate(200%) brightness(108%)",
         }}
         aria-hidden="true"
       />
