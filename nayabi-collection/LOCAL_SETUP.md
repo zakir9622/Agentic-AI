@@ -12,36 +12,61 @@ This guide gets the site running locally in about 5 minutes.
 | **Branch** | `claude/nayabi-collection-ecommerce-ui9x3n` |
 | **Project folder** | `nayabi-collection/` (inside the repo) |
 
-The full ecommerce app is in the `nayabi-collection/` subfolder. Everything you
-need — code, database schema, sample data — is committed and safe on GitHub.
+---
+
+## Step 1 — Install prerequisites
+
+| Tool | Why | Download |
+|---|---|---|
+| **Node.js 20+** (LTS) | Runs the app | https://nodejs.org |
+| **Docker Desktop** | Runs the local database | https://docker.com/products/docker-desktop |
+| **Git** | Clones the code | https://git-scm.com |
+
+> **After installing Docker Desktop, make sure it is open and fully started** (look for the Docker icon in your taskbar — it should be solid, not spinning).
 
 ---
 
-## Quick start (one command)
+## Step 2 — Get the code
 
-### 1. Get the code onto your machine
+Open **PowerShell** (or Git Bash / Terminal) and run:
 
-```bash
+```powershell
 git clone https://github.com/zakir9622/Agentic-AI.git
-cd Agentic-AI/nayabi-collection
-git checkout claude/nayabi-collection-ecommerce-ui9x3n
+cd Agentic-AI\nayabi-collection
 ```
 
-### 2. Run the setup script
+---
 
+## Step 3 — Run the setup script
+
+### Windows (PowerShell) — recommended
+```powershell
+.\setup.ps1
+```
+
+If you see *"cannot be loaded because running scripts is disabled"*, run this first (once):
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+Then retry `.\setup.ps1`.
+
+### Mac / Linux (Terminal)
 ```bash
 bash setup.sh
 ```
 
-This automatically:
-- Installs all dependencies
-- Generates `.env.local` with secure secrets (no manual setup)
-- Spins up a local PostgreSQL database via Docker
-- Loads 16 sample products and an admin account
+The script will:
+- Install all npm dependencies
+- Create a `.env` file with auto-generated secure secrets
+- Start a local PostgreSQL database via Docker
+- Push the database schema
+- Seed 16 sample products + an admin account
 
-### 3. Start the site
+---
 
-```bash
+## Step 4 — Start the site
+
+```powershell
 npm run dev
 ```
 
@@ -49,23 +74,9 @@ Open **http://localhost:3000** in your browser. 🎉
 
 ---
 
-## What you need installed first
-
-| Tool | Why | Get it |
-|---|---|---|
-| **Node.js 20+** | Runs the app | https://nodejs.org |
-| **Docker Desktop** | Runs the local database | https://docker.com/products/docker-desktop |
-| **Git** | Clones the code | https://git-scm.com |
-
-> **No Docker?** No problem. Get a free database at https://neon.tech, paste its
-> connection string into `DATABASE_URL` in `.env.local`, then run
-> `npm run db:push && npm run db:seed`.
-
----
-
 ## Admin panel
 
-After setup, visit **http://localhost:3000/admin/login**
+Visit **http://localhost:3000/admin/login**
 
 | | |
 |---|---|
@@ -76,27 +87,34 @@ After setup, visit **http://localhost:3000/admin/login**
 
 ## Useful commands
 
-```bash
+```powershell
 npm run dev          # Start the site (http://localhost:3000)
 npm run db:studio    # Visual database browser (http://localhost:5555)
 npm run build        # Production build
 npm run typecheck    # Check TypeScript
-npm run lint         # Check code style
 ```
 
 ### Managing the local database (Docker)
 
-```bash
+```powershell
 docker stop nayabi-db     # Stop the database
 docker start nayabi-db    # Start it again
-docker rm -f nayabi-db    # Delete it (run setup.sh again to recreate)
+docker rm -f nayabi-db    # Delete it (run setup.ps1 again to recreate)
 ```
 
 ---
 
-## The site works without any paid accounts
+## Troubleshooting
 
-Payments, email, SMS, and image upload all **degrade gracefully** — the store
-runs perfectly for browsing and testing without them. To enable a service, just
-fill in its keys in `.env.local`. See the main [README](./README.md) for the
-full list and where to get each key.
+**"Docker is not running"** — Open Docker Desktop from the Start Menu and wait until the icon in the taskbar is no longer animated (fully started). Then re-run `.\setup.ps1`.
+
+**Port 5432 already in use** — Another PostgreSQL is running. Either stop it, or get a free cloud DB at https://neon.tech, paste the URL into `DATABASE_URL` in `.env`, then run:
+```powershell
+npm run db:push
+npm run db:seed
+```
+
+**"npm is not recognised"** — Node.js isn't installed (or you need to restart your terminal after installing it). Download from https://nodejs.org.
+
+**"git is not recognised"** — Install Git from https://git-scm.com, then restart your terminal.
+
