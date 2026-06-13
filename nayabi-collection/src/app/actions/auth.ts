@@ -16,6 +16,7 @@ import {
   sendPasswordChangedEmail,
   sendWelcomeEmail,
 } from "@/lib/mail";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export interface ActionState {
   ok?: boolean;
@@ -43,6 +44,9 @@ export async function registerAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  const turnstileOk = await verifyTurnstile(formData.get("cf-turnstile-response") as string | null);
+  if (!turnstileOk) return { ok: false, message: "Security check failed. Please try again." };
+
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const errors: Record<string, string> = {};

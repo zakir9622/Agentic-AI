@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import { db } from "@/lib/db";
 
 const COOKIE_NAME = "nc_admin";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours

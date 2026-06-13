@@ -221,3 +221,60 @@ export async function createReturnRequestAction(
   revalidatePath(`/account/orders/${orderId}`);
   return { ok: true, message: "Return request submitted. We'll review it within 24 hours." };
 }
+
+/* ── Submit review ──────────────────────────────────────────────────────────── */
+
+const reviewSchema = z.object({
+  productId: z.string().min(1),
+  rating: z.coerce.number().int().min(1).max(5),
+  title: z.string().max(100).optional(),
+  body: z.string().max(2000).optional(),
+});
+
+export async function submitReviewAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, message: "Sign in to leave a review" };
+
+  const parsed = reviewSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const errors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? "form");
+      if (!errors[key]) errors[key] = issue.message;
+    }
+    return { ok: false, errors };
+  }
+
+  const { productId, rating, title, body } = parsed.data;
+  const userId = session.user.id;
+
+  // Check existing review
+  const existing = await db.review.findFirst({ where: { productId, userId } });
+  if (existing) return { ok: false, message: "You have already reviewed this product." };
+
+  // Check verified purchase
+  const purchased = await db.orderItem.findFirst({
+    where: {
+      productId,
+      order: { userId, orderStatus: "DELIVERED" },
+    },
+  });
+
+  await db.review.create({
+    data: {
+      productId,
+      userId,
+      rating,
+      title: title || null,
+      body: body || null,
+      isVerifiedPurchase: !!purchased,
+      isApproved: false, // requires admin approval
+    },
+  });
+
+  revalidatePath(`/products`);
+  return { ok: true, message: "Thank you! Your review will appear after approval." };
+}

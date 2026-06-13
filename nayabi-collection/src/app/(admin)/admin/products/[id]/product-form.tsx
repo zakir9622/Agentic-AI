@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { GlassCard, GlassButton, GlassInput } from "@/components/ui";
 import { saveProductAction, saveVariantAction, deleteVariantAction } from "@/app/actions/admin-products";
 import { formatPrice } from "@/lib/utils";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload, X } from "lucide-react";
 
 interface Category { id: string; name: string }
 
@@ -55,6 +56,32 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     {}
   );
   const [addingVariant, setAddingVariant] = React.useState(false);
+  const [images, setImages] = React.useState<string[]>(product?.images ?? []);
+  const [uploading, setUploading] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (data.url) setImages((prev) => [...prev, data.url as string]);
+      } catch {
+        // ignore individual upload failure
+      }
+    }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function removeImage(url: string) {
+    setImages((prev) => prev.filter((u) => u !== url));
+  }
 
   async function handleDeleteVariant(variantId: string) {
     if (!product?.id) return;
@@ -135,10 +162,56 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             />
           </div>
 
-          <GlassInput
-            label="Images (one URL per line)" name="images"
-            defaultValue={product?.images.join("\n") ?? ""}
-          />
+          {/* Image upload */}
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-[var(--color-text-primary)]">Images</p>
+            <input type="hidden" name="images" value={images.join("\n")} />
+            <div className="flex flex-wrap gap-2">
+              {images.map((url) => (
+                <div key={url} className="relative h-20 w-16 shrink-0 overflow-hidden rounded-lg border border-[var(--color-glass-border)]">
+                  <Image src={url} alt="" fill sizes="64px" className="object-cover" unoptimized={!url.includes("cloudinary.com")} />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(url)}
+                    aria-label="Remove image"
+                    className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-error)] text-white"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="flex h-20 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--color-glass-border)] text-[var(--color-text-muted)] hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors disabled:opacity-50"
+              >
+                <Upload className="h-5 w-5" />
+                <span className="text-xs">{uploading ? "…" : "Upload"}</span>
+              </button>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Upload JPEG/PNG/WebP (max 10 MB each), or paste URLs below.
+            </p>
+            <textarea
+              aria-label="Image URLs (one per line)"
+              rows={2}
+              placeholder="Or paste image URLs, one per line"
+              className="glass-input resize-none text-xs"
+              value={images.join("\n")}
+              onChange={(e) =>
+                setImages(e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))
+              }
+            />
+          </div>
           <GlassInput
             label="Tags (comma separated)" name="tags"
             defaultValue={product?.tags.join(", ") ?? ""}

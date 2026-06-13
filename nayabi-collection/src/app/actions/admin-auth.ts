@@ -3,7 +3,7 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { createAdminSession, buildAdminCookie, clearAdminCookie } from "@/lib/admin-auth";
+import { createAdminSession } from "@/lib/admin-auth";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
