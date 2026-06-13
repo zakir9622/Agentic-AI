@@ -1,11 +1,38 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Truck, ShieldCheck, RefreshCw, Star, ArrowRight, Sparkles } from "lucide-react";
+import { Truck, ShieldCheck, RefreshCw, Star, ArrowRight, Sparkles, Quote } from "lucide-react";
 import { GlassButton, GlassCard } from "@/components/ui";
 import { ProductCard } from "@/components/storefront/product-card";
 import { getActiveCategories, getNewArrivals, getBestsellers } from "@/lib/catalog";
 
 export const revalidate = 60;
+
+const testimonials = [
+  {
+    text: "Finally found hijabs that stay in place all day without pins! The silk georgette is incredibly soft and the colours are beautiful. Will order again In Sha Allah.",
+    name: "Fatima R.",
+    location: "Mumbai",
+    rating: 5,
+  },
+  {
+    text: "The classic black abaya fits perfectly and the fabric is so lightweight — perfect for our Hyderabad summers. Delivered in 3 days, packaging was gorgeous.",
+    name: "Amina K.",
+    location: "Hyderabad",
+    rating: 5,
+  },
+  {
+    text: "Ordered the prayer scarf set for my mother — she loved it. The embroidery is detailed and the material is breathable. Great quality for the price.",
+    name: "Zainab M.",
+    location: "Delhi",
+    rating: 5,
+  },
+  {
+    text: "Customer service was so helpful when I needed to exchange sizes. Fast response on WhatsApp and the exchange was processed without any hassle. Highly recommend!",
+    name: "Ruqayyah S.",
+    location: "Chennai",
+    rating: 5,
+  },
+];
 
 const trustItems = [
   { icon: Truck,       title: "Free Shipping",   text: "On orders above ₹999 across India" },
@@ -198,6 +225,42 @@ export default async function HomePage() {
         </GlassCard>
       </section>
 
+      {/* ── TESTIMONIALS ──────────────────────────────────────────────────────── */}
+      <section
+        aria-labelledby="testimonials-heading"
+        className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20"
+      >
+        <div className="text-center mb-10">
+          <p className="section-label">What our customers say</p>
+          <h2 id="testimonials-heading" className="mt-2 text-3xl sm:text-4xl text-[var(--color-text-primary)]">
+            Loved across India
+          </h2>
+        </div>
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" role="list">
+          {testimonials.map((t) => (
+            <li key={t.name}>
+              <GlassCard padding="md" className="h-full flex flex-col">
+                <Quote className="h-5 w-5 text-[var(--color-gold)]/50 mb-3 shrink-0" aria-hidden="true" />
+                <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed flex-1">
+                  {t.text}
+                </p>
+                <div className="mt-4 pt-4 border-t border-[var(--color-glass-border)] flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">{t.name}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">{t.location}</p>
+                  </div>
+                  <div className="flex gap-0.5" aria-label={`Rated ${t.rating} out of 5`}>
+                    {Array.from({ length: t.rating }).map((_, i) => (
+                      <Star key={i} className="h-3.5 w-3.5 fill-[var(--color-gold)] text-[var(--color-gold)]" aria-hidden="true" />
+                    ))}
+                  </div>
+                </div>
+              </GlassCard>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {/* ── BESTSELLERS ────────────────────────────────────────────────────────── */}
       {bestsellers.length > 0 && (
         <section
@@ -222,6 +285,34 @@ export default async function HomePage() {
           </ul>
         </section>
       )}
+
+      {/* ── WHATSAPP CTA ──────────────────────────────────────────────────────── */}
+      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-24">
+        <GlassCard tier="elevated" padding="lg" className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div>
+            <p className="section-label">Need help choosing?</p>
+            <h2 className="mt-1 text-2xl sm:text-3xl text-[var(--color-text-primary)]">
+              Chat with us on WhatsApp
+            </h2>
+            <p className="mt-2 text-sm text-[var(--color-text-secondary)] max-w-sm">
+              Our team can help you find the perfect hijab or abaya — size guidance, fabric advice,
+              custom colour requests. We respond within minutes.
+            </p>
+          </div>
+          <a
+            href="https://wa.me/919876543210?text=Hi%20Nayabi%20Collection%2C%20I%27d%20like%20help%20choosing%20a%20product."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-gold rounded-xl px-6 py-3 text-sm font-semibold shrink-0 flex items-center gap-2"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+              <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.979-1.399A9.935 9.935 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.214a8.214 8.214 0 01-4.19-1.148l-.3-.178-3.106.871.872-3.042-.196-.313A8.214 8.214 0 113.786 12 8.214 8.214 0 0112 20.214z" />
+            </svg>
+            Chat on WhatsApp
+          </a>
+        </GlassCard>
+      </section>
 
     </div>
   );

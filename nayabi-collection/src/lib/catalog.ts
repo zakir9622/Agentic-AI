@@ -1,5 +1,11 @@
 import { db } from "@/lib/db";
 import type { ProductCard } from "@/types";
+import {
+  DEMO_CATEGORIES,
+  DEMO_PRODUCTS,
+  DEMO_BESTSELLERS,
+  DEMO_NEW_ARRIVALS,
+} from "@/lib/demo-data";
 
 /* Serializable product-card mapper shared by all listing surfaces */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,12 +37,13 @@ const cardInclude = {
 
 export async function getActiveCategories() {
   try {
-    return await db.category.findMany({
+    const rows = await db.category.findMany({
       where: { isActive: true, parentId: null },
       orderBy: { sortOrder: "asc" },
     });
+    return rows.length > 0 ? rows : DEMO_CATEGORIES;
   } catch {
-    return [];
+    return DEMO_CATEGORIES;
   }
 }
 
@@ -48,9 +55,9 @@ export async function getNewArrivals(limit = 8): Promise<ProductCard[]> {
       orderBy: { createdAt: "desc" },
       take: limit,
     });
-    return rows.map(toCard);
+    return rows.length > 0 ? rows.map(toCard) : DEMO_NEW_ARRIVALS.slice(0, limit);
   } catch {
-    return [];
+    return DEMO_NEW_ARRIVALS.slice(0, limit);
   }
 }
 
@@ -61,6 +68,7 @@ export async function getBestsellers(limit = 8): Promise<ProductCard[]> {
       include: { ...cardInclude, orderItems: { select: { quantity: true } } },
       take: 50,
     });
+    if (rows.length === 0) return DEMO_BESTSELLERS.slice(0, limit);
     return rows
       .map((p) => ({
         card: toCard(p),
@@ -70,7 +78,7 @@ export async function getBestsellers(limit = 8): Promise<ProductCard[]> {
       .slice(0, limit)
       .map((x) => x.card);
   } catch {
-    return [];
+    return DEMO_BESTSELLERS.slice(0, limit);
   }
 }
 
@@ -130,6 +138,14 @@ export async function getProducts(filters: ShopFilters) {
       db.product.count({ where }),
     ]);
 
+    if (total === 0 && !filters.q && !filters.color && !filters.size && !filters.fabric) {
+      const demoItems = filters.category
+        ? DEMO_PRODUCTS.filter((p) => p.category.slug === filters.category)
+        : DEMO_PRODUCTS;
+      const paginated = demoItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+      return { items: paginated, total: demoItems.length, page, totalPages: Math.max(1, Math.ceil(demoItems.length / PAGE_SIZE)) };
+    }
+
     return {
       items: rows.map(toCard),
       total,
@@ -137,7 +153,11 @@ export async function getProducts(filters: ShopFilters) {
       totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   } catch {
-    return { items: [], total: 0, page, totalPages: 1 };
+    const items = filters.category
+      ? DEMO_PRODUCTS.filter((p) => p.category.slug === filters.category)
+      : DEMO_PRODUCTS;
+    const paginated = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    return { items: paginated, total: items.length, page, totalPages: Math.max(1, Math.ceil(items.length / PAGE_SIZE)) };
   }
 }
 
