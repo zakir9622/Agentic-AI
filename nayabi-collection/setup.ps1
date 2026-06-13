@@ -22,11 +22,41 @@ Write-Host ""
 # -- 1. Node.js check -------------------------------------------------
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Err "Node.js is not installed."
-    Write-Host "  Download from: https://nodejs.org  (use LTS version)" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. Go to https://nodejs.org" -ForegroundColor Yellow
+    Write-Host "  2. Download the LTS version (22.x or higher)" -ForegroundColor Yellow
+    Write-Host "  3. Run the installer, restart this PowerShell window" -ForegroundColor Yellow
+    Write-Host "  4. Run .\setup.ps1 again" -ForegroundColor Yellow
     Read-Host "Press Enter to exit"
     exit 1
 }
-Ok "Node.js $(node -v)"
+
+# Prisma 7 requires Node 20.19+, 22.12+, or 24+
+$nodeVersion = node -v   # e.g. "v20.5.0"
+$nodeParts   = $nodeVersion.TrimStart('v') -split '\.'
+$nodeMajor   = [int]$nodeParts[0]
+$nodeMinor   = [int]$nodeParts[1]
+
+$tooOld = $false
+if     ($nodeMajor -lt 20)                        { $tooOld = $true }
+elseif ($nodeMajor -eq 20 -and $nodeMinor -lt 19) { $tooOld = $true }
+elseif ($nodeMajor -eq 22 -and $nodeMinor -lt 12) { $tooOld = $true }
+
+if ($tooOld) {
+    Err "Node.js $nodeVersion is too old. Prisma requires 20.19+, 22.12+, or 24+."
+    Write-Host ""
+    Write-Host "  How to upgrade:" -ForegroundColor Yellow
+    Write-Host "  1. Go to https://nodejs.org" -ForegroundColor Yellow
+    Write-Host "  2. Download the LTS version (22.x recommended)" -ForegroundColor Yellow
+    Write-Host "  3. Run the installer (it upgrades automatically)" -ForegroundColor Yellow
+    Write-Host "  4. Close and reopen PowerShell" -ForegroundColor Yellow
+    Write-Host "  5. Run .\setup.ps1 again" -ForegroundColor Yellow
+    Write-Host ""
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+Ok "Node.js $nodeVersion"
 
 # -- 2. Install dependencies ------------------------------------------
 Info "Installing dependencies (this may take a minute)..."
