@@ -4,6 +4,8 @@
 
 Live demo branch: `claude/nayabi-collection-ecommerce-ui9x3n`
 
+> **▶ Want to run it on your machine right now?** See **[LOCAL_SETUP.md](./LOCAL_SETUP.md)** — one command (`bash setup.sh`) gets the whole site running locally with sample data.
+
 ---
 
 ## What You Need From Your Side
@@ -208,7 +210,7 @@ Go to `http://localhost:3000/admin/login`
 
 Default credentials from seed (change immediately):
 - Email: `admin@nayabicollection.com`
-- Password: `Admin@123456`
+- Password: `Admin@1234!`
 
 ---
 
