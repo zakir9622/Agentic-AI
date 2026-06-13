@@ -8,33 +8,51 @@ import { useCart } from "@/store/cart";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { label: "Shop All", href: "/shop" },
-  { label: "Hijabs", href: "/shop?category=hijabs" },
-  { label: "Abayas", href: "/shop?category=abayas" },
-  { label: "Namaz Scarfs", href: "/shop?category=namaz-scarfs" },
+  { label: "Shop All",      href: "/shop" },
+  { label: "Hijabs",        href: "/shop?category=hijabs" },
+  { label: "Abayas",        href: "/shop?category=abayas" },
+  { label: "Namaz Scarfs",  href: "/shop?category=namaz-scarfs" },
+  { label: "About",         href: "/about" },
 ];
+
+function isNavActive(pathname: string, href: string): boolean {
+  const base = href.split("?")[0];
+  // Query-param links (category pages) don't show active — only exact path matches
+  if (href.includes("?")) return false;
+  if (base === "/") return pathname === "/";
+  return pathname === base || pathname.startsWith(base + "/");
+}
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-  const pathname = usePathname();
-  const router = useRouter();
+  const [scrolled, setScrolled]     = React.useState(false);
+  const [query, setQuery]           = React.useState("");
+  const pathname  = usePathname();
+  const router    = useRouter();
   const cartCount = useCart((s) => s.items.reduce((n, i) => n + i.quantity, 0));
-  const openCart = useCart((s) => s.open);
+  const openCart  = useCart((s) => s.open);
 
-  // Close the mobile menu when navigation occurs (state-during-render pattern)
+  // Close mobile menu on navigation
   const [prevPath, setPrevPath] = React.useState(pathname);
   if (prevPath !== pathname) {
     setPrevPath(pathname);
     setMobileOpen(false);
   }
 
+  // Scroll-driven shadow/blur intensification
+  React.useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     if (query.trim()) {
       router.push(`/shop?q=${encodeURIComponent(query.trim())}`);
       setSearchOpen(false);
+      setQuery("");
     }
   }
 
@@ -49,12 +67,17 @@ export function Navbar() {
 
       <nav
         aria-label="Main navigation"
-        className="glass glass-elevated !rounded-none border-x-0 border-t-0 px-4 sm:px-6 lg:px-10"
+        className={cn(
+          "glass glass-elevated !rounded-none border-x-0 border-t-0 px-4 sm:px-6 lg:px-10",
+          "transition-[box-shadow,background] duration-300",
+          scrolled && "shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
+        )}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4">
+
           {/* Mobile menu button */}
           <button
-            className="lg:hidden p-2 -ml-2 text-[var(--color-text-primary)]"
+            className="lg:hidden p-2 -ml-2 text-[var(--color-text-primary)] hover:text-[var(--color-gold)] transition-colors"
             onClick={() => setMobileOpen((v) => !v)}
             aria-expanded={mobileOpen}
             aria-controls="mobile-nav"
@@ -64,22 +87,35 @@ export function Navbar() {
           </button>
 
           {/* Logo */}
-          <Link href="/" className="font-display text-xl sm:text-2xl tracking-wide text-[var(--color-text-primary)]">
+          <Link
+            href="/"
+            className="font-display text-xl sm:text-2xl tracking-wide text-[var(--color-text-primary)] hover:text-[var(--color-gold)] transition-colors"
+          >
             Nayabi<span className="text-[var(--color-gold)]"> Collection</span>
           </Link>
 
           {/* Desktop links */}
           <ul className="hidden lg:flex items-center gap-8" role="list">
-            {navLinks.map((l) => (
-              <li key={l.href}>
-                <Link
-                  href={l.href}
-                  className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors"
-                >
-                  {l.label}
-                </Link>
-              </li>
-            ))}
+            {navLinks.map((l) => {
+              const active = isNavActive(pathname, l.href);
+              return (
+                <li key={l.href}>
+                  <Link
+                    href={l.href}
+                    data-active={active}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "text-sm nav-underline transition-colors",
+                      active
+                        ? "text-[var(--color-gold)]"
+                        : "text-[var(--color-text-secondary)] hover:text-[var(--color-gold)]"
+                    )}
+                  >
+                    {l.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
 
           {/* Actions */}
@@ -88,28 +124,28 @@ export function Navbar() {
               onClick={() => setSearchOpen((v) => !v)}
               aria-expanded={searchOpen}
               aria-label="Search products"
-              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
             >
               <Search className="h-5 w-5" aria-hidden="true" />
             </button>
             <Link
               href="/account/wishlist"
               aria-label="Wishlist"
-              className="hidden sm:block p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="hidden sm:block p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
             >
               <Heart className="h-5 w-5" aria-hidden="true" />
             </Link>
             <Link
               href="/account"
               aria-label="My account"
-              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
             >
               <User className="h-5 w-5" aria-hidden="true" />
             </Link>
             <button
               onClick={openCart}
               aria-label={`Shopping bag, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
-              className="relative p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="relative p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
             >
               <ShoppingBag className="h-5 w-5" aria-hidden="true" />
               {cartCount > 0 && (
@@ -146,19 +182,28 @@ export function Navbar() {
         {/* Mobile nav */}
         <div
           id="mobile-nav"
-          className={cn("lg:hidden overflow-hidden", mobileOpen ? "pb-4" : "hidden")}
+          className={cn("lg:hidden overflow-hidden", mobileOpen ? "pb-4 nav-mobile-open" : "hidden")}
         >
-          <ul className="flex flex-col gap-1" role="list">
-            {navLinks.map((l) => (
-              <li key={l.href}>
-                <Link
-                  href={l.href}
-                  className="block rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-glass-bg)] hover:text-[var(--color-text-primary)]"
-                >
-                  {l.label}
-                </Link>
-              </li>
-            ))}
+          <ul className="flex flex-col gap-0.5" role="list">
+            {navLinks.map((l) => {
+              const active = isNavActive(pathname, l.href);
+              return (
+                <li key={l.href}>
+                  <Link
+                    href={l.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "block rounded-lg px-3 py-2.5 text-sm transition-colors",
+                      active
+                        ? "bg-[var(--color-glass-bg)] text-[var(--color-gold)]"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-glass-bg)] hover:text-[var(--color-text-primary)]"
+                    )}
+                  >
+                    {l.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </nav>

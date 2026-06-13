@@ -42,7 +42,7 @@ export default function AboutPage() {
         <GlassCard padding="lg" className="mb-10 text-center">
           <h1 className="text-4xl text-[var(--color-text-primary)]">
             About{" "}
-            <span className="text-[var(--color-gold)]">Nayabi Collection</span>
+            <span className="gradient-text">Nayabi Collection</span>
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-[var(--color-text-secondary)] leading-relaxed">
             Nayabi &mdash; meaning &ldquo;rare&rdquo; in Urdu &mdash; was born from a simple belief: modest fashion
