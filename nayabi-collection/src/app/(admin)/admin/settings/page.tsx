@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { GlassCard } from "@/components/ui";
-import { Megaphone, Package, Truck, Percent, ShieldCheck } from "lucide-react";
+import { Megaphone, Truck, Percent, ShieldCheck } from "lucide-react";
 
 export const metadata = { title: "Settings | Admin" };
 

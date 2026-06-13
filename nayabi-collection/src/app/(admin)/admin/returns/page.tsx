@@ -3,7 +3,6 @@
 import * as React from "react";
 import { GlassCard, GlassBadge, GlassButton, GlassInput } from "@/components/ui";
 import { processReturnAction } from "@/app/actions/admin-orders";
-import { formatPrice } from "@/lib/utils";
 
 interface ReturnItem {
   id: string;
@@ -46,11 +45,12 @@ export default function AdminReturnsPage() {
   const [adminNote, setAdminNote] = React.useState("");
 
   React.useEffect(() => {
-    setLoading(true);
+    let active = true;
     fetch(`/api/admin/returns?status=${statusFilter}`)
       .then((r) => r.json())
-      .then((data) => { setReturns(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((data) => { if (active) { setReturns(data); setLoading(false); } })
+      .catch(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [statusFilter, processState]);
 
   return (

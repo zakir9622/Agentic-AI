@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { GlassCard } from "@/components/ui";
 import { AddressList } from "./address-list";
 
 export const metadata = { title: "My Addresses" };

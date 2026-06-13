@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { ProductForm } from "./product-form";
 
@@ -28,9 +29,9 @@ export default async function EditProductPage({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <a href="/admin/products" className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-gold)]">
+        <Link href="/admin/products" className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-gold)]">
           ← Products
-        </a>
+        </Link>
         <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
           {product.name}
         </h2>

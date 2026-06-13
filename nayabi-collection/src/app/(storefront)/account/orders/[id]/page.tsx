@@ -52,9 +52,11 @@ export default async function OrderDetailPage({
 
   const currentStep = statusOrder.indexOf(order.orderStatus);
   const returnWindowMs = RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now();
   const canReturn =
     order.orderStatus === "DELIVERED" &&
-    Date.now() - order.updatedAt.getTime() < returnWindowMs &&
+    nowMs - order.updatedAt.getTime() < returnWindowMs &&
     order.returnRequests.filter((r) => r.status !== "REJECTED").length === 0;
 
   const existingReturn = order.returnRequests[0];

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { GlassCard, GlassButton, GlassBadge, GlassInput } from "@/components/ui";
 import { updateOrderStatusAction } from "@/app/actions/admin-orders";
 import { formatPrice } from "@/lib/utils";
@@ -83,9 +84,9 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <a href="/admin/orders" className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-gold)]">
+          <Link href="/admin/orders" className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-gold)]">
             ← Orders
-          </a>
+          </Link>
           <h2 className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">
             {order.orderNumber}
           </h2>
@@ -168,6 +169,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
           {order.items.map((item) => (
             <li key={item.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
               {item.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.imageUrl} alt={item.productName} className="h-14 w-14 rounded-lg object-cover shrink-0" />
               )}
               <div className="flex-1">

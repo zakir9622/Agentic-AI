@@ -45,7 +45,7 @@ export default function AboutPage() {
             <span className="text-[var(--color-gold)]">Nayabi Collection</span>
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-[var(--color-text-secondary)] leading-relaxed">
-            Nayabi — meaning "rare" in Urdu — was born from a simple belief: modest fashion
+            Nayabi &mdash; meaning &ldquo;rare&rdquo; in Urdu &mdash; was born from a simple belief: modest fashion
             should never compromise beauty or comfort. We curate and craft hijabs, abayas,
             and prayer scarfs for Muslim women across India who want to express their faith
             with grace.

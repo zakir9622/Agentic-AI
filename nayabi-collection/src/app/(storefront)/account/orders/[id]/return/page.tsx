@@ -34,6 +34,7 @@ export default async function ReturnPage({
   }
 
   const returnWindowMs = RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  // eslint-disable-next-line react-hooks/purity
   if (Date.now() - order.updatedAt.getTime() > returnWindowMs) {
     return (
       <GlassCard padding="lg" className="text-center">

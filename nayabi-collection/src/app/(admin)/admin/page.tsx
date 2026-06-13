@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatPrice } from "@/lib/utils";
 import { GlassCard } from "@/components/ui";
@@ -176,12 +177,12 @@ export default async function AdminDashboardPage() {
           <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
             Recent orders
           </h3>
-          <a
+          <Link
             href="/admin/orders"
             className="text-xs text-[var(--color-gold)] underline underline-offset-2"
           >
             View all
-          </a>
+          </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm" aria-label="Recent orders">
