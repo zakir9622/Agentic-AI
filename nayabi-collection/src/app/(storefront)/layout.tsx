@@ -2,6 +2,7 @@ import { Navbar } from "@/components/storefront/navbar";
 import { Footer } from "@/components/storefront/footer";
 import { CartDrawer } from "@/components/storefront/cart-drawer";
 import { AnnouncementBar } from "@/components/ui/announcement-bar";
+import { CookieConsent } from "@/components/ui/cookie-consent";
 
 export default function StorefrontLayout({
   children,
@@ -15,6 +16,7 @@ export default function StorefrontLayout({
       </main>
       <Footer />
       <CartDrawer />
+      <CookieConsent />
     </>
   );
 }

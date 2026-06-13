@@ -34,6 +34,13 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const { checkoutRatelimit, ratelimitCheck } = await import("@/lib/ratelimit");
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "anon";
+    const allowed = await ratelimitCheck(checkoutRatelimit, ip);
+    if (!allowed) {
+      return NextResponse.json({ success: false, error: "Too many requests. Please try again later." }, { status: 429 });
+    }
+
     const parsed = schema.safeParse(await req.json());
     if (!parsed.success) {
       return NextResponse.json(
