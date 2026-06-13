@@ -8,6 +8,7 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { GoogleButton } from "@/components/auth/google-button";
 import { GlassButton, GlassInput, toast } from "@/components/ui";
 import { registerAction, type ActionState } from "@/app/actions/auth";
+import { Turnstile } from "@/components/auth/turnstile";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -58,6 +59,10 @@ export default function RegisterPage() {
           <p role="alert" className="text-xs text-[var(--color-error)]">{state.errors.terms}</p>
         )}
 
+        <Turnstile />
+        {state.message && !state.ok && (
+          <p role="alert" className="text-sm text-[var(--color-error)]">{state.message}</p>
+        )}
         <GlassButton type="submit" size="lg" fullWidth loading={pending}>
           Create Account
         </GlassButton>

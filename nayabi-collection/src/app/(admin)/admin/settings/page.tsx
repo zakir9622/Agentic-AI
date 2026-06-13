@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { GlassCard } from "@/components/ui";
-import { Megaphone, Truck, Percent, ShieldCheck } from "lucide-react";
+import { Megaphone, Truck, Percent, ShieldCheck, Users } from "lucide-react";
 
 export const metadata = { title: "Settings | Admin" };
 
@@ -28,6 +28,12 @@ const settingsLinks = [
     icon: ShieldCheck,
     label: "Audit Log",
     description: "Review admin actions and changes",
+  },
+  {
+    href: "/admin/settings/admins",
+    icon: Users,
+    label: "Admin Users",
+    description: "Create, deactivate, and manage admin accounts",
   },
 ];
 

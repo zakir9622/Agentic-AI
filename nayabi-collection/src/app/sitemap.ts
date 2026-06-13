@@ -6,16 +6,23 @@ export const dynamic = "force-dynamic";
 const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://nayabicollection.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, categories] = await Promise.all([
-    db.product.findMany({
-      where: { isActive: true },
-      select: { slug: true, updatedAt: true },
-    }),
-    db.category.findMany({
-      where: { isActive: true },
-      select: { slug: true },
-    }),
-  ]);
+  let products: { slug: string; updatedAt: Date }[] = [];
+  let categories: { slug: string }[] = [];
+
+  try {
+    [products, categories] = await Promise.all([
+      db.product.findMany({
+        where: { isActive: true },
+        select: { slug: true, updatedAt: true },
+      }),
+      db.category.findMany({
+        where: { isActive: true },
+        select: { slug: true },
+      }),
+    ]);
+  } catch {
+    // DB not available — return static pages only
+  }
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1 },

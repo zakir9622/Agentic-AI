@@ -8,6 +8,8 @@ import { ProductCard } from "@/components/storefront/product-card";
 import { GlassCard } from "@/components/ui";
 import { getProductBySlug, getRelatedProducts } from "@/lib/catalog";
 import { formatPrice } from "@/lib/utils";
+import { auth } from "@/lib/auth";
+import { ReviewForm } from "@/components/storefront/review-form";
 
 interface PDPProps {
   params: Promise<{ slug: string }>;
@@ -29,7 +31,10 @@ export default async function ProductPage({ params }: PDPProps) {
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const related = await getRelatedProducts(product.id, product.categoryId, 4);
+  const [related, session] = await Promise.all([
+    getRelatedProducts(product.id, product.categoryId, 4),
+    auth(),
+  ]);
   const ratings = product.reviews.map((r) => r.rating);
   const avgRating = ratings.length
     ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
@@ -150,11 +155,16 @@ export default async function ProductPage({ params }: PDPProps) {
       </div>
 
       {/* Reviews */}
-      {product.reviews.length > 0 && (
-        <section aria-labelledby="reviews-heading" className="mt-16">
-          <h2 id="reviews-heading" className="text-2xl text-[var(--color-text-primary)]">
-            Customer Reviews
-          </h2>
+      <section aria-labelledby="reviews-heading" className="mt-16">
+        <h2 id="reviews-heading" className="text-2xl text-[var(--color-text-primary)]">
+          Customer Reviews
+        </h2>
+        {session && (
+          <div className="mt-6">
+            <ReviewForm productId={product.id} />
+          </div>
+        )}
+        {product.reviews.length > 0 && (
           <ul className="mt-6 grid gap-4 md:grid-cols-2" role="list">
             {product.reviews.map((r) => (
               <li key={r.id}>
@@ -188,8 +198,8 @@ export default async function ProductPage({ params }: PDPProps) {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* Related */}
       {related.length > 0 && (

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { GlassButton, GlassInput, GlassCard } from "@/components/ui";
 import { createReturnRequestAction, type ActionState } from "@/app/actions/account";
@@ -140,11 +141,15 @@ export function ReturnForm({ orderId, orderItems }: ReturnFormProps) {
                   }`}
                 >
                   {item.imageUrl && (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.productName}
-                      className="h-14 w-14 rounded-lg object-cover shrink-0"
-                    />
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg">
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.productName}
+                        fill
+                        sizes="56px"
+                        className="object-cover"
+                      />
+                    </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-[var(--color-text-primary)]">

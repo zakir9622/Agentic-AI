@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { GlassCard, GlassBadge, GlassButton } from "@/components/ui";
 import { formatPrice } from "@/lib/utils";
 import { RETURN_WINDOW_DAYS } from "@/lib/constants";
-import { Package, Truck, CheckCircle, XCircle, Clock, RotateCcw } from "lucide-react";
+import Image from "next/image";
+import { Package, Truck, CheckCircle, XCircle, Clock, RotateCcw, FileText } from "lucide-react";
 
 export const metadata = { title: "Order Details" };
 
@@ -150,11 +151,15 @@ export default async function OrderDetailPage({
           {order.items.map((item) => (
             <li key={item.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
               {item.imageUrl && (
-                <img
-                  src={item.imageUrl}
-                  alt={item.productName}
-                  className="h-16 w-16 rounded-lg object-cover"
-                />
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg">
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.productName}
+                    fill
+                    sizes="64px"
+                    className="object-cover"
+                  />
+                </div>
               )}
               <div className="flex-1 min-w-0">
                 <Link
@@ -270,7 +275,7 @@ export default async function OrderDetailPage({
         </GlassCard>
       )}
 
-      {/* Return / Cancel actions */}
+      {/* Actions */}
       <div className="flex flex-wrap gap-3">
         {canReturn && (
           <Link href={`/account/orders/${order.id}/return`}>
@@ -280,6 +285,12 @@ export default async function OrderDetailPage({
             </GlassButton>
           </Link>
         )}
+        <Link href={`/account/orders/${order.id}/invoice`}>
+          <GlassButton variant="ghost" size="sm">
+            <FileText className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            View Invoice
+          </GlassButton>
+        </Link>
         {order.orderStatus === "CANCELLED" && (
           <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
             <XCircle className="h-4 w-4" aria-hidden="true" />

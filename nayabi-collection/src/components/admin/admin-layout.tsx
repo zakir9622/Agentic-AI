@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, ShoppingBag, Package, RotateCcw, Users, Tag,
-  Settings, BarChart2, Layers, Menu, X, LogOut, ChevronRight,
+  Settings, BarChart2, Layers, Menu, X, LogOut, ChevronRight, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminLogoutAction } from "@/app/actions/admin-auth";
@@ -19,6 +19,7 @@ const navItems = [
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Returns", href: "/admin/returns", icon: RotateCcw },
+  { label: "Reviews", href: "/admin/reviews", icon: Star },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart2 },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];

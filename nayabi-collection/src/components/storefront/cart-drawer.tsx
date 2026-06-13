@@ -41,7 +41,7 @@ export function CartDrawer() {
 
       <div
         ref={panelRef}
-        className="glass !rounded-none absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-y-0 border-r-0 animate-[slideIn_300ms_cubic-bezier(0.4,0,0.2,1)]"
+        className="glass glass-elevated !rounded-none absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-y-0 border-r-0 animate-[slideIn_300ms_cubic-bezier(0.4,0,0.2,1)]"
       >
         <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
 
