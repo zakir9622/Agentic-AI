@@ -49,7 +49,7 @@ export function Navbar() {
 
       <nav
         aria-label="Main navigation"
-        className="glass !rounded-none border-x-0 border-t-0 px-4 sm:px-6 lg:px-10"
+        className="glass glass-elevated !rounded-none border-x-0 border-t-0 px-4 sm:px-6 lg:px-10"
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4">
           {/* Mobile menu button */}

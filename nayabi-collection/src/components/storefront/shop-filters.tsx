@@ -152,7 +152,7 @@ export function ShopFilters({ facets }: { facets: Facets }) {
       {drawerOpen && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Filters">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
-          <div className="glass !rounded-none absolute left-0 top-0 h-full w-80 overflow-y-auto border-y-0 border-l-0 p-5">
+          <div className="glass glass-elevated !rounded-none absolute left-0 top-0 h-full w-80 overflow-y-auto border-y-0 border-l-0 p-5">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="font-display text-lg">Filters</h2>
               <button onClick={() => setDrawerOpen(false)} aria-label="Close filters" className="p-1.5">
