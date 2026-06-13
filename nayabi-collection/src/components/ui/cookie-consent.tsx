@@ -6,10 +6,12 @@ import { GlassCard, GlassButton } from "@/components/ui";
 const COOKIE_KEY = "nc_cookie_consent";
 
 export function CookieConsent() {
-  const [visible, setVisible] = React.useState(() => {
-    if (typeof window === "undefined") return false;
-    return !localStorage.getItem(COOKIE_KEY);
-  });
+  // Always start false on server — set after hydration to avoid mismatch
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    setVisible(!localStorage.getItem(COOKIE_KEY));
+  }, []);
 
   function accept() {
     localStorage.setItem(COOKIE_KEY, "accepted");
