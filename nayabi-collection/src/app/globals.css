@@ -171,6 +171,7 @@ body {
   box-shadow: var(--shadow-glass);
   position: relative;
   isolation: isolate;
+  --_hl: rgba(255,255,255,0.14);
 }
 
 /* Top-edge highlight — the key to the premium glass look */
@@ -181,10 +182,11 @@ body {
   border-radius: inherit;
   background: linear-gradient(
     165deg,
-    rgba(255,255,255,0.14) 0%,
+    var(--_hl) 0%,
     rgba(255,255,255,0.05) 25%,
     transparent 55%
   );
+  transition: background var(--duration-standard) var(--ease-standard);
   pointer-events: none;
   z-index: 1;
 }
@@ -239,6 +241,7 @@ body {
     transform       var(--duration-standard) var(--ease-spring);
 }
 .glass-hover:hover {
+  --_hl:        rgba(255,255,255,0.22);
   background:   var(--color-glass-hover);
   border-color: rgba(201,169,110,0.30);
   box-shadow:   var(--shadow-glass-elevated), var(--shadow-glow-sm-gold);
@@ -524,4 +527,230 @@ h4, h5, h6 { font-family: var(--font-body); line-height: 1.3; }
     border-color: rgba(255,255,255,0.45);
   }
   .glass-input { background: rgba(255,255,255,0.12); }
+}
+
+/* ─── GRADIENT TEXT ──────────────────────────────────────────────────────────── */
+
+.gradient-text {
+  background: linear-gradient(
+    135deg,
+    var(--color-gold-light) 0%,
+    var(--color-gold)       45%,
+    var(--color-gold-dark)  100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  display: inline-block;
+}
+
+/* ─── ORNAMENT DIVIDER ───────────────────────────────────────────────────────── */
+
+.ornament-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--color-gold);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.ornament-divider::before,
+.ornament-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(201,169,110,0.45) 40%,
+    rgba(201,169,110,0.45) 60%,
+    transparent
+  );
+}
+
+/* ─── GLASS INNER (nested panel within a glass card) ────────────────────────── */
+
+.glass-inner {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius-md);
+}
+
+/* ─── GLASS INTERACTIVE (full-panel interactive glass elements) ──────────────── */
+
+.glass-interactive {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background      var(--duration-fast)     var(--ease-standard),
+    border-color    var(--duration-fast)     var(--ease-standard),
+    transform       var(--duration-fast)     var(--ease-spring),
+    box-shadow      var(--duration-standard) var(--ease-standard);
+}
+
+.glass-interactive:hover {
+  background:   var(--color-glass-hover);
+  border-color: rgba(201,169,110,0.25);
+  box-shadow:   var(--shadow-glass-elevated);
+}
+
+.glass-interactive:active {
+  transform: scale(0.985);
+  transition-duration: var(--duration-micro);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-interactive { transition: background var(--duration-fast) var(--ease-standard); }
+  .glass-interactive:active { transform: none; }
+}
+
+/* ─── NAV UNDERLINE ANIMATION ────────────────────────────────────────────────── */
+
+.nav-underline {
+  position: relative;
+  padding-bottom: 2px;
+}
+
+.nav-underline::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: var(--color-gold);
+  border-radius: 999px;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--duration-standard) var(--ease-spring);
+}
+
+.nav-underline:hover::after,
+.nav-underline[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-underline::after { transition: none; }
+}
+
+/* ─── GLASS REVEAL ENTRANCE ──────────────────────────────────────────────────── */
+
+@keyframes glassReveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.glass-reveal {
+  animation: glassReveal var(--duration-slow) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-reveal { animation: none; }
+}
+
+/* ─── SURFACE TINTS ──────────────────────────────────────────────────────────── */
+
+.tint-gold   { background: linear-gradient(135deg, rgba(201,169,110,0.08) 0%, transparent 65%); }
+.tint-purple { background: linear-gradient(135deg, rgba(155,110,187,0.08) 0%, transparent 65%); }
+
+/* ─── FOOTER SOCIAL ICON ─────────────────────────────────────────────────────── */
+
+.social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 50%;
+  background: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
+  color: var(--color-text-muted);
+  transition:
+    color        var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    background   var(--duration-fast) var(--ease-standard),
+    transform    var(--duration-fast) var(--ease-spring);
+}
+
+.social-icon:hover {
+  color:        var(--color-gold);
+  border-color: rgba(201,169,110,0.40);
+  background:   rgba(201,169,110,0.10);
+  transform:    scale(1.08);
+}
+
+.social-icon:active {
+  transform: scale(0.95);
+  transition-duration: var(--duration-micro);
+}
+
+/* ─── PAYMENT BADGE ──────────────────────────────────────────────────────────── */
+
+.payment-badge {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.03em;
+}
+
+/* ─── PROSE (rich text body) ─────────────────────────────────────────────────── */
+
+.prose-glass p {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+  font-size: 0.9375rem;
+}
+
+.prose-glass p + p { margin-top: 1rem; }
+
+.prose-glass strong { color: var(--color-text-primary); font-weight: 600; }
+
+.prose-glass a {
+  color: var(--color-gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ─── BACKDROP BLUR FALLBACK ─────────────────────────────────────────────────── */
+
+@supports not (backdrop-filter: blur(1px)) {
+  .footer-glass { background: rgba(8,8,22,0.98); }
+}
+
+/* ─── CONTAIN FOR PERFORMANCE ────────────────────────────────────────────────── */
+
+.glass-card-contain {
+  contain: layout style;
+}
+
+/* ─── MOBILE NAV SLIDE ────────────────────────────────────────────────────────── */
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nav-mobile-open {
+  animation: slideDown var(--duration-fast) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-mobile-open { animation: none; }
 }

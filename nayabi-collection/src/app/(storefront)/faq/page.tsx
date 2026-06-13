@@ -111,7 +111,7 @@ export default function FAQPage() {
         <div className="mb-10 text-center">
           <h1 className="text-4xl text-[var(--color-text-primary)]">
             Frequently Asked{" "}
-            <span className="text-[var(--color-gold)]">Questions</span>
+            <span className="gradient-text">Questions</span>
           </h1>
         </div>
 

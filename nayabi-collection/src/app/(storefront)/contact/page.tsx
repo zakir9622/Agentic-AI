@@ -43,7 +43,7 @@ export default function ContactPage() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 py-16">
         <div className="mb-10 text-center">
           <h1 className="text-4xl text-[var(--color-text-primary)]">
-            Contact <span className="text-[var(--color-gold)]">Us</span>
+            Contact <span className="gradient-text">Us</span>
           </h1>
           <p className="mt-3 text-[var(--color-text-secondary)]">
             We typically reply within 24 hours, Insha&apos;Allah.

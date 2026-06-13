@@ -45,7 +45,7 @@ export default async function HomePage() {
             <p className="section-label">Modest wear · India</p>
             <h1 className="mt-5 text-5xl sm:text-6xl lg:text-7xl text-[var(--color-text-primary)] leading-[1.05] tracking-tight">
               Grace in{" "}
-              <em className="text-[var(--color-gold)] not-italic font-display italic">every</em>{" "}
+              <em className="gradient-text not-italic font-display italic">every</em>{" "}
               drape
             </h1>
             <p className="mt-6 text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-lg">
@@ -176,7 +176,7 @@ export default async function HomePage() {
           </div>
           <h2 className="text-3xl sm:text-4xl text-[var(--color-text-primary)]">
             Modest fashion that&apos;s<br />worthy of{" "}
-            <em className="text-[var(--color-gold)] not-italic italic">you</em>
+            <em className="gradient-text not-italic italic">you</em>
           </h2>
           <p className="mt-4 max-w-xl mx-auto text-[var(--color-text-secondary)] leading-relaxed text-sm sm:text-base">
             Every piece in the Nayabi Collection is selected with care — premium fabrics,
