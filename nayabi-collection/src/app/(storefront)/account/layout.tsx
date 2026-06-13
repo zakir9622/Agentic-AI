@@ -6,6 +6,7 @@ const accountNav = [
   { label: "Overview", href: "/account" },
   { label: "Orders", href: "/account/orders" },
   { label: "Wishlist", href: "/account/wishlist" },
+  { label: "Addresses", href: "/account/addresses" },
   { label: "Security", href: "/account/security" },
 ];
 
