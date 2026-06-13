@@ -1,9 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Truck, ShieldCheck, RefreshCw, Star, ArrowRight, Sparkles, Package } from "lucide-react";
+import { Truck, ShieldCheck, RefreshCw, Star, ArrowRight, Sparkles } from "lucide-react";
 import { GlassButton, GlassCard } from "@/components/ui";
 import { ProductCard } from "@/components/storefront/product-card";
-import { HeroCarousel } from "@/components/storefront/hero-carousel";
 import { getActiveCategories, getNewArrivals, getBestsellers } from "@/lib/catalog";
 
 export const revalidate = 60;
@@ -25,37 +24,71 @@ export default async function HomePage() {
   return (
     <div className="mesh-bg min-h-screen">
 
-      {/* ── HERO CAROUSEL ─────────────────────────────────────────────────────── */}
-      <HeroCarousel />
+      {/* ── HERO ──────────────────────────────────────────────────────────────── */}
+      <section className="relative z-10 overflow-hidden">
+        {/* Full-bleed background image */}
+        <div className="absolute inset-0">
+          <Image
+            src="https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&w=1600&q=80"
+            alt=""
+            fill
+            className="object-cover object-center"
+            priority
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[rgba(5,5,15,0.93)] via-[rgba(5,5,15,0.72)] to-[rgba(5,5,15,0.35)]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[rgba(5,5,15,0.80)] via-transparent to-transparent" />
+        </div>
 
-      {/* ── TRUST STRIP ───────────────────────────────────────────────────────── */}
-      <div className="relative z-10 border-y border-[var(--color-glass-border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 py-3">
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-xs text-[var(--color-text-muted)] font-medium tracking-wide">
-            <span className="flex items-center gap-2">
-              <Truck className="h-3.5 w-3.5 text-[var(--color-gold)]" aria-hidden="true" />
-              Free shipping above ₹999
-            </span>
-            <span className="hidden sm:block h-3 w-px bg-[var(--color-glass-border)]" aria-hidden="true" />
-            <span className="flex items-center gap-2">
-              <RefreshCw className="h-3.5 w-3.5 text-[var(--color-gold)]" aria-hidden="true" />
-              7-day easy returns
-            </span>
-            <span className="hidden sm:block h-3 w-px bg-[var(--color-glass-border)]" aria-hidden="true" />
-            <span className="flex items-center gap-2">
-              <ShieldCheck className="h-3.5 w-3.5 text-[var(--color-gold)]" aria-hidden="true" />
-              Secure UPI, Cards &amp; COD
-            </span>
-            <span className="hidden sm:block h-3 w-px bg-[var(--color-glass-border)]" aria-hidden="true" />
-            <span className="flex items-center gap-2">
-              <Package className="h-3.5 w-3.5 text-[var(--color-gold)]" aria-hidden="true" />
-              PAN India delivery in 3–8 days
-            </span>
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 py-28 sm:py-36 lg:py-44">
+          <div className="max-w-2xl">
+            <p className="section-label">Modest wear · India</p>
+            <h1 className="mt-5 text-5xl sm:text-6xl lg:text-7xl text-[var(--color-text-primary)] leading-[1.05] tracking-tight">
+              Grace in{" "}
+              <em className="gradient-text not-italic font-display italic">every</em>{" "}
+              drape
+            </h1>
+            <p className="mt-6 text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-lg">
+              Premium Hijabs, Abayas and Namaz Scarfs — thoughtfully crafted for Muslim
+              women across India who believe faith and style go hand in hand.
+            </p>
+
+            <div className="mt-10 flex flex-wrap gap-4">
+              <Link href="/shop">
+                <GlassButton size="lg">
+                  Shop the Collection
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </GlassButton>
+              </Link>
+              <Link href="/shop?category=abayas">
+                <GlassButton size="lg" variant="secondary">
+                  Explore Abayas
+                </GlassButton>
+              </Link>
+            </div>
+
+            <div className="mt-12 flex gap-10">
+              {[
+                { value: "10,000+", label: "Happy customers" },
+                { value: "4.9★",    label: "Average rating" },
+                { value: "100%",    label: "Authentic fabrics" },
+              ].map((s) => (
+                <div key={s.label}>
+                  <p className="text-2xl font-semibold text-[var(--color-gold)]">{s.value}</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)] uppercase tracking-widest">{s.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      </section>
+
+      {/* ── GOLD DIVIDER ────────────────────────────────────────────────────── */}
+      <div className="relative z-10 mx-auto max-w-5xl px-4 py-2">
+        <div className="gold-divider" />
       </div>
 
-      {/* ── CATEGORIES ──────────────────────────────────────────────────────────── */}
+      {/* ── CATEGORIES ──────────────────────────────────────────────────────── */}
       {categories.length > 0 && (
         <section
           aria-labelledby="categories-heading"
@@ -68,10 +101,7 @@ export default async function HomePage() {
                 Shop by Category
               </h2>
             </div>
-            <Link
-              href="/shop"
-              className="text-sm text-[var(--color-gold)] hover:underline underline-offset-4 flex items-center gap-1"
-            >
+            <Link href="/shop" className="text-sm text-[var(--color-gold)] hover:underline underline-offset-4 flex items-center gap-1">
               All products <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
           </div>
@@ -93,7 +123,7 @@ export default async function HomePage() {
                         className="object-cover img-zoom"
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[rgba(7,7,28,0.92)] via-[rgba(7,7,28,0.25)] to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[rgba(5,5,15,0.90)] via-[rgba(5,5,15,0.20)] to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
                       <p className="font-display text-base sm:text-lg text-[var(--color-text-primary)] leading-tight">
                         {cat.name}
@@ -110,8 +140,8 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── NEW ARRIVALS ──────────────────────────────────────────────────────────── */}
-      {newArrivals.length > 0 ? (
+      {/* ── NEW ARRIVALS ──────────────────────────────────────────────────────── */}
+      {newArrivals.length > 0 && (
         <section
           aria-labelledby="new-arrivals-heading"
           className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20"
@@ -123,10 +153,7 @@ export default async function HomePage() {
                 New Arrivals
               </h2>
             </div>
-            <Link
-              href="/shop?sort=newest"
-              className="text-sm text-[var(--color-gold)] hover:underline underline-offset-4 flex items-center gap-1"
-            >
+            <Link href="/shop?sort=newest" className="text-sm text-[var(--color-gold)] hover:underline underline-offset-4 flex items-center gap-1">
               View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
           </div>
@@ -136,24 +163,9 @@ export default async function HomePage() {
             ))}
           </ul>
         </section>
-      ) : (
-        /* ── No-DB fallback banner ── */
-        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20">
-          <GlassCard tier="elevated" padding="lg" className="text-center">
-            <Package className="mx-auto h-10 w-10 text-[var(--color-gold)] mb-4" aria-hidden="true" />
-            <h2 className="text-xl text-[var(--color-text-primary)]">Products loading soon</h2>
-            <p className="mt-3 text-sm text-[var(--color-text-secondary)] max-w-md mx-auto">
-              To see sample products, make sure your database is running and seeded:
-            </p>
-            <div className="mt-4 glass glass-sm p-4 text-left text-xs font-mono text-[var(--color-text-muted)] max-w-sm mx-auto">
-              <p>npm run db:push</p>
-              <p className="mt-1">npm run db:seed</p>
-            </div>
-          </GlassCard>
-        </section>
       )}
 
-      {/* ── PROMISE BANNER ────────────────────────────────────────────────────────── */}
+      {/* ── PROMISE BANNER ────────────────────────────────────────────────────── */}
       <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20">
         <GlassCard tier="elevated" padding="lg" className="text-center">
           <div className="flex justify-center mb-4">
@@ -183,14 +195,6 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
-          <div className="mt-8">
-            <Link href="/shop">
-              <GlassButton size="lg">
-                Browse All Products
-                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-              </GlassButton>
-            </Link>
-          </div>
         </GlassCard>
       </section>
 
@@ -207,10 +211,7 @@ export default async function HomePage() {
                 Bestsellers
               </h2>
             </div>
-            <Link
-              href="/shop?sort=popular"
-              className="text-sm text-[var(--color-gold)] hover:underline underline-offset-4 flex items-center gap-1"
-            >
+            <Link href="/shop?sort=popular" className="text-sm text-[var(--color-gold)] hover:underline underline-offset-4 flex items-center gap-1">
               View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
           </div>
