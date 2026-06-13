@@ -1,6 +1,7 @@
 /* Seed: categories + realistic Nayabi Collection product catalogue.
    Run: npx prisma db seed  (requires DATABASE_URL) */
 
+import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
