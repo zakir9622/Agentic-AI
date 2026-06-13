@@ -164,7 +164,6 @@ body {
 
 /* ─── GLASS SYSTEM ───────────────────────────────────────────────────────────── */
 
-/* Base glass — subtle, meant for content cards */
 .glass {
   background: var(--color-glass-bg);
   border: 1px solid var(--color-glass-border);
@@ -174,23 +173,23 @@ body {
   isolation: isolate;
 }
 
-/* Top-edge highlight — the key to premium glass look */
+/* Top-edge highlight — the key to the premium glass look */
 .glass::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background: linear-gradient(
-    180deg,
-    rgba(255,255,255,0.12) 0%,
-    rgba(255,255,255,0.04) 30%,
-    transparent 60%
+    165deg,
+    rgba(255,255,255,0.14) 0%,
+    rgba(255,255,255,0.05) 25%,
+    transparent 55%
   );
   pointer-events: none;
   z-index: 1;
 }
 
-/* Noise texture overlay for glass realism */
+/* Subtle noise texture for frosted-glass realism */
 .glass::after {
   content: "";
   position: absolute;
@@ -201,33 +200,29 @@ body {
   z-index: 0;
 }
 
-/* Ensure children stack above pseudo-elements */
 .glass > * { position: relative; z-index: 2; }
 
 @supports (backdrop-filter: blur(1px)) {
   .glass {
     backdrop-filter: var(--blur-lg);
     -webkit-backdrop-filter: var(--blur-lg);
-    background: var(--color-glass-bg);
   }
 }
-
 @supports not (backdrop-filter: blur(1px)) {
-  .glass { background: rgba(18,18,42,0.94); }
+  .glass { background: rgba(18,18,42,0.95); }
 }
 
-/* Glass size modifiers */
+/* Size modifiers */
 .glass-sm  { border-radius: var(--radius-md); }
 .glass-md  { border-radius: var(--radius-lg); }
 .glass-lg  { border-radius: var(--radius-xl); }
 
-/* Elevated tier — for modals, popovers, hero cards */
+/* Elevated tier — navbars, drawers, modals, feature cards */
 .glass-elevated {
   background: var(--color-glass-bg-mid);
   border-color: var(--color-glass-border-bright);
   box-shadow: var(--shadow-glass-elevated);
 }
-
 @supports (backdrop-filter: blur(1px)) {
   .glass-elevated {
     backdrop-filter: var(--blur-xl);
@@ -235,24 +230,22 @@ body {
   }
 }
 
-/* Hover state */
+/* Hover state — product cards, category links */
 .glass-hover {
   transition:
-    background var(--duration-standard) var(--ease-standard),
-    box-shadow  var(--duration-standard) var(--ease-standard),
-    border-color var(--duration-standard) var(--ease-standard),
-    transform   var(--duration-standard) var(--ease-spring);
+    background      var(--duration-standard) var(--ease-standard),
+    box-shadow      var(--duration-standard) var(--ease-standard),
+    border-color    var(--duration-standard) var(--ease-standard),
+    transform       var(--duration-standard) var(--ease-spring);
 }
-
 .glass-hover:hover {
-  background: var(--color-glass-hover);
-  border-color: rgba(201,169,110,0.25);
-  box-shadow: var(--shadow-glass), var(--shadow-glow-sm-gold);
-  transform: translateY(-2px);
+  background:   var(--color-glass-hover);
+  border-color: rgba(201,169,110,0.30);
+  box-shadow:   var(--shadow-glass-elevated), var(--shadow-glow-sm-gold);
+  transform:    translateY(-3px);
 }
-
 .glass-hover:active {
-  transform: translateY(0);
+  transform: translateY(-1px);
   transition-duration: var(--duration-micro);
 }
 
