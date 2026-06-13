@@ -45,6 +45,11 @@ info "Installing dependencies (this may take a minute)…"
 npm install --silent
 ok "Dependencies installed"
 
+# ── 2b. Generate Prisma client ───────────────────────────────────────────────
+info "Generating Prisma client…"
+npx prisma generate --silent
+ok "Prisma client generated"
+
 # ── 3. Generate .env ────────────────────────────────────────────────────────
 # NOTE: we write .env (not .env.local) because Prisma's CLI reads .env via
 # dotenv, while Next.js reads both. Writing .env satisfies both tools.

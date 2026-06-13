@@ -64,6 +64,14 @@ npm install
 if ($LASTEXITCODE -ne 0) { Err "npm install failed"; Read-Host "Press Enter to exit"; exit 1 }
 Ok "Dependencies installed"
 
+# -- 2b. Generate Prisma client ---------------------------------------
+# Must run after npm install and before db:push/seed.
+# The generated client lives in src/generated/ which is gitignored.
+Info "Generating Prisma client..."
+npx prisma generate
+if ($LASTEXITCODE -ne 0) { Err "prisma generate failed"; Read-Host "Press Enter to exit"; exit 1 }
+Ok "Prisma client generated"
+
 # -- 3. Generate .env -------------------------------------------------
 $envFile = ".env"
 $generateEnv = $true
