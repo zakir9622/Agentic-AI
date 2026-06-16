@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, ShoppingBag, Package, RotateCcw, Users, Tag,
-  Settings, BarChart2, Layers, Menu, X, LogOut, ChevronRight, Star,
+  Settings, BarChart2, Layers, Menu, X, LogOut, ChevronRight, Star, Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminLogoutAction } from "@/app/actions/admin-auth";
@@ -13,6 +13,7 @@ import { adminLogoutAction } from "@/app/actions/admin-auth";
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
+  { label: "Ready to Ship", href: "/admin/shipping", icon: Truck },
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Inventory", href: "/admin/inventory", icon: Layers },
   { label: "Categories", href: "/admin/categories", icon: Tag },
