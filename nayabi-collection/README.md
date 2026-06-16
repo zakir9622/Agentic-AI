@@ -256,13 +256,22 @@ All design tokens are in `src/app/globals.css` under `@theme inline {}`.
 
 ```bash
 npm run dev          # Start dev server
-npm run build        # Production build
+npm run build        # Production build (runs `prisma generate` first)
 npm run lint         # ESLint
-npx tsc --noEmit     # Type check
-npx prisma db push   # Sync schema to DB
-npx prisma db seed   # Seed sample data
-npx prisma studio    # Visual DB browser (opens at localhost:5555)
+npm run typecheck    # Type check (tsc --noEmit)
+npm test             # Unit + integration tests (node:test via tsx)
+npm run db:push      # Sync schema to DB
+npm run db:seed      # Seed sample data
+npm run db:studio    # Visual DB browser (opens at localhost:5555)
 ```
+
+## Documentation
+
+Detailed guides live in [`docs/`](./docs):
+
+- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — go-live steps, hosting choice, required services, and indicative monthly costs.
+- [`docs/RISK-REPORT.md`](./docs/RISK-REPORT.md) — technology & dependency risk assessment.
+- [`docs/PROJECT-STRUCTURE.md`](./docs/PROJECT-STRUCTURE.md) — full codebase map and conventions.
 
 ---
 
