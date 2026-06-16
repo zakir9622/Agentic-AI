@@ -10,7 +10,8 @@ import {
 /* Serializable product-card mapper shared by all listing surfaces */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toCard(p: any): ProductCard {
-  const totalStock = p.variants?.reduce((s: number, v: { stock: number }) => s + v.stock, 0) ?? 0;
+  const totalStock =
+    p.variants?.reduce((s: number, v: { stock: number }) => s + v.stock, 0) ?? 0;
   const ratings: number[] = p.reviews?.map((r: { rating: number }) => r.rating) ?? [];
   return {
     id: p.id,
@@ -114,9 +115,13 @@ export async function getProducts(filters: ShopFilters) {
         ...(filters.maxPrice != null && { lte: filters.maxPrice }),
       };
     const variantFilter = {
-      ...(filters.color && { color: { equals: filters.color, mode: "insensitive" as const } }),
+      ...(filters.color && {
+        color: { equals: filters.color, mode: "insensitive" as const },
+      }),
       ...(filters.size && { size: filters.size }),
-      ...(filters.fabric && { fabric: { equals: filters.fabric, mode: "insensitive" as const } }),
+      ...(filters.fabric && {
+        fabric: { equals: filters.fabric, mode: "insensitive" as const },
+      }),
     };
     if (Object.keys(variantFilter).length) where.variants = { some: variantFilter };
 
@@ -143,7 +148,12 @@ export async function getProducts(filters: ShopFilters) {
         ? DEMO_PRODUCTS.filter((p) => p.category.slug === filters.category)
         : DEMO_PRODUCTS;
       const paginated = demoItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-      return { items: paginated, total: demoItems.length, page, totalPages: Math.max(1, Math.ceil(demoItems.length / PAGE_SIZE)) };
+      return {
+        items: paginated,
+        total: demoItems.length,
+        page,
+        totalPages: Math.max(1, Math.ceil(demoItems.length / PAGE_SIZE)),
+      };
     }
 
     return {
@@ -157,8 +167,107 @@ export async function getProducts(filters: ShopFilters) {
       ? DEMO_PRODUCTS.filter((p) => p.category.slug === filters.category)
       : DEMO_PRODUCTS;
     const paginated = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    return { items: paginated, total: items.length, page, totalPages: Math.max(1, Math.ceil(items.length / PAGE_SIZE)) };
+    return {
+      items: paginated,
+      total: items.length,
+      page,
+      totalPages: Math.max(1, Math.ceil(items.length / PAGE_SIZE)),
+    };
   }
+}
+
+export interface QuickViewVariant {
+  id: string;
+  color: string | null;
+  size: string | null;
+  fabric: string | null;
+  stock: number;
+  price: number | null;
+  images: string[];
+}
+
+export interface QuickViewProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  comparePrice: number | null;
+  images: string[];
+  category: { name: string; slug: string };
+  rating?: number;
+  reviewCount?: number;
+  description: string;
+  variants: QuickViewVariant[];
+}
+
+/** Lightweight product payload for the quick-view modal. Falls back to demo
+ *  data (with a synthesized default variant) when the DB is unavailable/empty. */
+export async function getQuickView(slug: string): Promise<QuickViewProduct | null> {
+  try {
+    const p = await db.product.findUnique({
+      where: { slug, isActive: true },
+      include: {
+        category: { select: { name: true, slug: true } },
+        variants: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
+        reviews: { where: { isApproved: true }, select: { rating: true } },
+      },
+    });
+    if (p) {
+      const ratings = p.reviews.map((r) => r.rating);
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        comparePrice: p.comparePrice,
+        images: p.images,
+        category: { name: p.category.name, slug: p.category.slug },
+        rating: ratings.length
+          ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+          : undefined,
+        reviewCount: ratings.length,
+        description: p.description,
+        variants: p.variants.map((v) => ({
+          id: v.id,
+          color: v.color,
+          size: v.size,
+          fabric: v.fabric,
+          stock: v.stock,
+          price: v.price,
+          images: v.images,
+        })),
+      };
+    }
+  } catch {
+    /* fall through to demo data */
+  }
+
+  const demo = DEMO_PRODUCTS.find((d) => d.slug === slug);
+  if (!demo) return null;
+  return {
+    id: demo.id,
+    name: demo.name,
+    slug: demo.slug,
+    price: demo.price,
+    comparePrice: demo.comparePrice,
+    images: demo.images,
+    category: demo.category,
+    rating: demo.rating,
+    reviewCount: demo.reviewCount,
+    description:
+      "A beautifully crafted piece from the Nayabi Collection — premium fabric, thoughtful sizing, and a finish made to last.",
+    variants: [
+      {
+        id: `${demo.id}-default`,
+        color: null,
+        size: null,
+        fabric: null,
+        stock: demo.isOutOfStock ? 0 : 10,
+        price: demo.price,
+        images: demo.images,
+      },
+    ],
+  };
 }
 
 export async function getProductBySlug(slug: string) {

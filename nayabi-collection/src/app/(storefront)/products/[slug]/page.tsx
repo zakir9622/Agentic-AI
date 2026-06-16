@@ -5,6 +5,7 @@ import { Star } from "lucide-react";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { ProductActions } from "@/components/storefront/product-actions";
 import { ProductCard } from "@/components/storefront/product-card";
+import { TrackRecentlyViewed, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { GlassCard } from "@/components/ui";
 import { getProductBySlug, getRelatedProducts } from "@/lib/catalog";
 import { formatPrice } from "@/lib/utils";
@@ -40,6 +41,21 @@ export default async function ProductPage({ params }: PDPProps) {
     ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
     : null;
 
+  const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
+  const cardData = {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    price: product.price,
+    comparePrice: product.comparePrice,
+    images: product.images,
+    category: { name: product.category.name, slug: product.category.slug },
+    rating: avgRating ?? undefined,
+    reviewCount: ratings.length,
+    isLowStock: totalStock > 0 && totalStock <= 5,
+    isOutOfStock: totalStock === 0,
+  };
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -69,6 +85,7 @@ export default async function ProductPage({ params }: PDPProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <TrackRecentlyViewed product={cardData} />
 
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="text-xs text-[var(--color-text-muted)]">
@@ -216,6 +233,9 @@ export default async function ProductPage({ params }: PDPProps) {
           </ul>
         </section>
       )}
+
+      {/* Recently viewed (client, localStorage) */}
+      <RecentlyViewed excludeId={product.id} />
     </div>
   );
 }
