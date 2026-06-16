@@ -4,6 +4,7 @@ export { GlassInput }           from "./glass-input";
 export { GlassBadge }           from "./glass-badge";
 export { GlassSkeleton, ProductCardSkeleton } from "./glass-skeleton";
 export { GlassModal }           from "./glass-modal";
+export { Logo, LogoMark }       from "./logo";
 export { ThemeToggle }          from "./theme-toggle";
 export { ToastContainer, toast } from "./glass-toast";
 export type { Toast, ToastType } from "./glass-toast";

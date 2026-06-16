@@ -2,20 +2,40 @@
 
 import * as React from "react";
 import { GlassCard, GlassInput, GlassButton } from "@/components/ui";
-import { Mail, Phone, MapPin, MessageSquare } from "lucide-react";
+import { Phone, MapPin, MessageSquare } from "lucide-react";
+import { BRAND } from "@/lib/constants";
+
+function Instagram({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 const contactDetails = [
   {
-    icon: Mail,
-    label: "Email",
-    value: "support@nayabicollection.com",
-    href: "mailto:support@nayabicollection.com",
+    icon: Phone,
+    label: "WhatsApp / Call",
+    value: BRAND.phoneDisplay,
+    href: BRAND.whatsappUrl("Hi Nayabi Collection, I have a question."),
   },
   {
-    icon: Phone,
-    label: "WhatsApp",
-    value: "+91 98765 43210",
-    href: "https://wa.me/919876543210",
+    icon: Instagram,
+    label: "Instagram",
+    value: `@${BRAND.instagramHandle}`,
+    href: BRAND.instagramUrl,
   },
   {
     icon: MapPin,
@@ -40,7 +60,7 @@ export default function ContactPage() {
 
   return (
     <div className="mesh-bg min-h-screen">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 py-16">
+      <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
         <div className="mb-10 text-center">
           <h1 className="text-4xl text-[var(--color-text-primary)]">
             Contact <span className="gradient-text">Us</span>
@@ -54,7 +74,7 @@ export default function ContactPage() {
           {/* Form */}
           <GlassCard padding="lg">
             {submitted ? (
-              <div className="flex flex-col items-center gap-4 text-center py-8">
+              <div className="flex flex-col items-center gap-4 py-8 text-center">
                 <MessageSquare
                   className="h-12 w-12 text-[var(--color-gold)]"
                   aria-hidden="true"
@@ -86,7 +106,10 @@ export default function ContactPage() {
                     htmlFor="message"
                     className="text-sm font-medium text-[var(--color-text-primary)]"
                   >
-                    Message <span className="text-[var(--color-error)]" aria-hidden="true">*</span>
+                    Message{" "}
+                    <span className="text-[var(--color-error)]" aria-hidden="true">
+                      *
+                    </span>
                   </label>
                   <textarea
                     id="message"
@@ -112,19 +135,24 @@ export default function ContactPage() {
                 <GlassCard key={c.label} padding="md">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold)]/15">
-                      <Icon className="h-4 w-4 text-[var(--color-gold)]" aria-hidden="true" />
+                      <Icon
+                        className="h-4 w-4 text-[var(--color-gold)]"
+                        aria-hidden="true"
+                      />
                     </div>
                     <div>
                       <p className="text-xs text-[var(--color-text-muted)]">{c.label}</p>
                       {c.href ? (
                         <a
                           href={c.href}
-                          className="text-sm text-[var(--color-text-primary)] hover:text-[var(--color-gold)] transition-colors"
+                          className="text-sm text-[var(--color-text-primary)] transition-colors hover:text-[var(--color-gold)]"
                         >
                           {c.value}
                         </a>
                       ) : (
-                        <p className="text-sm text-[var(--color-text-primary)]">{c.value}</p>
+                        <p className="text-sm text-[var(--color-text-primary)]">
+                          {c.value}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -133,9 +161,15 @@ export default function ContactPage() {
             })}
 
             <GlassCard padding="md">
-              <p className="text-xs text-[var(--color-text-muted)] mb-1">Business hours</p>
-              <p className="text-sm text-[var(--color-text-primary)]">Monday – Saturday</p>
-              <p className="text-sm text-[var(--color-text-secondary)]">10:00 AM – 7:00 PM IST</p>
+              <p className="mb-1 text-xs text-[var(--color-text-muted)]">
+                Business hours
+              </p>
+              <p className="text-sm text-[var(--color-text-primary)]">
+                Monday – Saturday
+              </p>
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                10:00 AM – 7:00 PM IST
+              </p>
             </GlassCard>
           </div>
         </div>

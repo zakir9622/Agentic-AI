@@ -2,10 +2,21 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { Logo } from "@/components/ui";
+import { BRAND } from "@/lib/constants";
 
 function IconInstagram({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
       <circle cx="12" cy="12" r="4" />
       <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none" />
@@ -42,36 +53,45 @@ const footerColumns = [
   {
     heading: "Shop",
     links: [
-      { label: "Hijabs",        href: "/shop?category=hijabs" },
-      { label: "Abayas",        href: "/shop?category=abayas" },
-      { label: "Namaz Scarfs",  href: "/shop?category=namaz-scarfs" },
-      { label: "All Products",  href: "/shop" },
+      { label: "Hijabs", href: "/shop?category=hijabs" },
+      { label: "Abayas", href: "/shop?category=abayas" },
+      { label: "Namaz Scarfs", href: "/shop?category=namaz-scarfs" },
+      { label: "All Products", href: "/shop" },
     ],
   },
   {
     heading: "Help",
     links: [
+      { label: "Track Order", href: "/track" },
       { label: "Shipping & Returns", href: "/shipping-returns" },
-      { label: "Size Guide",         href: "/size-guide" },
-      { label: "FAQ",                href: "/faq" },
-      { label: "Contact Us",         href: "/contact" },
+      { label: "Size Guide", href: "/size-guide" },
+      { label: "FAQ", href: "/faq" },
+      { label: "Contact Us", href: "/contact" },
     ],
   },
   {
     heading: "Company",
     links: [
-      { label: "About Us",        href: "/about" },
-      { label: "Privacy Policy",  href: "/privacy" },
+      { label: "About Us", href: "/about" },
+      { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
     ],
   },
 ];
 
 const socialLinks = [
-  { Icon: IconInstagram, href: "https://instagram.com/nayabicollection", label: "Instagram" },
-  { Icon: IconFacebook,  href: "https://facebook.com/nayabicollection",  label: "Facebook" },
-  { Icon: IconYoutube,   href: "https://youtube.com/@nayabicollection",  label: "YouTube" },
-  { Icon: IconWhatsApp,  href: "https://wa.me/919876543210?text=Hi%20Nayabi%20Collection%2C%20I%27d%20like%20to%20know%20more.", label: "WhatsApp" },
+  { Icon: IconInstagram, href: BRAND.instagramUrl, label: "Instagram" },
+  {
+    Icon: IconWhatsApp,
+    href: BRAND.whatsappUrl("Hi Nayabi Collection, I'd like to know more."),
+    label: "WhatsApp",
+  },
+  {
+    Icon: IconFacebook,
+    href: "https://facebook.com/nayabi.collection",
+    label: "Facebook",
+  },
+  { Icon: IconYoutube, href: "https://youtube.com/@nayabi_collection", label: "YouTube" },
 ];
 
 const paymentMethods = ["UPI", "Visa", "MC", "RuPay", "COD"];
@@ -89,38 +109,65 @@ export function Footer() {
   }
 
   return (
-    <footer className="mt-auto relative border-t border-[var(--color-glass-border)] overflow-hidden">
+    <footer className="relative mt-auto overflow-hidden border-t border-[var(--color-glass-border)]">
       {/* Glassmorphic backdrop — theme-aware surface (see .footer-surface) */}
-      <div className="absolute inset-0 footer-glass footer-surface" aria-hidden="true" />
+      <div className="footer-glass footer-surface absolute inset-0" aria-hidden="true" />
 
       {/* Subtle aurora tint at top */}
       <div
-        className="absolute top-0 left-0 right-0 h-px"
+        className="absolute top-0 right-0 left-0 h-px"
         aria-hidden="true"
         style={{
-          background: "linear-gradient(90deg, transparent, rgba(201,169,110,0.6) 30%, rgba(201,169,110,0.6) 70%, transparent)",
+          background:
+            "linear-gradient(90deg, transparent, rgba(201,169,110,0.6) 30%, rgba(201,169,110,0.6) 70%, transparent)",
         }}
       />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-16 pb-8">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-16 pb-8 sm:px-6 lg:px-10">
         <div className="grid grid-cols-2 gap-10 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
-
           {/* ── Brand column ── */}
           <div className="col-span-2 md:col-span-1">
             <Link
               href="/"
-              className="font-display text-2xl text-[var(--color-text-primary)] hover:text-[var(--color-gold)] transition-colors"
+              aria-label="Nayabi Collection — home"
+              className="inline-block transition-opacity hover:opacity-90"
             >
-              Nayabi<span className="text-[var(--color-gold)]"> Collection</span>
+              <Logo markClassName="h-9 w-9" wordmarkClassName="text-2xl" />
             </Link>
-            <p className="mt-3 text-sm text-[var(--color-text-secondary)] leading-relaxed max-w-xs">
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-[var(--color-text-secondary)]">
               Premium modest wear, thoughtfully crafted for Muslim women across India.
               Faith and style, beautifully united.
             </p>
 
+            {/* Contact */}
+            <div className="mt-4 flex flex-col gap-1.5 text-sm text-[var(--color-text-secondary)]">
+              <a
+                href={BRAND.whatsappUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-[var(--color-gold)]"
+              >
+                WhatsApp / Call:{" "}
+                <span className="text-[var(--color-text-primary)]">
+                  {BRAND.phoneDisplay}
+                </span>
+              </a>
+              <a
+                href={BRAND.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-[var(--color-gold)]"
+              >
+                Instagram:{" "}
+                <span className="text-[var(--color-text-primary)]">
+                  @{BRAND.instagramHandle}
+                </span>
+              </a>
+            </div>
+
             {/* Newsletter */}
             <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)] mb-2.5">
+              <p className="mb-2.5 text-xs font-semibold tracking-widest text-[var(--color-text-muted)] uppercase">
                 Stay updated
               </p>
               {subscribed ? (
@@ -128,7 +175,7 @@ export function Footer() {
                   Jazak Allah Khair — you&apos;re on the list!
                 </p>
               ) : (
-                <form onSubmit={handleNewsletter} className="flex gap-2 max-w-xs">
+                <form onSubmit={handleNewsletter} className="flex max-w-xs gap-2">
                   <input
                     type="email"
                     value={email}
@@ -140,7 +187,7 @@ export function Footer() {
                   />
                   <button
                     type="submit"
-                    className="btn-gold rounded-lg px-4 py-2 text-sm font-semibold shrink-0"
+                    className="btn-gold shrink-0 rounded-lg px-4 py-2 text-sm font-semibold"
                   >
                     Join
                   </button>
@@ -168,7 +215,7 @@ export function Footer() {
           {/* ── Nav columns ── */}
           {footerColumns.map((col) => (
             <nav key={col.heading} aria-label={col.heading}>
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)] !font-[var(--font-body)] mb-4">
+              <h3 className="mb-4 text-sm !font-[var(--font-body)] font-semibold text-[var(--color-text-primary)]">
                 {col.heading}
               </h3>
               <ul className="space-y-2.5" role="list">
@@ -176,7 +223,7 @@ export function Footer() {
                   <li key={l.href}>
                     <Link
                       href={l.href}
-                      className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors"
+                      className="text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)]"
                     >
                       {l.label}
                     </Link>
@@ -188,7 +235,7 @@ export function Footer() {
         </div>
 
         {/* ── Divider ── */}
-        <div className="mt-12 gold-divider" aria-hidden="true" />
+        <div className="gold-divider mt-12" aria-hidden="true" />
 
         {/* ── Bottom bar ── */}
         <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
@@ -197,9 +244,14 @@ export function Footer() {
           </p>
 
           {/* Payment methods */}
-          <div className="flex items-center gap-1.5" aria-label="Accepted payment methods">
+          <div
+            className="flex items-center gap-1.5"
+            aria-label="Accepted payment methods"
+          >
             {paymentMethods.map((m) => (
-              <span key={m} className="payment-badge">{m}</span>
+              <span key={m} className="payment-badge">
+                {m}
+              </span>
             ))}
           </div>
         </div>

@@ -5,15 +5,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Search, ShoppingBag, User, Menu, X, Heart } from "lucide-react";
 import { useCart } from "@/store/cart";
-import { ThemeToggle } from "@/components/ui";
+import { ThemeToggle, Logo } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { label: "Shop All",      href: "/shop" },
-  { label: "Hijabs",        href: "/shop?category=hijabs" },
-  { label: "Abayas",        href: "/shop?category=abayas" },
-  { label: "Namaz Scarfs",  href: "/shop?category=namaz-scarfs" },
-  { label: "About",         href: "/about" },
+  { label: "Shop All", href: "/shop" },
+  { label: "Hijabs", href: "/shop?category=hijabs" },
+  { label: "Abayas", href: "/shop?category=abayas" },
+  { label: "Namaz Scarfs", href: "/shop?category=namaz-scarfs" },
+  { label: "About", href: "/about" },
 ];
 
 function isNavActive(pathname: string, href: string): boolean {
@@ -27,12 +27,12 @@ function isNavActive(pathname: string, href: string): boolean {
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const [scrolled, setScrolled]     = React.useState(false);
-  const [query, setQuery]           = React.useState("");
-  const pathname  = usePathname();
-  const router    = useRouter();
+  const [scrolled, setScrolled] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const pathname = usePathname();
+  const router = useRouter();
   const cartCount = useCart((s) => s.items.reduce((n, i) => n + i.quantity, 0));
-  const openCart  = useCart((s) => s.open);
+  const openCart = useCart((s) => s.open);
 
   // Close mobile menu on navigation
   const [prevPath, setPrevPath] = React.useState(pathname);
@@ -61,7 +61,7 @@ export function Navbar() {
     <header className="sticky top-0 z-40">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--color-gold)] focus:text-[var(--color-text-inverse)]"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-[var(--color-gold)] focus:px-4 focus:py-2 focus:text-[var(--color-text-inverse)]"
       >
         Skip to content
       </a>
@@ -75,10 +75,9 @@ export function Navbar() {
         )}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4">
-
           {/* Mobile menu button */}
           <button
-            className="lg:hidden p-2 -ml-2 text-[var(--color-text-primary)] hover:text-[var(--color-gold)] transition-colors"
+            className="-ml-2 p-2 text-[var(--color-text-primary)] transition-colors hover:text-[var(--color-gold)] lg:hidden"
             onClick={() => setMobileOpen((v) => !v)}
             aria-expanded={mobileOpen}
             aria-controls="mobile-nav"
@@ -90,13 +89,14 @@ export function Navbar() {
           {/* Logo */}
           <Link
             href="/"
-            className="font-display text-xl sm:text-2xl tracking-wide text-[var(--color-text-primary)] hover:text-[var(--color-gold)] transition-colors"
+            aria-label="Nayabi Collection — home"
+            className="transition-opacity hover:opacity-90"
           >
-            Nayabi<span className="text-[var(--color-gold)]"> Collection</span>
+            <Logo markClassName="h-8 w-8" wordmarkClassName="text-lg sm:text-2xl" />
           </Link>
 
           {/* Desktop links */}
-          <ul className="hidden lg:flex items-center gap-8" role="list">
+          <ul className="hidden items-center gap-8 lg:flex" role="list">
             {navLinks.map((l) => {
               const active = isNavActive(pathname, l.href);
               return (
@@ -106,7 +106,7 @@ export function Navbar() {
                     data-active={active}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "text-sm nav-underline transition-colors",
+                      "nav-underline text-sm transition-colors",
                       active
                         ? "text-[var(--color-gold)]"
                         : "text-[var(--color-text-secondary)] hover:text-[var(--color-gold)]"
@@ -125,7 +125,7 @@ export function Navbar() {
               onClick={() => setSearchOpen((v) => !v)}
               aria-expanded={searchOpen}
               aria-label="Search products"
-              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
+              className="rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)]"
             >
               <Search className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -133,21 +133,21 @@ export function Navbar() {
             <Link
               href="/account/wishlist"
               aria-label="Wishlist"
-              className="hidden sm:block p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
+              className="hidden rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)] sm:block"
             >
               <Heart className="h-5 w-5" aria-hidden="true" />
             </Link>
             <Link
               href="/account"
               aria-label="My account"
-              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
+              className="rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)]"
             >
               <User className="h-5 w-5" aria-hidden="true" />
             </Link>
             <button
               onClick={openCart}
               aria-label={`Shopping bag, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
-              className="relative p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-gold)] transition-colors rounded-lg"
+              className="relative rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)]"
             >
               <ShoppingBag className="h-5 w-5" aria-hidden="true" />
               {cartCount > 0 && (
@@ -164,11 +164,7 @@ export function Navbar() {
 
         {/* Search bar */}
         {searchOpen && (
-          <form
-            onSubmit={submitSearch}
-            className="mx-auto max-w-7xl pb-4"
-            role="search"
-          >
+          <form onSubmit={submitSearch} className="mx-auto max-w-7xl pb-4" role="search">
             <input
               autoFocus
               type="search"
@@ -184,7 +180,10 @@ export function Navbar() {
         {/* Mobile nav */}
         <div
           id="mobile-nav"
-          className={cn("lg:hidden overflow-hidden", mobileOpen ? "pb-4 nav-mobile-open" : "hidden")}
+          className={cn(
+            "overflow-hidden lg:hidden",
+            mobileOpen ? "nav-mobile-open pb-4" : "hidden"
+          )}
         >
           <ul className="flex flex-col gap-0.5" role="list">
             {navLinks.map((l) => {
