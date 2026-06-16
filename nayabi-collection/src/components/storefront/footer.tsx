@@ -57,6 +57,7 @@ const footerColumns = [
       { label: "Abayas", href: "/shop?category=abayas" },
       { label: "Namaz Scarfs", href: "/shop?category=namaz-scarfs" },
       { label: "All Products", href: "/shop" },
+      { label: "Gift Cards", href: "/gift-cards" },
     ],
   },
   {

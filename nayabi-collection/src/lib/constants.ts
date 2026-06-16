@@ -61,3 +61,6 @@ export const COD_CHARGE = Number(process.env.COD_EXTRA_CHARGE ?? 5000); // ₹50
 export const GIFT_WRAP_CHARGE = 5000; // ₹50
 export const GST_RATE = 5; // % — included in listed prices (textiles)
 export const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS ?? 7);
+
+/** Gift card denominations in paise (client-safe; used by the storefront). */
+export const GIFT_CARD_DENOMINATIONS = [50000, 100000, 250000, 500000];

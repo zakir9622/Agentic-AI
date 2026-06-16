@@ -112,6 +112,7 @@ model User {
   backInStockAlerts   BackInStockAlert[]
   discountUsages      DiscountUsage[]
   accounts            Account[]
+  loyaltyAccount      LoyaltyAccount?
 
   @@index([email])
 }
@@ -435,9 +436,9 @@ model Order {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  user           User?          @relation(fields: [userId], references: [id])
-  address        Address?       @relation(fields: [addressId], references: [id])
-  discountCode   DiscountCode?  @relation(fields: [discountCodeId], references: [id])
+  user           User?           @relation(fields: [userId], references: [id])
+  address        Address?        @relation(fields: [addressId], references: [id])
+  discountCode   DiscountCode?   @relation(fields: [discountCodeId], references: [id])
   items          OrderItem[]
   payment        Payment?
   codRecord      CODRecord?
@@ -452,7 +453,7 @@ model Order {
 }
 
 model OrderItem {
-  id             String @id @default(cuid())
+  id             String  @id @default(cuid())
   orderId        String
   productId      String
   variantId      String
@@ -745,4 +746,79 @@ model AuditLog {
   @@index([adminUserId])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ─── GIFT CARDS ───────────────────────────────────────────────────────────────
+
+enum GiftCardStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  DISABLED
+}
+
+model GiftCard {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  initialValue   Int // paise
+  balance        Int // paise
+  currency       String         @default("INR")
+  status         GiftCardStatus @default(ACTIVE)
+  purchaserEmail String?
+  recipientEmail String?
+  recipientName  String?
+  message        String?
+  issuedBy       String? // admin id/name who issued it
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  transactions GiftCardTransaction[]
+
+  @@index([code])
+  @@index([status])
+}
+
+model GiftCardTransaction {
+  id         String   @id @default(cuid())
+  giftCardId String
+  amount     Int // paise; + on issue/topup, - on redeem
+  type       String // ISSUE | REDEEM | REFUND | ADJUST
+  orderId    String?
+  note       String?
+  createdAt  DateTime @default(now())
+
+  giftCard GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+
+  @@index([giftCardId])
+}
+
+// ─── LOYALTY / REWARDS ──────────────────────────────────────────────────────────
+
+model LoyaltyAccount {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  points         Int      @default(0)
+  lifetimePoints Int      @default(0)
+  tier           String   @default("BRONZE") // BRONZE | SILVER | GOLD
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions LoyaltyTransaction[]
+
+  @@index([userId])
+}
+
+model LoyaltyTransaction {
+  id        String   @id @default(cuid())
+  accountId String
+  points    Int // + earned, - redeemed
+  reason    String // ORDER | REDEEM | SIGNUP | ADJUST
+  orderId   String?
+  createdAt DateTime @default(now())
+
+  account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
 }

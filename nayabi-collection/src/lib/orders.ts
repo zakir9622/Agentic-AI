@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { formatPrice } from "@/lib/utils";
 import { sendOrderConfirmationEmail } from "@/lib/mail";
 import { notifyOrderPlaced } from "@/lib/msg91";
+import { awardOrderPoints } from "@/lib/loyalty";
 
 /** Confirm an order: decrement stock, record discount usage, mark abandoned
     cart converted, fire notifications. Idempotent via orderStatus guard. */
@@ -77,5 +78,7 @@ export async function confirmOrder(orderId: string) {
         })
       : Promise.resolve(),
     notifyOrderPlaced(phone, order.orderNumber, formatPrice(order.total), isCOD),
+    // Loyalty points for signed-in customers (fail-silent)
+    awardOrderPoints(order.userId, order.total, order.id),
   ]);
 }
