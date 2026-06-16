@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ToastContainer } from "@/components/ui";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -61,6 +62,7 @@ export default function RootLayout({
   return (
     <html
       lang="en-IN"
+      suppressHydrationWarning
       className={`${inter.variable} ${playfair.variable}`}
       style={{
         ["--font-body" as string]:    "var(--font-inter), system-ui, sans-serif",
@@ -68,8 +70,10 @@ export default function RootLayout({
       }}
     >
       <body className="min-h-dvh flex flex-col antialiased">
-        {children}
-        <ToastContainer />
+        <Providers>
+          {children}
+          <ToastContainer />
+        </Providers>
       </body>
     </html>
   );

@@ -90,16 +90,8 @@ export function Footer() {
 
   return (
     <footer className="mt-auto relative border-t border-[var(--color-glass-border)] overflow-hidden">
-      {/* Glassmorphic backdrop */}
-      <div
-        className="absolute inset-0 footer-glass"
-        style={{
-          background: "rgba(10,0,30,0.82)",
-          backdropFilter: "blur(20px) saturate(180%) brightness(106%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%) brightness(106%)",
-        }}
-        aria-hidden="true"
-      />
+      {/* Glassmorphic backdrop — theme-aware surface (see .footer-surface) */}
+      <div className="absolute inset-0 footer-glass footer-surface" aria-hidden="true" />
 
       {/* Subtle aurora tint at top */}
       <div

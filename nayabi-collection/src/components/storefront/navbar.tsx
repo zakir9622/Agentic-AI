@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Search, ShoppingBag, User, Menu, X, Heart } from "lucide-react";
 import { useCart } from "@/store/cart";
+import { ThemeToggle } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -128,6 +129,7 @@ export function Navbar() {
             >
               <Search className="h-5 w-5" aria-hidden="true" />
             </button>
+            <ThemeToggle />
             <Link
               href="/account/wishlist"
               aria-label="Wishlist"
