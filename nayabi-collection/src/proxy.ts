@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+// Renamed from `middleware.ts` — Next.js 16 calls this convention "Proxy".
+// Runs before admin requests complete and gates them behind the session cookie.
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protect all /admin routes except the login page itself

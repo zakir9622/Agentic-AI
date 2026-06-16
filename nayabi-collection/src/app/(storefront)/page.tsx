@@ -138,7 +138,7 @@ export default async function HomePage() {
               <li key={cat.id}>
                 <Link
                   href={`/shop?category=${cat.slug}`}
-                  className="glass glass-md glass-hover group block overflow-hidden !p-0"
+                  className="glass glass-md glass-hover glass-sheen group block overflow-hidden !p-0"
                 >
                   <div className="relative aspect-[3/4] bg-[var(--color-bg-mid)]">
                     {cat.image && (
@@ -193,7 +193,7 @@ export default async function HomePage() {
       )}
 
       {/* ── PROMISE BANNER ────────────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20">
+      <section className="cv-section relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20">
         <GlassCard tier="elevated" padding="lg" className="text-center">
           <div className="flex justify-center mb-4">
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase text-[var(--color-gold)] border border-[var(--color-gold)]/25 bg-[var(--color-gold)]/8">
@@ -228,7 +228,7 @@ export default async function HomePage() {
       {/* ── TESTIMONIALS ──────────────────────────────────────────────────────── */}
       <section
         aria-labelledby="testimonials-heading"
-        className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20"
+        className="cv-section relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-16 sm:pb-20"
       >
         <div className="text-center mb-10">
           <p className="section-label">What our customers say</p>
@@ -265,7 +265,7 @@ export default async function HomePage() {
       {bestsellers.length > 0 && (
         <section
           aria-labelledby="bestsellers-heading"
-          className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-24"
+          className="cv-section relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-24"
         >
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between mb-10">
             <div>
@@ -287,7 +287,7 @@ export default async function HomePage() {
       )}
 
       {/* ── WHATSAPP CTA ──────────────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-24">
+      <section className="cv-section relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pb-24">
         <GlassCard tier="elevated" padding="lg" className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
             <p className="section-label">Need help choosing?</p>

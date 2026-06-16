@@ -14,7 +14,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="glass glass-md glass-hover group block overflow-hidden !p-0"
+      className="glass glass-md glass-hover glass-sheen group block overflow-hidden !p-0"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-bg-mid)]">
         {product.images[0] ? (

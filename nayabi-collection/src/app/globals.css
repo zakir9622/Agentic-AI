@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap");
+/* Fonts are loaded via next/font in app/layout.tsx — no render-blocking @import here. */
 @import "tailwindcss";
 
 /* ─── DESIGN TOKENS ──────────────────────────────────────────────────────────── */
@@ -45,13 +45,15 @@
   --font-display: "Playfair Display", Georgia, serif;
   --font-body:    "Inter", system-ui, sans-serif;
 
-  /* Blur levels */
-  --blur-xs:  blur(4px);
-  --blur-sm:  blur(10px);
-  --blur-md:  blur(20px);
-  --blur-lg:  blur(32px);
-  --blur-xl:  blur(48px);
-  --blur-2xl: blur(72px);
+  /* Blur levels — kept modest on purpose: backdrop-filter cost scales
+     super-linearly with radius, and >24px is visually indistinguishable
+     from ~18px while costing far more to paint. */
+  --blur-xs:  blur(3px);
+  --blur-sm:  blur(7px);
+  --blur-md:  blur(11px);
+  --blur-lg:  blur(16px);
+  --blur-xl:  blur(20px);
+  --blur-2xl: blur(26px);
 
   /* Border radius */
   --radius-sm:  8px;
@@ -125,47 +127,24 @@ body {
     #08001A;
 }
 
-/* Layer 1: slow drifting aurora orbs — vivid jewel tones for liquid glass */
+/* Aurora is rendered as a single STATIC fixed layer. It deliberately does not
+   animate: a moving layer behind dozens of backdrop-filter panels forces the
+   browser to re-sample and re-blur every glass element each frame — the single
+   biggest cause of jank in glassmorphic UIs. A rich static mesh paints once and
+   stays composited, so scrolling and interaction stay buttery. */
 .mesh-bg::before {
   content: "";
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 90% 70% at 15% 30%, rgba(180,80,255,0.55)  0%, transparent 55%),
-    radial-gradient(ellipse 70% 50% at 85% 15%, rgba(201,169,110,0.45) 0%, transparent 50%),
-    radial-gradient(ellipse 80% 60% at 60% 85%, rgba(100,40,220,0.50)  0%, transparent 55%),
-    radial-gradient(ellipse 55% 45% at 40% 55%, rgba(255,80,180,0.25)  0%, transparent 45%);
-  animation: auroraFloat 18s ease-in-out infinite alternate;
+    radial-gradient(ellipse 90% 70% at 15% 25%, rgba(180,80,255,0.50)  0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 12%, rgba(201,169,110,0.40) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 62% 88%, rgba(100,40,220,0.46)  0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 40% 55%, rgba(255,80,180,0.22)  0%, transparent 45%),
+    radial-gradient(ellipse 45% 35% at 78% 45%, rgba(201,169,110,0.22) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
-  will-change: transform;
-}
-
-/* Layer 2: fast specular shimmer */
-.mesh-bg::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 45% 35% at 75% 40%, rgba(201,169,110,0.40) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 30% at 25% 70%, rgba(200,80,255,0.40)  0%, transparent 55%),
-    radial-gradient(ellipse 30% 25% at 50% 20%, rgba(120,60,255,0.35)  0%, transparent 50%);
-  animation: auroraFloat 11s ease-in-out infinite alternate-reverse;
-  pointer-events: none;
-  z-index: 0;
-  will-change: transform;
-}
-
-@keyframes auroraFloat {
-  0%   { transform: translate(0, 0) scale(1); }
-  25%  { transform: translate(-1.5%, 1.5%) scale(1.02); }
-  50%  { transform: translate(1%, -1%) scale(0.985); }
-  75%  { transform: translate(-0.5%, 2%) scale(1.015); }
-  100% { transform: translate(1.5%, -0.5%) scale(1.01); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mesh-bg::before, .mesh-bg::after { animation: none; }
+  transform: translateZ(0);
 }
 
 .mesh-bg > * { position: relative; z-index: 1; }
@@ -179,33 +158,40 @@ body {
   box-shadow: var(--shadow-glass);
   position: relative;
   isolation: isolate;
-  --_hl: rgba(255,255,255,0.35);
+  --_hl: rgba(255,255,255,0.38);
 }
 
-/* Top-edge highlight — the key to the premium glass look */
+/* Specular highlight — diagonal light catch across the top-left, the key to
+   the premium "liquid glass" look. Pure gradient, no backdrop re-sample. */
 .glass::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(
-    165deg,
-    var(--_hl) 0%,
-    rgba(255,255,255,0.08) 30%,
-    transparent 60%
-  );
+  background:
+    linear-gradient(
+      163deg,
+      var(--_hl) 0%,
+      rgba(255,255,255,0.10) 26%,
+      transparent 55%
+    );
   transition: background var(--duration-standard) var(--ease-standard);
   pointer-events: none;
   z-index: 1;
 }
 
-/* Subtle noise texture for frosted-glass realism */
+/* Refractive bottom edge — a faint bright line along the lower border that
+   reads as light bending through the pane. Cheap (single gradient). */
 .glass::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background: linear-gradient(
+    to top,
+    rgba(255,255,255,0.10) 0%,
+    transparent 14%
+  );
   pointer-events: none;
   z-index: 0;
 }
@@ -214,8 +200,8 @@ body {
 
 @supports (backdrop-filter: blur(1px)) {
   .glass {
-    backdrop-filter: var(--blur-lg) saturate(200%) brightness(108%);
-    -webkit-backdrop-filter: var(--blur-lg) saturate(200%) brightness(108%);
+    backdrop-filter: var(--blur-lg) saturate(180%) brightness(106%);
+    -webkit-backdrop-filter: var(--blur-lg) saturate(180%) brightness(106%);
   }
 }
 @supports not (backdrop-filter: blur(1px)) {
@@ -235,8 +221,8 @@ body {
 }
 @supports (backdrop-filter: blur(1px)) {
   .glass-elevated {
-    backdrop-filter: var(--blur-xl) saturate(220%) brightness(112%);
-    -webkit-backdrop-filter: var(--blur-xl) saturate(220%) brightness(112%);
+    backdrop-filter: var(--blur-xl) saturate(190%) brightness(108%);
+    -webkit-backdrop-filter: var(--blur-xl) saturate(190%) brightness(108%);
   }
 }
 
@@ -777,4 +763,50 @@ h4, h5, h6 { font-family: var(--font-body); line-height: 1.3; }
 
 @media (prefers-reduced-motion: reduce) {
   .nav-mobile-open { animation: none; }
+}
+
+/* ─── CONTENT-VISIBILITY (skip painting off-screen sections) ─────────────────── */
+/* Defers layout + paint of below-the-fold sections until they scroll near the
+   viewport, cutting initial render work. Intrinsic-size hints avoid scrollbar
+   jump / layout shift. Apply only to sections safely below the first viewport. */
+.cv-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
+/* ─── PREMIUM GLASS SHEEN (advanced hover light-sweep) ───────────────────────── */
+/* A single diagonal highlight that sweeps across on hover. GPU-composited
+   (transform + opacity only) so it adds no backdrop-filter re-sampling cost. */
+.glass-sheen { position: relative; overflow: hidden; }
+
+.glass-sheen > .sheen,
+.glass-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255,255,255,0.16) 50%,
+    transparent 100%
+  );
+  transform: skewX(-18deg) translateX(0);
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-slow) var(--ease-standard);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.glass-sheen:hover::after {
+  opacity: 1;
+  transform: skewX(-18deg) translateX(420%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-sheen::after { display: none; }
 }
