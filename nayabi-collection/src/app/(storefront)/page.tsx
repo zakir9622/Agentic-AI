@@ -12,6 +12,7 @@ import {
 import { GlassButton, GlassCard } from "@/components/ui";
 import { ProductCard } from "@/components/storefront/product-card";
 import { RecentlyViewed } from "@/components/storefront/recently-viewed";
+import { HeroSlider, type HeroSlide } from "@/components/storefront/hero-slider";
 import { getActiveCategories, getNewArrivals, getBestsellers } from "@/lib/catalog";
 import { BRAND } from "@/lib/constants";
 
@@ -62,40 +63,42 @@ export default async function HomePage() {
     getBestsellers(4),
   ]);
 
+  // Build the hero slider from featured products (deduped, first 6 with images)
+  const heroSlides: HeroSlide[] = [];
+  const seenSlides = new Set<string>();
+  for (const p of [...newArrivals, ...bestsellers]) {
+    if (heroSlides.length >= 6) break;
+    if (!p.images?.[0] || seenSlides.has(p.slug)) continue;
+    seenSlides.add(p.slug);
+    heroSlides.push({
+      src: p.images[0],
+      name: p.name,
+      slug: p.slug,
+      price: p.price,
+      category: p.category.name,
+    });
+  }
+
   return (
     <div className="mesh-bg min-h-screen">
-      {/* ── HERO ──────────────────────────────────────────────────────────────── */}
-      <section className="relative z-10 overflow-hidden">
-        {/* Full-bleed background image */}
-        <div className="absolute inset-0">
-          <Image
-            src="https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&w=1600&q=80"
-            alt=""
-            fill
-            className="object-cover object-center"
-            priority
-            sizes="100vw"
-          />
-          {/* Stronger left-weighted scrim keeps headline + copy crisp on any photo */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[rgba(4,2,12,0.96)] via-[rgba(4,2,12,0.78)] to-[rgba(4,2,12,0.30)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[rgba(4,2,12,0.85)] via-transparent to-[rgba(4,2,12,0.45)]" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl px-4 py-28 sm:px-6 sm:py-36 lg:px-10 lg:py-44">
-          <div className="max-w-2xl">
+      {/* ── HERO — copy + product slider (no more empty full-bleed image) ──────── */}
+      <section className="relative z-10 mx-auto max-w-7xl px-4 pt-10 pb-14 sm:px-6 sm:pt-14 sm:pb-20 lg:px-10">
+        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          {/* Copy + CTAs */}
+          <div>
             <p className="section-label">Modest wear · India</p>
-            <h1 className="mt-6 text-4xl leading-[1.07] tracking-tight text-[var(--color-text-primary)] xs:text-5xl sm:text-6xl lg:text-7xl">
+            <h1 className="mt-5 text-4xl leading-[1.07] tracking-tight text-[var(--color-text-primary)] xs:text-5xl sm:text-6xl lg:text-6xl xl:text-7xl">
               Grace in{" "}
               <em className="gradient-text font-display italic not-italic">every</em>{" "}
               drape
             </h1>
-            <p className="mt-7 max-w-lg text-lg leading-relaxed text-[var(--color-text-secondary)]">
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-[var(--color-text-secondary)]">
               Premium Hijabs, Abayas and Namaz Scarfs — thoughtfully crafted for Muslim
               women across India who believe faith and style go hand in hand.
             </p>
 
             {/* One dominant gold CTA; the secondary path is a quiet text link */}
-            <div className="mt-11 flex flex-wrap items-center gap-x-8 gap-y-4">
+            <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
               <Link href="/shop">
                 <GlassButton size="lg">
                   Shop the Collection
@@ -114,10 +117,8 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            {/* Trust metrics — a floating glass strip with faint gold rules so
-                each value reads as a discrete, scannable unit. Stacks on the
-                smallest phones, becomes a divided row from `sm`. */}
-            <dl className="glass glass-md mt-12 flex flex-col gap-4 !px-5 !py-4 sm:mt-14 sm:inline-flex sm:flex-row sm:flex-wrap sm:gap-y-6 sm:!px-6 sm:!py-5">
+            {/* Trust metrics — floating glass strip; stacks on phones, divided row from sm */}
+            <dl className="glass glass-md mt-10 flex flex-col gap-4 !px-5 !py-4 sm:inline-flex sm:flex-row sm:flex-wrap sm:gap-y-6 sm:!px-6 sm:!py-5">
               {[
                 { value: "10,000+", label: "Happy customers" },
                 { value: "4.9★", label: "Average rating" },
@@ -137,6 +138,13 @@ export default async function HomePage() {
               ))}
             </dl>
           </div>
+
+          {/* Product image slider */}
+          {heroSlides.length > 0 && (
+            <div className="mx-auto w-full max-w-md lg:max-w-none">
+              <HeroSlider slides={heroSlides} />
+            </div>
+          )}
         </div>
       </section>
 

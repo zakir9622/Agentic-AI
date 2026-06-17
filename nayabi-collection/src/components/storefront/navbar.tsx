@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Search, ShoppingBag, User, Menu, X, Heart } from "lucide-react";
 import { useCart } from "@/store/cart";
-import { ThemeToggle, Logo } from "@/components/ui";
+import { Logo, SettingsMenu } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -18,7 +18,6 @@ const navLinks = [
 
 function isNavActive(pathname: string, href: string): boolean {
   const base = href.split("?")[0];
-  // Query-param links (category pages) don't show active — only exact path matches
   if (href.includes("?")) return false;
   if (base === "/") return pathname === "/";
   return pathname === base || pathname.startsWith(base + "/");
@@ -41,7 +40,6 @@ export function Navbar() {
     setMobileOpen(false);
   }
 
-  // Scroll-driven shadow/blur intensification
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -74,12 +72,12 @@ export function Navbar() {
           scrolled && "shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
         )}
       >
-        <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-3 sm:gap-6">
-          {/* Left cluster: mobile menu + logo */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Mobile menu button — muted resting state so it never competes with the wordmark */}
+        {/* ── Row 1: [menu] · centered logo · actions ─────────────────────────── */}
+        <div className="relative mx-auto flex h-16 max-w-7xl items-center">
+          {/* Left: mobile menu trigger (desktop has links on row 2) */}
+          <div className="flex items-center">
             <button
-              className="nav-action -ml-1.5 text-[var(--color-text-secondary)] lg:hidden"
+              className="nav-action -ml-1.5 inline-flex text-[var(--color-text-secondary)] lg:hidden"
               onClick={() => setMobileOpen((v) => !v)}
               aria-expanded={mobileOpen}
               aria-controls="mobile-nav"
@@ -87,72 +85,33 @@ export function Navbar() {
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-
-            {/* Logo */}
-            <Link
-              href="/"
-              aria-label="Nayabi Collection — home"
-              className="rounded-lg transition-opacity hover:opacity-90"
-            >
-              {/* Wordmark hides below `xs` (380px) so the header never overflows
-                  on the smallest phones — the monogram alone stays as the brand. */}
-              <Logo
-                markClassName="h-8 w-8"
-                wordmarkClassName="hidden xs:inline text-lg sm:text-2xl"
-              />
-            </Link>
           </div>
 
-          {/* Desktop links — centered */}
-          <ul className="hidden items-center gap-9 lg:flex" role="list">
-            {navLinks.map((l) => {
-              const active = isNavActive(pathname, l.href);
-              return (
-                <li key={l.href}>
-                  <Link
-                    href={l.href}
-                    data-active={active}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "nav-underline text-sm tracking-wide transition-colors",
-                      active
-                        ? "text-[var(--color-gold)]"
-                        : "text-[var(--color-text-secondary)] hover:text-[var(--color-gold)]"
-                    )}
-                  >
-                    {l.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          {/* Center: logo — absolutely centered so it stays dead-center at every
+              width regardless of how many icons sit on the right. Monogram only
+              below `sm`, full wordmark from `sm` up (avoids side-cluster overlap). */}
+          <Link
+            href="/"
+            aria-label="Nayabi Collection — home"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg transition-opacity hover:opacity-90"
+          >
+            <Logo
+              markClassName="h-8 w-8"
+              wordmarkClassName="hidden sm:inline text-xl sm:text-2xl"
+            />
+          </Link>
 
-          {/* Actions — utility group (search/theme) · divider · account group */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* Desktop: input-like search affordance */}
+          {/* Right: uniform action icons (aligned, equal tap targets) */}
+          <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
             <button
               onClick={() => setSearchOpen((v) => !v)}
               aria-expanded={searchOpen}
               aria-label="Search products"
-              className="search-trigger hidden lg:inline-flex"
-            >
-              <Search className="h-4 w-4" aria-hidden="true" />
-              <span>Search products</span>
-            </button>
-            {/* Mobile/tablet: compact search icon */}
-            <button
-              onClick={() => setSearchOpen((v) => !v)}
-              aria-expanded={searchOpen}
-              aria-label="Search products"
-              className="nav-action lg:hidden"
+              className="nav-action inline-flex"
             >
               <Search className="h-5 w-5" aria-hidden="true" />
             </button>
-
-            <ThemeToggle />
-
-            <span className="nav-divider hidden sm:block" aria-hidden="true" />
-
+            <SettingsMenu />
             <Link
               href="/account/wishlist"
               aria-label="Wishlist"
@@ -160,13 +119,13 @@ export function Navbar() {
             >
               <Heart className="h-5 w-5" aria-hidden="true" />
             </Link>
-            <Link href="/account" aria-label="My account" className="nav-action">
+            <Link href="/account" aria-label="My account" className="nav-action inline-flex">
               <User className="h-5 w-5" aria-hidden="true" />
             </Link>
             <button
               onClick={openCart}
               aria-label={`Shopping bag, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
-              className="nav-action relative"
+              className="nav-action relative inline-flex"
             >
               <ShoppingBag className="h-5 w-5" aria-hidden="true" />
               {cartCount > 0 && (
@@ -181,9 +140,40 @@ export function Navbar() {
           </div>
         </div>
 
+        {/* ── Row 2: centered desktop nav links ───────────────────────────────── */}
+        <ul
+          className="mx-auto hidden max-w-7xl items-center justify-center gap-9 border-t border-[var(--color-glass-border)] py-3 lg:flex"
+          role="list"
+        >
+          {navLinks.map((l) => {
+            const active = isNavActive(pathname, l.href);
+            return (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  data-active={active}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "nav-underline text-sm tracking-wide transition-colors",
+                    active
+                      ? "text-[var(--color-gold)]"
+                      : "text-[var(--color-text-secondary)] hover:text-[var(--color-gold)]"
+                  )}
+                >
+                  {l.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
         {/* Search bar */}
         {searchOpen && (
-          <form onSubmit={submitSearch} className="mx-auto max-w-7xl pb-4" role="search">
+          <form
+            onSubmit={submitSearch}
+            className="mx-auto max-w-2xl pb-4 lg:pb-3"
+            role="search"
+          >
             <input
               autoFocus
               type="search"

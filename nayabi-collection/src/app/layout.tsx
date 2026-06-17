@@ -4,6 +4,11 @@ import { ToastContainer } from "@/components/ui";
 import { Providers } from "./providers";
 import "./globals.css";
 
+// Set the time-of-day theme before paint (no FOUC). Mirrors the day/night rule
+// in @/components/theme/theme. Inlined here (not imported) because that module is
+// "use client" — a server component can't read its string exports directly.
+const THEME_INIT_SCRIPT = `(function(){try{var m=localStorage.getItem('nc-theme-mode')||'auto';var t=m;if(m==='auto'){var h=new Date().getHours();t=(h>=7&&h<19)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -70,6 +75,7 @@ export default function RootLayout({
       }}
     >
       <body className="min-h-dvh flex flex-col antialiased">
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Providers>
           {children}
           <ToastContainer />
