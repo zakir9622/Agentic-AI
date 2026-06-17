@@ -37,7 +37,8 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const activeCategory = categories.find((c) => c.slug === filters.category);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 py-10">
+    <div className="mesh-bg min-h-screen">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-10">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="text-xs text-[var(--color-text-muted)]">
         <ol className="flex gap-1.5" role="list">
@@ -51,7 +52,8 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         </ol>
       </nav>
 
-      <h1 className="mt-3 text-3xl sm:text-4xl text-[var(--color-text-primary)]">
+      <p className="section-label mt-5">Catalogue</p>
+      <h1 className="mt-2 text-3xl text-[var(--color-text-primary)] sm:text-4xl">
         {filters.q
           ? `Search: "${filters.q}"`
           : (activeCategory?.name ?? "All Products")}
@@ -123,6 +125,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

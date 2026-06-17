@@ -15,11 +15,14 @@ export function QuickViewTrigger({ slug, name }: { slug: string; name: string })
 
   return (
     <>
+      {/* Quick view — distinct from the card link (which opens the full product
+          page). Always faintly visible on touch (no hover), full on hover/focus. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Quick view: ${name}`}
-        className="glass glass-sm absolute top-2.5 right-2.5 z-20 flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-text-primary)] opacity-0 transition-all duration-300 group-hover:opacity-100 hover:text-[var(--color-gold)] focus-visible:opacity-100"
+        title="Quick view"
+        className="glass glass-sm absolute top-2.5 right-2.5 z-20 flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-text-primary)] opacity-100 transition-all duration-300 hover:text-[var(--color-gold)] focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
       >
         <Eye className="h-4 w-4" aria-hidden="true" />
       </button>

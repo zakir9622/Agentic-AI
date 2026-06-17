@@ -592,6 +592,96 @@ h4, h5, h6 { font-family: var(--font-body); line-height: 1.3; }
   color: var(--color-gold);
 }
 
+/* ─── SOLID DISCOUNT BADGE (high-contrast, on-image) ─────────────────────────── */
+/* Translucent gold badges wash out over product photography. A solid gradient
+   pill with dark ink stays legible on any image — used for the % discount flag. */
+.badge-discount {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: #1A0E00;
+  background: linear-gradient(
+    135deg,
+    var(--color-gold-dark) 0%,
+    var(--color-gold) 50%,
+    var(--color-gold-light) 100%
+  );
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+/* ─── HERO STAT SEPARATOR ────────────────────────────────────────────────────── */
+/* Faint vertical gold rule between the hero trust metrics so each value reads as
+   a discrete, scannable unit instead of one continuous row of numbers. */
+.hero-stat { padding-right: 1.75rem; }
+.hero-stat:last-child { padding-right: 0; }
+.hero-stat + .hero-stat {
+  border-left: 1px solid rgba(201,169,110,0.28);
+  padding-left: 1.75rem;
+}
+
+/* Header nav helpers live in @layer components so Tailwind's display utilities
+   (hidden / lg:inline-flex / sm:inline-flex / lg:hidden) always win — otherwise an
+   unlayered `display` declaration would override responsive show/hide. */
+@layer components {
+  /* ── DESKTOP SEARCH TRIGGER (input-like affordance) ── */
+  /* A clear "search field" affordance on desktop rather than a bare icon — reads
+     as a tappable input, with a subtle focus ring for keyboard users. */
+  .search-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-glass-border);
+    background: var(--color-glass-bg);
+    color: var(--color-text-muted);
+    padding: 0.5rem 0.95rem;
+    font-size: 0.8125rem;
+    transition:
+      border-color var(--duration-fast) var(--ease-standard),
+      color        var(--duration-fast) var(--ease-standard),
+      background   var(--duration-fast) var(--ease-standard);
+  }
+
+  .search-trigger:hover {
+    color: var(--color-text-secondary);
+    border-color: rgba(201,169,110,0.35);
+    background: var(--color-glass-hover);
+  }
+
+  /* ── NAV ACTION ICON (subtle, uniform tap targets) ── */
+  /* Header icons share a calm muted resting state so none competes with the
+     brand mark; gold + a faint glass wash appears only on hover/focus. */
+  .nav-action {
+    align-items: center;
+    justify-content: center;
+    height: 2.5rem;
+    width: 2.5rem;
+    border-radius: 999px;
+    color: var(--color-text-muted);
+    transition:
+      color      var(--duration-fast) var(--ease-standard),
+      background var(--duration-fast) var(--ease-standard);
+  }
+
+  .nav-action:hover {
+    color: var(--color-gold);
+    background: var(--color-glass-bg);
+  }
+
+  /* Thin vertical divider separating utility icons from account/cart actions */
+  .nav-divider {
+    width: 1px;
+    height: 1.25rem;
+    background: var(--color-glass-border);
+    margin: 0 0.25rem;
+  }
+}
+
 /* ─── PRODUCT IMAGE ZOOM ─────────────────────────────────────────────────────── */
 
 .img-zoom {

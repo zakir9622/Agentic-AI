@@ -4,7 +4,7 @@ test.describe("Admin – authentication guard", () => {
   test("/admin redirects to /admin/login when no session cookie", async ({ page }) => {
     // Clear cookies first
     await page.context().clearCookies();
-    const response = await page.goto("/admin");
+    await page.goto("/admin");
     // Should redirect to login (either directly or via 307→200)
     await expect(page).toHaveURL(/\/admin\/login/, { timeout: 10_000 });
   });
@@ -47,7 +47,7 @@ test.describe("Admin – authentication guard", () => {
 });
 
 test.describe("Admin – authenticated access", () => {
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ context }) => {
     // Build a valid admin session cookie with 8h TTL
     const session = {
       adminId: "test-admin",

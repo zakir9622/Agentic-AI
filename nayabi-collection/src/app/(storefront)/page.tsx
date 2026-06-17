@@ -76,53 +76,65 @@ export default async function HomePage() {
             priority
             sizes="100vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[rgba(5,5,15,0.93)] via-[rgba(5,5,15,0.72)] to-[rgba(5,5,15,0.35)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[rgba(5,5,15,0.80)] via-transparent to-transparent" />
+          {/* Stronger left-weighted scrim keeps headline + copy crisp on any photo */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[rgba(4,2,12,0.96)] via-[rgba(4,2,12,0.78)] to-[rgba(4,2,12,0.30)]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[rgba(4,2,12,0.85)] via-transparent to-[rgba(4,2,12,0.45)]" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 py-28 sm:px-6 sm:py-36 lg:px-10 lg:py-44">
           <div className="max-w-2xl">
             <p className="section-label">Modest wear · India</p>
-            <h1 className="mt-5 text-5xl leading-[1.05] tracking-tight text-[var(--color-text-primary)] sm:text-6xl lg:text-7xl">
+            <h1 className="mt-6 text-5xl leading-[1.05] tracking-tight text-[var(--color-text-primary)] sm:text-6xl lg:text-7xl">
               Grace in{" "}
               <em className="gradient-text font-display italic not-italic">every</em>{" "}
               drape
             </h1>
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-[var(--color-text-secondary)]">
+            <p className="mt-7 max-w-lg text-lg leading-relaxed text-[var(--color-text-secondary)]">
               Premium Hijabs, Abayas and Namaz Scarfs — thoughtfully crafted for Muslim
               women across India who believe faith and style go hand in hand.
             </p>
 
-            <div className="mt-10 flex flex-wrap gap-4">
+            {/* One dominant gold CTA; the secondary path is a quiet text link */}
+            <div className="mt-11 flex flex-wrap items-center gap-x-8 gap-y-4">
               <Link href="/shop">
                 <GlassButton size="lg">
                   Shop the Collection
                   <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
                 </GlassButton>
               </Link>
-              <Link href="/shop?category=abayas">
-                <GlassButton size="lg" variant="secondary">
-                  Explore Abayas
-                </GlassButton>
+              <Link
+                href="/shop?category=abayas"
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-secondary)] underline-offset-4 transition-colors hover:text-[var(--color-gold)] hover:underline"
+              >
+                Explore Abayas
+                <ArrowRight
+                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
               </Link>
             </div>
 
-            <div className="mt-12 flex gap-10">
+            {/* Trust metrics — a floating glass strip with faint gold rules so
+                each value reads as a discrete, scannable unit */}
+            <dl className="glass glass-md mt-14 inline-flex flex-wrap gap-y-6 !px-6 !py-5">
               {[
                 { value: "10,000+", label: "Happy customers" },
                 { value: "4.9★", label: "Average rating" },
                 { value: "100%", label: "Authentic fabrics" },
               ].map((s) => (
-                <div key={s.label}>
-                  <p className="text-2xl font-semibold text-[var(--color-gold)]">
-                    {s.value}
-                  </p>
-                  <p className="mt-1 text-xs tracking-widest text-[var(--color-text-muted)] uppercase">
-                    {s.label}
-                  </p>
+                <div key={s.label} className="hero-stat">
+                  <dt className="sr-only">{s.label}</dt>
+                  <dd>
+                    <span className="block text-2xl font-semibold text-[var(--color-gold)]">
+                      {s.value}
+                    </span>
+                    <span className="mt-1 block text-xs tracking-widest text-[var(--color-text-muted)] uppercase">
+                      {s.label}
+                    </span>
+                  </dd>
                 </div>
               ))}
-            </div>
+            </dl>
           </div>
         </div>
       </section>
@@ -164,6 +176,7 @@ export default async function HomePage() {
               <li key={cat.id}>
                 <Link
                   href={`/shop?category=${cat.slug}`}
+                  aria-label={`Shop ${cat.name}`}
                   className="glass glass-md glass-hover glass-sheen group block overflow-hidden !p-0"
                 >
                   <div className="relative aspect-[3/4] bg-[var(--color-bg-mid)]">
@@ -176,13 +189,18 @@ export default async function HomePage() {
                         className="img-zoom object-cover"
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[rgba(5,5,15,0.90)] via-[rgba(5,5,15,0.20)] to-transparent" />
+                    {/* Deeper, taller scrim keeps the label legible over any photo */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[rgba(4,2,12,0.94)] via-[rgba(4,2,12,0.35)] to-transparent" />
                     <div className="absolute right-0 bottom-0 left-0 p-4 sm:p-5">
                       <p className="font-display text-base leading-tight text-[var(--color-text-primary)] sm:text-lg">
                         {cat.name}
                       </p>
-                      <p className="mt-1.5 flex items-center gap-1 text-xs text-[var(--color-gold)] opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                        Shop now <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                      <p className="mt-1.5 flex translate-y-0.5 items-center gap-1 text-xs font-medium text-[var(--color-gold)] opacity-70 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                        Shop now
+                        <ArrowRight
+                          className="h-3 w-3 transition-transform group-hover:translate-x-0.5"
+                          aria-hidden="true"
+                        />
                       </p>
                     </div>
                   </div>

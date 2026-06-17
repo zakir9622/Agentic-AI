@@ -20,7 +20,6 @@ test.describe("Storefront – homepage", () => {
 
   test("theme toggle button exists", async ({ page }) => {
     await page.goto("/");
-    const toggle = page.locator('[aria-label*="theme"], [aria-label*="Theme"], button[class*="theme"]').first();
     // theme toggle may have different aria labels; just ensure page loaded
     await expect(page.locator("body")).toBeVisible();
   });
@@ -46,8 +45,6 @@ test.describe("Storefront – shop / catalog", () => {
   test("shop page renders product grid", async ({ page }) => {
     await page.goto("/shop");
     await page.waitForLoadState("networkidle");
-    // Product cards should appear
-    const cards = page.locator('[class*="product-card"], [class*="ProductCard"], article, [data-testid="product"]');
     // At least the page loads without error
     await expect(page.locator("body")).toBeVisible();
     const title = await page.title();

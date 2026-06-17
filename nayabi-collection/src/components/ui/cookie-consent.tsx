@@ -41,27 +41,39 @@ export function CookieConsent() {
   if (consent !== "") return null;
 
   return (
+    // Anchored to the bottom-left corner on desktop (a slim full-width bar on
+    // mobile) so it never sits over centered hero CTAs. z-30 keeps it below the
+    // navbar (z-40) and cart drawer.
     <div
       role="dialog"
       aria-label="Cookie consent"
       aria-modal="false"
-      className="fixed bottom-4 left-4 right-4 z-50 max-w-lg mx-auto"
+      className="fixed bottom-4 left-4 right-4 z-30 mx-auto max-w-md sm:right-auto sm:mx-0"
     >
-      <GlassCard padding="md" className="shadow-2xl border-[var(--color-gold)]/20">
-        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          We use cookies for essential site functionality (cart, session) and optional analytics
-          to improve your experience. By accepting, you consent to our{" "}
+      <GlassCard padding="md" className="border-[var(--color-gold)]/20 shadow-2xl">
+        <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
+          We use cookies for essential site functionality (cart, session) and optional
+          analytics to improve your experience. See our{" "}
           <a href="/privacy" className="text-[var(--color-gold)] underline underline-offset-2">
             Privacy Policy
           </a>
           .
         </p>
-        <div className="flex gap-3 mt-4">
-          <GlassButton type="button" size="sm" onClick={() => setConsent("accepted")}>
-            Accept all
+        <div className="mt-4 flex gap-2.5">
+          <GlassButton
+            type="button"
+            size="sm"
+            onClick={() => setConsent("accepted")}
+          >
+            Accept
           </GlassButton>
-          <GlassButton type="button" size="sm" variant="ghost" onClick={() => setConsent("declined")}>
-            Essential only
+          <GlassButton
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => setConsent("declined")}
+          >
+            Decline
           </GlassButton>
         </div>
       </GlassCard>

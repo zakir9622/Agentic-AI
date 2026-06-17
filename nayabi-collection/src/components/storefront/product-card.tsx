@@ -34,34 +34,26 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             </div>
           )}
 
-          <div className="absolute top-2 left-2 flex flex-col gap-1.5">
-            {discount > 0 && <GlassBadge variant="gold">-{discount}%</GlassBadge>}
+          <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
+            {discount > 0 && <span className="badge-discount">-{discount}%</span>}
             {product.isOutOfStock ? (
               <GlassBadge variant="error">Out of stock</GlassBadge>
             ) : (
               product.isLowStock && <GlassBadge variant="warning">Low stock</GlassBadge>
             )}
           </div>
-
-          {/* Quick-view label — fades in on hover */}
-          {!product.isOutOfStock && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-              <span className="glass glass-sm border border-[var(--color-gold)]/35 px-4 py-1 text-xs font-semibold tracking-wide text-[var(--color-gold)]">
-                View Product
-              </span>
-            </div>
-          )}
         </div>
 
         <div className="p-4">
-          <p className="text-xs text-[var(--color-text-muted)]">
+          <p className="text-[0.6875rem] tracking-wide text-[var(--color-text-muted)] uppercase">
             {product.category.name}
           </p>
-          <h3 className="mt-1 truncate text-sm !font-[var(--font-body)] font-medium text-[var(--color-text-primary)]">
+          <h3 className="mt-1.5 truncate font-[var(--font-body)] text-sm font-medium text-[var(--color-text-primary)]">
             {product.name}
           </h3>
 
-          <div className="mt-2 flex items-center justify-between gap-2">
+          {/* Price + rating, separated from the title with a hairline for clarity */}
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--color-glass-border)] pt-3">
             <p className="flex items-baseline gap-1.5">
               <span className="text-base font-semibold text-[var(--color-gold)]">
                 {formatPrice(product.price)}

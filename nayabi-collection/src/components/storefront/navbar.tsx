@@ -74,29 +74,32 @@ export function Navbar() {
           scrolled && "shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
         )}
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4">
-          {/* Mobile menu button */}
-          <button
-            className="-ml-2 p-2 text-[var(--color-text-primary)] transition-colors hover:text-[var(--color-gold)] lg:hidden"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+        <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-3 sm:gap-6">
+          {/* Left cluster: mobile menu + logo */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Mobile menu button — muted resting state so it never competes with the wordmark */}
+            <button
+              className="nav-action -ml-1.5 text-[var(--color-text-secondary)] lg:hidden"
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
 
-          {/* Logo */}
-          <Link
-            href="/"
-            aria-label="Nayabi Collection — home"
-            className="transition-opacity hover:opacity-90"
-          >
-            <Logo markClassName="h-8 w-8" wordmarkClassName="text-lg sm:text-2xl" />
-          </Link>
+            {/* Logo */}
+            <Link
+              href="/"
+              aria-label="Nayabi Collection — home"
+              className="rounded-lg transition-opacity hover:opacity-90"
+            >
+              <Logo markClassName="h-8 w-8" wordmarkClassName="text-lg sm:text-2xl" />
+            </Link>
+          </div>
 
-          {/* Desktop links */}
-          <ul className="hidden items-center gap-8 lg:flex" role="list">
+          {/* Desktop links — centered */}
+          <ul className="hidden items-center gap-9 lg:flex" role="list">
             {navLinks.map((l) => {
               const active = isNavActive(pathname, l.href);
               return (
@@ -106,7 +109,7 @@ export function Navbar() {
                     data-active={active}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "nav-underline text-sm transition-colors",
+                      "nav-underline text-sm tracking-wide transition-colors",
                       active
                         ? "text-[var(--color-gold)]"
                         : "text-[var(--color-text-secondary)] hover:text-[var(--color-gold)]"
@@ -119,41 +122,52 @@ export function Navbar() {
             })}
           </ul>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          {/* Actions — utility group (search/theme) · divider · account group */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            {/* Desktop: input-like search affordance */}
             <button
               onClick={() => setSearchOpen((v) => !v)}
               aria-expanded={searchOpen}
               aria-label="Search products"
-              className="rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)]"
+              className="search-trigger hidden lg:inline-flex"
+            >
+              <Search className="h-4 w-4" aria-hidden="true" />
+              <span>Search products</span>
+            </button>
+            {/* Mobile/tablet: compact search icon */}
+            <button
+              onClick={() => setSearchOpen((v) => !v)}
+              aria-expanded={searchOpen}
+              aria-label="Search products"
+              className="nav-action lg:hidden"
             >
               <Search className="h-5 w-5" aria-hidden="true" />
             </button>
+
             <ThemeToggle />
+
+            <span className="nav-divider hidden sm:block" aria-hidden="true" />
+
             <Link
               href="/account/wishlist"
               aria-label="Wishlist"
-              className="hidden rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)] sm:block"
+              className="nav-action hidden sm:inline-flex"
             >
               <Heart className="h-5 w-5" aria-hidden="true" />
             </Link>
-            <Link
-              href="/account"
-              aria-label="My account"
-              className="rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)]"
-            >
+            <Link href="/account" aria-label="My account" className="nav-action">
               <User className="h-5 w-5" aria-hidden="true" />
             </Link>
             <button
               onClick={openCart}
               aria-label={`Shopping bag, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
-              className="relative rounded-lg p-2 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-gold)]"
+              className="nav-action relative"
             >
               <ShoppingBag className="h-5 w-5" aria-hidden="true" />
               {cartCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-gold)] px-1 text-[10px] font-bold text-[var(--color-text-inverse)]"
+                  className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-gold)] px-1 text-[10px] font-bold text-[var(--color-text-inverse)]"
                 >
                   {cartCount}
                 </span>
