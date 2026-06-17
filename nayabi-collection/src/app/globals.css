@@ -1021,3 +1021,65 @@ h4, h5, h6 { font-family: var(--font-body); line-height: 1.3; }
 @media (prefers-reduced-motion: reduce) {
   .glass-sheen::after { display: none; }
 }
+
+/* ─── SETTINGS POPUP ANIMATION ──────────────────────────────────────────────── */
+/* Used by the settings dropdown. Scale from origin-top-right so no translateY
+   clipping occurs — the element renders at its final position from frame 0. */
+@keyframes popupIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.settings-popup {
+  animation: popupIn var(--duration-fast) var(--ease-spring) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-popup { animation: none; }
+}
+
+/* ─── 3D PRODUCT CARD LIFT ───────────────────────────────────────────────────── */
+/* Wrapper sets the perspective; the inner card link gets the 3D motion. */
+.product-3d {
+  perspective: 900px;
+  perspective-origin: 50% 0%;
+}
+.product-3d .product-3d-inner {
+  transition:
+    transform  var(--duration-standard) var(--ease-spring),
+    box-shadow var(--duration-standard) var(--ease-standard);
+  will-change: transform, box-shadow;
+}
+.product-3d:hover .product-3d-inner {
+  transform: translateY(-10px) rotateX(3deg) scale(1.01);
+  box-shadow:
+    var(--shadow-glass-elevated),
+    0 20px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(201,169,110,0.18),
+    0 -2px 16px rgba(201,169,110,0.14);
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-3d .product-3d-inner { transition: none; }
+  .product-3d:hover .product-3d-inner { transform: none; box-shadow: var(--shadow-glass); }
+}
+
+/* ─── HERO SLIDER 3D FRAME ───────────────────────────────────────────────────── */
+/* Gives the slider card a subtle perspective tilt in the hero — reads as a
+   physical product showcase floating on the page. Only applied on lg+ where
+   there's room for the effect to breathe. */
+@media (min-width: 1024px) {
+  .hero-slider-frame {
+    perspective: 1200px;
+    perspective-origin: 40% 50%;
+  }
+  .hero-slider-frame > * {
+    transform: rotateY(-6deg) rotateX(2deg);
+    transition: transform var(--duration-slow) var(--ease-standard);
+    box-shadow:
+      var(--shadow-glass-elevated),
+      -24px 32px 80px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(201,169,110,0.12),
+      -6px 0 32px rgba(201,169,110,0.08);
+  }
+  .hero-slider-frame:hover > * {
+    transform: rotateY(-3deg) rotateX(1deg);
+  }
+}

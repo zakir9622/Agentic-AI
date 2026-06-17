@@ -13,11 +13,11 @@ export function ProductCard({ product }: { product: ProductCardData }) {
       : 0;
 
   return (
-    <div className="group relative">
+    <div className="group relative product-3d">
       <QuickViewTrigger slug={product.slug} name={product.name} />
       <Link
         href={`/products/${product.slug}`}
-        className="glass glass-md glass-hover glass-sheen block overflow-hidden !p-0"
+        className="product-3d-inner glass glass-md glass-hover glass-sheen block overflow-hidden !p-0"
       >
         <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-bg-mid)]">
           {product.images[0] ? (

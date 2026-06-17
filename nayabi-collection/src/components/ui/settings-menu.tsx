@@ -54,7 +54,7 @@ export function SettingsMenu() {
         <div
           role="menu"
           aria-label="Appearance"
-          className="nav-mobile-open glass glass-elevated absolute right-0 z-50 mt-2 w-64 origin-top-right overflow-hidden !rounded-2xl p-2"
+          className="settings-popup glass glass-elevated absolute right-0 z-50 mt-2 w-64 origin-top-right !rounded-2xl p-2"
         >
           <p className="px-2.5 pt-1 pb-2 text-[0.625rem] font-semibold tracking-[0.18em] text-[var(--color-text-muted)] uppercase">
             Appearance
