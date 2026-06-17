@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "test:regression": "tsx --test tests/regression.test.ts",
     "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers playwright test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
