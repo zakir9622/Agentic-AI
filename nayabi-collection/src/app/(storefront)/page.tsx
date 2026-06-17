@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { GlassButton, GlassCard } from "@/components/ui";
 import { ProductCard } from "@/components/storefront/product-card";
+import { RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { getActiveCategories, getNewArrivals, getBestsellers } from "@/lib/catalog";
 import { BRAND } from "@/lib/constants";
 
@@ -392,6 +393,9 @@ export default async function HomePage() {
           </a>
         </GlassCard>
       </section>
+
+      {/* Recently-viewed strip — renders only after the user has browsed products */}
+      <RecentlyViewed />
     </div>
   );
 }
