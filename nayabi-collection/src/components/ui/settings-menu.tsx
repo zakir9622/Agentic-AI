@@ -12,9 +12,10 @@ const OPTIONS: { value: ThemeMode; label: string; hint: string; Icon: typeof Sun
 ];
 
 /**
- * Settings popover housing the theme control. The standalone sun/moon toggle was
- * replaced by this so the default can be time-based "Auto" and the explicit
- * Light/Dark choices live one layer in, out of the primary icon row.
+ * Settings popover housing the theme control. Replaces the standalone sun/moon
+ * toggle so the default can be a time-based "Auto" and the explicit choices sit
+ * one layer in. Rows are uniform (the resolved-theme note lives in the footer,
+ * not on a single row) so every option has an identical, accurate hit area.
  */
 export function SettingsMenu() {
   const { mode, resolved, setMode } = useTheme();
@@ -52,46 +53,67 @@ export function SettingsMenu() {
       {open && (
         <div
           role="menu"
-          aria-label="Theme"
-          className="glass glass-elevated glass-sm absolute right-0 z-50 mt-2 w-56 origin-top-right !rounded-2xl p-2 nav-mobile-open"
+          aria-label="Appearance"
+          className="nav-mobile-open glass glass-elevated absolute right-0 z-50 mt-2 w-64 origin-top-right overflow-hidden !rounded-2xl p-2"
         >
-          <p className="px-3 pt-1 pb-2 text-[0.625rem] font-semibold tracking-widest text-[var(--color-text-muted)] uppercase">
+          <p className="px-2.5 pt-1 pb-2 text-[0.625rem] font-semibold tracking-[0.18em] text-[var(--color-text-muted)] uppercase">
             Appearance
           </p>
-          {OPTIONS.map(({ value, label, hint, Icon }) => {
-            const active = mode === value;
-            return (
-              <button
-                key={value}
-                role="menuitemradio"
-                aria-checked={active}
-                onClick={() => {
-                  setMode(value);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors",
-                  active
-                    ? "bg-[var(--color-glass-bg)] text-[var(--color-text-primary)]"
-                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-glass-bg)] hover:text-[var(--color-text-primary)]"
-                )}
-              >
-                <Icon
-                  className={cn("h-4 w-4 shrink-0", active && "text-[var(--color-gold)]")}
-                  aria-hidden="true"
-                />
-                <span className="flex-1">
-                  {label}
-                  <span className="block text-[0.6875rem] text-[var(--color-text-muted)]">
-                    {value === "auto" ? `${hint} · now ${resolved}` : hint}
+
+          <div className="flex flex-col gap-0.5">
+            {OPTIONS.map(({ value, label, hint, Icon }) => {
+              const active = mode === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={active}
+                  onClick={() => {
+                    setMode(value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex min-h-11 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors",
+                    active
+                      ? "bg-[var(--color-glass-bg)]"
+                      : "hover:bg-[var(--color-glass-bg)]"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                      active
+                        ? "border-[var(--color-gold)]/40 text-[var(--color-gold)]"
+                        : "border-[var(--color-glass-border)] text-[var(--color-text-secondary)]"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
-                </span>
-                {active && (
-                  <Check className="h-4 w-4 shrink-0 text-[var(--color-gold)]" aria-hidden="true" />
-                )}
-              </button>
-            );
-          })}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-[var(--color-text-primary)]">
+                      {label}
+                    </span>
+                    <span className="block truncate text-[0.6875rem] text-[var(--color-text-muted)]">
+                      {hint}
+                    </span>
+                  </span>
+                  {active && (
+                    <Check
+                      className="h-4 w-4 shrink-0 text-[var(--color-gold)]"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-1.5 border-t border-[var(--color-glass-border)] px-2.5 pt-2 pb-1 text-[0.6875rem] text-[var(--color-text-muted)]">
+            Currently showing the{" "}
+            <span className="font-medium text-[var(--color-text-secondary)]">{resolved}</span>{" "}
+            theme.
+          </p>
         </div>
       )}
     </div>

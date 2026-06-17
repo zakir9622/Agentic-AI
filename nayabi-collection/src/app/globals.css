@@ -166,23 +166,26 @@ body {
   --color-amethyst-light:#9B6EBB;
   --color-amethyst-dark: #5E3A7A;
 
-  --color-bg-base:       #F1ECF8;
-  --color-bg-mid:        #E8E1F4;
-  --color-bg-surface:    #FBFAFE;
+  /* Deeper, more saturated pearl/lilac so frosted glass has colour to refract */
+  --color-bg-base:       #E6DAF4;
+  --color-bg-mid:        #DACCEF;
+  --color-bg-surface:    #F5F0FC;
   --color-bg-elevated:   #FFFFFF;
 
   --color-text-primary:  #1F1633;
   --color-text-secondary:#4B4063;
-  --color-text-muted:    #7C7392;
+  --color-text-muted:    #6F6488;
   --color-text-inverse:  #1A0E00;
 
-  --color-glass-bg:      rgba(255,255,255,0.58);
-  --color-glass-bg-mid:  rgba(255,255,255,0.68);
-  --color-glass-bg-high: rgba(255,255,255,0.82);
-  --color-glass-border:  rgba(126,108,166,0.22);
-  --color-glass-border-bright: rgba(126,108,166,0.34);
-  --color-glass-hover:   rgba(255,255,255,0.80);
-  --color-glass-active:  rgba(255,255,255,0.92);
+  /* More transparent so the colourful backdrop shows through the panes; the
+     frosted look comes from backdrop blur+saturate, not opaque white fills. */
+  --color-glass-bg:      rgba(255,255,255,0.44);
+  --color-glass-bg-mid:  rgba(255,255,255,0.56);
+  --color-glass-bg-high: rgba(255,255,255,0.72);
+  --color-glass-border:  rgba(120,90,168,0.30);
+  --color-glass-border-bright: rgba(120,90,168,0.46);
+  --color-glass-hover:   rgba(255,255,255,0.66);
+  --color-glass-active:  rgba(255,255,255,0.84);
   --color-glass-shine:   rgba(255,255,255,0.95);
 
   --color-error:         #C0392B;
@@ -190,57 +193,54 @@ body {
   --color-warning:       #9A6B00;
   --color-info:          #2B6CB0;
 
+  /* Deeper, lilac-tinted shadows so panels lift off the colourful backdrop */
   --shadow-glass:
-    0 1px 2px rgba(60,40,100,0.05),
-    0 6px 18px rgba(60,40,100,0.09),
-    0 18px 48px rgba(60,40,100,0.06),
+    0 1px 2px rgba(70,40,120,0.06),
+    0 8px 24px rgba(70,40,120,0.13),
+    0 24px 60px rgba(70,40,120,0.10),
     inset 0 1.5px 0 rgba(255,255,255,0.95),
-    inset 0 -1px 0 rgba(120,100,160,0.05);
-  --shadow-glass-elevated:
-    0 2px 6px rgba(60,40,100,0.07),
-    0 12px 32px rgba(60,40,100,0.11),
-    0 32px 64px rgba(60,40,100,0.07),
-    inset 0 1.5px 0 rgba(255,255,255,1),
     inset 0 -1px 0 rgba(120,100,160,0.06);
-  --shadow-glow-sm-gold: 0 4px 20px rgba(166,124,46,0.18);
+  --shadow-glass-elevated:
+    0 2px 6px rgba(70,40,120,0.08),
+    0 16px 40px rgba(70,40,120,0.16),
+    0 40px 80px rgba(70,40,120,0.11),
+    inset 0 1.5px 0 rgba(255,255,255,1),
+    inset 0 -1px 0 rgba(120,100,160,0.07);
+  --shadow-glow-sm-gold: 0 4px 20px rgba(166,124,46,0.22);
 
   --_hl: rgba(255,255,255,0.65);
 }
 
-:root[data-theme="light"] body {
-  background:
-    radial-gradient(ellipse 150% 80% at 50% 0%,   #E9E0F7 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 100% 100%, #F4E4EF 0%, transparent 50%),
-    radial-gradient(ellipse 80% 50% at 0% 100%,    #E4ECF8 0%, transparent 50%),
-    #F1ECF8;
-}
-
+/* Richer, more saturated wash so the page reads as coloured glass, not flat
+   white. Shared by <body> and any .mesh-bg section. */
+:root[data-theme="light"] body,
 :root[data-theme="light"] .mesh-bg {
   background:
-    radial-gradient(ellipse 150% 80% at 50% 0%,   #E9E0F7 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 100% 100%, #F4E4EF 0%, transparent 50%),
-    radial-gradient(ellipse 80% 50% at 0% 100%,    #E4ECF8 0%, transparent 50%),
-    #F1ECF8;
+    radial-gradient(ellipse 150% 80% at 50% 0%,    #DAC6F1 0%, transparent 60%),
+    radial-gradient(ellipse 110% 65% at 100% 100%, #F2D2E6 0%, transparent 55%),
+    radial-gradient(ellipse 95% 55% at 0% 100%,    #C9DCF5 0%, transparent 55%),
+    #E6DAF4;
 }
 
 :root[data-theme="light"] .mesh-bg::before {
   background:
-    radial-gradient(ellipse 90% 70% at 15% 25%, rgba(170,110,255,0.16) 0%, transparent 55%),
-    radial-gradient(ellipse 70% 50% at 85% 12%, rgba(212,180,120,0.16) 0%, transparent 50%),
-    radial-gradient(ellipse 80% 60% at 62% 88%, rgba(150,120,240,0.15) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 40% 55%, rgba(255,150,200,0.10) 0%, transparent 45%),
-    radial-gradient(ellipse 45% 35% at 78% 45%, rgba(212,180,120,0.10) 0%, transparent 60%);
+    radial-gradient(ellipse 90% 70% at 15% 25%, rgba(150,90,240,0.30) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 12%, rgba(214,160,86,0.26) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 62% 88%, rgba(120,86,228,0.28) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 40% 55%, rgba(255,118,182,0.18) 0%, transparent 45%),
+    radial-gradient(ellipse 45% 35% at 78% 45%, rgba(214,160,86,0.18) 0%, transparent 60%);
 }
 
-/* Gentler frosted blur on light — heavy brightness would wash the panels out. */
+/* Frosted blur on light — a touch more saturation so the coloured backdrop
+   refracts through the panels (the "liquid glass" read), without washing out. */
 @supports (backdrop-filter: blur(1px)) {
   :root[data-theme="light"] .glass {
-    backdrop-filter: var(--blur-lg) saturate(150%) brightness(102%);
-    -webkit-backdrop-filter: var(--blur-lg) saturate(150%) brightness(102%);
+    backdrop-filter: var(--blur-lg) saturate(180%) brightness(104%);
+    -webkit-backdrop-filter: var(--blur-lg) saturate(180%) brightness(104%);
   }
   :root[data-theme="light"] .glass-elevated {
-    backdrop-filter: var(--blur-xl) saturate(160%) brightness(103%);
-    -webkit-backdrop-filter: var(--blur-xl) saturate(160%) brightness(103%);
+    backdrop-filter: var(--blur-xl) saturate(190%) brightness(105%);
+    -webkit-backdrop-filter: var(--blur-xl) saturate(190%) brightness(105%);
   }
 }
 

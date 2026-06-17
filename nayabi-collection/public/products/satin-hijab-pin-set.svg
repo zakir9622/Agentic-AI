@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 600" width="480" height="600" role="img"><defs>
+    <linearGradient id="bg-satin-hijab-pin-set" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#f4ece0"/>
+      <stop offset="100%" stop-color="#d9c39a"/>
+    </linearGradient>
+    <radialGradient id="glow-satin-hijab-pin-set" cx="28%" cy="20%" r="75%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cloth-satin-hijab-pin-set" x1="0.15" y1="0.1" x2="0.85" y2="0.95">
+      <stop offset="0%" stop-color="#e8cf95"/>
+      <stop offset="55%" stop-color="#c9a96e"/>
+      <stop offset="100%" stop-color="#977a45"/>
+    </linearGradient>
+    <radialGradient id="floor-satin-hijab-pin-set" cx="50%" cy="100%" r="60%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs><rect width="480" height="600" fill="url(#bg-satin-hijab-pin-set)"/>
+    <rect width="480" height="600" fill="url(#glow-satin-hijab-pin-set)"/>
+    <ellipse cx="240" cy="560" rx="190" ry="46" fill="url(#floor-satin-hijab-pin-set)"/><g><g transform="translate(240,360) rotate(-26)">
+      <rect x="-3" y="-200" width="6" height="220" rx="3" fill="url(#cloth-satin-hijab-pin-set)"/>
+      <circle cx="0" cy="-204" r="20" fill="#e8cf95"/>
+      <circle cx="-6" cy="-210" r="6" fill="#ffffff" fill-opacity="0.7"/>
+      <circle cx="0" cy="-204" r="20" fill="none" stroke="#977a45" stroke-opacity="0.4" stroke-width="2"/>
+    </g><g transform="translate(240,360) rotate(-13)">
+      <rect x="-3" y="-200" width="6" height="220" rx="3" fill="url(#cloth-satin-hijab-pin-set)"/>
+      <circle cx="0" cy="-204" r="20" fill="#e8cf95"/>
+      <circle cx="-6" cy="-210" r="6" fill="#ffffff" fill-opacity="0.7"/>
+      <circle cx="0" cy="-204" r="20" fill="none" stroke="#977a45" stroke-opacity="0.4" stroke-width="2"/>
+    </g><g transform="translate(240,360) rotate(0)">
+      <rect x="-3" y="-200" width="6" height="220" rx="3" fill="url(#cloth-satin-hijab-pin-set)"/>
+      <circle cx="0" cy="-204" r="20" fill="#e8cf95"/>
+      <circle cx="-6" cy="-210" r="6" fill="#ffffff" fill-opacity="0.7"/>
+      <circle cx="0" cy="-204" r="20" fill="none" stroke="#977a45" stroke-opacity="0.4" stroke-width="2"/>
+    </g><g transform="translate(240,360) rotate(13)">
+      <rect x="-3" y="-200" width="6" height="220" rx="3" fill="url(#cloth-satin-hijab-pin-set)"/>
+      <circle cx="0" cy="-204" r="20" fill="#e8cf95"/>
+      <circle cx="-6" cy="-210" r="6" fill="#ffffff" fill-opacity="0.7"/>
+      <circle cx="0" cy="-204" r="20" fill="none" stroke="#977a45" stroke-opacity="0.4" stroke-width="2"/>
+    </g><g transform="translate(240,360) rotate(26)">
+      <rect x="-3" y="-200" width="6" height="220" rx="3" fill="url(#cloth-satin-hijab-pin-set)"/>
+      <circle cx="0" cy="-204" r="20" fill="#e8cf95"/>
+      <circle cx="-6" cy="-210" r="6" fill="#ffffff" fill-opacity="0.7"/>
+      <circle cx="0" cy="-204" r="20" fill="none" stroke="#977a45" stroke-opacity="0.4" stroke-width="2"/>
+    </g><ellipse cx="240" cy="372" rx="40" ry="16" fill="#977a45" fill-opacity="0.5"/></g><path transform="translate(388,150) scale(1.1)" d="M0,-10 L2.4,-2.4 10,0 2.4,2.4 0,10 -2.4,2.4 -10,0 -2.4,-2.4 Z" fill="#7c5c1e" fill-opacity="0.9"/><rect x="14" y="14" width="452" height="572" rx="22" fill="none" stroke="#7c5c1e" stroke-opacity="0.45" stroke-width="1.5"/><g>
+    <rect x="28" y="28" rx="13" width="103.60000000000001" height="26" fill="#000000" fill-opacity="0.18"/>
+    <text x="42" y="45" font-family="Georgia, serif" font-size="13" letter-spacing="2" fill="#7c5c1e">ACCESSORY</text>
+  </g></svg>

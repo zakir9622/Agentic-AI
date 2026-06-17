@@ -43,7 +43,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
 
   return (
     <div
-      className="glass glass-elevated glass-lg relative aspect-[4/5] w-full overflow-hidden !p-0 sm:aspect-[5/6]"
+      className="group glass glass-elevated glass-lg relative aspect-[4/5] w-full overflow-hidden !p-0 sm:aspect-[5/6]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -58,7 +58,9 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
           aria-hidden={i !== index}
           tabIndex={i === index ? 0 : -1}
           className={[
-            "absolute inset-0 block transition-opacity duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]",
+            // h-full/w-full make the height definite so the fill image (height:100%)
+            // resolves — an `absolute inset-0` parent alone leaves it indefinite.
+            "absolute inset-0 block h-full w-full transition-opacity duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]",
             i === index ? "opacity-100" : "pointer-events-none opacity-0",
           ].join(" ")}
         >
@@ -87,12 +89,13 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
 
       {count > 1 && (
         <>
-          {/* Arrows */}
+          {/* Arrows — symmetric, glass, vertically centred; auto-hide until
+              hover/keyboard focus so they don't clutter the imagery. */}
           <button
             type="button"
             onClick={() => go(index - 1)}
             aria-label="Previous product"
-            className="glass glass-sm absolute top-1/2 left-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-text-primary)] transition-colors hover:text-[var(--color-gold)]"
+            className="glass glass-sm absolute top-1/2 left-3 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-text-primary)] opacity-0 transition-all duration-200 hover:text-[var(--color-gold)] focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -100,13 +103,13 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             type="button"
             onClick={() => go(index + 1)}
             aria-label="Next product"
-            className="glass glass-sm absolute top-1/2 right-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-text-primary)] transition-colors hover:text-[var(--color-gold)]"
+            className="glass glass-sm absolute top-1/2 right-3 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-text-primary)] opacity-0 transition-all duration-200 hover:text-[var(--color-gold)] focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          {/* Dots */}
-          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+          {/* Dots — always visible (they convey position) */}
+          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-[rgba(4,2,12,0.28)] px-2.5 py-1.5 backdrop-blur-sm">
             {slides.map((s, i) => (
               <button
                 key={s.slug + "-dot-" + i}
@@ -118,7 +121,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                   "h-1.5 rounded-full transition-all duration-300",
                   i === index
                     ? "w-5 bg-[var(--color-gold)]"
-                    : "w-1.5 bg-[var(--color-glass-border-bright)] hover:bg-[var(--color-gold)]",
+                    : "w-1.5 bg-white/60 hover:bg-[var(--color-gold)]",
                 ].join(" ")}
               />
             ))}

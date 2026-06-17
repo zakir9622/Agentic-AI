@@ -112,6 +112,29 @@ test.describe("Shopping – product detail page", () => {
   });
 });
 
+test.describe("Home – hero slider", () => {
+  test("renders a product image with non-zero height", async ({ page }) => {
+    await page.goto("/");
+    const slider = page.locator('[aria-roledescription="carousel"]');
+    await expect(slider).toBeVisible({ timeout: 10_000 });
+    const img = slider.locator("img").first();
+    await expect(img).toBeVisible();
+    // Guards the fill-height regression that left the slider blank
+    const box = await img.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThan(50);
+  });
+
+  test("theme settings menu opens with Auto/Light/Dark", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Settings" }).click();
+    const menu = page.getByRole("menu", { name: "Appearance" });
+    await expect(menu).toBeVisible({ timeout: 10_000 });
+    await expect(menu.getByRole("menuitemradio", { name: /Auto/ })).toBeVisible();
+    await expect(menu.getByRole("menuitemradio", { name: /Light/ })).toBeVisible();
+    await expect(menu.getByRole("menuitemradio", { name: /Dark/ })).toBeVisible();
+  });
+});
+
 test.describe("Shopping – checkout reachability", () => {
   test("/checkout responds with a usable page (not a crash)", async ({ page }) => {
     const res = await page.goto("/checkout");

@@ -141,15 +141,13 @@ function sampleOrder(): TrackedOrder {
         name: "Silk Georgette Hijab",
         variant: "Rose Gold · One size",
         quantity: 2,
-        image:
-          "https://images.unsplash.com/photo-1611507929918-08e9e7da2dd4?auto=format&fit=crop&w=400&q=85",
+        image: "/products/silk-georgette-hijab.svg",
       },
       {
         name: "Premium Prayer Scarf Set",
         variant: "Ivory",
         quantity: 1,
-        image:
-          "https://images.unsplash.com/photo-1591100063942-9b1e89d2d0b1?auto=format&fit=crop&w=400&q=85",
+        image: "/products/premium-prayer-scarf-set.svg",
       },
     ],
     shipment: {

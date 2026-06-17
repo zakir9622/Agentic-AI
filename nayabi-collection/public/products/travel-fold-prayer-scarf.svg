@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 600" width="480" height="600" role="img"><defs>
+    <linearGradient id="bg-travel-fold-prayer-scarf" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#e7edf3"/>
+      <stop offset="100%" stop-color="#aac0d6"/>
+    </linearGradient>
+    <radialGradient id="glow-travel-fold-prayer-scarf" cx="28%" cy="20%" r="75%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cloth-travel-fold-prayer-scarf" x1="0.15" y1="0.1" x2="0.85" y2="0.95">
+      <stop offset="0%" stop-color="#bcd2e6"/>
+      <stop offset="55%" stop-color="#7fa3c2"/>
+      <stop offset="100%" stop-color="#4d7196"/>
+    </linearGradient>
+    <radialGradient id="floor-travel-fold-prayer-scarf" cx="50%" cy="100%" r="60%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs><rect width="480" height="600" fill="url(#bg-travel-fold-prayer-scarf)"/>
+    <rect width="480" height="600" fill="url(#glow-travel-fold-prayer-scarf)"/>
+    <ellipse cx="240" cy="560" rx="190" ry="46" fill="url(#floor-travel-fold-prayer-scarf)"/>
+    <g transform="translate(0,18)">
+      <rect x="118" y="300" width="244" height="150" rx="20" fill="#4d7196" fill-opacity="0.55"/>
+      <rect x="104" y="250" width="272" height="150" rx="22" fill="url(#cloth-travel-fold-prayer-scarf)"/>
+      <rect x="120" y="206" width="240" height="120" rx="22" fill="url(#cloth-travel-fold-prayer-scarf)"/>
+      <path d="M120,250 L360,210" stroke="#bcd2e6" stroke-opacity="0.45" stroke-width="3"/>
+      <path d="M104,330 L376,300" stroke="#4d7196" stroke-opacity="0.30" stroke-width="3"/>
+      <path d="M150,206 C150,150 200,120 240,120 C280,120 330,150 330,206" fill="none" stroke="#7fa3c2" stroke-width="26" stroke-linecap="round"/>
+      <path d="M150,206 C150,150 200,120 240,120 C280,120 330,150 330,206" fill="none" stroke="#bcd2e6" stroke-opacity="0.4" stroke-width="6" stroke-linecap="round"/>
+    </g><path transform="translate(388,150) scale(1.1)" d="M0,-10 L2.4,-2.4 10,0 2.4,2.4 0,10 -2.4,2.4 -10,0 -2.4,-2.4 Z" fill="#b9874f" fill-opacity="0.9"/><rect x="14" y="14" width="452" height="572" rx="22" fill="none" stroke="#b9874f" stroke-opacity="0.45" stroke-width="1.5"/><g>
+    <rect x="28" y="28" rx="13" width="120.4" height="26" fill="#000000" fill-opacity="0.18"/>
+    <text x="42" y="45" font-family="Georgia, serif" font-size="13" letter-spacing="2" fill="#b9874f">NAMAZ SCARF</text>
+  </g></svg>
