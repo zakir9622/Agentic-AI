@@ -94,7 +94,12 @@ export function Navbar() {
               aria-label="Nayabi Collection — home"
               className="rounded-lg transition-opacity hover:opacity-90"
             >
-              <Logo markClassName="h-8 w-8" wordmarkClassName="text-lg sm:text-2xl" />
+              {/* Wordmark hides below `xs` (380px) so the header never overflows
+                  on the smallest phones — the monogram alone stays as the brand. */}
+              <Logo
+                markClassName="h-8 w-8"
+                wordmarkClassName="hidden xs:inline text-lg sm:text-2xl"
+              />
             </Link>
           </div>
 
