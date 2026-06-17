@@ -270,9 +270,70 @@ export async function getQuickView(slug: string): Promise<QuickViewProduct | nul
   };
 }
 
-export async function getProductBySlug(slug: string) {
+export interface ProductDetail {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  comparePrice: number | null;
+  images: string[];
+  description: string;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  categoryId: string;
+  category: { name: string; slug: string };
+  variants: QuickViewVariant[];
+  faqs: { id: string; question: string; answer: string }[];
+  reviews: {
+    id: string;
+    rating: number;
+    isVerifiedPurchase: boolean;
+    title: string | null;
+    body: string | null;
+    user: { name: string | null };
+  }[];
+}
+
+/** Build a rich demo product-detail payload so the PDP is fully browsable
+ *  before the database is seeded (mirrors the demo fallbacks elsewhere). */
+function demoProductDetail(slug: string): ProductDetail | null {
+  const demo = DEMO_PRODUCTS.find((d) => d.slug === slug);
+  if (!demo) return null;
+  const categoryId =
+    DEMO_CATEGORIES.find((c) => c.slug === demo.category.slug)?.id ?? "cat-demo";
+  const inStock = !demo.isOutOfStock;
+  return {
+    id: demo.id,
+    name: demo.name,
+    slug: demo.slug,
+    price: demo.price,
+    comparePrice: demo.comparePrice,
+    images: demo.images,
+    description:
+      "A beautifully crafted piece from the Nayabi Collection — premium, breathable fabric with a soft drape and a finish made to last. Thoughtfully sized for everyday wear, prayer, and special occasions.",
+    seoTitle: demo.name,
+    seoDescription: null,
+    categoryId,
+    category: demo.category,
+    variants: [
+      { id: `${demo.id}-rose`, color: "Rose", size: null, fabric: null, stock: inStock ? 12 : 0, price: demo.price, images: demo.images },
+      { id: `${demo.id}-black`, color: "Black", size: null, fabric: null, stock: inStock ? 8 : 0, price: demo.price, images: demo.images },
+      { id: `${demo.id}-ivory`, color: "Ivory", size: null, fabric: null, stock: inStock ? 5 : 0, price: demo.price, images: demo.images },
+    ],
+    faqs: [
+      { id: `${demo.id}-faq1`, question: "How do I care for this fabric?", answer: "Hand wash cold or gentle machine cycle in a laundry bag. Do not bleach. Line dry in shade and warm iron on the reverse if needed." },
+      { id: `${demo.id}-faq2`, question: "What is the return policy?", answer: "Unworn items with tags can be returned within 7 days of delivery for a refund or exchange." },
+    ],
+    reviews: [
+      { id: `${demo.id}-rev1`, rating: 5, isVerifiedPurchase: true, title: "Beautiful quality", body: "Soft, lightweight and the colour is exactly as shown. Will order again In Sha Allah.", user: { name: "Fatima R." } },
+      { id: `${demo.id}-rev2`, rating: 4, isVerifiedPurchase: true, title: "Lovely drape", body: "Drapes really well and stays in place. Delivery was quick.", user: { name: "Amina K." } },
+    ],
+  };
+}
+
+export async function getProductBySlug(slug: string): Promise<ProductDetail | null> {
   try {
-    return await db.product.findUnique({
+    const p = await db.product.findUnique({
       where: { slug, isActive: true },
       include: {
         category: { select: { name: true, slug: true } },
@@ -286,9 +347,43 @@ export async function getProductBySlug(slug: string) {
         },
       },
     });
+    if (p) {
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        comparePrice: p.comparePrice,
+        images: p.images,
+        description: p.description,
+        seoTitle: p.seoTitle,
+        seoDescription: p.seoDescription,
+        categoryId: p.categoryId,
+        category: { name: p.category.name, slug: p.category.slug },
+        variants: p.variants.map((v) => ({
+          id: v.id,
+          color: v.color,
+          size: v.size,
+          fabric: v.fabric,
+          stock: v.stock,
+          price: v.price,
+          images: v.images,
+        })),
+        faqs: p.faqs.map((f) => ({ id: f.id, question: f.question, answer: f.answer })),
+        reviews: p.reviews.map((r) => ({
+          id: r.id,
+          rating: r.rating,
+          isVerifiedPurchase: r.isVerifiedPurchase,
+          title: r.title,
+          body: r.body,
+          user: { name: r.user.name },
+        })),
+      };
+    }
   } catch {
-    return null;
+    /* fall through to demo data */
   }
+  return demoProductDetail(slug);
 }
 
 export async function getRelatedProducts(
@@ -302,10 +397,15 @@ export async function getRelatedProducts(
       include: cardInclude,
       take: limit,
     });
-    return rows.map(toCard);
+    if (rows.length > 0) return rows.map(toCard);
   } catch {
-    return [];
+    /* fall through to demo data */
   }
+  // Demo fallback: same-category demo products (matched via the demo category id)
+  const slug = DEMO_CATEGORIES.find((c) => c.id === categoryId)?.slug;
+  return DEMO_PRODUCTS.filter(
+    (p) => p.id !== productId && (!slug || p.category.slug === slug)
+  ).slice(0, limit);
 }
 
 /* Filter facets for the shop sidebar */

@@ -89,6 +89,29 @@ test.describe("Shopping – quick view", () => {
   });
 });
 
+test.describe("Shopping – product detail page", () => {
+  test("a product slug renders the PDP (not a 404)", async ({ page }) => {
+    await page.goto("/products/silk-georgette-hijab");
+    await page.waitForLoadState("networkidle");
+    // Product title heading present
+    await expect(
+      page.getByRole("heading", { level: 1, name: /Silk Georgette Hijab/i })
+    ).toBeVisible({ timeout: 10_000 });
+    // Add-to-bag action present, and not the 404 copy
+    await expect(page.getByRole("button", { name: /Add to Bag/i })).toBeVisible();
+    await expect(page.getByText(/Page not found/i)).toHaveCount(0);
+  });
+
+  test("full journey: shop → product card → PDP", async ({ page }) => {
+    await page.goto("/shop");
+    await page.waitForLoadState("networkidle");
+    // Click the first product card link (cards link to /products/[slug])
+    await page.locator('a[href^="/products/"]').first().click();
+    await expect(page).toHaveURL(/\/products\//);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 10_000 });
+  });
+});
+
 test.describe("Shopping – checkout reachability", () => {
   test("/checkout responds with a usable page (not a crash)", async ({ page }) => {
     const res = await page.goto("/checkout");
