@@ -29,6 +29,16 @@ export const useRecentlyViewed = create<RecentlyViewedState>()(
         })),
       clear: () => set({ items: [] }),
     }),
-    { name: "nayabi-recently-viewed" }
+    {
+      name: "nayabi-recently-viewed",
+      version: 1,
+      migrate: (persistedState, fromVersion) => {
+        // v0 → v1: clear stale items that may have old Unsplash/road photo URLs
+        if (fromVersion === 0) {
+          return { items: [] };
+        }
+        return persistedState as RecentlyViewedState;
+      },
+    }
   )
 );

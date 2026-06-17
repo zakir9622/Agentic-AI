@@ -141,7 +141,7 @@ export default async function HomePage() {
 
           {/* Product image slider */}
           {heroSlides.length > 0 && (
-            <div className="mx-auto w-full max-w-md lg:max-w-none">
+            <div className="hero-slider-frame mx-auto w-full max-w-md lg:max-w-none">
               <HeroSlider slides={heroSlides} />
             </div>
           )}
@@ -422,7 +422,9 @@ export default async function HomePage() {
       </section>
 
       {/* Recently-viewed strip — renders only after the user has browsed products */}
-      <RecentlyViewed />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-20 lg:px-10">
+        <RecentlyViewed />
+      </div>
     </div>
   );
 }
