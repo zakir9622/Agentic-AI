@@ -272,6 +272,7 @@ Detailed guides live in [`docs/`](./docs):
 - [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — go-live steps, hosting choice, required services, and indicative monthly costs.
 - [`docs/RISK-REPORT.md`](./docs/RISK-REPORT.md) — technology & dependency risk assessment.
 - [`docs/PROJECT-STRUCTURE.md`](./docs/PROJECT-STRUCTURE.md) — full codebase map and conventions.
+- [`docs/FRAMEWORK-ASSESSMENT.md`](./docs/FRAMEWORK-ASSESSMENT.md) — measured dev-vs-prod performance, why the slowness is dev-only, and a risk/plan for any framework change.
 
 ---
 
