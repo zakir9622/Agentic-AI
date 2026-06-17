@@ -84,7 +84,7 @@ export default async function HomePage() {
         <div className="relative mx-auto max-w-7xl px-4 py-28 sm:px-6 sm:py-36 lg:px-10 lg:py-44">
           <div className="max-w-2xl">
             <p className="section-label">Modest wear · India</p>
-            <h1 className="mt-6 text-5xl leading-[1.05] tracking-tight text-[var(--color-text-primary)] sm:text-6xl lg:text-7xl">
+            <h1 className="mt-6 text-4xl leading-[1.07] tracking-tight text-[var(--color-text-primary)] xs:text-5xl sm:text-6xl lg:text-7xl">
               Grace in{" "}
               <em className="gradient-text font-display italic not-italic">every</em>{" "}
               drape
@@ -115,8 +115,9 @@ export default async function HomePage() {
             </div>
 
             {/* Trust metrics — a floating glass strip with faint gold rules so
-                each value reads as a discrete, scannable unit */}
-            <dl className="glass glass-md mt-14 inline-flex flex-wrap gap-y-6 !px-6 !py-5">
+                each value reads as a discrete, scannable unit. Stacks on the
+                smallest phones, becomes a divided row from `sm`. */}
+            <dl className="glass glass-md mt-12 flex flex-col gap-4 !px-5 !py-4 sm:mt-14 sm:inline-flex sm:flex-row sm:flex-wrap sm:gap-y-6 sm:!px-6 sm:!py-5">
               {[
                 { value: "10,000+", label: "Happy customers" },
                 { value: "4.9★", label: "Average rating" },
@@ -235,7 +236,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <ul
-            className="stagger-enter grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+            className="stagger-enter grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
             role="list"
           >
             {newArrivals.map((p) => (
@@ -361,7 +362,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <ul
-            className="stagger-enter grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+            className="stagger-enter grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
             role="list"
           >
             {bestsellers.map((p) => (

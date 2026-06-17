@@ -45,7 +45,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         </div>
 
         <div className="p-4">
-          <p className="text-[0.6875rem] tracking-wide text-[var(--color-text-muted)] uppercase">
+          <p className="text-xs tracking-wide text-[var(--color-text-muted)] uppercase">
             {product.category.name}
           </p>
           <h3 className="mt-1.5 truncate font-[var(--font-body)] text-sm font-medium text-[var(--color-text-primary)]">
