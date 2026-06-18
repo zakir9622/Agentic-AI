@@ -73,7 +73,12 @@ export function Navbar() {
         )}
       >
         {/* ── Row 1: [menu] · centered logo · actions ─────────────────────────── */}
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center">
+        {/* !z-10 beats the z:2 that .glass > * applies to all direct nav children.
+            Row 2 (nav links) also gets z:2. Because Row 2 is later in DOM it would
+            normally paint over the settings popup (which lives inside Row 1's
+            stacking context). !z-10 flips the order: Row 1 now paints last → popup
+            is always on top of the nav links bar. */}
+        <div className="relative mx-auto flex h-16 max-w-7xl items-center !z-10">
           {/* Left: mobile menu trigger (desktop has links on row 2) */}
           <div className="flex items-center">
             <button
