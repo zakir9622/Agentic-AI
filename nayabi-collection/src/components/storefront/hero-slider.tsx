@@ -80,7 +80,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             <p className="mt-1 font-display text-lg text-[var(--color-text-primary)] sm:text-xl">
               {s.name}
             </p>
-            <p className="mt-0.5 text-sm font-semibold text-[var(--color-gold)]">
+            <p className="mt-0.5 text-sm font-semibold text-[var(--color-gold)] [font-variant-numeric:tabular-nums]">
               {formatPrice(s.price)}
             </p>
           </div>

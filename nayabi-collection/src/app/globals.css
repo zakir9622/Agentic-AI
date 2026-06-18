@@ -26,7 +26,7 @@
   /* Text */
   --color-text-primary:  #F4F2FF;
   --color-text-secondary:#C4BFE0;
-  --color-text-muted:    #8880A8;
+  --color-text-muted:    #9E98C0; /* bumped from #8880A8 — passes 4.5:1 on glass-elevated surfaces */
   --color-text-inverse:  #05000F;
 
   /* Glass tiers — nearly transparent so saturate() picks up background colour */
@@ -94,6 +94,14 @@
   --duration-standard: 320ms;
   --duration-slow:     480ms;
   --duration-page:     600ms;
+
+  /* Z-index scale — explicit names prevent arbitrary magic numbers in components */
+  --z-raised:   10;
+  --z-sticky:   20;
+  --z-header:   40;
+  --z-drawer:   100;
+  --z-popover:  200;
+  --z-toast:    300;
 }
 
 /* ─── GLOBAL BASE ────────────────────────────────────────────────────────────── */
@@ -667,9 +675,10 @@ h4, h5, h6 { font-family: var(--font-body); line-height: 1.3; }
   .nav-action {
     align-items: center;
     justify-content: center;
-    height: 2.5rem;
-    width: 2.5rem;
+    height: 2.75rem;  /* 44px — meets touch-target minimum */
+    width: 2.75rem;
     border-radius: 999px;
+    touch-action: manipulation; /* eliminates 300ms tap delay on mobile */
     color: var(--color-text-muted);
     transition:
       color      var(--duration-fast) var(--ease-standard),

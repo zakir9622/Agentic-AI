@@ -89,9 +89,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           ) : (
             <>
               <ul className="stagger-enter grid grid-cols-2 gap-4 sm:gap-6 xl:grid-cols-3" role="list">
-                {result.items.map((p) => (
+                {result.items.map((p, idx) => (
                   <li key={p.id}>
-                    <ProductCard product={p} />
+                    <ProductCard product={p} priority={idx < 4} />
                   </li>
                 ))}
               </ul>
