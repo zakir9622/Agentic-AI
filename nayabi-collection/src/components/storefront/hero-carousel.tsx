@@ -156,7 +156,7 @@ export function HeroCarousel() {
             { value: "100%",    label: "Authentic fabrics" },
           ].map((s) => (
             <div key={s.label}>
-              <p className="text-2xl font-semibold text-[var(--color-gold)]">{s.value}</p>
+              <p className="text-2xl font-semibold text-[var(--color-gold)] [font-variant-numeric:tabular-nums]">{s.value}</p>
               <p className="mt-1 text-xs text-[var(--color-text-muted)] uppercase tracking-widest">{s.label}</p>
             </div>
           ))}

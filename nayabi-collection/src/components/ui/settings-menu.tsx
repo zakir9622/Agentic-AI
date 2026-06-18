@@ -59,7 +59,7 @@ export function SettingsMenu() {
       role="menu"
       aria-label="Appearance"
       style={popupStyle}
-      className="settings-popup glass glass-elevated z-[9999] w-64 origin-top-right !rounded-2xl p-2"
+      className="settings-popup glass glass-elevated z-[var(--z-popover)] w-64 origin-top-right !rounded-2xl p-2"
     >
       <p className="px-2.5 pt-1 pb-2 text-[0.625rem] font-semibold tracking-[0.18em] text-[var(--color-text-muted)] uppercase">
         Appearance

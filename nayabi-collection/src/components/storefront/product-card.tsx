@@ -6,7 +6,7 @@ import { QuickViewTrigger } from "@/components/storefront/quick-view";
 import { formatPrice } from "@/lib/utils";
 import type { ProductCard as ProductCardData } from "@/types";
 
-export function ProductCard({ product }: { product: ProductCardData }) {
+export function ProductCard({ product, priority }: { product: ProductCardData; priority?: boolean }) {
   const discount =
     product.comparePrice && product.comparePrice > product.price
       ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
@@ -26,6 +26,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
               alt={product.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              priority={priority}
               className="object-cover transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:scale-105"
             />
           ) : (
@@ -55,11 +56,11 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           {/* Price + rating, separated from the title with a hairline for clarity */}
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--color-glass-border)] pt-3">
             <p className="flex items-baseline gap-1.5">
-              <span className="text-base font-semibold text-[var(--color-gold)]">
+              <span className="text-base font-semibold text-[var(--color-gold)] [font-variant-numeric:tabular-nums]">
                 {formatPrice(product.price)}
               </span>
               {discount > 0 && (
-                <s className="text-xs text-[var(--color-text-muted)]">
+                <s className="text-xs text-[var(--color-text-muted)] [font-variant-numeric:tabular-nums]">
                   {formatPrice(product.comparePrice!)}
                 </s>
               )}
