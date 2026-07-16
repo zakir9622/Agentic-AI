@@ -34,6 +34,7 @@ import com.zakir.vestra.shared.settings.AppSettings
 fun SettingsScreen(
     appSettings: AppSettings,
     engineRouter: EngineRouter,
+    onOpenPacks: () -> Unit,
     onBack: () -> Unit,
 ) {
     val selectedTier by appSettings.engineTier.collectAsState()
@@ -93,6 +94,31 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text = "ON-DEVICE MODELS",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .selectable(selected = false, onClick = onOpenPacks)
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Model packs", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Download, update, or remove the engines that run on this phone.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

@@ -1,0 +1,156 @@
+package com.zakir.vestra.shared.engine.lite
+
+import android.graphics.Bitmap
+import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.domain.GenerationState
+import com.zakir.vestra.shared.domain.TryOnError
+import com.zakir.vestra.shared.domain.TryOnRequest
+import com.zakir.vestra.shared.domain.TryOnResult
+import com.zakir.vestra.shared.engine.Availability
+import com.zakir.vestra.shared.engine.TryOnEngine
+import com.zakir.vestra.shared.engine.UnavailableReason
+import com.zakir.vestra.shared.packs.ModelPackManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+
+/**
+ * Fully-offline try-on for every supported device:
+ *
+ *  1. garment_seg.onnx  → soft garment mask → alpha cutout
+ *  2. human_parse.onnx  → per-pixel body-region classes on the person image
+ *  3. contour warp      → garment meshed onto the target region's row profile
+ *  4. harmonize + blend → luminance match, feathered composite
+ *  5. finalize          → AI watermark + EXIF tag, JPEG to app storage
+ *
+ * Model files come from the "lite-v1" pack; nothing here touches the network.
+ */
+class LiteEngine(
+    private val packs: ModelPackManager,
+    private val io: LiteEngineIo,
+) : TryOnEngine {
+
+    override val tier: EngineTier = EngineTier.LITE
+
+    override fun isAvailable(): Availability =
+        if (packs.isInstalled(PACK_ID)) {
+            Availability.Ready
+        } else {
+            Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
+        }
+
+    override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
+        val packDir = packs.installedDir(PACK_ID)
+        if (packDir == null) {
+            emit(GenerationState.Failed(TryOnError.ModelPackMissing))
+            return@flow
+        }
+        val startedAt = System.currentTimeMillis()
+
+        emit(GenerationState.Preparing("Reading images"))
+        val garment = io.loadBitmap(request.garment.uri)
+        val person = io.loadPerson(request.person)
+        if (garment == null || person == null) {
+            emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
+            return@flow
+        }
+
+        try {
+            emit(GenerationState.Running(0.15f, "Extracting garment"))
+            val garmentCut = OrtModel("$packDir/garment_seg.onnx").use { model ->
+                extractGarment(model, garment)
+            }
+
+            emit(GenerationState.Running(0.45f, "Reading the body"))
+            val region = OrtModel("$packDir/human_parse.onnx").use { model ->
+                targetRegion(model, person, request.garment.category ?: GarmentCategory.DRESS)
+            }
+            if (region == null) {
+                emit(
+                    GenerationState.Failed(
+                        TryOnError.Internal("No person detected — try a clearer full-body photo"),
+                    ),
+                )
+                return@flow
+            }
+
+            emit(GenerationState.Running(0.7f, "Fitting the garment"))
+            val fitted = ContourWarp.fit(garmentCut, region)
+
+            emit(GenerationState.Running(0.85f, "Harmonizing light"))
+            val composed = Harmonizer.compose(person, fitted, region)
+
+            emit(GenerationState.Running(0.95f, "Developing"))
+            val outPath = io.saveResult(Watermark.apply(composed))
+
+            emit(
+                GenerationState.Complete(
+                    TryOnResult(
+                        imagePath = outPath,
+                        executedTier = EngineTier.LITE,
+                        durationMillis = System.currentTimeMillis() - startedAt,
+                        watermarked = true,
+                    ),
+                ),
+            )
+        } catch (error: Exception) {
+            emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
+        }
+    }.flowOn(Dispatchers.Default)
+
+    private fun extractGarment(model: OrtModel, garment: Bitmap): Bitmap {
+        val (h, w) = model.inputSize(defaultSize = 320)
+        val (output, shape) = model.run(ImageOps.toNormalizedChw(garment, h, w), h, w)
+        val maskH = shape.getOrNull(2)?.toInt() ?: h
+        val maskW = shape.getOrNull(3)?.toInt() ?: w
+        // First output plane of u2net-family models is the fused saliency map.
+        val plane = output.copyOfRange(0, maskH * maskW)
+        val mask = ImageOps.normalizeAndResizeMask(plane, maskW, maskH, garment.width, garment.height)
+        val cut = ImageOps.applyAlphaMask(garment, mask)
+        return cropToAlpha(cut)
+    }
+
+    private fun targetRegion(model: OrtModel, person: Bitmap, category: GarmentCategory): TargetRegion? {
+        val (h, w) = model.inputSize(defaultSize = 473)
+        val (logits, shape) = model.run(ImageOps.toNormalizedChw(person, h, w), h, w)
+        val classes = shape.getOrNull(1)?.toInt() ?: return null
+        val outH = shape.getOrNull(2)?.toInt() ?: h
+        val outW = shape.getOrNull(3)?.toInt() ?: w
+        val classMap = ImageOps.argmax(logits, classes, outH * outW)
+
+        val wanted = category.atrClassIds()
+        val regionMask = BooleanArray(outH * outW) { classMap[it] in wanted }
+        // Fall back to "anything person-shaped" when the exact classes are absent
+        // (e.g. parsing a bare-torso photo for a dress).
+        val effective = if (regionMask.none { it }) {
+            BooleanArray(outH * outW) { classMap[it] != 0 }
+        } else {
+            regionMask
+        }
+        val box = ImageOps.boundingBox(effective, outW, outH) ?: return null
+        return TargetRegion.fromMask(effective, outW, outH, box, person)
+    }
+
+    private fun cropToAlpha(bitmap: Bitmap): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        val opaque = BooleanArray(width * height) { (pixels[it] ushr 24) > 40 }
+        val box = ImageOps.boundingBox(opaque, width, height) ?: return bitmap
+        return Bitmap.createBitmap(bitmap, box[0], box[1], box[2] - box[0] + 1, box[3] - box[1] + 1)
+    }
+
+    companion object {
+        const val PACK_ID = "lite-v1"
+    }
+}
+
+private fun GarmentCategory.atrClassIds(): Set<Int> = when (this) {
+    // ATR labels: 4=upper-clothes 5=skirt 6=pants 7=dress
+    GarmentCategory.UPPER_BODY -> setOf(4, 7)
+    GarmentCategory.LOWER_BODY -> setOf(5, 6)
+    GarmentCategory.DRESS -> setOf(4, 5, 6, 7)
+}

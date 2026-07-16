@@ -14,7 +14,8 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.ktor.client.core)
+            // api: ModelPackManager's public constructor takes an HttpClient.
+            api(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             // api: AppSettings takes a Settings in its public constructor.
@@ -23,11 +24,14 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.work.runtime)
             implementation(libs.androidx.core.ktx)
+            implementation(libs.onnxruntime.android)
+            implementation(libs.androidx.exifinterface)
         }
     }
 }

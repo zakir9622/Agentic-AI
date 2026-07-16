@@ -28,7 +28,7 @@ from onnxruntime.quantization import QuantType, quantize_dynamic
 # workhorse (same weights rembg ships). ATR-trained human parser gives the
 # clothing/skin region masks the warp stage needs.
 SEG_REPO, SEG_FILE = "tomjackson2023/rembg", "u2netp.onnx"
-PARSE_REPO, PARSE_FILE = "julienkay/Human-Parsing", "human-parsing-atr.onnx"
+PARSE_REPO, PARSE_FILE = "Longcat2957/humanparsing-onnx", "parsing_atr.onnx"
 
 
 def fetch(repo: str, filename: str, dest: Path) -> Path:

@@ -37,6 +37,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.zakir.vestra.shared.domain.PackStatus
+import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import java.io.File
 
@@ -44,11 +46,17 @@ import java.io.File
 @Composable
 fun StudioScreen(
     wardrobe: WardrobeRepository,
+    packManager: ModelPackManager,
     onNewLook: () -> Unit,
     onOpenWardrobe: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenPacks: () -> Unit,
 ) {
     val recent by wardrobe.entries.collectAsState()
+    val packStates by packManager.states.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(Unit) { packManager.refresh() }
+    val litePackNeedsInstall =
+        packStates["lite-v1"]?.status.let { it == PackStatus.NOT_INSTALLED || it == null }
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -107,6 +115,30 @@ fun StudioScreen(
 
             Button(onClick = onNewLook, modifier = Modifier.fillMaxWidth()) {
                 Text("Start a new look")
+            }
+
+            if (litePackNeedsInstall) {
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenPacks),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Set up offline generation",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            "Download the Lite engine (~69 MB) once — after that, every look is created on this phone, no internet needed.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(28.dp))

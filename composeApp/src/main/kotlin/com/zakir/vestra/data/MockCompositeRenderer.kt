@@ -2,8 +2,8 @@ package com.zakir.vestra.data
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.ImageDecoder
 import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
@@ -62,19 +62,17 @@ class MockCompositeRenderer(private val context: Context) {
     }
 
     private fun loadUri(uri: Uri): Bitmap {
-        val source = ImageDecoder.createSource(context.contentResolver, uri)
-        return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            decoder.isMutableRequired = false
-            // Cap decode size — mock output doesn't need more than ~1600px.
-            val maxDim = maxOf(info.size.width, info.size.height)
-            if (maxDim > 1600) {
-                val ratio = 1600f / maxDim
-                decoder.setTargetSize(
-                    (info.size.width * ratio).toInt(),
-                    (info.size.height * ratio).toInt(),
-                )
-            }
+        val resolver = context.contentResolver
+        // Bounds pass first so large photos are subsampled — output doesn't
+        // need more than ~1600px on the long edge.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) sample *= 2
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        val bitmap = resolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, options)
         }
+        return requireNotNull(bitmap) { "Couldn't decode image: $uri" }
     }
 }
