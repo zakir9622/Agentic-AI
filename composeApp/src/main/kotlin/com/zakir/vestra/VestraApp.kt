@@ -11,8 +11,10 @@ import com.zakir.vestra.data.MockCompositeRenderer
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.engine.MockTryOnEngine
+import com.zakir.vestra.shared.engine.lite.HumanParsing
 import com.zakir.vestra.shared.engine.lite.LiteEngine
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
+import com.zakir.vestra.shared.engine.pro.DiffusionEngine
 import com.zakir.vestra.shared.packs.AndroidDeviceProbe
 import com.zakir.vestra.shared.packs.AndroidPackFileSystem
 import com.zakir.vestra.shared.packs.ModelPackManager
@@ -56,11 +58,17 @@ class VestraApp : Application() {
         PackDownloadWorker.dependencies = { packManager }
 
         val liteIo = LiteEngineIo(this, ::renderAiModel)
+        val parsing = HumanParsing(packManager)
         val mockRenderer = MockCompositeRenderer(this)
         engineRouter = EngineRouter(
             listOf(
-                LiteEngine(packManager, liteIo),
-                MockTryOnEngine(EngineTier.PRO, producePlaceholder = mockRenderer::render),
+                LiteEngine(packManager, liteIo, parsing),
+                DiffusionEngine(
+                    packs = packManager,
+                    device = AndroidDeviceProbe(this),
+                    io = liteIo,
+                    masker = { person, category -> parsing.analyze(person, category)?.mask },
+                ),
                 MockTryOnEngine(EngineTier.CLOUD, producePlaceholder = mockRenderer::render),
             ),
         )
