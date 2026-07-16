@@ -19,8 +19,9 @@ The engine is user-selectable in Settings; **Auto** picks the best installed on-
 - `composeApp/` — Android app (Jetpack Compose, cinematic dark UI)
 - `shared/` — Kotlin Multiplatform core: domain models, engine routing, pack manager, cloud client. Pure Kotlin `commonMain`, ready for the iOS port (`docs/IOS_PORT.md`)
 - `ml/` — Python export tooling that produces the downloadable model packs (not shipped in the app)
-- `supabase/` — Edge Functions for the cloud tier and AI-content reports
-- `docs/` — architecture, Play Store compliance, privacy policy
+- `supabase/` — Edge Functions for the cloud tier and AI-content reports ([deploy runbook](supabase/README.md))
+- `docs/` — [architecture](docs/ARCHITECTURE.md) · [Play compliance checklist](docs/PLAY_COMPLIANCE.md) · [privacy policy](docs/PRIVACY_POLICY.md) · [iOS port plan](docs/IOS_PORT.md)
+- `ml/MODEL_LICENSES.md` — license status of every shipped model (read before publishing packs)
 
 ## Building
 

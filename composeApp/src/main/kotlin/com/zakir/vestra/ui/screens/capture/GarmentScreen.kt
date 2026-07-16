@@ -56,19 +56,26 @@ fun GarmentScreen(
     onNext: () -> Unit,
 ) {
     val context = LocalContext.current
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val garment by viewModel.garment.collectAsState()
     var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
 
     val pickLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
-        uri?.let { viewModel.selectGarment(it.toString()) }
+        uri?.let {
+            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            viewModel.selectGarment(it.toString())
+        }
     }
 
     val captureLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture(),
     ) { saved ->
-        if (saved) pendingCaptureUri?.let { viewModel.selectGarment(it.toString()) }
+        if (saved) {
+            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            pendingCaptureUri?.let { viewModel.selectGarment(it.toString()) }
+        }
         pendingCaptureUri = null
     }
 

@@ -19,6 +19,7 @@ class MainActivity : ComponentActivity() {
                     engineRouter = app.engineRouter,
                     wardrobe = app.wardrobe,
                     packManager = app.packManager,
+                    reportQueue = app.reportQueue,
                 )
             }
         }

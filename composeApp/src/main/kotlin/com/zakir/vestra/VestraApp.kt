@@ -7,10 +7,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import com.russhwolf.settings.SharedPreferencesSettings
 import com.zakir.vestra.data.AiModelCatalog
-import com.zakir.vestra.data.MockCompositeRenderer
-import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.cloud.AndroidCloudIo
+import com.zakir.vestra.shared.cloud.CloudConfig
+import com.zakir.vestra.shared.cloud.CloudEngine
 import com.zakir.vestra.shared.engine.EngineRouter
-import com.zakir.vestra.shared.engine.MockTryOnEngine
 import com.zakir.vestra.shared.engine.lite.HumanParsing
 import com.zakir.vestra.shared.engine.lite.LiteEngine
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
@@ -19,10 +19,15 @@ import com.zakir.vestra.shared.packs.AndroidDeviceProbe
 import com.zakir.vestra.shared.packs.AndroidPackFileSystem
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
-import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.platformHttpClient
+import com.zakir.vestra.shared.safety.ReportQueue
+import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.AndroidTextFileStore
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Manual composition root — the dependency graph is small enough that a DI
@@ -42,6 +47,11 @@ class VestraApp : Application() {
     lateinit var packManager: ModelPackManager
         private set
 
+    lateinit var reportQueue: ReportQueue
+        private set
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         appSettings = AppSettings(
@@ -57,9 +67,14 @@ class VestraApp : Application() {
         )
         PackDownloadWorker.dependencies = { packManager }
 
+        val http = platformHttpClient()
+        val cloudConfig = CloudConfig(
+            tryOnUrl = "$SUPABASE_URL/functions/v1/tryon",
+            reportUrl = "$SUPABASE_URL/functions/v1/report",
+            anonKey = SUPABASE_ANON_KEY,
+        )
         val liteIo = LiteEngineIo(this, ::renderAiModel)
         val parsing = HumanParsing(packManager)
-        val mockRenderer = MockCompositeRenderer(this)
         engineRouter = EngineRouter(
             listOf(
                 LiteEngine(packManager, liteIo, parsing),
@@ -69,9 +84,18 @@ class VestraApp : Application() {
                     io = liteIo,
                     masker = { person, category -> parsing.analyze(person, category)?.mask },
                 ),
-                MockTryOnEngine(EngineTier.CLOUD, producePlaceholder = mockRenderer::render),
+                CloudEngine(http, AndroidCloudIo(this, liteIo), cloudConfig),
             ),
         )
+
+        reportQueue = ReportQueue(
+            store = AndroidTextFileStore(filesDir),
+            http = http,
+            config = cloudConfig,
+            appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "dev",
+        )
+        // Deliver any reports queued while offline.
+        appScope.launch { reportQueue.flush() }
     }
 
     /** Rasterizes a base-model drawable for the Lite pipeline. */
@@ -91,5 +115,11 @@ class VestraApp : Application() {
         // any static server hosting exports/ from ml/manifest_gen.py.
         const val PACKS_MANIFEST_URL =
             "https://huggingface.co/datasets/REPLACE_ME/vestra-packs/resolve/main/manifest.json"
+
+        // Supabase project backing the Cloud tier and report intake. The anon
+        // key is publishable by design (RLS/service-role boundaries hold the
+        // secrets); Replicate's token lives only in Edge Function secrets.
+        const val SUPABASE_URL = "https://REPLACE_ME.supabase.co"
+        const val SUPABASE_ANON_KEY = ""
     }
 }
