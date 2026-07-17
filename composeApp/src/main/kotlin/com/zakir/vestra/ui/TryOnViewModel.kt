@@ -37,6 +37,9 @@ class TryOnViewModel(
     private val _shots = MutableStateFlow<List<PersonSource>>(emptyList())
     val shots: StateFlow<List<PersonSource>> = _shots
 
+    private val _backdrop = MutableStateFlow(com.zakir.vestra.shared.domain.Backdrop.STUDIO_WHITE)
+    val backdrop: StateFlow<com.zakir.vestra.shared.domain.Backdrop> = _backdrop
+
     private val _shoot = MutableStateFlow<ShootState?>(null)
     val shoot: StateFlow<ShootState?> = _shoot
 
@@ -64,6 +67,10 @@ class TryOnViewModel(
         _shots.value = sources
     }
 
+    fun setBackdrop(backdrop: com.zakir.vestra.shared.domain.Backdrop) {
+        _backdrop.value = backdrop
+    }
+
     @OptIn(ExperimentalUuidApi::class)
     fun startShoot() {
         val garment = _garment.value ?: return
@@ -77,7 +84,12 @@ class TryOnViewModel(
             for ((index, person) in shots.withIndex()) {
                 var failed = false
                 engineRouter.generate(
-                    TryOnRequest(garment = garment, person = person, tier = appSettings.engineTier.value),
+                    TryOnRequest(
+                        garment = garment,
+                        person = person,
+                        tier = appSettings.engineTier.value,
+                        backdrop = _backdrop.value,
+                    ),
                 ).collect { state ->
                     if (state is GenerationState.Complete) {
                         completed += state.result

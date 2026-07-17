@@ -49,8 +49,24 @@ data class TryOnRequest(
     val garment: GarmentImage,
     val person: PersonSource,
     val tier: EngineTier,
+    val backdrop: Backdrop = Backdrop.STUDIO_WHITE,
     val seed: Long? = null,
 )
+
+/**
+ * The scene behind the model in a shot. [ORIGINAL] keeps the person photo's own
+ * background; every other value segments the subject and re-composites it over a
+ * generated backdrop — the "studio" part of the photoshoot.
+ */
+@Serializable
+enum class Backdrop(val displayName: String) {
+    ORIGINAL("As shot"),
+    STUDIO_WHITE("Studio white"),
+    EDITORIAL("Editorial"),
+    GOLDEN_HOUR("Golden hour"),
+    RUNWAY("Runway"),
+    MONOCHROME("Monochrome"),
+}
 
 /**
  * A photoshoot: the same garment rendered as a set of shots (one per person

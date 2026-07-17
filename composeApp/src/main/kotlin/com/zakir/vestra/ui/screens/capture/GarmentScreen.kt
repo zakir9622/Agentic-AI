@@ -163,6 +163,28 @@ fun GarmentScreen(
                 }
             }
 
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                "BACKDROP",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(6.dp))
+            val selectedBackdrop by viewModel.backdrop.collectAsState()
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(com.zakir.vestra.shared.domain.Backdrop.entries.size) { index ->
+                    val backdrop = com.zakir.vestra.shared.domain.Backdrop.entries[index]
+                    androidx.compose.material3.FilterChip(
+                        selected = selectedBackdrop == backdrop,
+                        onClick = { viewModel.setBackdrop(backdrop) },
+                        label = { Text(backdrop.displayName) },
+                    )
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

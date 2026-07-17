@@ -130,14 +130,24 @@ class DiffusionEngine(
                 }
                 log("denoise_${steps}steps", t0)
 
-                emit(GenerationState.Running(0.9f, "Developing"))
+                emit(GenerationState.Running(0.88f, "Developing"))
                 t0 = System.currentTimeMillis()
                 val decoded = codec.decodePersonHalf(sample)
                 // Keep untouched person pixels outside the inpaint mask.
                 val composed = codec.pasteBack(person, decoded, maskCanvas)
                 log("vae_decode", t0)
 
-                val outPath = io.saveResult(Watermark.apply(composed))
+                // Studio backdrop via the Lite pack's segmenter (installed as a Pro dependency).
+                val liteDir = packs.installedDir(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
+                val staged = if (request.backdrop == com.zakir.vestra.shared.domain.Backdrop.ORIGINAL || liteDir == null) {
+                    composed
+                } else {
+                    emit(GenerationState.Running(0.93f, "Setting the backdrop"))
+                    com.zakir.vestra.shared.engine.lite.BackdropCompositor("$liteDir/garment_seg.onnx")
+                        .apply(composed, request.backdrop)
+                }
+
+                val outPath = io.saveResult(Watermark.apply(staged))
                 emit(
                     GenerationState.Complete(
                         TryOnResult(

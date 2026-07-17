@@ -73,7 +73,7 @@ fun StudioScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "VESTRA",
+                    text = "THE LOOKBOOK",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )

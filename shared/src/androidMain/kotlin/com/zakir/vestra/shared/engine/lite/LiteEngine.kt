@@ -82,11 +82,19 @@ class LiteEngine(
             emit(GenerationState.Running(0.7f, "Fitting the garment"))
             val fitted = ContourWarp.fit(garmentCut, region)
 
-            emit(GenerationState.Running(0.85f, "Harmonizing light"))
+            emit(GenerationState.Running(0.82f, "Harmonizing light"))
             val composed = Harmonizer.compose(person, fitted, region)
 
+            // Studio backdrop: segment the model out and re-stage on the chosen scene.
+            val staged = if (request.backdrop == com.zakir.vestra.shared.domain.Backdrop.ORIGINAL) {
+                composed
+            } else {
+                emit(GenerationState.Running(0.9f, "Setting the backdrop"))
+                BackdropCompositor("$packDir/garment_seg.onnx").apply(composed, request.backdrop)
+            }
+
             emit(GenerationState.Running(0.95f, "Developing"))
-            val outPath = io.saveResult(Watermark.apply(composed))
+            val outPath = io.saveResult(Watermark.apply(staged))
 
             emit(
                 GenerationState.Complete(

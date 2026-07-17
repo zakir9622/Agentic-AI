@@ -183,7 +183,7 @@ fun ResultScreen(
                             results.forEach { shot -> saveToGallery(context, File(shot.imagePath), quiet = true) }
                             Toast.makeText(
                                 context,
-                                if (results.size > 1) "${results.size} shots saved to Pictures/Vestra" else "Saved to Pictures/Vestra",
+                                if (results.size > 1) "${results.size} shots saved to Pictures/The Lookbook" else "Saved to Pictures/The Lookbook",
                                 Toast.LENGTH_SHORT,
                             ).show()
                         },
@@ -322,7 +322,7 @@ private fun saveToGallery(context: Context, file: File, quiet: Boolean = false) 
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Vestra")
+        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/The Lookbook")
     }
     val resolver = context.contentResolver
     val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
@@ -331,7 +331,7 @@ private fun saveToGallery(context: Context, file: File, quiet: Boolean = false) 
         return
     }
     resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
-    if (!quiet) Toast.makeText(context, "Saved to Pictures/Vestra", Toast.LENGTH_SHORT).show()
+    if (!quiet) Toast.makeText(context, "Saved to Pictures/The Lookbook", Toast.LENGTH_SHORT).show()
 }
 
 private fun share(context: Context, file: File) {
