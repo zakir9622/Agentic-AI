@@ -11,7 +11,21 @@ out of the production packs repo.
 | `garment_seg.onnx` (U²-Net-P) | U²-Net release (mirrored: `tomjackson2023/rembg`) | Apache-2.0 | ✅ Yes |
 | `human_parse.onnx` (SCHP, ATR) | Self-Correction Human Parsing (mirrored: `Longcat2957/humanparsing-onnx`) | MIT (code); weights trained on ATR dataset (academic) | ⚠️ Verify: ATR dataset terms are academic-oriented. Before Play release, either confirm with the dataset authors or retrain on a licensed dataset. |
 
-## Pro pack (pro-v1) — BLOCKED for public distribution
+## Pro pack (pro-v1) — SD1.5 + ControlNet-Depth + IP-Adapter — SHIPPABLE ✅
+
+The P7 stack uses commercially-usable weights, resolving the earlier NC block:
+
+| Model | License | Commercial |
+|---|---|---|
+| Realistic Vision V5.1 (`SG161222/...`) | CreativeML OpenRAIL-M | ✅ (with OpenRAIL use-restriction pass-through) |
+| ControlNet v1.1 Depth (`lllyasviel/...`) | OpenRAIL | ✅ |
+| IP-Adapter Plus + image encoder (`h94/IP-Adapter`) | Apache-2.0 | ✅ |
+| Depth-Anything-V2-Small | Apache-2.0 | ✅ |
+
+Ship the OpenRAIL use-restrictions notice in the app's licenses screen. Build
+via `download_pro_models.sh` → `convert_pro_pack.py` → `export_depth.py`.
+
+## (Legacy) CatVTON-style Pro pack — BLOCKED for public distribution
 
 | Candidate | License | Status |
 |---|---|---|

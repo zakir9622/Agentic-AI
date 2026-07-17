@@ -33,13 +33,13 @@ interface MultiConditioningPipeline {
      */
     suspend fun run(
         inputs: ConditioningInputs,
-        onStage: (ConditioningStage, Float) -> Unit,
+        onStage: suspend (ConditioningStage, Float) -> Unit,
     ): String
 }
 
 enum class ConditioningStage(val label: String) {
-    STRUCTURE("Mapping layout skeleton…"),
-    TEXTURE("Extracting garment details…"),
+    STRUCTURE("Mapping structural skeleton…"),
+    TEXTURE("Extracting garment texture…"),
     SYNTHESIS("Synthesizing localized NPU diffusion…"),
 }
 

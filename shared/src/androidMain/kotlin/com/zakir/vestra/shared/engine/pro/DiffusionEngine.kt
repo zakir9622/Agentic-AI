@@ -76,6 +76,46 @@ class DiffusionEngine(
             val config = Json { ignoreUnknownKeys = true }
                 .decodeFromString<ProPackConfig>(File("$packDir/config.json").readText())
 
+            // When the pack ships the full SD1.5 + ControlNet-Depth + IP-Adapter
+            // component set, run the staged photoreal pipeline; otherwise fall
+            // back to the legacy CatVTON concat path below.
+            val sdPipeline = SdControlNetPipeline(
+                packDir = packDir,
+                config = config,
+                loadPerson = { person },
+                loadGarment = { garment },
+                maskProvider = { p -> masker.maskFor(p, request.garment.category ?: GarmentCategory.DRESS) },
+                saveResult = { bmp -> io.saveResult(Watermark.apply(bmp)) },
+            )
+            if (sdPipeline.requirements().isFullyConditioned) {
+                try {
+                    val outPath = sdPipeline.run(
+                        inputs = com.zakir.vestra.shared.engine.pipeline.ConditioningInputs(
+                            personImagePath = "",
+                            garmentImagePath = request.garment.uri,
+                            maskPath = null,
+                            prompt = com.zakir.vestra.shared.engine.pipeline.PromptSpec(),
+                            seed = request.seed,
+                        ),
+                        onStage = { stage, fraction -> emit(GenerationState.Running(fraction, stage.label)) },
+                    )
+                    emit(
+                        GenerationState.Complete(
+                            TryOnResult(
+                                imagePath = outPath,
+                                executedTier = EngineTier.PRO,
+                                durationMillis = System.currentTimeMillis() - startedAt,
+                                watermarked = true,
+                            ),
+                        ),
+                    )
+                    return@flow
+                } catch (error: Exception) {
+                    Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
+                    // fall through to the legacy path
+                }
+            }
+
             // ── Stage 1: STRUCTURE — establish structural bounds (ControlNet
             // condition). The parse-derived body mask locks the garment to the
             // model's pose; a dedicated pose/depth model slots in here when the
@@ -203,10 +243,21 @@ data class ProPackConfig(
     val inferenceSteps: Int = com.zakir.vestra.shared.engine.pipeline.PromptStyle.STEPS,
     val guidanceScale: Float = com.zakir.vestra.shared.engine.pipeline.PromptStyle.CFG_SCALE,
     val vaeScale: Float = 0.18215f,
-    /** "width" or "height" — axis the garment latent is concatenated along. */
+    /** "width" or "height" — axis the garment latent is concatenated along (legacy CatVTON path). */
     val concatAxis: String = "width",
-    /** Optional ControlNet/pose model file in the pack (structure conditioning). */
-    val structureModel: String? = null,
-    /** Optional IP-Adapter image-encoder file in the pack (texture conditioning). */
+    /** Square working resolution for the SD1.5+ControlNet+IP-Adapter path. */
+    val resolution: Int = 512,
+    // ── SD1.5 + ControlNet-Depth + IP-Adapter component files (P7) ──
+    /** ControlNet-Depth ONNX producing down/mid residuals. */
+    val controlNet: String? = null,
+    /** Monocular depth estimator ONNX for Stage A structural conditioning. */
+    val depthModel: String? = null,
+    /** IP-Adapter projection/resampler ONNX (image embeds → cross-attn tokens). */
     val ipAdapter: String? = null,
+    /** CLIP image encoder ONNX feeding the IP-Adapter. */
+    val imageEncoder: String? = null,
+    /** SD text encoder ONNX (prompt → embeddings) for PromptStyle guidance. */
+    val textEncoder: String? = null,
+    /** Optional legacy alias retained for older packs. */
+    val structureModel: String? = null,
 )

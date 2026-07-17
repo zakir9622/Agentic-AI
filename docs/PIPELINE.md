@@ -38,6 +38,37 @@ realism and suppress the CGI/cartoon failure modes while the IP-Adapter carries
 garment identity. A pack tuned for a low-CFG model (e.g. CatVTON prefers ~2.5)
 may override `guidanceScale`/`inferenceSteps` in its `config.json`.
 
+## The on-device Pro stack (P7) — exact models
+
+The Pro pack runs a full SD1.5 + ControlNet-Depth + IP-Adapter chain from
+commercially-usable weights:
+
+| Role | Model | Repo | License |
+|---|---|---|---|
+| Base photorealism | `Realistic_Vision_V5.1_fp16-no-ema.safetensors` | `SG161222/Realistic_Vision_V5.1_noVAE` | CreativeML OpenRAIL-M (commercial OK) |
+| Structure (ControlNet **Depth**) | `control_v11f1p_sd15_depth_fp16.safetensors` | `lllyasviel/ControlNet-v1-1_fp16_safetensors` | OpenRAIL |
+| Texture (IP-Adapter Plus) | `ip-adapter-plus_sd15.safetensors` + image encoder | `h94/IP-Adapter` | Apache-2.0 |
+| Depth estimator (Stage A) | Depth-Anything-V2-Small | `depth-anything/Depth-Anything-V2-Small` | Apache-2.0 |
+
+**Depth, not OpenPose**, is deliberate: a depth map preserves the *volume* of
+flowing modest-wear (abaya, kaftan, dupatta drape) as well as fitted western
+wear, which a pose skeleton flattens.
+
+### Mandatory conversion + build
+`.safetensors` are PyTorch — they do **not** run on Android. The bridge:
+
+```bash
+cd ml
+bash download_pro_models.sh              # fetch source weights (~6 GB)
+python convert_pro_pack.py --src pro_src --out exports/pro-v1   # → ONNX FP16
+python export_depth.py --out exports/pro-v1/depth.onnx
+python manifest_gen.py exports/          # publish to the packs repo
+```
+
+Conversion needs a **GPU box with ≥16 GB RAM** (not CI/agent). The Android
+runtime (`SdControlNetPipeline`) consumes the produced ONNX at **512×512, 20–25
+steps, CFG 7.0**, gated to flagship NPUs by `DeviceProbe`. Pack is ~3.5–4 GB.
+
 ## What still requires model weights (honesty note)
 
 The Kotlin pipeline **orchestrates tensors; it does not contain the models.**

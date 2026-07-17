@@ -57,6 +57,7 @@ fun StudioScreen(
     androidx.compose.runtime.LaunchedEffect(Unit) { packManager.refresh() }
     val litePackNeedsInstall =
         packStates["lite-v1"]?.status.let { it == PackStatus.NOT_INSTALLED || it == null }
+    val proReady = packStates["pro-v1"]?.status == PackStatus.INSTALLED
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -72,11 +73,15 @@ fun StudioScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "THE LOOKBOOK",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "THE LOOKBOOK",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    com.zakir.vestra.ui.components.ProTierPill(active = proReady)
+                }
                 Row {
                     IconButton(onClick = onOpenWardrobe) {
                         Icon(
