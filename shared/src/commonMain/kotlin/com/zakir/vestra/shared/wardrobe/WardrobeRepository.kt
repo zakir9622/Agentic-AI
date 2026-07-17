@@ -19,6 +19,8 @@ data class WardrobeEntry(
     val garmentUri: String,
     val personLabel: String,
     val tier: EngineTier,
+    /** Groups the shots of one photoshoot; null on entries from before shot sets. */
+    val shootId: String? = null,
 )
 
 /** Minimal platform file seam; androidMain/iosMain provide actuals. */

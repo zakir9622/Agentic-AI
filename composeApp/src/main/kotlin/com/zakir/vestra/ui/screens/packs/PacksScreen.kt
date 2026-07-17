@@ -118,6 +118,17 @@ private fun PackCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (state.pack.devOnly) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "DEV ONLY — " + (
+                        state.pack.licenseNotice
+                            ?: "Research-licensed weights. Private testing only; never ships in the published app."
+                        ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             when (state.status) {
                 PackStatus.NOT_INSTALLED -> Button(onClick = onInstall) { Text("Download") }

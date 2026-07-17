@@ -6,8 +6,13 @@ import android.content.Intent
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -70,8 +75,10 @@ fun ResultScreen(
 ) {
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val state by viewModel.generation.collectAsState()
-    val result = (state as? GenerationState.Complete)?.result
+    val shoot by viewModel.shoot.collectAsState()
+    val results = shoot?.completed.orEmpty()
+    var selectedShot by remember { mutableStateOf(0) }
+    val result = results.getOrNull(selectedShot.coerceIn(0, (results.size - 1).coerceAtLeast(0)))
     var showReportDialog by remember { mutableStateOf(false) }
 
     if (showReportDialog) {
@@ -97,17 +104,19 @@ fun ResultScreen(
         ) {
             Spacer(Modifier.height(16.dp))
             Text(
-                "The reveal",
+                "The editorial",
                 style = MaterialTheme.typography.headlineMedium,
             )
             Text(
-                "AI-generated image",
+                if (results.size > 1) "${results.size} SHOTS · AI-GENERATED" else "AI-GENERATED IMAGE",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.height(16.dp))
 
-            val personSource by viewModel.person.collectAsState()
+            val shotSources by viewModel.shots.collectAsState()
+            val userPhoto = shotSources.filterIsInstance<com.zakir.vestra.shared.domain.PersonSource.UserPhoto>()
+                .firstOrNull()
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -116,23 +125,52 @@ fun ResultScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 when {
-                    result != null && personSource is com.zakir.vestra.shared.domain.PersonSource.UserPhoto ->
+                    result != null && userPhoto != null && results.size == 1 ->
                         BeforeAfter(
-                            beforeModel = (personSource as com.zakir.vestra.shared.domain.PersonSource.UserPhoto).uri,
+                            beforeModel = userPhoto.uri,
                             afterModel = File(result.imagePath),
                         )
                     result != null ->
                         AsyncImage(
                             model = File(result.imagePath),
-                            contentDescription = "Generated try-on result",
+                            contentDescription = "Photoshoot shot ${selectedShot + 1}",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit,
                         )
                     else ->
                         Text(
-                            "No result to show — start a new look.",
+                            "No shots to show — start a new shoot.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                }
+            }
+
+            if (results.size > 1) {
+                Spacer(Modifier.height(12.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    itemsIndexed(results) { index, shot ->
+                        AsyncImage(
+                            model = File(shot.imagePath),
+                            contentDescription = "Shot ${index + 1}",
+                            modifier = Modifier
+                                .height(72.dp)
+                                .aspectRatio(0.75f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(
+                                    width = if (index == selectedShot) 2.dp else 1.dp,
+                                    color = if (index == selectedShot) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                )
+                                .clickable { selectedShot = index },
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
                 }
             }
 
@@ -141,12 +179,19 @@ fun ResultScreen(
             if (result != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(
-                        onClick = { saveToGallery(context, File(result.imagePath)) },
+                        onClick = {
+                            results.forEach { shot -> saveToGallery(context, File(shot.imagePath), quiet = true) }
+                            Toast.makeText(
+                                context,
+                                if (results.size > 1) "${results.size} shots saved to Pictures/Vestra" else "Saved to Pictures/Vestra",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Outlined.SaveAlt, contentDescription = null)
                         Spacer(Modifier.padding(4.dp))
-                        Text("Save")
+                        Text(if (results.size > 1) "Save all" else "Save")
                     }
                     OutlinedButton(
                         onClick = { share(context, File(result.imagePath)) },
@@ -169,7 +214,7 @@ fun ResultScreen(
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
             ) {
-                Text("New look")
+                Text("New shoot")
             }
         }
     }
@@ -273,7 +318,7 @@ private fun ReportDialog(
     )
 }
 
-private fun saveToGallery(context: Context, file: File) {
+private fun saveToGallery(context: Context, file: File, quiet: Boolean = false) {
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
@@ -282,11 +327,11 @@ private fun saveToGallery(context: Context, file: File) {
     val resolver = context.contentResolver
     val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
     if (uri == null) {
-        Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
+        if (!quiet) Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
         return
     }
     resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
-    Toast.makeText(context, "Saved to Pictures/Vestra", Toast.LENGTH_SHORT).show()
+    if (!quiet) Toast.makeText(context, "Saved to Pictures/Vestra", Toast.LENGTH_SHORT).show()
 }
 
 private fun share(context: Context, file: File) {

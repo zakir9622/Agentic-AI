@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,11 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AddAPhoto
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,9 +51,9 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.TryOnViewModel
 
 /**
- * "Who wears it": the AI-model gallery, or the user's own photo.
- * First use of a personal photo requires the likeness-consent acknowledgement
- * (Play AI-content policy; see docs/PLAY_COMPLIANCE.md).
+ * The casting: pick which studio models (poses) wear the garment — each pick
+ * is one shot in the photoshoot — or use your own photo (single shot, gated
+ * by the likeness-consent acknowledgement; see docs/PLAY_COMPLIANCE.md).
  */
 @Composable
 fun PersonSourceScreen(
@@ -61,14 +62,14 @@ fun PersonSourceScreen(
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
-    val person by viewModel.person.collectAsState()
+    val shots by viewModel.shots.collectAsState()
     val consentAccepted by appSettings.likenessConsentAccepted.collectAsState()
     var showConsentDialog by remember { mutableStateOf(false) }
 
     val pickLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
-        uri?.let { viewModel.selectPerson(PersonSource.UserPhoto(it.toString())) }
+        uri?.let { viewModel.setShots(listOf(PersonSource.UserPhoto(it.toString()))) }
     }
 
     fun requestUserPhoto() {
@@ -120,11 +121,31 @@ fun PersonSourceScreen(
                 }
                 Column {
                     Text("Act II", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("Who wears it", style = MaterialTheme.typography.headlineMedium)
+                    Text("The casting", style = MaterialTheme.typography.headlineMedium)
                 }
             }
+            Text(
+                "Every model you cast becomes one shot in the photoshoot.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = {
+                    viewModel.setShots(
+                        AiModelCatalog.models.map { PersonSource.AiModel(it.id) },
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
+                Spacer(Modifier.padding(4.dp))
+                Text("Full shoot — cast every model")
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
@@ -133,10 +154,8 @@ fun PersonSourceScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    PersonCard(
-                        selected = person is PersonSource.UserPhoto,
-                        onClick = ::requestUserPhoto,
-                    ) {
+                    val selected = shots.any { it is PersonSource.UserPhoto }
+                    PersonCard(selected = selected, onClick = ::requestUserPhoto) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
@@ -150,7 +169,7 @@ fun PersonSourceScreen(
                             Spacer(Modifier.height(8.dp))
                             Text("Your photo", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Full-body works best",
+                                "Single shot",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -158,10 +177,11 @@ fun PersonSourceScreen(
                     }
                 }
                 items(AiModelCatalog.models, key = { it.id }) { model ->
-                    val isSelected = (person as? PersonSource.AiModel)?.modelId == model.id
+                    val source = PersonSource.AiModel(model.id)
+                    val isSelected = shots.contains(source)
                     PersonCard(
                         selected = isSelected,
-                        onClick = { viewModel.selectPerson(PersonSource.AiModel(model.id)) },
+                        onClick = { viewModel.toggleShot(source) },
                     ) {
                         Column(Modifier.fillMaxSize()) {
                             Image(
@@ -186,12 +206,17 @@ fun PersonSourceScreen(
 
             Button(
                 onClick = onNext,
-                enabled = person != null,
+                enabled = shots.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
             ) {
-                Text("Create the look")
+                Text(
+                    when {
+                        shots.size > 1 -> "Start the shoot — ${shots.size} shots"
+                        else -> "Start the shoot"
+                    },
+                )
             }
         }
     }

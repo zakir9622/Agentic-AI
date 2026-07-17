@@ -33,7 +33,17 @@ data class GarmentImage(
 )
 
 @Serializable
-enum class GarmentCategory { UPPER_BODY, LOWER_BODY, DRESS }
+enum class GarmentCategory {
+    UPPER_BODY,
+    LOWER_BODY,
+    DRESS,
+
+    /** Abaya, jilbab, kaftan, burqa — coverage extends over the arms and to the ankles. */
+    FULL_COVERAGE,
+
+    /** Hijab, scarf, dupatta — worn over hair/head instead of the body. */
+    HEADSCARF,
+}
 
 data class TryOnRequest(
     val garment: GarmentImage,
@@ -41,6 +51,30 @@ data class TryOnRequest(
     val tier: EngineTier,
     val seed: Long? = null,
 )
+
+/**
+ * A photoshoot: the same garment rendered as a set of shots (one per person
+ * source — different poses of the AI model, or a single user photo).
+ */
+data class ShootPlan(
+    val garment: GarmentImage,
+    val shots: List<PersonSource>,
+    val tier: EngineTier,
+) {
+    init {
+        require(shots.isNotEmpty()) { "A shoot needs at least one shot" }
+    }
+}
+
+/** Progress of a multi-shot photoshoot; [inner] is the active shot's engine state. */
+data class ShootState(
+    val shotIndex: Int,
+    val totalShots: Int,
+    val inner: GenerationState,
+    val completed: List<TryOnResult>,
+) {
+    val isFinished: Boolean get() = completed.size == totalShots
+}
 
 data class TryOnResult(
     /** Absolute path of the generated image on local storage. */

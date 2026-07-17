@@ -16,6 +16,13 @@ data class ModelPack(
     val totalBytes: Long,
     val files: List<PackFile>,
     val minSpec: DeviceSpec = DeviceSpec(),
+    /**
+     * True for packs built from non-commercially-licensed research weights.
+     * Dev packs are for private testing only: they must never be listed in the
+     * production manifest, and the UI labels them with [licenseNotice].
+     */
+    val devOnly: Boolean = false,
+    val licenseNotice: String? = null,
 )
 
 @Serializable

@@ -137,7 +137,33 @@ fun GarmentScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // Category: Auto lets the engine classify from the cutout's geometry;
+            // modest-wear categories are first-class so abayas and hijabs land
+            // on the right body region.
+            val selectedCategory = garment?.category
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    androidx.compose.material3.FilterChip(
+                        selected = selectedCategory == null,
+                        onClick = { viewModel.setCategory(null) },
+                        label = { Text("Auto") },
+                    )
+                }
+                items(categoryChips.size) { index ->
+                    val (category, label) = categoryChips[index]
+                    androidx.compose.material3.FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { viewModel.setCategory(category) },
+                        label = { Text(label) },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
@@ -168,8 +194,16 @@ fun GarmentScreen(
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
             ) {
-                Text("Choose who wears it")
+                Text("Cast the models")
             }
         }
     }
 }
+
+private val categoryChips = listOf(
+    com.zakir.vestra.shared.domain.GarmentCategory.DRESS to "Dress",
+    com.zakir.vestra.shared.domain.GarmentCategory.FULL_COVERAGE to "Abaya / Kaftan",
+    com.zakir.vestra.shared.domain.GarmentCategory.HEADSCARF to "Hijab / Scarf",
+    com.zakir.vestra.shared.domain.GarmentCategory.UPPER_BODY to "Top",
+    com.zakir.vestra.shared.domain.GarmentCategory.LOWER_BODY to "Bottom",
+)

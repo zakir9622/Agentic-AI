@@ -53,6 +53,13 @@ object Harmonizer {
         val gain = (1.0 + (personStd / garmentStd - 1.0) * 0.5).coerceIn(0.6, 1.6)
         val offset = (personMean - garmentMean * gain) * 0.6
 
+        // Low-frequency shading transfer: the person's blurred luminance inside
+        // the region carries the scene's shadow/highlight structure (arm shadows,
+        // window light). Modulating the garment by it makes the fabric sit "in"
+        // the photo instead of on top of it — the poor man's Poisson blend.
+        val shading = blurredLuma(personPixels, width, height)
+        val flatShade = shading.averageInMask(region.mask)
+
         val out = IntArray(width * height)
         for (idx in personPixels.indices) {
             val garment = garmentPixels[idx]
@@ -61,9 +68,10 @@ object Harmonizer {
                 out[idx] = personPixels[idx]
                 continue
             }
-            val red = adjust((garment shr 16 and 0xFF), gain, offset)
-            val green = adjust((garment shr 8 and 0xFF), gain, offset)
-            val blue = adjust((garment and 0xFF), gain, offset)
+            val shade = if (flatShade > 1.0) (shading[idx] / flatShade).coerceIn(0.55, 1.35) else 1.0
+            val red = adjust((garment shr 16 and 0xFF), gain * shade, offset)
+            val green = adjust((garment shr 8 and 0xFF), gain * shade, offset)
+            val blue = adjust((garment and 0xFF), gain * shade, offset)
             // Feather: soften low-alpha edges further for a cleaner seam.
             val alpha = (alphaInt / 255f).let { if (it < 0.35f) it * it / 0.35f else it }
             val base = personPixels[idx]
@@ -73,6 +81,62 @@ object Harmonizer {
                 blend(base and 0xFF, blue, alpha)
         }
         return Bitmap.createBitmap(out, width, height, Bitmap.Config.ARGB_8888)
+    }
+
+    /** Heavily downsampled box-blurred luminance, upsampled back — cheap low-pass. */
+    private fun blurredLuma(pixels: IntArray, width: Int, height: Int): DoubleArray {
+        val smallW = 48
+        val smallH = (smallW.toLong() * height / width).toInt().coerceAtLeast(1)
+        val small = DoubleArray(smallW * smallH)
+        val counts = IntArray(smallW * smallH)
+        for (y in 0 until height) {
+            val sy = y * smallH / height
+            for (x in 0 until width) {
+                val si = sy * smallW + x * smallW / width
+                small[si] += luma(pixels[y * width + x])
+                counts[si]++
+            }
+        }
+        for (i in small.indices) if (counts[i] > 0) small[i] /= counts[i]
+        // One 3x3 box pass over the small map is blur enough at this scale.
+        val blurred = DoubleArray(small.size)
+        for (y in 0 until smallH) {
+            for (x in 0 until smallW) {
+                var sum = 0.0
+                var n = 0
+                for (dy in -1..1) {
+                    for (dx in -1..1) {
+                        val yy = y + dy
+                        val xx = x + dx
+                        if (yy in 0 until smallH && xx in 0 until smallW) {
+                            sum += small[yy * smallW + xx]
+                            n++
+                        }
+                    }
+                }
+                blurred[y * smallW + x] = sum / n
+            }
+        }
+        val out = DoubleArray(width * height)
+        for (y in 0 until height) {
+            val sy = y * smallH / height
+            for (x in 0 until width) {
+                out[y * width + x] = blurred[sy * smallW + x * smallW / width]
+            }
+        }
+        return out
+    }
+
+    private fun DoubleArray.averageInMask(mask: FloatArray): Double {
+        var sum = 0.0
+        var count = 0
+        for (i in indices) {
+            if (mask[i] > 0.5f) {
+                sum += this[i]
+                count++
+            }
+        }
+        return if (count == 0) 0.0 else sum / count
     }
 
     private fun overlayOnly(person: Bitmap, garment: Bitmap): Bitmap {

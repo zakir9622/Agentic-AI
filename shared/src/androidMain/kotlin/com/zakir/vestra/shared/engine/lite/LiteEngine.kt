@@ -64,8 +64,12 @@ class LiteEngine(
                 extractGarment(model, garment)
             }
 
+            // Auto mode: infer the category from the cutout's geometry so abayas,
+            // scarves, and trousers each land on the right body region.
+            val category = request.garment.category ?: GarmentClassifier.classify(garmentCut)
+
             emit(GenerationState.Running(0.45f, "Reading the body"))
-            val region = parsing.analyze(person, request.garment.category ?: GarmentCategory.DRESS)
+            val region = parsing.analyze(person, category)
             if (region == null) {
                 emit(
                     GenerationState.Failed(

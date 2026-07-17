@@ -56,7 +56,7 @@ def build_pack(pack_dir: Path, base_url: str, previous: dict | None) -> dict:
         else:
             version = previous["version"]
 
-    return {
+    pack = {
         "id": pack_dir.name,
         "version": version,
         "tier": meta["tier"],
@@ -68,6 +68,12 @@ def build_pack(pack_dir: Path, base_url: str, previous: dict | None) -> dict:
             "minSpec", {"minRamMb": 0, "requiresNpu": False, "minSdk": 26}
         ),
     }
+    # Dev packs (non-commercial research weights) carry their license notice and
+    # must only ever be published to a private dev manifest — never production.
+    if meta.get("devOnly"):
+        pack["devOnly"] = True
+        pack["licenseNotice"] = meta.get("licenseNotice", "Research license — private testing only")
+    return pack
 
 
 def main() -> None:
