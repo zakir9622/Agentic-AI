@@ -68,6 +68,13 @@ class TryOnViewModel(
         }
     }
 
+    /** Replaces a piece's image (used after manual rotation), keeping its category. */
+    fun setGarmentUri(index: Int, uri: String) {
+        _outfit.value = _outfit.value.mapIndexed { i, piece ->
+            if (i == index) piece.copy(uri = uri) else piece
+        }
+    }
+
     fun setShots(sources: List<PersonSource>) {
         _shots.value = sources
     }

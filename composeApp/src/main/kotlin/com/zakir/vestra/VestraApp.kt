@@ -65,6 +65,9 @@ class VestraApp : Application() {
             manifestUrl = PACKS_MANIFEST_URL,
         )
         PackDownloadWorker.dependencies = { packManager }
+        // Debug builds ship the Lite pack in assets so generation works before
+        // the Hugging Face repo is set up. No-ops in release.
+        DebugPackBootstrap.seedLitePack(this)
         studioModels = StudioModelRepository(this, packManager)
 
         val http = platformHttpClient()

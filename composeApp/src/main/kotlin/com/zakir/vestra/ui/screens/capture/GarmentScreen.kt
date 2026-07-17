@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.Rotate90DegreesCw
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -156,6 +157,23 @@ fun GarmentScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit,
                     )
+                    // Manual rotate for photos with no EXIF orientation tag.
+                    IconButton(
+                        onClick = {
+                            com.zakir.vestra.data.ImageRotator.rotate90(context, active.uri)?.let {
+                                viewModel.setGarmentUri(selectedPiece, it)
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Rotate90DegreesCw,
+                            contentDescription = "Rotate 90°",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 } else {
                     Text(
                         text = "Add each piece of the outfit —\nkurta, trousers, dupatta.",
