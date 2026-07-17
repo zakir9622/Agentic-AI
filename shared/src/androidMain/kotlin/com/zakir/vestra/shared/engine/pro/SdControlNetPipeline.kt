@@ -54,15 +54,15 @@ class SdControlNetPipeline(
         val garmentSq = garment.scale(res, res)
 
         // ── Stage A: STRUCTURE (depth → ControlNet conditioning) ──
+        // Depth is taken from the PERSON/model image so ControlNet conditions on
+        // the body's structure/pose — not the garment.
         onStage(ConditioningStage.STRUCTURE, 0.05f)
         val t0 = System.currentTimeMillis()
         val depthCond = OrtGraph("$packDir/${config.depthModel}").use { depth ->
-            val (out, _) = depth.inputNames.let {
-                val chw = ImageOps.toNormalizedChw(garmentSq.scale(518, 518), 518, 518)
-                out(depth, chw)
-            }
+            val chw = ImageOps.toNormalizedChw(personSq.scale(518, 518), 518, 518)
+            val map = depth.runSingle(mapOf(depth.inputNames.first() to depth.floatTensor(chw, 1, 3, 518, 518)))
             // Depth is single-channel 0..1; expand to a 3-channel RGB cond image.
-            expandDepthToRgb(out, 518, res)
+            expandDepthToRgb(map, 518, res)
         }
         Log.i(TAG, "structure_depth: ${System.currentTimeMillis() - t0} ms")
 
@@ -91,20 +91,24 @@ class SdControlNetPipeline(
         val scheduler = DdimScheduler()
         val timesteps = scheduler.timesteps(steps)
         val latentLen = 4 * (res / 8) * (res / 8)
-        val sample = FloatArray(latentLen) { gaussian(inputs.seed, it) }
+        val random = kotlin.random.Random(inputs.seed ?: System.nanoTime())
+        val sample = FloatArray(latentLen) { gaussian(random) }
+        val textSeq = TEXT_TOKENS.toLong()
 
         val tSync = System.currentTimeMillis()
         OrtGraph("$packDir/${config.controlNet}").use { control ->
             OrtGraph("$packDir/${config.unetOrDefault()}").use { unet ->
                 timesteps.forEachIndexed { index, timestep ->
+                    // ControlNet takes text-only tokens; the IP-Adapter image
+                    // tokens condition the UNet cross-attention only.
                     val residuals = control.run(
                         inputs = mapOf(
                             "sample" to control.floatTensor(sample, 1, 4, (res / 8).toLong(), (res / 8).toLong()),
                             "timestep" to control.longTensor(longArrayOf(timestep.toLong()), 1),
-                            "encoder_hidden_states" to control.floatTensor(combined, 1, combinedSeq, HIDDEN_DIM.toLong()),
+                            "encoder_hidden_states" to control.floatTensor(textEmbeds, 1, textSeq, HIDDEN_DIM.toLong()),
                             "controlnet_cond" to control.floatTensor(depthCond, 1, 3, res.toLong(), res.toLong()),
                         ),
-                        outputs = control.inputNames.let { CONTROL_OUTPUTS },
+                        outputs = CONTROL_OUTPUTS,
                     )
                     val noise = runUnet(unet, sample, timestep, combined, combinedSeq, residuals, config.guidanceScale)
                     scheduler.step(sample, noise, timestep, steps)
@@ -127,11 +131,6 @@ class SdControlNetPipeline(
     }
 
     // ── helpers (kept small; heavy tensor work is in the ONNX graphs) ──
-
-    private fun out(depth: OrtGraph, chw: FloatArray): Pair<FloatArray, Int> {
-        val d = depth.runSingle(mapOf(depth.inputNames.first() to depth.floatTensor(chw, 1, 3, 518, 518)))
-        return d to 518
-    }
 
     private fun encodePrompt(inputs: ConditioningInputs): FloatArray {
         // The text encoder needs tokenized ids; a full CLIP tokenizer is heavy,
@@ -211,9 +210,8 @@ class SdControlNetPipeline(
         return Bitmap.createBitmap(base, w, h, Bitmap.Config.ARGB_8888)
     }
 
-    private fun gaussian(seed: Long?, i: Int): Float {
-        val r = kotlin.random.Random((seed ?: 0L) + i * 2654435761L)
-        val u1 = r.nextDouble().coerceAtLeast(1e-9); val u2 = r.nextDouble()
+    private fun gaussian(random: kotlin.random.Random): Float {
+        val u1 = random.nextDouble().coerceAtLeast(1e-9); val u2 = random.nextDouble()
         return (kotlin.math.sqrt(-2.0 * kotlin.math.ln(u1)) * kotlin.math.cos(2.0 * Math.PI * u2)).toFloat()
     }
 
