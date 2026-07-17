@@ -41,6 +41,7 @@ fun VestraNavHost(
     packManager: ModelPackManager,
     reportQueue: com.zakir.vestra.shared.safety.ReportQueue,
     studioModels: com.zakir.vestra.data.StudioModelRepository,
+    garmentGuard: com.zakir.vestra.data.GarmentInputGuard,
     navController: NavHostController = rememberNavController(),
 ) {
     // One session ViewModel shared across the garment → person → generate → result flow.
@@ -69,6 +70,7 @@ fun VestraNavHost(
         composable(Routes.GARMENT) {
             GarmentScreen(
                 viewModel = tryOnViewModel,
+                guard = garmentGuard,
                 onBack = { navController.popBackStack() },
                 onNext = { navController.navigate(Routes.PERSON) },
             )
