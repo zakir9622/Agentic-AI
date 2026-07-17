@@ -18,6 +18,8 @@ Built modest-wear-first: abayas, hijabs, kaftans, and every category of covered 
 
 The engine is user-selectable in Settings; **Auto** picks the best installed on-device engine and never touches the network.
 
+**A note on quality.** The Lite engine is a *compositor* (segment → warp → blend) — fast and offline, but it cannot synthesize a person and won't reach diffusion photorealism. For finished, catalog-grade output use the **Cloud** engine now ([setup](docs/CLOUD_SETUP.md)), or the **Pro** on-device engine once its weights are trained (`ml/train/`). All three share the same studio-model gallery, backdrops, and outfit layering — so raising quality is a matter of engine + models, not app changes.
+
 ## Project layout
 
 - `composeApp/` — Android app (Jetpack Compose, cinematic dark UI)

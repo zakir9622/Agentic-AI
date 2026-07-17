@@ -69,6 +69,7 @@ import java.io.File
 @Composable
 fun GarmentScreen(
     viewModel: TryOnViewModel,
+    guard: com.zakir.vestra.data.GarmentInputGuard,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
@@ -77,6 +78,7 @@ fun GarmentScreen(
     val outfit by viewModel.outfit.collectAsState()
     var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
     var selectedPiece by remember { mutableIntStateOf(0) }
+    var wornWarning by remember { mutableStateOf(false) }
 
     val pickLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
@@ -113,6 +115,13 @@ fun GarmentScreen(
         pickLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
 
     val active = outfit.getOrNull(selectedPiece.coerceIn(0, (outfit.size - 1).coerceAtLeast(0)))
+
+    // Warn when the selected piece looks like a photo of a person wearing the
+    // outfit rather than a flat garment — the Lite compositor can't isolate a
+    // garment from a full model shot.
+    androidx.compose.runtime.LaunchedEffect(active?.uri) {
+        wornWarning = active?.uri?.let { guard.looksLikeWornPhoto(it) } ?: false
+    }
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -179,6 +188,24 @@ fun GarmentScreen(
                         text = "Add each piece of the outfit —\nkurta, trousers, dupatta.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (wornWarning) {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "This looks like a photo of someone already wearing the outfit. " +
+                            "For a clean result use a flat-lay or hanger shot of just the garment — " +
+                            "or switch to the Cloud engine in Settings, which can restyle a full look.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(12.dp),
                     )
                 }
             }

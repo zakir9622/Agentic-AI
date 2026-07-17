@@ -35,6 +35,39 @@ class HumanParsing(private val packs: ModelPackManager) {
             TargetRegion.fromMask(effective, outW, outH, box, person)
         }
     }
+
+    /**
+     * True when the image looks like a photo of a *person wearing* the outfit
+     * (a face + skin + limbs), rather than a flat/hanger garment shot. Used by
+     * the input guard: feeding a whole-scene model photo makes the Lite
+     * compositor paste the entire picture onto the model. Returns false when the
+     * pack isn't installed (can't tell → don't warn).
+     */
+    fun looksLikeWornPhoto(image: Bitmap): Boolean {
+        val packDir = packs.installedDir(LiteEngine.PACK_ID) ?: return false
+        return OrtModel("$packDir/human_parse.onnx").use { model ->
+            val (h, w) = model.inputSize(defaultSize = 473)
+            val (logits, shape) = model.run(ImageOps.toNormalizedChw(image, h, w), h, w)
+            val classes = shape.getOrNull(1)?.toInt() ?: return false
+            val outH = shape.getOrNull(2)?.toInt() ?: h
+            val outW = shape.getOrNull(3)?.toInt() ?: w
+            val classMap = ImageOps.argmax(logits, classes, outH * outW)
+            val total = (outH * outW).toFloat()
+
+            // ATR: 2=hair 11=face 12/13=legs 14/15=arms.
+            var face = 0; var hair = 0; var limbs = 0
+            for (c in classMap) {
+                when (c) {
+                    11 -> face++
+                    2 -> hair++
+                    12, 13, 14, 15 -> limbs++
+                }
+            }
+            // A worn photo shows a visible face/hair AND exposed skin (limbs).
+            // A flat garment shows neither meaningfully.
+            (face / total > 0.004f || hair / total > 0.02f) && limbs / total > 0.02f
+        }
+    }
 }
 
 internal fun GarmentCategory.atrClassIds(): Set<Int> = when (this) {

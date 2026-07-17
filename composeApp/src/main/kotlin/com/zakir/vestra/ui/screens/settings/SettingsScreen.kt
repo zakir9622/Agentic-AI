@@ -145,7 +145,7 @@ private fun EngineTier.description(availability: Availability): String {
             UnavailableReason.PACK_NOT_INSTALLED -> "$base\nModel pack not installed."
             UnavailableReason.DEVICE_NOT_CAPABLE -> "$base\nThis device doesn't meet the requirements."
             UnavailableReason.OFFLINE -> "$base\nYou're offline."
-            UnavailableReason.NOT_CONFIGURED -> "$base\nComing soon."
+            UnavailableReason.NOT_CONFIGURED -> "$base\nNot set up yet — add Supabase credentials (see docs/CLOUD_SETUP.md) for studio-quality output."
         }
     }
 }

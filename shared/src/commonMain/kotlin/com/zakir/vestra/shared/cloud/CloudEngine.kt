@@ -51,7 +51,7 @@ class CloudEngine(
     @OptIn(ExperimentalEncodingApi::class)
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
         val started = TimeSource.Monotonic.markNow()
-        emit(GenerationState.Preparing("Preparing images"))
+        emit(GenerationState.Preparing(com.zakir.vestra.shared.engine.pipeline.ConditioningStage.TEXTURE.label))
 
         val garment = io.readJpegBytes(request.garment.uri)
         val person = when (val source = request.person) {
@@ -75,6 +75,12 @@ class CloudEngine(
                             garmentB64 = Base64.encode(garment),
                             personB64 = Base64.encode(person),
                             category = request.garment.category.wireName(),
+                            // Same photorealism guidance the on-device Pro engine uses,
+                            // for hosted models that accept prompt/CFG/steps.
+                            positive = com.zakir.vestra.shared.engine.pipeline.PromptStyle.POSITIVE,
+                            negative = com.zakir.vestra.shared.engine.pipeline.PromptStyle.NEGATIVE,
+                            cfgScale = com.zakir.vestra.shared.engine.pipeline.PromptStyle.CFG_SCALE,
+                            steps = com.zakir.vestra.shared.engine.pipeline.PromptStyle.STEPS,
                         ),
                     ),
                 )
@@ -87,7 +93,7 @@ class CloudEngine(
                 emit(GenerationState.Failed(TryOnError.Internal(detail ?: "Cloud generation failed (${response.status.value})")))
                 return@flow
             }
-            emit(GenerationState.Running(0.85f, "Developing"))
+            emit(GenerationState.Running(0.85f, com.zakir.vestra.shared.engine.pipeline.ConditioningStage.SYNTHESIS.label))
             val path = io.saveWatermarkedJpeg(response.bodyAsBytes())
             emit(
                 GenerationState.Complete(
@@ -136,6 +142,10 @@ private data class TryOnBody(
     @SerialName("garment_b64") val garmentB64: String,
     @SerialName("person_b64") val personB64: String,
     val category: String,
+    val positive: String,
+    val negative: String,
+    @SerialName("cfg_scale") val cfgScale: Float,
+    val steps: Int,
 )
 
 @Serializable

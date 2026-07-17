@@ -49,6 +49,12 @@ class VestraApp : Application() {
     lateinit var studioModels: StudioModelRepository
         private set
 
+    lateinit var garmentGuard: com.zakir.vestra.data.GarmentInputGuard
+        private set
+
+    /** Whether the Cloud tier has been configured with Supabase credentials. */
+    val cloudConfigured: Boolean get() = SUPABASE_ANON_KEY.isNotBlank() && !SUPABASE_URL.contains("REPLACE_ME")
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
@@ -78,6 +84,7 @@ class VestraApp : Application() {
         )
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
         val parsing = HumanParsing(packManager)
+        garmentGuard = com.zakir.vestra.data.GarmentInputGuard(liteIo, parsing)
         engineRouter = EngineRouter(
             listOf(
                 LiteEngine(packManager, liteIo, parsing),
