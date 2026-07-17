@@ -1,12 +1,8 @@
 package com.zakir.vestra
 
 import android.app.Application
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.createBitmap
 import com.russhwolf.settings.SharedPreferencesSettings
-import com.zakir.vestra.data.AiModelCatalog
+import com.zakir.vestra.data.StudioModelRepository
 import com.zakir.vestra.shared.cloud.AndroidCloudIo
 import com.zakir.vestra.shared.cloud.CloudConfig
 import com.zakir.vestra.shared.cloud.CloudEngine
@@ -50,6 +46,9 @@ class VestraApp : Application() {
     lateinit var reportQueue: ReportQueue
         private set
 
+    lateinit var studioModels: StudioModelRepository
+        private set
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
@@ -66,6 +65,7 @@ class VestraApp : Application() {
             manifestUrl = PACKS_MANIFEST_URL,
         )
         PackDownloadWorker.dependencies = { packManager }
+        studioModels = StudioModelRepository(this, packManager)
 
         val http = platformHttpClient()
         val cloudConfig = CloudConfig(
@@ -73,7 +73,7 @@ class VestraApp : Application() {
             reportUrl = "$SUPABASE_URL/functions/v1/report",
             anonKey = SUPABASE_ANON_KEY,
         )
-        val liteIo = LiteEngineIo(this, ::renderAiModel)
+        val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
         val parsing = HumanParsing(packManager)
         engineRouter = EngineRouter(
             listOf(
@@ -96,17 +96,6 @@ class VestraApp : Application() {
         )
         // Deliver any reports queued while offline.
         appScope.launch { reportQueue.flush() }
-    }
-
-    /** Rasterizes a base-model drawable for the Lite pipeline. */
-    private fun renderAiModel(modelId: String): Bitmap? {
-        val model = AiModelCatalog.byId(modelId) ?: return null
-        val drawable = ContextCompat.getDrawable(this, model.image) ?: return null
-        val bitmap = createBitmap(900, 1200)
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-        return bitmap
     }
 
     companion object {

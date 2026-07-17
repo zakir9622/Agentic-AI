@@ -23,6 +23,23 @@ data class ModelPack(
      */
     val devOnly: Boolean = false,
     val licenseNotice: String? = null,
+    /** Whether this pack supplies an engine's models or the studio-model gallery. */
+    val kind: PackKind = PackKind.ENGINE,
+    /** For [PackKind.MODELS] packs: the base models this pack contributes. */
+    val studioModels: List<StudioModelMeta> = emptyList(),
+)
+
+enum class PackKind { ENGINE, MODELS }
+
+/** A base "studio model" image inside a MODELS pack. */
+@Serializable
+data class StudioModelMeta(
+    val id: String,
+    val displayName: String,
+    /** File path within the pack, e.g. "front_hijab.jpg". */
+    val file: String,
+    /** Free-form tags for filtering, e.g. "hijab", "seated", "plus". */
+    val tags: List<String> = emptyList(),
 )
 
 @Serializable

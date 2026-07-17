@@ -17,6 +17,7 @@ pip install -r requirements.txt
 | `export_lite_pack.py` | `exports/lite-v1/` — INT8 ONNX models for the Lite engine (garment segmentation + human parsing) |
 | `export_diffusion_pack.py` | `exports/pro-v1/` — INT8/FP16 ONNX try-on diffusion for the Pro engine (takes `--weights`) |
 | `export_dev_pack.py` | `exports-dev/pro-dev-v1/` — **private, non-commercial** dev pack from CatVTON research weights (devOnly-flagged) |
+| `build_models_pack.py` | `exports/studio-models-v1/` — studio-models (casting gallery) pack from the owner's base-model photos |
 | `manifest_gen.py` | `exports/manifest.json` — pack manifest (ids, versions, sha256, sizes, device gates, devOnly flags) |
 | `train/` | Turn-key training program for commercially-shippable Pro weights (dataset prep → fine-tune → distill) |
 | `eval/compute_metrics.py` | Per-category SSIM/LPIPS benchmark (modest-wear categories reported separately) |

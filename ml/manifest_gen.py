@@ -73,6 +73,10 @@ def build_pack(pack_dir: Path, base_url: str, previous: dict | None) -> dict:
     if meta.get("devOnly"):
         pack["devOnly"] = True
         pack["licenseNotice"] = meta.get("licenseNotice", "Research license — private testing only")
+    # MODELS packs supply the studio-model gallery instead of engine weights.
+    if meta.get("kind") == "MODELS":
+        pack["kind"] = "MODELS"
+        pack["studioModels"] = meta.get("studioModels", [])
     return pack
 
 

@@ -3,7 +3,6 @@ package com.zakir.vestra.ui.screens.person
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,9 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.zakir.vestra.data.AiModelCatalog
+import coil3.compose.AsyncImage
+import com.zakir.vestra.data.StudioModelRepository
 import com.zakir.vestra.shared.domain.PersonSource
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.TryOnViewModel
@@ -59,10 +58,12 @@ import com.zakir.vestra.ui.TryOnViewModel
 fun PersonSourceScreen(
     viewModel: TryOnViewModel,
     appSettings: AppSettings,
+    studioModels: StudioModelRepository,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
     val shots by viewModel.shots.collectAsState()
+    val models = remember { studioModels.models() }
     val consentAccepted by appSettings.likenessConsentAccepted.collectAsState()
     var showConsentDialog by remember { mutableStateOf(false) }
 
@@ -134,9 +135,7 @@ fun PersonSourceScreen(
 
             OutlinedButton(
                 onClick = {
-                    viewModel.setShots(
-                        AiModelCatalog.models.map { PersonSource.AiModel(it.id) },
-                    )
+                    viewModel.setShots(models.map { PersonSource.AiModel(it.id) })
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -176,7 +175,7 @@ fun PersonSourceScreen(
                         }
                     }
                 }
-                items(AiModelCatalog.models, key = { it.id }) { model ->
+                items(models, key = { it.id }) { model ->
                     val source = PersonSource.AiModel(model.id)
                     val isSelected = shots.contains(source)
                     PersonCard(
@@ -184,8 +183,8 @@ fun PersonSourceScreen(
                         onClick = { viewModel.toggleShot(source) },
                     ) {
                         Column(Modifier.fillMaxSize()) {
-                            Image(
-                                painter = painterResource(model.image),
+                            AsyncImage(
+                                model = model.coilModel,
                                 contentDescription = model.displayName,
                                 modifier = Modifier
                                     .fillMaxWidth()

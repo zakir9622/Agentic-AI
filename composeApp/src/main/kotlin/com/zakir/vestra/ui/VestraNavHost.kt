@@ -40,6 +40,7 @@ fun VestraNavHost(
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
     reportQueue: com.zakir.vestra.shared.safety.ReportQueue,
+    studioModels: com.zakir.vestra.data.StudioModelRepository,
     navController: NavHostController = rememberNavController(),
 ) {
     // One session ViewModel shared across the garment → person → generate → result flow.
@@ -76,6 +77,7 @@ fun VestraNavHost(
             PersonSourceScreen(
                 viewModel = tryOnViewModel,
                 appSettings = appSettings,
+                studioModels = studioModels,
                 onBack = { navController.popBackStack() },
                 onNext = { navController.navigate(Routes.GENERATE) },
             )
