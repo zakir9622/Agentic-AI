@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
                     wardrobe = app.wardrobe,
                     packManager = app.packManager,
                     reportQueue = app.reportQueue,
+                    studioModels = app.studioModels,
                 )
             }
         }

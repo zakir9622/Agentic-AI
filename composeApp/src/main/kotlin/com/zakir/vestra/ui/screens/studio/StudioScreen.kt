@@ -73,7 +73,7 @@ fun StudioScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "VESTRA",
+                    text = "THE LOOKBOOK",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -98,7 +98,7 @@ fun StudioScreen(
             Spacer(Modifier.height(28.dp))
 
             Text(
-                text = "Every garment,\nworn before it's yours.",
+                text = "A photoshoot\nfor every garment.",
                 style = MaterialTheme.typography.displayMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -106,7 +106,7 @@ fun StudioScreen(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = "Photograph a dress. See it on you — or on a model.\nAll on this phone, no internet needed.",
+                text = "Photograph a dress — get it worn, posed, and shot.\nNo models, no studio, no internet needed.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -114,7 +114,7 @@ fun StudioScreen(
             Spacer(Modifier.height(24.dp))
 
             Button(onClick = onNewLook, modifier = Modifier.fillMaxWidth()) {
-                Text("Start a new look")
+                Text("Start a shoot")
             }
 
             if (litePackNeedsInstall) {

@@ -144,5 +144,7 @@ private data class ErrorBody(val error: String? = null)
 private fun GarmentCategory?.wireName(): String = when (this) {
     GarmentCategory.UPPER_BODY -> "upper_body"
     GarmentCategory.LOWER_BODY -> "lower_body"
-    GarmentCategory.DRESS, null -> "dresses"
+    // Hosted IDM-VTON only knows three categories; full-coverage garments and
+    // headscarves route through "dresses" as the closest coverage region.
+    GarmentCategory.DRESS, GarmentCategory.FULL_COVERAGE, GarmentCategory.HEADSCARF, null -> "dresses"
 }

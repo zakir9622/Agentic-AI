@@ -40,17 +40,18 @@ fun GenerationScreen(
     onComplete: () -> Unit,
     onAbort: () -> Unit,
 ) {
-    val state by viewModel.generation.collectAsState()
+    val shoot by viewModel.shoot.collectAsState()
     val haptics = LocalHapticFeedback.current
 
     LaunchedEffect(Unit) {
-        if (state is GenerationState.Idle) viewModel.startGeneration()
+        if (shoot == null) viewModel.startShoot()
     }
-    LaunchedEffect(state) {
-        if (state is GenerationState.Complete) {
+    LaunchedEffect(shoot) {
+        val current = shoot ?: return@LaunchedEffect
+        if (current.inner is GenerationState.Complete) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            onComplete()
         }
+        if (current.isFinished) onComplete()
     }
 
     Surface(Modifier.fillMaxSize()) {
@@ -67,26 +68,46 @@ fun GenerationScreen(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Text("The fitting", style = MaterialTheme.typography.headlineLarge)
-            Spacer(Modifier.height(48.dp))
+            Text("The shoot", style = MaterialTheme.typography.headlineLarge)
+            val current = shoot
+            if (current != null && current.totalShots > 1) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Shot ${current.shotIndex + 1} of ${current.totalShots}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(40.dp))
 
-            when (val current = state) {
-                is GenerationState.Failed -> FailureContent(current.error, onAbort)
+            when (val inner = current?.inner) {
+                is GenerationState.Failed -> FailureContent(inner.error, onAbort)
                 else -> {
-                    val (fraction, label) = when (val s = state) {
+                    val (shotFraction, label) = when (val s = current?.inner) {
                         is GenerationState.Preparing -> 0.05f to s.message
                         is GenerationState.Running -> s.fraction to s.stage
                         else -> 0f to "Preparing"
                     }
-                    val animated by animateFloatAsState(
-                        targetValue = fraction,
+                    // The develop-front sweeps once per shot; overall bar spans the set.
+                    val overall = if (current == null) {
+                        0f
+                    } else {
+                        (current.shotIndex + shotFraction) / current.totalShots
+                    }
+                    val animatedShot by animateFloatAsState(
+                        targetValue = shotFraction,
                         animationSpec = tween(450),
-                        label = "progress",
+                        label = "shot",
                     )
-                    DevelopStage(progress = animated, modifier = Modifier.size(240.dp, 320.dp))
+                    val animatedOverall by animateFloatAsState(
+                        targetValue = overall,
+                        animationSpec = tween(450),
+                        label = "overall",
+                    )
+                    DevelopStage(progress = animatedShot, modifier = Modifier.size(240.dp, 320.dp))
                     Spacer(Modifier.height(32.dp))
                     LinearProgressIndicator(
-                        progress = { animated },
+                        progress = { animatedOverall },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(16.dp))

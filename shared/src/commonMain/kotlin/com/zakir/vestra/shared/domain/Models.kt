@@ -33,14 +33,75 @@ data class GarmentImage(
 )
 
 @Serializable
-enum class GarmentCategory { UPPER_BODY, LOWER_BODY, DRESS }
+enum class GarmentCategory {
+    UPPER_BODY,
+    LOWER_BODY,
+    DRESS,
+
+    /** Abaya, jilbab, kaftan, burqa — coverage extends over the arms and to the ankles. */
+    FULL_COVERAGE,
+
+    /** Hijab, scarf, dupatta — worn over hair/head instead of the body. */
+    HEADSCARF,
+}
+
+/**
+ * Order garments are layered onto the model in a multi-piece outfit (a South
+ * Asian suit is trousers → kurta → dupatta). Lower rank is applied first so
+ * later pieces sit on top; null (Auto) is treated as a mid torso layer.
+ */
+fun GarmentCategory?.layerRank(): Int = when (this) {
+    GarmentCategory.LOWER_BODY -> 0
+    GarmentCategory.UPPER_BODY, GarmentCategory.DRESS, GarmentCategory.FULL_COVERAGE, null -> 1
+    GarmentCategory.HEADSCARF -> 2
+}
 
 data class TryOnRequest(
     val garment: GarmentImage,
     val person: PersonSource,
     val tier: EngineTier,
+    val backdrop: Backdrop = Backdrop.STUDIO_WHITE,
     val seed: Long? = null,
 )
+
+/**
+ * The scene behind the model in a shot. [ORIGINAL] keeps the person photo's own
+ * background; every other value segments the subject and re-composites it over a
+ * generated backdrop — the "studio" part of the photoshoot.
+ */
+@Serializable
+enum class Backdrop(val displayName: String) {
+    ORIGINAL("As shot"),
+    STUDIO_WHITE("Studio white"),
+    EDITORIAL("Editorial"),
+    GOLDEN_HOUR("Golden hour"),
+    RUNWAY("Runway"),
+    MONOCHROME("Monochrome"),
+}
+
+/**
+ * A photoshoot: the same garment rendered as a set of shots (one per person
+ * source — different poses of the AI model, or a single user photo).
+ */
+data class ShootPlan(
+    val garment: GarmentImage,
+    val shots: List<PersonSource>,
+    val tier: EngineTier,
+) {
+    init {
+        require(shots.isNotEmpty()) { "A shoot needs at least one shot" }
+    }
+}
+
+/** Progress of a multi-shot photoshoot; [inner] is the active shot's engine state. */
+data class ShootState(
+    val shotIndex: Int,
+    val totalShots: Int,
+    val inner: GenerationState,
+    val completed: List<TryOnResult>,
+) {
+    val isFinished: Boolean get() = completed.size == totalShots
+}
 
 data class TryOnResult(
     /** Absolute path of the generated image on local storage. */

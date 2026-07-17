@@ -22,3 +22,7 @@ local.properties
 ml/.venv/
 ml/__pycache__/
 ml/exports/
+
+# Bundled debug model binaries (convenience for local testing; real packs live
+# on Hugging Face). Regenerate with ml/export_lite_pack.py + copy into place.
+composeApp/src/debug/assets/packs/
