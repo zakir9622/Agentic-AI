@@ -45,6 +45,17 @@ enum class GarmentCategory {
     HEADSCARF,
 }
 
+/**
+ * Order garments are layered onto the model in a multi-piece outfit (a South
+ * Asian suit is trousers → kurta → dupatta). Lower rank is applied first so
+ * later pieces sit on top; null (Auto) is treated as a mid torso layer.
+ */
+fun GarmentCategory?.layerRank(): Int = when (this) {
+    GarmentCategory.LOWER_BODY -> 0
+    GarmentCategory.UPPER_BODY, GarmentCategory.DRESS, GarmentCategory.FULL_COVERAGE, null -> 1
+    GarmentCategory.HEADSCARF -> 2
+}
+
 data class TryOnRequest(
     val garment: GarmentImage,
     val person: PersonSource,

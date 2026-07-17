@@ -6,6 +6,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,12 +17,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,23 +40,30 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
+import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.domain.Backdrop
 import com.zakir.vestra.ui.TryOnViewModel
 import java.io.File
 
 /**
- * Garment intake: pick from the photo gallery (no permission needed) or shoot
- * with the system camera into app-private storage via FileProvider.
+ * The outfit: add one garment for a single piece, or several for a full suit
+ * (trousers + kurta + dupatta). Each piece is captured from the gallery or
+ * camera and tagged with a category (Auto by default); the shoot layers them
+ * onto the model in the right order.
  */
 @Composable
 fun GarmentScreen(
@@ -56,16 +72,18 @@ fun GarmentScreen(
     onNext: () -> Unit,
 ) {
     val context = LocalContext.current
-    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
-    val garment by viewModel.garment.collectAsState()
+    val haptics = LocalHapticFeedback.current
+    val outfit by viewModel.outfit.collectAsState()
     var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedPiece by remember { mutableIntStateOf(0) }
 
     val pickLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         uri?.let {
-            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-            viewModel.selectGarment(it.toString())
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.addGarment(it.toString())
+            selectedPiece = outfit.size // the newly added piece
         }
     }
 
@@ -73,8 +91,11 @@ fun GarmentScreen(
         ActivityResultContracts.TakePicture(),
     ) { saved ->
         if (saved) {
-            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-            pendingCaptureUri?.let { viewModel.selectGarment(it.toString()) }
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            pendingCaptureUri?.let {
+                viewModel.addGarment(it.toString())
+                selectedPiece = outfit.size
+            }
         }
         pendingCaptureUri = null
     }
@@ -86,6 +107,11 @@ fun GarmentScreen(
         pendingCaptureUri = uri
         captureLauncher.launch(uri)
     }
+
+    fun pickFromGallery() =
+        pickLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+
+    val active = outfit.getOrNull(selectedPiece.coerceIn(0, (outfit.size - 1).coerceAtLeast(0)))
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -100,13 +126,16 @@ fun GarmentScreen(
                 }
                 Column {
                     Text("Act I", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("The garment", style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        if (outfit.size > 1) "The outfit" else "The garment",
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Viewfinder-style stage for the chosen garment.
+            // Stage for the selected piece.
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -120,64 +149,113 @@ fun GarmentScreen(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                val selected = garment
-                if (selected != null) {
+                if (active != null) {
                     AsyncImage(
-                        model = selected.uri,
+                        model = active.uri,
                         contentDescription = "Selected garment",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit,
                     )
                 } else {
                     Text(
-                        text = "A flat-lay, a hanger shot,\nor a catalog page.",
+                        text = "Add each piece of the outfit —\nkurta, trousers, dupatta.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Category: Auto lets the engine classify from the cutout's geometry;
-            // modest-wear categories are first-class so abayas and hijabs land
-            // on the right body region.
-            val selectedCategory = garment?.category
-            androidx.compose.foundation.lazy.LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item {
-                    androidx.compose.material3.FilterChip(
-                        selected = selectedCategory == null,
-                        onClick = { viewModel.setCategory(null) },
-                        label = { Text("Auto") },
-                    )
+            // Outfit strip: each added piece + an "add" tile.
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(outfit) { index, piece ->
+                    Box {
+                        AsyncImage(
+                            model = piece.uri,
+                            contentDescription = "Piece ${index + 1}",
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(
+                                    width = if (index == selectedPiece) 2.dp else 1.dp,
+                                    color = if (index == selectedPiece) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                )
+                                .clickable { selectedPiece = index },
+                            contentScale = ContentScale.Crop,
+                        )
+                        IconButton(
+                            onClick = {
+                                viewModel.removeGarment(index)
+                                selectedPiece = 0
+                            },
+                            modifier = Modifier.size(22.dp).align(Alignment.TopEnd),
+                        ) {
+                            Icon(
+                                Icons.Outlined.Close,
+                                contentDescription = "Remove piece",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
                 }
-                items(categoryChips.size) { index ->
-                    val (category, label) = categoryChips[index]
-                    androidx.compose.material3.FilterChip(
-                        selected = selectedCategory == category,
-                        onClick = { viewModel.setCategory(category) },
-                        label = { Text(label) },
-                    )
+                item {
+                    Box(
+                        Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                RoundedCornerShape(10.dp),
+                            )
+                            .clickable(onClick = ::pickFromGallery),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Add,
+                            contentDescription = "Add a piece",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+
+            if (active != null) {
+                Spacer(Modifier.height(10.dp))
+                // Category of the selected piece (Auto detects abaya/hijab/dress/…).
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(
+                            selected = active.category == null,
+                            onClick = { viewModel.setGarmentCategory(selectedPiece, null) },
+                            label = { Text("Auto") },
+                        )
+                    }
+                    items(categoryChips.size) { i ->
+                        val (category, label) = categoryChips[i]
+                        FilterChip(
+                            selected = active.category == category,
+                            onClick = { viewModel.setGarmentCategory(selectedPiece, category) },
+                            label = { Text(label) },
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(10.dp))
-
-            Text(
-                "BACKDROP",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Text("BACKDROP", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(6.dp))
             val selectedBackdrop by viewModel.backdrop.collectAsState()
-            androidx.compose.foundation.lazy.LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(com.zakir.vestra.shared.domain.Backdrop.entries.size) { index ->
-                    val backdrop = com.zakir.vestra.shared.domain.Backdrop.entries[index]
-                    androidx.compose.material3.FilterChip(
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(Backdrop.entries.size) { index ->
+                    val backdrop = Backdrop.entries[index]
+                    FilterChip(
                         selected = selectedBackdrop == backdrop,
                         onClick = { viewModel.setBackdrop(backdrop) },
                         label = { Text(backdrop.displayName) },
@@ -188,21 +266,14 @@ fun GarmentScreen(
             Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        pickLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
+                OutlinedButton(onClick = ::pickFromGallery, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
-                    Spacer(Modifier.padding(4.dp))
-                    Text("Gallery")
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (outfit.isEmpty()) "Gallery" else "Add piece")
                 }
                 OutlinedButton(onClick = ::launchCamera, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Outlined.PhotoCamera, contentDescription = null)
-                    Spacer(Modifier.padding(4.dp))
+                    Spacer(Modifier.width(4.dp))
                     Text("Camera")
                 }
             }
@@ -211,7 +282,7 @@ fun GarmentScreen(
 
             Button(
                 onClick = onNext,
-                enabled = garment != null,
+                enabled = outfit.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
@@ -223,9 +294,9 @@ fun GarmentScreen(
 }
 
 private val categoryChips = listOf(
-    com.zakir.vestra.shared.domain.GarmentCategory.DRESS to "Dress",
-    com.zakir.vestra.shared.domain.GarmentCategory.FULL_COVERAGE to "Abaya / Kaftan",
-    com.zakir.vestra.shared.domain.GarmentCategory.HEADSCARF to "Hijab / Scarf",
-    com.zakir.vestra.shared.domain.GarmentCategory.UPPER_BODY to "Top",
-    com.zakir.vestra.shared.domain.GarmentCategory.LOWER_BODY to "Bottom",
+    GarmentCategory.DRESS to "Dress",
+    GarmentCategory.FULL_COVERAGE to "Abaya / Kaftan",
+    GarmentCategory.HEADSCARF to "Hijab / Dupatta",
+    GarmentCategory.UPPER_BODY to "Kurta / Top",
+    GarmentCategory.LOWER_BODY to "Trousers",
 )
