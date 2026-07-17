@@ -23,6 +23,11 @@ interface TryOnBody {
   garment_b64: string;
   person_b64: string;
   category?: "upper_body" | "lower_body" | "dresses";
+  // Photorealism guidance from PromptStyle (on-device parity).
+  positive?: string;
+  negative?: string;
+  cfg_scale?: number;
+  steps?: number;
 }
 
 Deno.serve(async (req) => {
@@ -81,7 +86,11 @@ Deno.serve(async (req) => {
         garm_img: await signed(garmentPath),
         human_img: await signed(personPath),
         category: body.category ?? "upper_body",
-        garment_des: "garment",
+        garment_des: body.positive ?? "garment",
+        negative_prompt: body.negative,
+        // IDM-VTON exposes these; other models ignore unknown keys.
+        guidance_scale: body.cfg_scale ?? 2.0,
+        num_inference_steps: body.steps ?? 30,
       },
     });
 

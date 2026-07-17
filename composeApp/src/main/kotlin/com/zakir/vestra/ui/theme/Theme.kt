@@ -23,6 +23,12 @@ object VestraColors {
     val GalleryElevated = Color(0xFFFFFFFF)
     val Ink = Color(0xFF17161A)
     val InkMuted = Color(0xFF6D675E)
+
+    // "Atelier monitor" surfaces — a true-black canvas with frosted GitHub-dark
+    // containers and a thin glass highlight, for the cinematic generation stage.
+    val AtelierCanvas = Color(0xFF000000)
+    val AtelierContainer = Color(0xFF0D1117)
+    val GlassBorder = Color.White.copy(alpha = 0.08f)
 }
 
 private val DarkScheme = darkColorScheme(

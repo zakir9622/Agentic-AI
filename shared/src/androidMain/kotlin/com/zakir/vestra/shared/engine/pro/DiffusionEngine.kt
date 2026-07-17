@@ -13,6 +13,7 @@ import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
 import com.zakir.vestra.shared.engine.lite.Watermark
+import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
 import com.zakir.vestra.shared.packs.DeviceProbe
 import com.zakir.vestra.shared.packs.ModelPackManager
 import kotlinx.coroutines.Dispatchers
@@ -75,7 +76,11 @@ class DiffusionEngine(
             val config = Json { ignoreUnknownKeys = true }
                 .decodeFromString<ProPackConfig>(File("$packDir/config.json").readText())
 
-            emit(GenerationState.Running(0.05f, "Reading the body"))
+            // ── Stage 1: STRUCTURE — establish structural bounds (ControlNet
+            // condition). The parse-derived body mask locks the garment to the
+            // model's pose; a dedicated pose/depth model slots in here when the
+            // pack ships one (config.structureModel).
+            emit(GenerationState.Running(0.05f, ConditioningStage.STRUCTURE.label))
             var t0 = System.currentTimeMillis()
             val mask = masker.maskFor(person, request.garment.category ?: GarmentCategory.DRESS)
             if (mask == null) {
@@ -86,10 +91,13 @@ class DiffusionEngine(
                 )
                 return@flow
             }
-            log("person_mask", t0)
+            log("structure_mask", t0)
 
             LatentCodec(packDir, config).use { codec ->
-                emit(GenerationState.Running(0.12f, "Preparing the canvas"))
+                // ── Stage 2: TEXTURE — inject garment features (IP-Adapter). The
+                // garment latent carries appearance into cross-attention instead
+                // of a hallucination-prone text description.
+                emit(GenerationState.Running(0.12f, ConditioningStage.TEXTURE.label))
                 t0 = System.currentTimeMillis()
                 val personCanvas = codec.centerCrop(person)
                 val garmentCanvas = codec.centerCrop(garment)
@@ -100,10 +108,13 @@ class DiffusionEngine(
                 val conditionLatent = codec.conditionLatent(maskedPersonLatent, garmentLatent)
                 val unconditionalLatent = codec.unconditionalLatent(maskedPersonLatent)
                 val maskConcat = codec.maskConcat(maskCanvas)
-                log("vae_encode", t0)
+                log("ipadapter_encode", t0)
 
+                // ── Stage 3: SYNTHESIS — diffuse under structure + texture +
+                // PromptStyle guidance (CFG 7.0, 20–25 steps, mobile-safe).
                 val scheduler = DdimScheduler()
                 val steps = config.inferenceSteps
+                val cfg = config.guidanceScale
                 val timesteps = scheduler.timesteps(steps)
                 val random = request.seed?.let { Random(it) } ?: Random(System.nanoTime())
                 val sample = codec.initialNoise(random)
@@ -117,18 +128,18 @@ class DiffusionEngine(
                             unconditionalLatent = unconditionalLatent,
                             maskConcat = maskConcat,
                             timestep = timestep,
-                            guidanceScale = config.guidanceScale,
+                            guidanceScale = cfg,
                         )
                         scheduler.step(sample, noisePred, timestep, steps)
                         emit(
                             GenerationState.Running(
                                 0.15f + 0.7f * (index + 1) / steps,
-                                "Weaving the look · ${index + 1}/$steps",
+                                "${ConditioningStage.SYNTHESIS.label} · ${index + 1}/$steps",
                             ),
                         )
                     }
                 }
-                log("denoise_${steps}steps", t0)
+                log("synthesis_${steps}steps_cfg${cfg}", t0)
 
                 emit(GenerationState.Running(0.88f, "Developing"))
                 t0 = System.currentTimeMillis()
@@ -187,9 +198,15 @@ data class ProPackConfig(
     val latentHeight: Int = 128,
     val imageWidth: Int = 768,
     val imageHeight: Int = 1024,
-    val inferenceSteps: Int = 12,
-    val guidanceScale: Float = 2.5f,
+    // Photorealism defaults (PromptStyle): CFG 7.0, 22 steps. A pack tuned for a
+    // low-CFG model (e.g. CatVTON) may override both in its config.json.
+    val inferenceSteps: Int = com.zakir.vestra.shared.engine.pipeline.PromptStyle.STEPS,
+    val guidanceScale: Float = com.zakir.vestra.shared.engine.pipeline.PromptStyle.CFG_SCALE,
     val vaeScale: Float = 0.18215f,
     /** "width" or "height" — axis the garment latent is concatenated along. */
     val concatAxis: String = "width",
+    /** Optional ControlNet/pose model file in the pack (structure conditioning). */
+    val structureModel: String? = null,
+    /** Optional IP-Adapter image-encoder file in the pack (texture conditioning). */
+    val ipAdapter: String? = null,
 )
