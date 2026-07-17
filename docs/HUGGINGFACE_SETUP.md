@@ -1,4 +1,25 @@
-# Hugging Face packs setup (10 minutes)
+# Hugging Face packs setup
+
+## Fast path — Lite pack with zero uploads (already wired)
+
+The Lite pack's `manifest.json` references the two model files **directly from
+their public Hugging Face repos**, so you don't upload any large model files.
+`ml/lite_pack_manifest.json` is ready to use, and the app already points at
+`https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json`.
+
+To make it live (60 seconds, no CLI/Python/credits):
+1. Open https://huggingface.co/datasets/Iamzakirzr/vestra-packs
+2. **Add file → Create a new file**, name it `manifest.json`
+3. Paste the contents of `ml/lite_pack_manifest.json` and **Commit to main**
+
+That's it — the app can now download and run the Lite engine offline. (The
+referenced parser is the 266 MB fp32 model; to shrink the pack to ~68 MB later,
+run `export_lite_pack.py` to produce quantized models and host them in the repo,
+then regenerate the manifest with `manifest_gen.py`.)
+
+---
+
+## Full path — quantized packs + studio models (10 minutes)
 
 The Lookbook downloads its model packs — the **Lite engine** (~69 MB, required
 for offline generation) and the **Studio models** gallery (your model photos) —

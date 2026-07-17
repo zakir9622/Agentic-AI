@@ -109,11 +109,11 @@ class VestraApp : Application() {
     }
 
     companion object {
-        // Placeholder until the production Hugging Face packs repo exists
-        // (needs the owner's HF account). Override locally by pointing this at
-        // any static server hosting exports/ from ml/manifest_gen.py.
+        // The owner's Hugging Face packs dataset. The Lite pack's manifest.json
+        // lives here; its model files are referenced from public HF repos, so no
+        // large upload is needed (see docs/HUGGINGFACE_SETUP.md).
         const val PACKS_MANIFEST_URL =
-            "https://huggingface.co/datasets/REPLACE_ME/vestra-packs/resolve/main/manifest.json"
+            "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json"
 
         // Supabase project backing the Cloud tier and report intake. The anon
         // key is publishable by design (RLS/service-role boundaries hold the

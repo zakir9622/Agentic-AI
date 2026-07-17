@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "packs": [
+    {
+      "id": "lite-v1",
+      "version": 1,
+      "tier": "LITE",
+      "displayName": "Lite engine",
+      "description": "Fast offline try-on: garment cutout, body analysis, and fitting on every supported phone.",
+      "totalBytes": 271434166,
+      "files": [
+        {
+          "path": "garment_seg.onnx",
+          "url": "https://huggingface.co/tomjackson2023/rembg/resolve/main/u2netp.onnx",
+          "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+          "bytes": 4574861
+        },
+        {
+          "path": "human_parse.onnx",
+          "url": "https://huggingface.co/Longcat2957/humanparsing-onnx/resolve/main/parsing_atr.onnx",
+          "sha256": "04c7d1d070d0e0ae943d86b18cb5aaaea9e278d97462e9cfb270cbbe4cd977f4",
+          "bytes": 266859305
+        }
+      ],
+      "minSpec": { "minRamMb": 0, "requiresNpu": false, "minSdk": 26 }
+    }
+  ]
+}
