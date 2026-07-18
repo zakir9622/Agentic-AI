@@ -17,7 +17,8 @@ huggingface-cli download SG161222/Realistic_Vision_V5.1_noVAE \
   --local-dir "$DEST/realistic_vision"
 
 echo "==> ControlNet v1.1 Depth (fp16) — OpenRAIL"
-huggingface-cli download lllyasviel/ControlNet-v1-1_fp16_safetensors \
+# fp16 safetensors mirror (lllyasviel's own repo ships .pth, not fp16 safetensors)
+huggingface-cli download comfyanonymous/ControlNet-v1-1_fp16_safetensors \
   control_v11f1p_sd15_depth_fp16.safetensors \
   --local-dir "$DEST/controlnet_depth"
 
