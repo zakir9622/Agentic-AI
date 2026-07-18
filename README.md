@@ -8,17 +8,19 @@ Built modest-wear-first: abayas, hijabs, kaftans, and every category of covered 
 
 > The internal module namespace remains `com.zakir.vestra` from the project's first iteration; the product name is **The Lookbook**.
 
+> 📋 **Picking this up (new dev or AI)? Start with [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)** — the full handoff: every build phase, what's live, the architecture, known issues, and the roadmap.
+
 ## Generation engines
 
-| Tier | Where it runs | Devices | Model pack |
-|---|---|---|---|
-| **Lite** | On device — segmentation, pose, garment warp, harmonization | All supported phones (Android 8.0+) | ~300 MB |
-| **Pro** | On device — quantized try-on diffusion (NPU) | Flagships (≥8 GB RAM, modern NPU) | ~2.5–4 GB |
-| **Cloud** | Supabase Edge Function → Replicate | Any, online only | none |
+| Tier | Where it runs | Devices | Model pack | Status |
+|---|---|---|---|---|
+| **Lite** | On device — segmentation, warp, harmonization (*compositor*) | All phones (Android 8.0+) | ~270 MB | built; not hosted |
+| **Pro** | On device — SD1.5 + ControlNet-Depth + IP-Adapter diffusion (NPU) | 12 GB+ RAM flagships | ~4.3 GB fp16 | ✅ **live** on Hugging Face |
+| **Cloud** | Supabase Edge Function → Replicate IDM-VTON | Any, online only | none | ✅ **live** |
 
-The engine is user-selectable in Settings; **Auto** picks the best installed on-device engine and never touches the network.
+The engine is user-selectable in Settings; **Auto** picks the best installed on-device engine and **never touches the network**.
 
-**A note on quality.** The Lite engine is a *compositor* (segment → warp → blend) — fast and offline, but it cannot synthesize a person and won't reach diffusion photorealism. For finished, catalog-grade output use the **Cloud** engine now ([setup](docs/CLOUD_SETUP.md)), or the **Pro** on-device engine once its weights are trained (`ml/train/`). All three share the same studio-model gallery, backdrops, and outfit layering — so raising quality is a matter of engine + models, not app changes.
+**A note on quality.** The Lite engine is a *compositor* (segment → warp → blend) — fast and offline, but it cannot synthesize a person and won't reach diffusion photorealism. For photoreal output use the **Cloud** engine (live — pennies/image, any phone) or the **Pro** on-device engine (live — free per image, offline, but ~4.3 GB and 12 GB+ RAM flagship only). The Pro pack's ONNX components were each converted and validated end-to-end; INT8 quantization to reach normal 8 GB phones is the top roadmap item. All engines share the same studio-model gallery, backdrops, and outfit layering.
 
 ## Project layout
 
@@ -26,8 +28,14 @@ The engine is user-selectable in Settings; **Auto** picks the best installed on-
 - `shared/` — Kotlin Multiplatform core: domain models, engine routing, pack manager, cloud client. Pure Kotlin `commonMain`, ready for the iOS port (`docs/IOS_PORT.md`)
 - `ml/` — Python export tooling that produces the downloadable model packs (not shipped in the app)
 - `supabase/` — Edge Functions for the cloud tier and AI-content reports ([deploy runbook](supabase/README.md))
-- `docs/` — [architecture](docs/ARCHITECTURE.md) · [Play compliance checklist](docs/PLAY_COMPLIANCE.md) · [privacy policy](docs/PRIVACY_POLICY.md) · [iOS port plan](docs/IOS_PORT.md)
+- `docs/` — [**project status & handoff**](docs/PROJECT_STATUS.md) · [architecture](docs/ARCHITECTURE.md) · [on-device pipeline](docs/PIPELINE.md) · [cloud setup](docs/CLOUD_SETUP.md) · [Hugging Face packs](docs/HUGGINGFACE_SETUP.md) · [Play compliance](docs/PLAY_COMPLIANCE.md) · [privacy policy](docs/PRIVACY_POLICY.md) · [iOS port plan](docs/IOS_PORT.md)
 - `ml/MODEL_LICENSES.md` — license status of every shipped model (read before publishing packs)
+
+## Status at a glance
+
+- **Cloud tier:** live (Supabase `lookbook-cloud` + Replicate; add Replicate billing for live runs).
+- **On-device Pro pack:** converted, CPU-validated, and hosted at `Iamzakirzr/vestra-packs` (~4.3 GB, 12 GB+ RAM phones).
+- **Next up:** INT8-quantize the Pro pack for 8 GB phones; real-device test pass; modest-wear-tuned cloud model. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) §8.
 
 ## Building
 
