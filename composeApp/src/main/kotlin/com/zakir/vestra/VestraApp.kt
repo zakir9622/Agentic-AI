@@ -113,7 +113,7 @@ class VestraApp : Application() {
         // (needs the owner's HF account). Override locally by pointing this at
         // any static server hosting exports/ from ml/manifest_gen.py.
         const val PACKS_MANIFEST_URL =
-            "https://huggingface.co/datasets/REPLACE_ME/vestra-packs/resolve/main/manifest.json"
+            "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json"
 
         // Supabase project backing the Cloud tier and report intake. The anon
         // key is publishable by design (RLS/service-role boundaries hold the
