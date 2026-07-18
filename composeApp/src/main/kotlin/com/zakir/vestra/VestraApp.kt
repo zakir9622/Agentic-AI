@@ -117,8 +117,10 @@ class VestraApp : Application() {
 
         // Supabase project backing the Cloud tier and report intake. The anon
         // key is publishable by design (RLS/service-role boundaries hold the
-        // secrets); Replicate's token lives only in Edge Function secrets.
-        const val SUPABASE_URL = "https://REPLACE_ME.supabase.co"
-        const val SUPABASE_ANON_KEY = ""
+        // secrets); Replicate's token lives only in the project's Vault, read
+        // by the tryon Edge Function via a service-role-only accessor.
+        const val SUPABASE_URL = "https://todzunpexvvmbxpvdyap.supabase.co"
+        const val SUPABASE_ANON_KEY =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvZHp1bnBleHZ2bWJ4cHZkeWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNTQyNDcsImV4cCI6MjA5OTkzMDI0N30.yeu8BD1yO_7pk29H78kKxYnqy4mf7xdubHNHaONiHm4"
     }
 }

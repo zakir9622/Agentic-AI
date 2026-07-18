@@ -2,8 +2,12 @@
 // model on Replicate, returns the result image. Inputs are deleted immediately
 // after the run; nothing is retained server-side (Play data-safety commitment).
 //
-// Secrets (set via `supabase secrets set`):
-//   REPLICATE_API_TOKEN — Replicate account token
+// Replicate token resolution (in order):
+//   1. REPLICATE_API_TOKEN env secret (set via `supabase secrets set`), or
+//   2. Supabase Vault, read through the service-role-only
+//      public.get_replicate_token() accessor (see migration 0002). This lets
+//      the token be provisioned entirely over the management API when no
+//      dashboard/CLI step is available.
 // Optional env:
 //   REPLICATE_MODEL_VERSION — pinned version id of the try-on model
 
@@ -35,9 +39,6 @@ Deno.serve(async (req) => {
     return json({ error: "POST only" }, 405);
   }
 
-  const token = Deno.env.get("REPLICATE_API_TOKEN");
-  if (!token) return json({ error: "Server not configured" }, 500);
-
   let body: TryOnBody;
   try {
     body = await req.json();
@@ -59,6 +60,9 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  const token = await resolveReplicateToken(supabase);
+  if (!token) return json({ error: "Server not configured" }, 500);
 
   const jobId = crypto.randomUUID();
   const garmentPath = `${jobId}/garment.jpg`;
@@ -120,6 +124,18 @@ Deno.serve(async (req) => {
     await supabase.storage.from(BUCKET).remove([garmentPath, personPath]);
   }
 });
+
+// Resolve the Replicate token from the env secret, falling back to the
+// Vault-backed accessor (service-role only). Returns null if neither is set.
+async function resolveReplicateToken(
+  supabase: ReturnType<typeof createClient>,
+): Promise<string | null> {
+  const fromEnv = Deno.env.get("REPLICATE_API_TOKEN");
+  if (fromEnv) return fromEnv;
+  const { data, error } = await supabase.rpc("get_replicate_token");
+  if (error || typeof data !== "string" || data.length === 0) return null;
+  return data;
+}
 
 async function replicate(
   token: string,

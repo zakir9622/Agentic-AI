@@ -3,22 +3,37 @@
 Two Edge Functions power the optional Cloud tier and the AI-content report
 intake. Everything here deploys in ~10 minutes.
 
+> **Provisioned project:** `lookbook-cloud` (ref `todzunpexvvmbxpvdyap`,
+> region ap-south-1) is already live with both functions deployed, the
+> migrations applied, and the Replicate token stored in Vault. `VestraApp.kt`
+> is wired to it — the Cloud tier works out of the box. The steps below
+> document how to reproduce or re-provision it.
+
 ## One-time setup
 
 ```bash
 # 1. Create a project (dashboard or CLI) and link it
 supabase link --project-ref <PROJECT_REF>
 
-# 2. Apply the migration (content_reports table + transient storage bucket)
+# 2. Apply the migrations (content_reports table + transient bucket +
+#    Vault accessor for the Replicate token)
 supabase db push
 
-# 3. Set the Replicate token (server-side only — never ships in the app)
+# 3a. Provide the Replicate token — preferred: an Edge Function env secret
 supabase secrets set REPLICATE_API_TOKEN=r8_...
+
+# 3b. …or, when no CLI/dashboard step is available, store it in Vault (the
+#     tryon function falls back to reading it through the service-role-only
+#     public.get_replicate_token() accessor from migration 0002):
+#       select vault.create_secret('r8_...', 'replicate_api_token', 'Replicate token');
 
 # 4. Deploy the functions
 supabase functions deploy tryon
 supabase functions deploy report
 ```
+
+The `tryon` function resolves the token env-first, then Vault — so either
+path in step 3 works with no code change.
 
 ## Wire the app
 
