@@ -252,12 +252,33 @@ data class ProPackConfig(
     val controlNet: String? = null,
     /** Monocular depth estimator ONNX for Stage A structural conditioning. */
     val depthModel: String? = null,
-    /** IP-Adapter projection/resampler ONNX (image embeds → cross-attn tokens). */
+    /** IP-Adapter projection/resampler ONNX. Unused by the fused-UNet pack: the
+     *  IP-Adapter Plus resampler + attention are baked into unet.onnx, so the
+     *  image encoder's raw embeds feed the UNet directly (see SdControlNetPipeline). */
     val ipAdapter: String? = null,
-    /** CLIP image encoder ONNX feeding the IP-Adapter. */
+    /** CLIP-H image encoder ONNX. Emits penultimate hidden states [1,ipEmbedSeq,ipEmbedDim]. */
     val imageEncoder: String? = null,
     /** SD text encoder ONNX (prompt → embeddings) for PromptStyle guidance. */
     val textEncoder: String? = null,
     /** Optional legacy alias retained for older packs. */
     val structureModel: String? = null,
-)
+    // ── Shapes emitted by the converter (ml/convert_pro_pack.py) so the runtime
+    //    feeds exactly what the exported graphs declare. ──
+    /** IP-Adapter image-embed sequence length (CLIP-H penultimate: 257). */
+    val ipEmbedSeq: Int = 257,
+    /** IP-Adapter image-embed hidden dim (CLIP-H: 1280). */
+    val ipEmbedDim: Int = 1280,
+    /** ControlNet down_0..down_11 + mid residual shapes (SD1.5 @512), in order. */
+    val residualShapes: List<List<Int>> = DEFAULT_RESIDUAL_SHAPES,
+) {
+    companion object {
+        /** SD1.5 ControlNet residual shapes at 512×512 (64×64 latent). */
+        val DEFAULT_RESIDUAL_SHAPES: List<List<Int>> = listOf(
+            listOf(1, 320, 64, 64), listOf(1, 320, 64, 64), listOf(1, 320, 64, 64),
+            listOf(1, 320, 32, 32), listOf(1, 640, 32, 32), listOf(1, 640, 32, 32),
+            listOf(1, 640, 16, 16), listOf(1, 1280, 16, 16), listOf(1, 1280, 16, 16),
+            listOf(1, 1280, 8, 8), listOf(1, 1280, 8, 8), listOf(1, 1280, 8, 8),
+            listOf(1, 1280, 8, 8),
+        )
+    }
+}

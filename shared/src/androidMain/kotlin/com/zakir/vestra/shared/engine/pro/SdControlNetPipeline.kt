@@ -13,19 +13,24 @@ import java.io.File
 
 /**
  * On-device SD1.5 + ControlNet-Depth + IP-Adapter try-on, implementing the
- * staged [MultiConditioningPipeline]:
+ * staged [MultiConditioningPipeline]. The ONNX contract below is exactly what
+ * ml/convert_pro_pack.py exports and validates (input names + shapes verified
+ * end-to-end on CPU before shipping the pack):
  *
- *  A. STRUCTURE  depth.onnx → depth map → ControlNet conditioning image
- *  B. TEXTURE    ip_image_encoder.onnx → ip_proj.onnx → garment image tokens,
- *                concatenated with text_encoder.onnx prompt embeddings
- *  C. SYNTHESIS  per step: controlnet.onnx → down/mid residuals; unet.onnx
- *                (sample, t, combined tokens, +residuals) → noise; CFG 7.0;
- *                DDIM step. Then vae_decoder.onnx → paste back into the person.
+ *  A. STRUCTURE  depth.onnx: person[1,3,518,518] → depth[1,1,518,518] → RGB
+ *                ControlNet conditioning image [1,3,512,512]
+ *  B. TEXTURE    ip_image_encoder.onnx: garment[1,3,224,224] →
+ *                image_embeds[1,257,1280] (CLIP-H penultimate hidden states).
+ *                No separate projection: the IP-Adapter Plus resampler + cross-
+ *                attention are baked into unet.onnx.
+ *  C. SYNTHESIS  per step: controlnet.onnx(sample,t,text[1,77,768],depth cond)
+ *                → 12 down + 1 mid residuals; unet.onnx(sample,t,text,
+ *                image_embeds[1,1,257,1280], down_0..down_11, mid) → noise;
+ *                CFG 7.0; DDIM step. Then vae_decoder.onnx → mask paste-back.
  *
- * All graphs are FP16 ONNX at 512×512 from convert_pro_pack.py. This class is
- * the runtime contract; correctness of the exported graphs is validated by the
- * developer on a flagship (VestraProBench) — the agent container has no GPU to
- * produce or run these weights.
+ * All graphs are FP16 ONNX at 512×512. Correctness of the runtime chain is
+ * validated on a flagship (VestraProBench) — the agent container has no NPU to
+ * run these weights, only to prove the graphs load and shape-match.
  */
 class SdControlNetPipeline(
     private val packDir: String,
@@ -37,10 +42,14 @@ class SdControlNetPipeline(
 ) : MultiConditioningPipeline {
 
     private val res = config.resolution
+    private val ipSeq = config.ipEmbedSeq
+    private val ipDim = config.ipEmbedDim
 
     override fun requirements(): PipelineRequirements = PipelineRequirements(
         hasStructureModel = config.controlNet.present() && config.depthModel.present(),
-        hasIpAdapter = config.ipAdapter.present() && config.imageEncoder.present(),
+        // The IP-Adapter projection is baked into the UNet; the image encoder
+        // alone is enough to supply texture conditioning.
+        hasIpAdapter = config.imageEncoder.present(),
         hasUnet = File("$packDir/${config.unetOrDefault()}").exists(),
     )
 
@@ -53,64 +62,52 @@ class SdControlNetPipeline(
         val personSq = person.scale(res, res)
         val garmentSq = garment.scale(res, res)
 
-        // ── Stage A: STRUCTURE (depth → ControlNet conditioning) ──
-        // Depth is taken from the PERSON/model image so ControlNet conditions on
-        // the body's structure/pose — not the garment.
+        // ── Stage A: STRUCTURE (depth from the PERSON → ControlNet cond) ──
         onStage(ConditioningStage.STRUCTURE, 0.05f)
         val t0 = System.currentTimeMillis()
         val depthCond = OrtGraph("$packDir/${config.depthModel}").use { depth ->
             val chw = ImageOps.toNormalizedChw(personSq.scale(518, 518), 518, 518)
             val map = depth.runSingle(mapOf(depth.inputNames.first() to depth.floatTensor(chw, 1, 3, 518, 518)))
-            // Depth is single-channel 0..1; expand to a 3-channel RGB cond image.
             expandDepthToRgb(map, 518, res)
         }
         Log.i(TAG, "structure_depth: ${System.currentTimeMillis() - t0} ms")
 
-        // ── Stage B: TEXTURE (IP-Adapter image tokens + text tokens) ──
+        // ── Stage B: TEXTURE (raw CLIP-H image embeds + text embeds) ──
         onStage(ConditioningStage.TEXTURE, 0.15f)
         val imageEmbeds = OrtGraph("$packDir/${config.imageEncoder}").use { enc ->
             enc.runSingle(mapOf(enc.inputNames.first() to enc.floatTensor(
                 ImageOps.toNormalizedChw(garmentSq.scale(224, 224), 224, 224), 1, 3, 224, 224,
             )))
         }
-        val ipTokens = OrtGraph("$packDir/${config.ipAdapter}").use { proj ->
-            proj.runSingle(mapOf(proj.inputNames.first() to proj.floatTensor(
-                imageEmbeds, 1, (imageEmbeds.size / IP_DIM).toLong(), IP_DIM.toLong(),
-            )))
+        require(imageEmbeds.size == ipSeq * ipDim) {
+            "image encoder emitted ${imageEmbeds.size} floats, expected ${ipSeq * ipDim}"
         }
         val textEmbeds = encodePrompt(inputs)
-        val combined = ConditioningTokens.concat(
-            text = textEmbeds, textTokens = TEXT_TOKENS,
-            image = ipTokens, imageTokens = ipTokens.size / HIDDEN_DIM,
-            dim = HIDDEN_DIM,
-        )
-        val combinedSeq = ConditioningTokens.sequenceLength(TEXT_TOKENS, ipTokens.size / HIDDEN_DIM).toLong()
 
-        // ── Stage C: SYNTHESIS (ControlNet + UNet denoise loop) ──
+        // ── Stage C: SYNTHESIS (ControlNet residuals + UNet denoise loop) ──
         val steps = ConditioningTokens.clampSteps(config.inferenceSteps)
         val scheduler = DdimScheduler()
         val timesteps = scheduler.timesteps(steps)
         val latentLen = 4 * (res / 8) * (res / 8)
         val random = kotlin.random.Random(inputs.seed ?: System.nanoTime())
         val sample = FloatArray(latentLen) { gaussian(random) }
+        val lat = (res / 8).toLong()
         val textSeq = TEXT_TOKENS.toLong()
 
         val tSync = System.currentTimeMillis()
         OrtGraph("$packDir/${config.controlNet}").use { control ->
             OrtGraph("$packDir/${config.unetOrDefault()}").use { unet ->
                 timesteps.forEachIndexed { index, timestep ->
-                    // ControlNet takes text-only tokens; the IP-Adapter image
-                    // tokens condition the UNet cross-attention only.
                     val residuals = control.run(
                         inputs = mapOf(
-                            "sample" to control.floatTensor(sample, 1, 4, (res / 8).toLong(), (res / 8).toLong()),
+                            "sample" to control.floatTensor(sample, 1, 4, lat, lat),
                             "timestep" to control.longTensor(longArrayOf(timestep.toLong()), 1),
                             "encoder_hidden_states" to control.floatTensor(textEmbeds, 1, textSeq, HIDDEN_DIM.toLong()),
                             "controlnet_cond" to control.floatTensor(depthCond, 1, 3, res.toLong(), res.toLong()),
                         ),
                         outputs = CONTROL_OUTPUTS,
                     )
-                    val noise = runUnet(unet, sample, timestep, combined, combinedSeq, residuals, config.guidanceScale)
+                    val noise = runUnet(unet, sample, timestep, textEmbeds, imageEmbeds, residuals)
                     scheduler.step(sample, noise, timestep, steps)
                     onStage(ConditioningStage.SYNTHESIS, 0.2f + 0.65f * (index + 1) / steps)
                 }
@@ -120,9 +117,7 @@ class SdControlNetPipeline(
 
         // Decode + paste back into the untouched person outside the garment mask.
         val decoded = OrtGraph("$packDir/${config.vaeDecoderOrDefault()}").use { dec ->
-            val rgb = dec.runSingle(mapOf(dec.inputNames.first() to dec.floatTensor(
-                sample, 1, 4, (res / 8).toLong(), (res / 8).toLong(),
-            )))
+            val rgb = dec.runSingle(mapOf(dec.inputNames.first() to dec.floatTensor(sample, 1, 4, lat, lat)))
             chwToBitmap(rgb, res)
         }
         val mask = maskProvider(personSq)
@@ -133,10 +128,10 @@ class SdControlNetPipeline(
     // ── helpers (kept small; heavy tensor work is in the ONNX graphs) ──
 
     private fun encodePrompt(inputs: ConditioningInputs): FloatArray {
-        // The text encoder needs tokenized ids; a full CLIP tokenizer is heavy,
-        // so packs may ship a precomputed embedding for the fixed PromptStyle
-        // string. If a text encoder is present we feed a zero id sequence as a
-        // neutral prompt (image tokens dominate); a tokenizer pack can replace this.
+        // The text encoder needs tokenized ids. A full CLIP BPE tokenizer is
+        // heavy, so packs may omit it; without one we feed a neutral zero-id
+        // sequence (IP-Adapter image tokens carry the garment appearance). A
+        // tokenizer pack can replace this to apply the PromptStyle tokens.
         val textEncoder = config.textEncoder ?: return FloatArray(TEXT_TOKENS * HIDDEN_DIM)
         val path = "$packDir/$textEncoder"
         if (!File(path).exists()) return FloatArray(TEXT_TOKENS * HIDDEN_DIM)
@@ -149,24 +144,24 @@ class SdControlNetPipeline(
         unet: OrtGraph,
         sample: FloatArray,
         timestep: Int,
-        tokens: FloatArray,
-        seq: Long,
+        textEmbeds: FloatArray,
+        imageEmbeds: FloatArray,
         residuals: List<FloatArray>,
-        cfg: Float,
     ): FloatArray {
+        val lat = (res / 8).toLong()
         val base = mutableMapOf(
-            "sample" to unet.floatTensor(sample, 1, 4, (res / 8).toLong(), (res / 8).toLong()),
+            "sample" to unet.floatTensor(sample, 1, 4, lat, lat),
             "timestep" to unet.longTensor(longArrayOf(timestep.toLong()), 1),
-            "encoder_hidden_states" to unet.floatTensor(tokens, 1, seq, HIDDEN_DIM.toLong()),
+            "encoder_hidden_states" to unet.floatTensor(textEmbeds, 1, TEXT_TOKENS.toLong(), HIDDEN_DIM.toLong()),
+            // IP-Adapter image embeds are 4-D [batch, num_images, seq, dim];
+            // the resampler + attention inside unet.onnx consume them.
+            "image_embeds" to unet.floatTensor(imageEmbeds, 1, 1, ipSeq.toLong(), ipDim.toLong()),
         )
-        // Feed ControlNet residuals only if this UNet export declares them.
+        // Feed each ControlNet residual with the exact shape the graph declares.
         residuals.forEachIndexed { i, r ->
             val name = if (i < residuals.size - 1) "down_$i" else "mid"
-            if (unet.inputNames.contains(name)) {
-                // Residual spatial dims vary per block; the exporter fixes them,
-                // so pass through as a flat buffer keyed by name.
-                base[name] = unet.floatTensor(r, r.size.toLong())
-            }
+            val shape = config.residualShapes[i].map { it.toLong() }.toLongArray()
+            base[name] = unet.floatTensor(r, *shape)
         }
         return unet.runSingle(base)
     }
@@ -219,7 +214,6 @@ class SdControlNetPipeline(
         private const val TAG = DiffusionEngine.TAG
         private const val TEXT_TOKENS = 77
         private const val HIDDEN_DIM = 768
-        private const val IP_DIM = 1280
         private val CONTROL_OUTPUTS = (0..11).map { "down_$it" } + "mid"
     }
 }
