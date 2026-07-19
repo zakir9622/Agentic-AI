@@ -33,18 +33,28 @@ class ModelPackManager(
     private val _states = MutableStateFlow<Map<String, PackState>>(emptyMap())
     val states: StateFlow<Map<String, PackState>> = _states
 
+    /** Last catalog-load failure (null when the catalog loaded). Surfaced in the UI. */
+    private val _lastError = MutableStateFlow<String?>(null)
+    val lastError: StateFlow<String?> = _lastError
+
     /** Loads the last manifest fetched (offline start), then refreshes over the network. */
     suspend fun refresh(networkAllowed: Boolean = true) {
         cachedManifest()?.let { rebuildStates(it) }
         if (!networkAllowed) return
         runCatching {
             val response = http.get(manifestUrl)
-            if (!response.status.isSuccess()) return
+            check(response.status.isSuccess()) { "server returned HTTP ${response.status.value}" }
             val body = response.bodyAsText()
-            json.decodeFromString<PackManifest>(body) // validate before persisting
+            val manifest = json.decodeFromString<PackManifest>(body)
             fs.mkdirs(fs.packsRoot())
             fs.writeText(cachePath(), body)
-            rebuildStates(json.decodeFromString(body))
+            rebuildStates(manifest)
+        }.onSuccess {
+            _lastError.value = null
+        }.onFailure { e ->
+            // Don't hide it: keep any cached catalog on screen, but report why the
+            // refresh failed so the UI can show it and offer a retry.
+            _lastError.value = e.message ?: e::class.simpleName ?: "unknown error"
         }
     }
 

@@ -26,6 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +45,8 @@ fun PacksScreen(
 ) {
     val context = LocalContext.current
     val states by packManager.states.collectAsState()
+    val lastError by packManager.lastError.collectAsState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { packManager.refresh() }
 
@@ -69,10 +73,13 @@ fun PacksScreen(
 
             if (states.isEmpty()) {
                 Text(
-                    "Couldn't load the pack catalog. Connect once to fetch it — installed packs keep working offline.",
+                    lastError?.let { "Couldn't load the pack catalog — $it" }
+                        ?: "Couldn't load the pack catalog. Connect once to fetch it — installed packs keep working offline.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { scope.launch { packManager.refresh() } }) { Text("Retry") }
             }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
