@@ -1,0 +1,58 @@
+name: Release APK
+
+# On every merge to main, builds an installable debug APK and publishes it to the
+# rolling "latest" GitHub Release, so there is always a current APK to download and
+# sideload. Also runnable on demand from the Actions tab (Run workflow).
+#
+# The APK installs on any Android 8.0+ device. The Pro model pack downloads from
+# Hugging Face at runtime on capable phones; the Cloud tier works once configured.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble debug APK
+        run: ./gradlew :composeApp:assembleDebug
+
+      - name: Stage APK
+        run: |
+          mkdir -p dist
+          cp composeApp/build/outputs/apk/debug/*.apk "dist/the-lookbook-build-${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: the-lookbook-apk
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: Publish to rolling 'latest' release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest \
+            --target "${{ github.sha }}" \
+            --title "The Lookbook — latest APK (build #${{ github.run_number }})" \
+            --notes "Auto-built from \`main\` (${{ github.sha }}). Installable debug APK — sideload to any Android 8.0+ device. The Pro model pack downloads from Hugging Face at runtime on 12 GB+ RAM phones; the Cloud tier works once configured." \
+            "dist/the-lookbook-build-${{ github.run_number }}.apk"

@@ -7,8 +7,6 @@ name: Testing APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/android-garment-tryon-lwq9xa]
 
 jobs:
   build:
