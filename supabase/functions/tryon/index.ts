@@ -65,9 +65,23 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Free path first: if a Hugging Face ZeroGPU Space is configured, use it (no
-  // per-image cost within quota). Falls back to Replicate on any failure. When
-  // HF_SPACE_URL is unset the behaviour is identical to before (Replicate only).
+  // Free path first — a Modal serverless-GPU endpoint if configured (plain JSON
+  // → JPEG). Falls through to HF / Replicate on any failure. Unset = unchanged.
+  const modalUrl = Deno.env.get("MODAL_URL");
+  if (modalUrl) {
+    try {
+      const image = await callModal(modalUrl, Deno.env.get("MODAL_KEY"), body);
+      return new Response(image, {
+        headers: { "Content-Type": "image/jpeg", "X-Backend": "modal" },
+      });
+    } catch (err) {
+      console.error("Modal failed; falling back:", err);
+    }
+  }
+
+  // Next: a Hugging Face ZeroGPU Space if configured (no per-image cost within
+  // quota). Falls back to Replicate on any failure. When HF_SPACE_URL is unset
+  // the behaviour is identical to before (Replicate only).
   const hfSpace = Deno.env.get("HF_SPACE_URL");
   if (hfSpace) {
     try {
@@ -154,6 +168,27 @@ async function resolveReplicateToken(
   const { data, error } = await supabase.rpc("get_replicate_token");
   if (error || typeof data !== "string" || data.length === 0) return null;
   return data;
+}
+
+// Call a Modal serverless-GPU endpoint: POST JSON, receive JPEG bytes.
+async function callModal(
+  url: string,
+  key: string | undefined,
+  body: TryOnBody,
+): Promise<Uint8Array> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      person_b64: body.person_b64,
+      garment_b64: body.garment_b64,
+      model: body.model ?? "clean",
+      seed: 42,
+      ...(key ? { api_key: key } : {}),
+    }),
+  });
+  if (!res.ok) throw new Error(`Modal ${res.status}: ${(await res.text()).slice(0, 120)}`);
+  return new Uint8Array(await res.arrayBuffer());
 }
 
 // Call a Hugging Face Gradio (ZeroGPU) Space's /tryon endpoint. Images are sent
