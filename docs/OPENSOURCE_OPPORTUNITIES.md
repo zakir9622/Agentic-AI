@@ -91,7 +91,7 @@ while keeping diffusion cheap/fast — the best "no compromise, no cost" tradeof
 
 | Option | Free allowance | Use for |
 |---|---|---|
-| **HF ZeroGPU** ([docs](https://huggingface.co/docs/hub/en/spaces-zerogpu)) | Free **H200 (70 GB VRAM)**, ~3.5 min/day/user free; PRO ($9/mo) = 8× + priority | **Self-host IDM-VTON/Kolors/Leffa as a free API** → replace paid Replicate for low volume |
+| **HF ZeroGPU** ([docs](https://huggingface.co/docs/hub/en/spaces-zerogpu)) | RTX Pro 6000 Blackwell (48/96 GB). Using others' Spaces: free 5 min/day. **Hosting your own needs PRO ($9/mo)** → 40 min/day + $1/10 min overflow | **Self-host IDM-VTON/Leffa/clean-base as a low-cost API** → replace per-image Replicate. See `docs/CLOUD_ZEROGPU.md` |
 | **Modal** | **$30/mo** free credits, serverless GPU, scale-to-zero | Bursty inference without a standing server |
 | **Google Colab** | Free T4 | Offline/batch jobs, the pack conversion notebook |
 | **Qualcomm AI Hub** | Free compile + device benchmarking | On-device model optimization |

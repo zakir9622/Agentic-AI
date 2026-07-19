@@ -32,6 +32,10 @@ interface TryOnBody {
   negative?: string;
   cfg_scale?: number;
   steps?: number;
+  // Backend selector for the free HF ZeroGPU Space (ignored by Replicate):
+  //   "clean"  → commercially-clean SD+ControlNet+IP-Adapter (default)
+  //   "idmvton"→ max-fidelity IDM-VTON (preview/personal; license caveat)
+  model?: "clean" | "idmvton";
 }
 
 Deno.serve(async (req) => {
@@ -60,6 +64,35 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  // Free path first — a Modal serverless-GPU endpoint if configured (plain JSON
+  // → JPEG). Falls through to HF / Replicate on any failure. Unset = unchanged.
+  const modalUrl = Deno.env.get("MODAL_URL");
+  if (modalUrl) {
+    try {
+      const image = await callModal(modalUrl, Deno.env.get("MODAL_KEY"), body);
+      return new Response(image, {
+        headers: { "Content-Type": "image/jpeg", "X-Backend": "modal" },
+      });
+    } catch (err) {
+      console.error("Modal failed; falling back:", err);
+    }
+  }
+
+  // Next: a Hugging Face ZeroGPU Space if configured (no per-image cost within
+  // quota). Falls back to Replicate on any failure. When HF_SPACE_URL is unset
+  // the behaviour is identical to before (Replicate only).
+  const hfSpace = Deno.env.get("HF_SPACE_URL");
+  if (hfSpace) {
+    try {
+      const image = await callHfSpace(hfSpace, Deno.env.get("HF_SPACE_TOKEN"), body);
+      return new Response(image, {
+        headers: { "Content-Type": "image/jpeg", "X-Backend": "hf-zerogpu" },
+      });
+    } catch (err) {
+      console.error("HF Space failed; falling back to Replicate:", err);
+    }
+  }
 
   const token = await resolveReplicateToken(supabase);
   if (!token) return json({ error: "Server not configured" }, 500);
@@ -135,6 +168,78 @@ async function resolveReplicateToken(
   const { data, error } = await supabase.rpc("get_replicate_token");
   if (error || typeof data !== "string" || data.length === 0) return null;
   return data;
+}
+
+// Call a Modal serverless-GPU endpoint: POST JSON, receive JPEG bytes.
+async function callModal(
+  url: string,
+  key: string | undefined,
+  body: TryOnBody,
+): Promise<Uint8Array> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      person_b64: body.person_b64,
+      garment_b64: body.garment_b64,
+      model: body.model ?? "clean",
+      seed: 42,
+      ...(key ? { api_key: key } : {}),
+    }),
+  });
+  if (!res.ok) throw new Error(`Modal ${res.status}: ${(await res.text()).slice(0, 120)}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+// Call a Hugging Face Gradio (ZeroGPU) Space's /tryon endpoint. Images are sent
+// as base64 data-URI FileData; the SSE result carries the output image URL.
+// NOTE: validate against your Space on first deploy — Gradio's FileData shape can
+// vary by version. See docs/CLOUD_ZEROGPU.md.
+async function callHfSpace(
+  base: string,
+  hfToken: string | undefined,
+  body: TryOnBody,
+): Promise<Uint8Array> {
+  const root = base.replace(/\/$/, "");
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (hfToken) headers["Authorization"] = `Bearer ${hfToken}`;
+
+  const fileData = (b64: string) => ({
+    url: `data:image/jpeg;base64,${b64}`,
+    meta: { _type: "gradio.FileData" },
+  });
+  const payload = {
+    data: [
+      fileData(body.person_b64),
+      fileData(body.garment_b64),
+      body.model === "idmvton" ? "idmvton" : "clean",
+      true, // upscale 2×
+      42, // seed
+    ],
+  };
+
+  const post = await fetch(`${root}/gradio_api/call/tryon`, {
+    method: "POST", headers, body: JSON.stringify(payload),
+  });
+  if (!post.ok) throw new Error(`HF call POST ${post.status}`);
+  const { event_id } = await post.json();
+  if (!event_id) throw new Error("HF call: no event_id");
+
+  const stream = await fetch(`${root}/gradio_api/call/tryon/${event_id}`, { headers });
+  if (!stream.ok) throw new Error(`HF stream ${stream.status}`);
+  const text = await stream.text();
+
+  // SSE: find the "data:" line following an "event: complete" marker.
+  const complete = text.split("\n").find((l) => l.startsWith("data:") && l.includes("url"));
+  if (!complete) throw new Error(`HF: no result in stream: ${text.slice(0, 200)}`);
+  const parsed = JSON.parse(complete.slice(5).trim());
+  const out = Array.isArray(parsed) ? parsed[0] : parsed;
+  const imageUrl: string = typeof out === "string" ? out : out?.url;
+  if (!imageUrl) throw new Error("HF: result had no image url");
+
+  const imgRes = await fetch(imageUrl, { headers });
+  if (!imgRes.ok) throw new Error(`HF image fetch ${imgRes.status}`);
+  return new Uint8Array(await imgRes.arrayBuffer());
 }
 
 async function replicate(
