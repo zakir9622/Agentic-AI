@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
 
   // Free path first — a Modal serverless-GPU endpoint if configured (plain JSON
   // → JPEG). Falls through to HF / Replicate on any failure. Unset = unchanged.
-  const modalUrl = Deno.env.get("MODAL_URL");
+  const modalUrl = Deno.env.get("MODAL_URL") ??
+    "https://zakir9622--lookbook-tryon-tryon-generate.modal.run";
   if (modalUrl) {
     try {
       const image = await callModal(modalUrl, Deno.env.get("MODAL_KEY"), body);

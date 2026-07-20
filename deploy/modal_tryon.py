@@ -26,10 +26,8 @@ import modal
 
 app = modal.App("lookbook-tryon")
 
-REALVIS_URL = (
-    "https://huggingface.co/SG161222/Realistic_Vision_V5.1_noVAE/resolve/main/"
-    "Realistic_Vision_V5.1_fp16-no-ema.safetensors"
-)
+REALVIS_REPO = "SG161222/Realistic_Vision_V5.1_noVAE"
+REALVIS_FILE = "Realistic_Vision_V5.1_fp16-no-ema.safetensors"
 CONTROLNET = "lllyasviel/control_v11f1p_sd15_depth"
 VAE = "stabilityai/sd-vae-ft-mse"
 DEPTH = "depth-anything/Depth-Anything-V2-Small-hf"
@@ -47,6 +45,14 @@ NEGATIVE = (
 )
 
 
+def _realvis_ckpt() -> str:
+    """Local path to the base checkpoint. hf_hub_download avoids from_single_file's
+    URL-parsing bug (a full /resolve/main/ URL got doubled → 404); at runtime the
+    file is already baked into the image cache, so this returns instantly."""
+    from huggingface_hub import hf_hub_download
+    return hf_hub_download(REALVIS_REPO, REALVIS_FILE)
+
+
 def _download_weights():
     """Runs at image BUILD time (CPU, no GPU) to cache every weight in the image
     layer, so runtime cold starts don't hit the network."""
@@ -61,7 +67,7 @@ def _download_weights():
     controlnet = ControlNetModel.from_pretrained(CONTROLNET, torch_dtype=torch.float16)
     vae = AutoencoderKL.from_pretrained(VAE, torch_dtype=torch.float16)
     pipe = StableDiffusionControlNetPipeline.from_single_file(
-        REALVIS_URL, controlnet=controlnet, vae=vae,
+        _realvis_ckpt(), controlnet=controlnet, vae=vae,
         torch_dtype=torch.float16, safety_checker=None,
     )
     # Downloads the IP-Adapter weights AND its CLIP-H image encoder into the cache.
@@ -105,7 +111,7 @@ class TryOn:
         controlnet = ControlNetModel.from_pretrained(CONTROLNET, torch_dtype=torch.float16)
         vae = AutoencoderKL.from_pretrained(VAE, torch_dtype=torch.float16)
         pipe = StableDiffusionControlNetPipeline.from_single_file(
-            REALVIS_URL, controlnet=controlnet, vae=vae,
+            _realvis_ckpt(), controlnet=controlnet, vae=vae,
             torch_dtype=torch.float16, safety_checker=None,
         )
         pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
