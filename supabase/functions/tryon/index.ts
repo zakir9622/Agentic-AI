@@ -170,15 +170,19 @@ async function resolveReplicateToken(
   return data;
 }
 
-// Call a Modal serverless-GPU endpoint: POST JSON, receive JPEG bytes.
+// Call a Modal serverless-GPU endpoint. Modal answers a slow request with a 303
+// to a token URL that must be GET-polled until the result is ready (each poll
+// long-polls, then returns 200 with the JPEG or another 303). We drain that
+// chain manually rather than relying on fetch's redirect limit.
 async function callModal(
   url: string,
   key: string | undefined,
   body: TryOnBody,
 ): Promise<Uint8Array> {
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    redirect: "manual",
     body: JSON.stringify({
       person_b64: body.person_b64,
       garment_b64: body.garment_b64,
@@ -187,7 +191,14 @@ async function callModal(
       ...(key ? { api_key: key } : {}),
     }),
   });
-  if (!res.ok) throw new Error(`Modal ${res.status}: ${(await res.text()).slice(0, 120)}`);
+
+  for (let hop = 0; hop < 30 && (res.status === 303 || res.status === 302 || res.status === 307); hop++) {
+    const loc = res.headers.get("location");
+    if (!loc) break;
+    res = await fetch(loc, { method: "GET", redirect: "manual" });
+  }
+
+  if (!res.ok) throw new Error(`Modal ${res.status}: ${(await res.text()).slice(0, 160)}`);
   return new Uint8Array(await res.arrayBuffer());
 }
 

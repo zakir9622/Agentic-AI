@@ -42,9 +42,23 @@ MODAL_KEY = <the LOOKBOOK_API_KEY you set>   # omit if you skipped the secret
 That's it — the Cloud tier now runs on Modal (commercially-clean `clean` engine),
 with Replicate as automatic fallback.
 
+## If a request never completes (persistent 303 / timeout)
+Modal answers a slow request with an async-poll redirect. The fix is baked in:
+weights are downloaded at **image build time** (not per cold start), so cold
+starts are fast enough to answer synchronously. If you deployed an earlier
+version, **re-pull and redeploy**:
+```bash
+git pull && modal deploy deploy/modal_tryon.py      # first build is slower (bakes ~5 GB)
+```
+To see what the function is doing (or any error):
+```bash
+modal app logs lookbook-tryon
+```
+
 ## Notes
-- **First request is slow** (cold start downloads ~5 GB of weights into a cached
-  Volume); subsequent requests are fast while warm, then scale to zero.
+- **First deploy build is slower** — it bakes the ~5 GB of weights into the image
+  so runtime cold starts are fast. Subsequent requests are quick while warm,
+  then the container scales to zero.
 - **Engine:** Modal serves the commercially-safe `clean` pipeline (SD1.5 +
   ControlNet-Depth + IP-Adapter-Plus). For the max-fidelity `idmvton` engine use
   the HF ZeroGPU path (`docs/CLOUD_ZEROGPU.md`) — it's a heavier model.
