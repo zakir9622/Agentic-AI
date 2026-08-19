@@ -72,12 +72,13 @@ class HumanParsing(private val packs: ModelPackManager) {
 
 internal fun GarmentCategory.atrClassIds(): Set<Int> = when (this) {
     // ATR labels: 1=hat 2=hair 4=upper-clothes 5=skirt 6=pants 7=dress
-    // 12/13=legs 14/15=arms 17=scarf
-    GarmentCategory.UPPER_BODY -> setOf(4, 7)
+    // 11=face 12/13=legs 14/15=arms 17=scarf
+    GarmentCategory.UPPER_BODY, GarmentCategory.KURTA -> setOf(4, 7)
     GarmentCategory.LOWER_BODY -> setOf(5, 6)
-    GarmentCategory.DRESS -> setOf(4, 5, 6, 7)
-    // Abaya/jilbab/kaftan: coverage extends over arms and legs to the ankle.
-    GarmentCategory.FULL_COVERAGE -> setOf(4, 5, 6, 7, 12, 13, 14, 15)
-    // Hijab/scarf/dupatta replace the hair/head region, not the body.
-    GarmentCategory.HEADSCARF -> setOf(1, 2, 17)
+    GarmentCategory.DRESS, GarmentCategory.LEHENGA -> setOf(4, 5, 6, 7)
+    GarmentCategory.ABAYA, GarmentCategory.JILBAB, GarmentCategory.KAFTAN,
+    GarmentCategory.FULL_COVERAGE, GarmentCategory.SHALWAR_KAMEEZ,
+    -> setOf(4, 5, 6, 7, 12, 13, 14, 15)
+    GarmentCategory.HIJAB, GarmentCategory.DUPATTA, GarmentCategory.HEADSCARF -> setOf(1, 2, 17)
+    GarmentCategory.NIQAB -> setOf(1, 2, 11, 17)
 }

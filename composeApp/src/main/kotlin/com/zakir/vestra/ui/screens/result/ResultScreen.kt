@@ -26,21 +26,16 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,41 +54,19 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
-import com.zakir.vestra.shared.domain.GenerationState
-import kotlinx.coroutines.launch
+import com.zakir.vestra.ui.theme.SpatialElevation
 import java.io.File
 
-/**
- * The reveal: draggable before/after when the look was generated on the
- * user's own photo, plus save / share / report.
- */
 @Composable
 fun ResultScreen(
     viewModel: com.zakir.vestra.ui.TryOnViewModel,
-    reportQueue: com.zakir.vestra.shared.safety.ReportQueue,
     onNewLook: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val shoot by viewModel.shoot.collectAsState()
     val results = shoot?.completed.orEmpty()
     var selectedShot by remember { mutableStateOf(0) }
     val result = results.getOrNull(selectedShot.coerceIn(0, (results.size - 1).coerceAtLeast(0)))
-    var showReportDialog by remember { mutableStateOf(false) }
-
-    if (showReportDialog) {
-        ReportDialog(
-            onDismiss = { showReportDialog = false },
-            onReport = { reason ->
-                showReportDialog = false
-                scope.launch {
-                    reportQueue.submit(reason, details = null, engineTier = result?.executedTier?.name)
-                }
-                Toast.makeText(context, "Thanks — your report was submitted.", Toast.LENGTH_SHORT)
-                    .show()
-            },
-        )
-    }
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -103,12 +76,9 @@ fun ResultScreen(
                 .padding(horizontal = 24.dp),
         ) {
             Spacer(Modifier.height(16.dp))
+            Text("Your look", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "The editorial",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                if (results.size > 1) "${results.size} SHOTS · AI-GENERATED" else "AI-GENERATED IMAGE",
+                if (results.size > 1) "${results.size} shots generated" else "Generated image",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -117,39 +87,43 @@ fun ResultScreen(
             val shotSources by viewModel.shots.collectAsState()
             val userPhoto = shotSources.filterIsInstance<com.zakir.vestra.shared.domain.PersonSource.UserPhoto>()
                 .firstOrNull()
-            Box(
-                Modifier
+            Surface(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(20.dp)),
-                contentAlignment = Alignment.Center,
+                    .weight(1f),
+                shape = RoundedCornerShape(24.dp),
+                tonalElevation = SpatialElevation.Raised.dp,
+                shadowElevation = SpatialElevation.Floating.dp,
             ) {
-                when {
-                    result != null && userPhoto != null && results.size == 1 ->
-                        BeforeAfter(
-                            beforeModel = userPhoto.uri,
-                            afterModel = File(result.imagePath),
-                        )
-                    result != null ->
-                        AsyncImage(
-                            model = File(result.imagePath),
-                            contentDescription = "Photoshoot shot ${selectedShot + 1}",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                        )
-                    else ->
-                        Text(
-                            "No shots to show — start a new shoot.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when {
+                        result != null && userPhoto != null && results.size == 1 ->
+                            BeforeAfter(beforeModel = userPhoto.uri, afterModel = File(result.imagePath))
+                        result != null ->
+                            AsyncImage(
+                                model = File(result.imagePath),
+                                contentDescription = "Photoshoot shot ${selectedShot + 1}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                            )
+                        else ->
+                            Text(
+                                "No shots to show — start a new shoot.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                    }
                 }
             }
 
             if (results.size > 1) {
                 Spacer(Modifier.height(12.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     itemsIndexed(results) { index, shot ->
                         AsyncImage(
                             model = File(shot.imagePath),
@@ -183,7 +157,7 @@ fun ResultScreen(
                             results.forEach { shot -> saveToGallery(context, File(shot.imagePath), quiet = true) }
                             Toast.makeText(
                                 context,
-                                if (results.size > 1) "${results.size} shots saved to Pictures/The Lookbook" else "Saved to Pictures/The Lookbook",
+                                if (results.size > 1) "${results.size} shots saved" else "Saved to Pictures/The Lookbook",
                                 Toast.LENGTH_SHORT,
                             ).show()
                         },
@@ -201,18 +175,13 @@ fun ResultScreen(
                         Spacer(Modifier.padding(4.dp))
                         Text("Share")
                     }
-                    OutlinedButton(onClick = { showReportDialog = true }) {
-                        Icon(Icons.Outlined.Flag, contentDescription = "Report this image")
-                    }
                 }
                 Spacer(Modifier.height(12.dp))
             }
 
             Button(
                 onClick = onNewLook,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             ) {
                 Text("New shoot")
             }
@@ -220,10 +189,6 @@ fun ResultScreen(
     }
 }
 
-/**
- * Draggable before/after reveal: the original photo on the left of the
- * divider, the generated look on the right.
- */
 @Composable
 private fun BeforeAfter(beforeModel: Any, afterModel: Any) {
     var fraction by remember { mutableStateOf(0.5f) }
@@ -261,61 +226,7 @@ private fun BeforeAfter(beforeModel: Any, afterModel: Any) {
                 .offset { IntOffset((fraction * widthPx).toInt() - 1, 0) }
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)),
         )
-        Text(
-            text = "◂ drag ▸",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp),
-        )
     }
-}
-
-@Composable
-private fun ReportDialog(
-    onDismiss: () -> Unit,
-    onReport: (com.zakir.vestra.shared.safety.ReportReason) -> Unit,
-) {
-    var selected by remember {
-        mutableStateOf(com.zakir.vestra.shared.safety.ReportReason.OTHER)
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Report this image") },
-        text = {
-            Column {
-                Text(
-                    "If this generation is offensive or misuses someone's likeness, " +
-                        "report it and we'll review. Reports are anonymous and work offline.",
-                )
-                Spacer(Modifier.height(12.dp))
-                com.zakir.vestra.shared.safety.ReportReason.entries.forEach { reason ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = reason == selected,
-                                onClick = { selected = reason },
-                            ),
-                    ) {
-                        RadioButton(
-                            selected = reason == selected,
-                            onClick = { selected = reason },
-                        )
-                        Text(reason.label, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onReport(selected) }) { Text("Report") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
 }
 
 private fun saveToGallery(context: Context, file: File, quiet: Boolean = false) {

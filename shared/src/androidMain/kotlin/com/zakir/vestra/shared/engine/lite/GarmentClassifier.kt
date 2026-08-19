@@ -51,14 +51,11 @@ object GarmentClassifier {
         val splitFraction = if (measuredRows == 0) 0f else splitRows.toFloat() / measuredRows
 
         return when {
-            // Thin, low-fill fabric — scarf/hijab/dupatta.
-            fill < 0.30f && aspect < 1.4f -> GarmentCategory.HEADSCARF
-            // Two vertical runs down most of the garment — trousers.
+            fill < 0.30f && aspect < 1.4f -> GarmentCategory.HIJAB
             splitFraction > 0.45f && aspect > 1.1f -> GarmentCategory.LOWER_BODY
-            // Very tall solid column — abaya/kaftan class coverage.
-            aspect > 1.8f && fill > 0.45f -> GarmentCategory.FULL_COVERAGE
+            aspect > 1.8f && fill > 0.45f -> GarmentCategory.ABAYA
             aspect > 1.25f -> GarmentCategory.DRESS
-            else -> GarmentCategory.UPPER_BODY
+            else -> GarmentCategory.KURTA
         }
     }
 }

@@ -13,6 +13,7 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
+import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
 import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
 import com.zakir.vestra.ui.screens.person.PersonSourceScreen
@@ -21,10 +22,10 @@ import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.studio.StudioScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
-/** Route names for the single-activity nav graph. */
 object Routes {
     const val STUDIO = "studio"
     const val GARMENT = "garment"
+    const val CASTING = "casting"
     const val PERSON = "person"
     const val GENERATE = "generate"
     const val RESULT = "result"
@@ -39,12 +40,9 @@ fun VestraNavHost(
     engineRouter: EngineRouter,
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
-    reportQueue: com.zakir.vestra.shared.safety.ReportQueue,
     studioModels: com.zakir.vestra.data.StudioModelRepository,
-    garmentGuard: com.zakir.vestra.data.GarmentInputGuard,
     navController: NavHostController = rememberNavController(),
 ) {
-    // One session ViewModel shared across the garment → person → generate → result flow.
     val tryOnViewModel: TryOnViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -70,7 +68,13 @@ fun VestraNavHost(
         composable(Routes.GARMENT) {
             GarmentScreen(
                 viewModel = tryOnViewModel,
-                guard = garmentGuard,
+                onBack = { navController.popBackStack() },
+                onNext = { navController.navigate(Routes.CASTING) },
+            )
+        }
+        composable(Routes.CASTING) {
+            CastingStudioScreen(
+                viewModel = tryOnViewModel,
                 onBack = { navController.popBackStack() },
                 onNext = { navController.navigate(Routes.PERSON) },
             )
@@ -98,7 +102,6 @@ fun VestraNavHost(
         composable(Routes.RESULT) {
             ResultScreen(
                 viewModel = tryOnViewModel,
-                reportQueue = reportQueue,
                 onNewLook = {
                     tryOnViewModel.resetSession()
                     navController.navigate(Routes.GARMENT) {

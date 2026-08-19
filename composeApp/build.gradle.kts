@@ -12,8 +12,33 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("sideload") {
+            dimension = "distribution"
+            buildConfigField("boolean", "APPLY_WATERMARK", "false")
+        }
+        create("store") {
+            dimension = "distribution"
+            buildConfigField("boolean", "APPLY_WATERMARK", "true")
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "release.keystore"
+            val keystoreFile = file(keystorePath)
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "lookbook"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "lookbook"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "lookbook"
+            }
+        }
     }
 
     buildTypes {
@@ -24,11 +49,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfig = signingConfigs.getByName("release").takeIf {
+                it.storeFile?.exists() == true
+            } ?: signingConfigs.getByName("debug")
         }
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {

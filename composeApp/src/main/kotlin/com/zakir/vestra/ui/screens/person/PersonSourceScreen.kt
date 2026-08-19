@@ -63,7 +63,15 @@ fun PersonSourceScreen(
     onNext: () -> Unit,
 ) {
     val shots by viewModel.shots.collectAsState()
-    val models = remember { studioModels.models() }
+    val casting by viewModel.casting.collectAsState()
+    val allModels = remember { studioModels.models() }
+    val models = remember(casting, allModels) {
+        val tags = casting.galleryTags()
+        val filtered = allModels.filter { model ->
+            model.tags.isEmpty() || model.tags.any { it.lowercase() in tags.map { t -> t.lowercase() } }
+        }
+        filtered.ifEmpty { allModels }
+    }
     val consentAccepted by appSettings.likenessConsentAccepted.collectAsState()
     var showConsentDialog by remember { mutableStateOf(false) }
 
@@ -88,8 +96,7 @@ fun PersonSourceScreen(
             text = {
                 Text(
                     "Only use photos of yourself, or of people who have given you " +
-                        "permission. Generated images are watermarked as AI-created. " +
-                        "Creating images of someone without their consent may be unlawful.",
+                        "permission. Creating images of someone without their consent may be unlawful.",
                 )
             },
             confirmButton = {
@@ -121,8 +128,8 @@ fun PersonSourceScreen(
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                 }
                 Column {
-                    Text("Act II", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("The casting", style = MaterialTheme.typography.headlineMedium)
+                    Text("Model & pose", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("Choose your model", style = MaterialTheme.typography.headlineMedium)
                 }
             }
             Text(

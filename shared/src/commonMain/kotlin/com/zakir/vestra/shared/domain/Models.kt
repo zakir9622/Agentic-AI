@@ -9,11 +9,8 @@ enum class EngineTier {
     /** On-device segmentation + warp + harmonization pipeline. Works on all supported devices, fully offline. */
     LITE,
 
-    /** On-device quantized try-on diffusion. Flagship NPUs only, fully offline. */
+    /** On-device quantized try-on diffusion. Flagship devices, fully offline. */
     PRO,
-
-    /** Server-side diffusion via Supabase + Replicate. Requires network and explicit opt-in. */
-    CLOUD,
 }
 
 /** Where the person in the output image comes from. */
@@ -34,14 +31,27 @@ data class GarmentImage(
 
 @Serializable
 enum class GarmentCategory {
+    /** Abaya — full-length modest outer garment. */
+    ABAYA,
+    JILBAB,
+    KAFTAN,
+
+    /** Head and face coverage. */
+    HIJAB,
+    NIQAB,
+    DUPATTA,
+
+    /** Pakistani / South Asian traditional wear. */
+    SHALWAR_KAMEEZ,
+    KURTA,
+    LEHENGA,
+
     UPPER_BODY,
     LOWER_BODY,
     DRESS,
 
-    /** Abaya, jilbab, kaftan, burqa — coverage extends over the arms and to the ankles. */
+    /** Legacy aliases kept for pack compatibility. */
     FULL_COVERAGE,
-
-    /** Hijab, scarf, dupatta — worn over hair/head instead of the body. */
     HEADSCARF,
 }
 
@@ -52,8 +62,18 @@ enum class GarmentCategory {
  */
 fun GarmentCategory?.layerRank(): Int = when (this) {
     GarmentCategory.LOWER_BODY -> 0
-    GarmentCategory.UPPER_BODY, GarmentCategory.DRESS, GarmentCategory.FULL_COVERAGE, null -> 1
+    GarmentCategory.UPPER_BODY, GarmentCategory.KURTA, GarmentCategory.SHALWAR_KAMEEZ,
+    GarmentCategory.DRESS, GarmentCategory.ABAYA, GarmentCategory.JILBAB,
+    GarmentCategory.KAFTAN, GarmentCategory.FULL_COVERAGE, GarmentCategory.LEHENGA, null -> 1
+    GarmentCategory.HIJAB, GarmentCategory.NIQAB, GarmentCategory.DUPATTA,
     GarmentCategory.HEADSCARF -> 2
+}
+
+/** Maps legacy category values to the expanded taxonomy for parsing/masking. */
+fun GarmentCategory.effectiveCategory(): GarmentCategory = when (this) {
+    GarmentCategory.FULL_COVERAGE -> GarmentCategory.ABAYA
+    GarmentCategory.HEADSCARF -> GarmentCategory.HIJAB
+    else -> this
 }
 
 data class TryOnRequest(
@@ -62,6 +82,7 @@ data class TryOnRequest(
     val tier: EngineTier,
     val backdrop: Backdrop = Backdrop.STUDIO_WHITE,
     val seed: Long? = null,
+    val casting: CastingProfile = CastingProfile(),
 )
 
 /**
@@ -87,6 +108,7 @@ data class ShootPlan(
     val garment: GarmentImage,
     val shots: List<PersonSource>,
     val tier: EngineTier,
+    val casting: CastingProfile = CastingProfile(),
 ) {
     init {
         require(shots.isNotEmpty()) { "A shoot needs at least one shot" }
@@ -127,7 +149,6 @@ sealed interface GenerationState {
 sealed interface TryOnError {
     data object ModelPackMissing : TryOnError
     data object DeviceNotCapable : TryOnError
-    data object NetworkUnavailable : TryOnError
     data class SafetyBlocked(val reason: String) : TryOnError
     data class Internal(val message: String) : TryOnError
 }

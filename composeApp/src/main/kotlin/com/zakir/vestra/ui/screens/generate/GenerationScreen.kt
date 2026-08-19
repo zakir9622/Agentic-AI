@@ -178,7 +178,6 @@ private fun FailureContent(error: TryOnError, onAbort: () -> Unit) {
 private fun TryOnError.userMessage(): String = when (this) {
     TryOnError.ModelPackMissing -> "The model pack for this engine isn't installed yet. Download it from Settings → Model packs."
     TryOnError.DeviceNotCapable -> "This device can't run the selected engine. Switch to Lite or Auto in Settings."
-    TryOnError.NetworkUnavailable -> "Cloud generation needs a connection. Switch to an on-device engine to stay offline."
     is TryOnError.SafetyBlocked -> "This image can't be used: $reason"
     is TryOnError.Internal -> message.ifBlank { "Something went wrong during generation. Please try again." }
 }

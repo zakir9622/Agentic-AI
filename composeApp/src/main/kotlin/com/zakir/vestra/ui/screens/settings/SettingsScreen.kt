@@ -129,23 +129,20 @@ private fun EngineTier.label(): String = when (this) {
     EngineTier.AUTO -> "Auto"
     EngineTier.LITE -> "Lite — on device"
     EngineTier.PRO -> "Pro — on device"
-    EngineTier.CLOUD -> "Cloud"
 }
 
 private fun EngineTier.description(availability: Availability): String {
     val base = when (this) {
-        EngineTier.AUTO -> "Best available on-device engine. Never uses the network."
+        EngineTier.AUTO -> "Best available on-device engine. Fully offline."
         EngineTier.LITE -> "Fast try-on that works offline on every supported phone."
-        EngineTier.PRO -> "Highest on-device realism. Needs the Pro model pack and a flagship chip."
-        EngineTier.CLOUD -> "Maximum quality. Your images are uploaded for processing and deleted after."
+        EngineTier.PRO -> "Highest on-device realism. Needs the Pro model pack (Pixel 9 ready)."
     }
     return when (availability) {
         Availability.Ready -> base
         is Availability.Unavailable -> when (availability.reason) {
-            UnavailableReason.PACK_NOT_INSTALLED -> "$base\nModel pack not installed."
-            UnavailableReason.DEVICE_NOT_CAPABLE -> "$base\nThis device doesn't meet the requirements."
-            UnavailableReason.OFFLINE -> "$base\nYou're offline."
-            UnavailableReason.NOT_CONFIGURED -> "$base\nNot set up yet — add Supabase credentials (see docs/CLOUD_SETUP.md) for studio-quality output."
+            UnavailableReason.PACK_NOT_INSTALLED -> "$base\nModel pack not installed — download from Model packs."
+            UnavailableReason.DEVICE_NOT_CAPABLE -> "$base\nThis device doesn't meet the RAM requirements."
+            UnavailableReason.NOT_CONFIGURED -> "$base\nEngine not available."
         }
     }
 }

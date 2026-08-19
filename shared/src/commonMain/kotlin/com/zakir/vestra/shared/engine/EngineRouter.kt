@@ -10,9 +10,7 @@ import kotlinx.coroutines.flow.flowOf
 /**
  * Resolves the tier a request should run on and dispatches to that engine.
  *
- * AUTO policy: Pro if installed + capable, else Lite. Cloud is never chosen
- * implicitly — images only leave the device when the user explicitly selects
- * the Cloud tier (Play data-safety story depends on this).
+ * AUTO policy: Pro if installed + capable, else Lite.
  */
 class EngineRouter(private val engines: List<TryOnEngine>) {
 
@@ -43,6 +41,5 @@ class EngineRouter(private val engines: List<TryOnEngine>) {
 private fun UnavailableReason.toError(): TryOnError = when (this) {
     UnavailableReason.PACK_NOT_INSTALLED -> TryOnError.ModelPackMissing
     UnavailableReason.DEVICE_NOT_CAPABLE -> TryOnError.DeviceNotCapable
-    UnavailableReason.OFFLINE -> TryOnError.NetworkUnavailable
     UnavailableReason.NOT_CONFIGURED -> TryOnError.Internal("Engine not configured")
 }

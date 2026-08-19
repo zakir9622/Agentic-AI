@@ -1,11 +1,6 @@
 name: Release APK
 
-# On every merge to main, builds an installable debug APK and publishes it to the
-# rolling "latest" GitHub Release, so there is always a current APK to download and
-# sideload. Also runnable on demand from the Actions tab (Run workflow).
-#
-# The APK installs on any Android 8.0+ device. The Pro model pack downloads from
-# Hugging Face at runtime on capable phones; the Cloud tier works once configured.
+# Builds an installable sideload release APK on every merge to main.
 
 on:
   push:
@@ -32,13 +27,26 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Assemble debug APK
-        run: ./gradlew :composeApp:assembleDebug
+      - name: Generate release keystore
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias lookbook \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass lookbook -keypass lookbook \
+            -dname "CN=The Lookbook, OU=Mobile, O=Vestra, L=Local, ST=NA, C=US"
+
+      - name: Assemble sideload release APK
+        env:
+          KEYSTORE_PATH: release.keystore
+          KEYSTORE_PASSWORD: lookbook
+          KEY_ALIAS: lookbook
+          KEY_PASSWORD: lookbook
+        run: ./gradlew :composeApp:assembleSideloadRelease
 
       - name: Stage APK
         run: |
           mkdir -p dist
-          cp composeApp/build/outputs/apk/debug/*.apk "dist/the-lookbook-build-${{ github.run_number }}.apk"
+          cp composeApp/build/outputs/apk/sideload/release/*.apk \
+            "dist/the-lookbook-sideload-${{ github.run_number }}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -54,5 +62,5 @@ jobs:
           gh release create latest \
             --target "${{ github.sha }}" \
             --title "The Lookbook — latest APK (build #${{ github.run_number }})" \
-            --notes "Auto-built from \`main\` (${{ github.sha }}). Installable debug APK — sideload to any Android 8.0+ device. The Pro model pack downloads from Hugging Face at runtime on 12 GB+ RAM phones; the Cloud tier works once configured." \
-            "dist/the-lookbook-build-${{ github.run_number }}.apk"
+            --notes "Sideload release APK from \`main\` (${{ github.sha }}). Install on Pixel 9 / Android 8.0+. Download the Pro model pack from Model packs inside the app (~2–4 GB, one-time, fully offline after)." \
+            "dist/the-lookbook-sideload-${{ github.run_number }}.apk"

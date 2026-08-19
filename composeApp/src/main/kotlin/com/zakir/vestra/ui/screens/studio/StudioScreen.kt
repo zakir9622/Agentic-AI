@@ -55,9 +55,10 @@ fun StudioScreen(
     val recent by wardrobe.entries.collectAsState()
     val packStates by packManager.states.collectAsState()
     androidx.compose.runtime.LaunchedEffect(Unit) { packManager.refresh() }
-    val litePackNeedsInstall =
-        packStates["lite-v1"]?.status.let { it == PackStatus.NOT_INSTALLED || it == null }
-    val proReady = packStates["pro-v1"]?.status == PackStatus.INSTALLED
+    val proReady = listOf("pro-v2-int8", "pro-v1").any { id ->
+        packStates[id]?.status == PackStatus.INSTALLED
+    }
+    val proPackMissing = !proReady
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -103,7 +104,7 @@ fun StudioScreen(
             Spacer(Modifier.height(28.dp))
 
             Text(
-                text = "A photoshoot\nfor every garment.",
+                text = "Modest wear photoshoots\non your phone.",
                 style = MaterialTheme.typography.displayMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -111,7 +112,7 @@ fun StudioScreen(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = "Photograph a dress — get it worn, posed, and shot.\nNo models, no studio, no internet needed.",
+                text = "Abaya, hijab, niqab, and Pakistani traditional wear — generated fully offline with local AI.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -122,7 +123,7 @@ fun StudioScreen(
                 Text("Start a shoot")
             }
 
-            if (litePackNeedsInstall) {
+            if (proPackMissing) {
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -133,12 +134,12 @@ fun StudioScreen(
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(
-                            "Set up offline generation",
+                            "Download the Pro AI model",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
-                            "Download the Lite engine (~69 MB) once — after that, every look is created on this phone, no internet needed.",
+                            "Install the on-device model pack once (~2–4 GB over Wi-Fi). After that, every look is created locally — no internet needed. Optimized for Pixel 9.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

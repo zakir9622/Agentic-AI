@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.domain.effectiveCategory
+import com.zakir.vestra.shared.engine.pipeline.CastingPromptBuilder
 import com.zakir.vestra.shared.domain.GenerationState
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
@@ -38,18 +40,22 @@ class DiffusionEngine(
     private val device: DeviceProbe,
     private val io: LiteEngineIo,
     private val masker: PersonMasker,
+    private val applyWatermark: Boolean = false,
 ) : TryOnEngine {
 
     override val tier: EngineTier = EngineTier.PRO
 
+    private fun resolvePackId(): String? =
+        PACK_IDS.firstOrNull { packs.isInstalled(it) }
+
     override fun isAvailable(): Availability {
-        val pack = packs.pack(PACK_ID)
+        val packId = resolvePackId() ?: return Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
+        val pack = packs.pack(packId)
         return when {
             pack != null && !packs.deviceMeets(pack.minSpec) ->
                 Availability.Unavailable(UnavailableReason.DEVICE_NOT_CAPABLE)
-            !packs.isInstalled(PACK_ID) ->
+            !packs.isInstalled(packId) ->
                 Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
-            // Parsing (the inpaint mask) comes from the Lite pack's models.
             !packs.isInstalled(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID) ->
                 Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
             else -> Availability.Ready
@@ -57,7 +63,8 @@ class DiffusionEngine(
     }
 
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
-        val packDir = packs.installedDir(PACK_ID)
+        val packId = resolvePackId()
+        val packDir = packId?.let { packs.installedDir(it) }
         if (packDir == null) {
             emit(GenerationState.Failed(TryOnError.ModelPackMissing))
             return@flow
@@ -73,19 +80,25 @@ class DiffusionEngine(
         }
 
         try {
+            val category = request.garment.category?.effectiveCategory() ?: GarmentCategory.DRESS
+            val promptSpec = com.zakir.vestra.shared.engine.pipeline.PromptSpec(
+                positive = CastingPromptBuilder.buildPositive(request.casting, category),
+                negative = CastingPromptBuilder.buildNegative(),
+            )
+            val finish: (Bitmap) -> String = { bmp ->
+                io.saveResult(if (applyWatermark) Watermark.apply(bmp) else bmp)
+            }
+
             val config = Json { ignoreUnknownKeys = true }
                 .decodeFromString<ProPackConfig>(File("$packDir/config.json").readText())
 
-            // When the pack ships the full SD1.5 + ControlNet-Depth + IP-Adapter
-            // component set, run the staged photoreal pipeline; otherwise fall
-            // back to the legacy CatVTON concat path below.
             val sdPipeline = SdControlNetPipeline(
                 packDir = packDir,
                 config = config,
                 loadPerson = { person },
                 loadGarment = { garment },
-                maskProvider = { p -> masker.maskFor(p, request.garment.category ?: GarmentCategory.DRESS) },
-                saveResult = { bmp -> io.saveResult(Watermark.apply(bmp)) },
+                maskProvider = { p -> masker.maskFor(p, category) },
+                saveResult = finish,
             )
             if (sdPipeline.requirements().isFullyConditioned) {
                 try {
@@ -94,7 +107,7 @@ class DiffusionEngine(
                             personImagePath = "",
                             garmentImagePath = request.garment.uri,
                             maskPath = null,
-                            prompt = com.zakir.vestra.shared.engine.pipeline.PromptSpec(),
+                            prompt = promptSpec,
                             seed = request.seed,
                         ),
                         onStage = { stage, fraction -> emit(GenerationState.Running(fraction, stage.label)) },
@@ -105,14 +118,13 @@ class DiffusionEngine(
                                 imagePath = outPath,
                                 executedTier = EngineTier.PRO,
                                 durationMillis = System.currentTimeMillis() - startedAt,
-                                watermarked = true,
+                                watermarked = applyWatermark,
                             ),
                         ),
                     )
                     return@flow
                 } catch (error: Exception) {
                     Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
-                    // fall through to the legacy path
                 }
             }
 
@@ -122,7 +134,7 @@ class DiffusionEngine(
             // pack ships one (config.structureModel).
             emit(GenerationState.Running(0.05f, ConditioningStage.STRUCTURE.label))
             var t0 = System.currentTimeMillis()
-            val mask = masker.maskFor(person, request.garment.category ?: GarmentCategory.DRESS)
+            val mask = masker.maskFor(person, category)
             if (mask == null) {
                 emit(
                     GenerationState.Failed(
@@ -198,14 +210,14 @@ class DiffusionEngine(
                         .apply(composed, request.backdrop)
                 }
 
-                val outPath = io.saveResult(Watermark.apply(staged))
+                val outPath = finish(staged)
                 emit(
                     GenerationState.Complete(
                         TryOnResult(
                             imagePath = outPath,
                             executedTier = EngineTier.PRO,
                             durationMillis = System.currentTimeMillis() - startedAt,
-                            watermarked = true,
+                            watermarked = applyWatermark,
                         ),
                     ),
                 )
@@ -221,7 +233,7 @@ class DiffusionEngine(
     }
 
     companion object {
-        const val PACK_ID = "pro-v1"
+        val PACK_IDS = listOf("pro-v2-int8", "pro-v1")
         const val TAG = "VestraProBench"
     }
 }
