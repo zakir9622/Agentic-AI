@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
                     studioModels = app.studioModels,
                     generative = app.generative,
                     usageLedger = app.usageLedger,
+                    freeCloudDiscovery = app.freeCloudDiscovery,
                 )
             }
         }

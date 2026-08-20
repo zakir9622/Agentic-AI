@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +65,9 @@ import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.util.rememberCameraGatedAction
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun GarmentScreen(
@@ -73,9 +77,11 @@ fun GarmentScreen(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
     val outfit by viewModel.outfit.collectAsState()
     var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
     var selectedPiece by remember { mutableIntStateOf(0) }
+    var rotating by remember { mutableStateOf(false) }
 
     val pickLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
@@ -154,10 +160,17 @@ fun GarmentScreen(
                         )
                         IconButton(
                             onClick = {
-                                com.zakir.vestra.data.ImageRotator.rotate90(context, active.uri)?.let {
-                                    viewModel.setGarmentUri(selectedPiece, it)
+                                if (rotating) return@IconButton
+                                rotating = true
+                                scope.launch {
+                                    val rotated = withContext(Dispatchers.IO) {
+                                        com.zakir.vestra.data.ImageRotator.rotate90(context, active.uri)
+                                    }
+                                    rotated?.let { viewModel.setGarmentUri(selectedPiece, it) }
+                                    rotating = false
                                 }
                             },
+                            enabled = !rotating,
                             modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
                         ) {
                             Icon(Icons.Outlined.Rotate90DegreesCw, contentDescription = "Rotate 90°")

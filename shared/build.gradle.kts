@@ -40,7 +40,7 @@ android {
     namespace = "com.zakir.vestra.shared"
     compileSdk = 36
     defaultConfig {
-        minSdk = 26
+        minSdk = 35
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

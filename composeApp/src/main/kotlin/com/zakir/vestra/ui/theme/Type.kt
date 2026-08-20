@@ -4,75 +4,83 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
-// Display = serif (editorial headline voice); body/UI = default grotesque.
-// Custom variable fonts land in M6 polish; the scale and letterspacing are final now.
-private val Display = FontFamily.Serif
+// Futuristic atelier: geometric grotesque. Line heights must be Sp (not Em) —
+// Material3 OutlinedTextField lerps label styles and crashes on Em↔Sp mix.
+private val Display = FontFamily.SansSerif
+private val Body = FontFamily.SansSerif
 
 val VestraTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = Display,
-        fontWeight = FontWeight.Medium,
-        fontSize = 52.sp,
-        lineHeight = 1.05.em,
-        letterSpacing = (-0.02).em,
+        fontWeight = FontWeight.Light,
+        fontSize = 48.sp,
+        lineHeight = 52.sp,
+        letterSpacing = (-0.5).sp,
     ),
     displayMedium = TextStyle(
         fontFamily = Display,
-        fontWeight = FontWeight.Medium,
-        fontSize = 40.sp,
-        lineHeight = 1.1.em,
-        letterSpacing = (-0.015).em,
+        fontWeight = FontWeight.Light,
+        fontSize = 36.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.3).sp,
     ),
     displaySmall = TextStyle(
         fontFamily = Display,
         fontWeight = FontWeight.Medium,
-        fontSize = 32.sp,
-        lineHeight = 1.12.em,
-        letterSpacing = (-0.01).em,
+        fontSize = 28.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.2).sp,
     ),
     headlineLarge = TextStyle(
         fontFamily = Display,
-        fontWeight = FontWeight.Medium,
-        fontSize = 30.sp,
-        lineHeight = 1.15.em,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = Display,
-        fontWeight = FontWeight.Medium,
-        fontSize = 24.sp,
-        lineHeight = 1.2.em,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
     ),
     titleLarge = TextStyle(
+        fontFamily = Body,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 1.25.em,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
     ),
     titleMedium = TextStyle(
+        fontFamily = Body,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 1.3.em,
+        fontSize = 15.sp,
+        lineHeight = 20.sp,
     ),
     bodyLarge = TextStyle(
+        fontFamily = Body,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 1.5.em,
+        lineHeight = 24.sp,
     ),
     bodyMedium = TextStyle(
+        fontFamily = Body,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 1.45.em,
+        lineHeight = 20.sp,
     ),
     labelLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        letterSpacing = 0.08.em,
-    ),
-    labelMedium = TextStyle(
+        fontFamily = Body,
         fontWeight = FontWeight.SemiBold,
         fontSize = 12.sp,
-        letterSpacing = 0.1.em,
+        lineHeight = 16.sp,
+        letterSpacing = 1.2.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = Body,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 1.0.sp,
     ),
 )

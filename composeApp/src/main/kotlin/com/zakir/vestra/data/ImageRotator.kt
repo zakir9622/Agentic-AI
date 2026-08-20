@@ -7,25 +7,44 @@ import android.graphics.Matrix
 import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.max
 
 /**
- * Manual 90° rotation fallback for shop photos that carry no EXIF orientation
- * tag (EXIF auto-orientation can't fix those). Rotates the image, writes it to
- * app-private storage, and returns the new file URI so the engine reads the
- * corrected image.
+ * Manual 90° rotation for shop photos without usable EXIF orientation.
+ * Decodes with [inSampleSize] so camera JPEGs cannot OOM the UI thread path.
  */
 object ImageRotator {
 
+    private const val MAX_DIMENSION = 2048
+
     fun rotate90(context: Context, uri: String): String? = runCatching {
-        val source = context.contentResolver.openInputStream(Uri.parse(uri))?.use {
-            BitmapFactory.decodeStream(it)
+        val parsed = Uri.parse(uri)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        val sample = sampleSizeFor(bounds.outWidth, bounds.outHeight, MAX_DIMENSION)
+        val decode = BitmapFactory.Options().apply { inSampleSize = sample }
+        val source = context.contentResolver.openInputStream(parsed)?.use {
+            BitmapFactory.decodeStream(it, null, decode)
         } ?: return null
         val matrix = Matrix().apply { postRotate(90f) }
         val rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+        if (rotated !== source) source.recycle()
 
         val dir = File(context.filesDir, "captures").apply { mkdirs() }
         val file = File(dir, "rotated_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(file).use { rotated.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        FileOutputStream(file).use { out ->
+            rotated.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        rotated.recycle()
         "file://${file.absolutePath}"
     }.getOrNull()
+
+    private fun sampleSizeFor(width: Int, height: Int, maxDim: Int): Int {
+        if (width <= 0 || height <= 0) return 1
+        var sample = 1
+        var w = width
+        var h = height
+        while (max(w, h) / sample > maxDim) sample *= 2
+        return sample.coerceAtLeast(1)
+    }
 }

@@ -72,8 +72,22 @@ class AppSettings(private val settings: Settings) {
     fun setGroqApiKey(key: String?) = putSecret(KEY_GROQ_KEY, key, _groqApiKey)
     fun setOpenRouterApiKey(key: String?) = putSecret(KEY_OPENROUTER_KEY, key, _openRouterApiKey)
 
+    private val _discoveredProviders = MutableStateFlow<List<CloudModelProvider>>(emptyList())
+    val discoveredProviders: StateFlow<List<CloudModelProvider>> = _discoveredProviders
+
+    fun rememberDiscovered(providers: List<CloudModelProvider>) {
+        if (providers.isEmpty()) return
+        _discoveredProviders.value =
+            (_discoveredProviders.value + providers.filter { it.freeTier }).distinctBy { it.id }
+    }
+
+    fun resolveProvider(id: String, capability: AiCapability): CloudModelProvider =
+        CloudModelCatalog.byId(id)?.takeIf { it.capability == capability && it.freeTier }
+            ?: _discoveredProviders.value.firstOrNull { it.id == id && it.capability == capability && it.freeTier }
+            ?: CloudModelCatalog.defaultFor(capability)
+
     fun selectedCloudProvider(): CloudModelProvider =
-        CloudModelCatalog.byId(_cloudProviderId.value) ?: CloudModelCatalog.defaultFor(AiCapability.TRY_ON)
+        resolveProvider(_cloudProviderId.value, AiCapability.TRY_ON)
 
     fun selectedProvider(capability: AiCapability): CloudModelProvider {
         val id = when (capability) {
@@ -83,7 +97,7 @@ class AppSettings(private val settings: Settings) {
             AiCapability.CODE -> _codeProviderId.value
             AiCapability.VIDEO -> _videoProviderId.value
         }
-        return CloudModelCatalog.byId(id) ?: CloudModelCatalog.defaultFor(capability)
+        return resolveProvider(id, capability)
     }
 
     fun apiKeyFor(provider: CloudModelProvider): String? = when (provider.platform) {
@@ -113,8 +127,7 @@ class AppSettings(private val settings: Settings) {
         capability: AiCapability,
         flow: MutableStateFlow<String>,
     ) {
-        val resolved = CloudModelCatalog.byId(id)?.takeIf { it.capability == capability && it.freeTier }
-            ?: CloudModelCatalog.defaultFor(capability)
+        val resolved = resolveProvider(id, capability)
         settings.putString(key, resolved.id)
         flow.value = resolved.id
     }

@@ -9,8 +9,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 /**
@@ -39,16 +41,20 @@ class ModelPackManager(
 
     /** Loads the last manifest fetched (offline start), then refreshes over the network. */
     suspend fun refresh(networkAllowed: Boolean = true) {
-        cachedManifest()?.let { rebuildStates(it) }
+        withContext(Dispatchers.Default) {
+            cachedManifest()?.let { rebuildStates(it) }
+        }
         if (!networkAllowed) return
         runCatching {
             val response = http.get(manifestUrl)
             check(response.status.isSuccess()) { "server returned HTTP ${response.status.value}" }
             val body = response.bodyAsText()
             val manifest = json.decodeFromString<PackManifest>(body)
-            fs.mkdirs(fs.packsRoot())
-            fs.writeText(cachePath(), body)
-            rebuildStates(manifest)
+            withContext(Dispatchers.Default) {
+                fs.mkdirs(fs.packsRoot())
+                fs.writeText(cachePath(), body)
+                rebuildStates(manifest)
+            }
         }.onSuccess {
             _lastError.value = null
         }.onFailure { e ->

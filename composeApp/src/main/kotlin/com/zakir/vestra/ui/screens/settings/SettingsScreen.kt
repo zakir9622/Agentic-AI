@@ -11,17 +11,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,37 +32,37 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
-import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.CloudModelProvider
-import com.zakir.vestra.shared.cloud.CloudPlatform
+import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.local.LocalModelCatalog
-import com.zakir.vestra.shared.local.LocalModelEntry
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
-import com.zakir.vestra.shared.usage.displayLabel
 import com.zakir.vestra.ui.components.GlassCard
-import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     appSettings: AppSettings,
     engineRouter: EngineRouter,
     packManager: ModelPackManager,
+    freeCloudDiscovery: FreeCloudDiscovery,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
     onBack: () -> Unit,
@@ -68,6 +70,7 @@ fun SettingsScreen(
     val selectedTier by appSettings.engineTier.collectAsState()
     val packStates by packManager.states.collectAsState()
     val startDownload = rememberPackDownloadStarter(showToast = true)
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { packManager.refresh() }
 
     val tryOnId by appSettings.cloudProviderId.collectAsState()
@@ -83,9 +86,12 @@ fun SettingsScreen(
     var hfInput by remember(hfToken) { mutableStateOf(hfToken.orEmpty()) }
     var groqInput by remember(groqKey) { mutableStateOf(groqKey.orEmpty()) }
     var openRouterInput by remember(openRouterKey) { mutableStateOf(openRouterKey.orEmpty()) }
+    var keysSavedFlash by remember { mutableStateOf(false) }
 
-    val localTiers = remember { EngineTier.entries.filter { it != EngineTier.CLOUD } }
-    val localPacks = remember { LocalModelCatalog.entries }
+    val localPackChoices = remember { LocalModelCatalog.entries.filter { it.packId != null && it.runnable } }
+    var selectedPackId by remember {
+        mutableStateOf(localPackChoices.firstOrNull()?.packId.orEmpty())
+    }
 
     SpatialBackground {
         LazyColumn(
@@ -93,123 +99,130 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .safeDrawingPadding()
                 .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            contentPadding = PaddingValues(bottom = 40.dp),
         ) {
             item(key = "top") {
                 GlassTopBar(
                     title = "Settings",
+                    subtitle = "Keys · engines · models",
                     navigation = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                         }
                     },
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
             }
 
-            item(key = "engine") {
-                GlassCard(elevation = 0.dp) {
-                    GlassSectionLabel("LOCAL AI DEVICE")
+            // —— Tokens first (this is where HF / Groq / OpenRouter go) ——
+            item(key = "keys") {
+                GlassCard {
+                    GlassSectionLabel("API TOKENS")
                     Text(
-                        "Open-source models that run on this phone. Download once → fully offline. Use Auto/Lite/Pro for private try-on testing.",
+                        "Paste free-tier tokens here. Cloud models below unlock automatically from these keys. Local Lite/Pro never need a token.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Text("Try-on engine", style = MaterialTheme.typography.titleSmall)
-                    localTiers.forEach { tier ->
-                        val availability =
-                            if (tier == EngineTier.AUTO) Availability.Ready else engineRouter.availability(tier)
-                        val enabled = availability == Availability.Ready
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .selectable(selected = tier == selectedTier, enabled = enabled) {
-                                    appSettings.setEngineTier(tier)
-                                }
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = tier == selectedTier,
-                                enabled = enabled,
-                                onClick = { appSettings.setEngineTier(tier) },
-                            )
-                            Column {
-                                Text(tier.label(), style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    tier.description(availability),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
+                    Spacer(Modifier.height(10.dp))
+                    KeyField("Hugging Face token", hfInput) { hfInput = it }
+                    KeyField("Groq API key", groqInput) { groqInput = it }
+                    KeyField("OpenRouter API key (:free models)", openRouterInput) { openRouterInput = it }
                     Spacer(Modifier.height(8.dp))
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .selectable(selected = selectedTier == EngineTier.CLOUD) {
-                                appSettings.setEngineTier(EngineTier.CLOUD)
-                            }
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Text(
+                        "huggingface.co/settings/tokens · console.groq.com · openrouter.ai/keys",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            appSettings.setHfToken(hfInput.trim().ifBlank { null })
+                            appSettings.setGroqApiKey(groqInput.trim().ifBlank { null })
+                            appSettings.setOpenRouterApiKey(openRouterInput.trim().ifBlank { null })
+                            keysSavedFlash = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        RadioButton(
-                            selected = selectedTier == EngineTier.CLOUD,
-                            onClick = { appSettings.setEngineTier(EngineTier.CLOUD) },
-                        )
-                        Column {
-                            Text(EngineTier.CLOUD.label(), style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                EngineTier.CLOUD.description(engineRouter.availability(EngineTier.CLOUD)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        Text(if (keysSavedFlash) "Saved" else "Save tokens")
                     }
                 }
                 Spacer(Modifier.height(14.dp))
             }
 
-            item(key = "packs-intro") {
-                GlassCard(elevation = 0.dp) {
-                    GlassSectionLabel("OPEN-SOURCE LOCAL PACKS")
+            item(key = "engine") {
+                GlassCard {
+                    GlassSectionLabel("LOCAL TRY-ON ENGINE")
                     Text(
-                        "Install these to turn the phone into a local AI try-on device. Status refreshes from the HF packs manifest.",
+                        "On-device engines. Cloud is never chosen by Auto.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-            items(
-                count = localPacks.size,
-                key = { index -> localPacks[index].id },
-            ) { index ->
-                val entry = localPacks[index]
-                GlassCard(elevation = 0.dp) {
-                    LocalPackRow(
-                        entry = entry,
-                        status = entry.packId?.let { packStates[it]?.status },
-                        progress = entry.packId?.let { packStates[it]?.progress } ?: 0f,
-                        onInstall = { entry.packId?.let { startDownload(it) } },
-                        onSelectEngine = { tier -> appSettings.setEngineTier(tier) },
+                    Spacer(Modifier.height(8.dp))
+                    EngineDropdown(
+                        selected = selectedTier,
+                        availability = { tier ->
+                            if (tier == EngineTier.AUTO) Availability.Ready else engineRouter.availability(tier)
+                        },
+                        onSelect = appSettings::setEngineTier,
                     )
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(14.dp))
             }
-            item(key = "packs-open") {
-                OutlinedButton(onClick = onOpenPacks, modifier = Modifier.fillMaxWidth()) {
-                    Text("Open full Model packs screen")
+
+            item(key = "local-pack") {
+                GlassCard {
+                    GlassSectionLabel("LOCAL MODEL PACK")
+                    Text(
+                        "Select a pack, then download. Transfers resume if interrupted.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    PackDropdown(
+                        choices = localPackChoices.map { it.packId!! to "${it.displayName} · ${it.approxSizeLabel}" },
+                        selectedId = selectedPackId,
+                        onSelect = { selectedPackId = it },
+                    )
+                    val status = packStates[selectedPackId]?.status
+                    val progress = packStates[selectedPackId]?.progress ?: 0f
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        when (status) {
+                            PackStatus.INSTALLED -> "Installed — ready offline"
+                            PackStatus.DOWNLOADING -> "Downloading ${(progress * 100).toInt()}%…"
+                            PackStatus.INCOMPATIBLE -> "This device doesn’t meet pack requirements"
+                            PackStatus.UPDATE_AVAILABLE -> "Update available"
+                            PackStatus.NOT_INSTALLED -> if (progress > 0f) "Partial download — can resume" else "Not installed"
+                            null -> "Catalog loading…"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { if (selectedPackId.isNotBlank()) startDownload(selectedPackId) },
+                            enabled = status != PackStatus.INCOMPATIBLE && selectedPackId.isNotBlank(),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(
+                                when (status) {
+                                    PackStatus.INSTALLED -> "Re-download"
+                                    PackStatus.DOWNLOADING -> "Downloading…"
+                                    else -> if (progress > 0f) "Resume" else "Download"
+                                },
+                            )
+                        }
+                        OutlinedButton(onClick = onOpenPacks, modifier = Modifier.weight(1f)) {
+                            Text("All packs")
+                        }
+                    }
                 }
                 Spacer(Modifier.height(14.dp))
             }
 
             item(key = "usage") {
-                GlassCard(onClick = onOpenUsage, elevation = 0.dp) {
+                GlassCard(onClick = onOpenUsage) {
                     GlassSectionLabel("USAGE")
                     Text("Token & cost ledger", style = MaterialTheme.typography.titleMedium)
                     Text(
@@ -221,194 +234,252 @@ fun SettingsScreen(
             }
 
             item(key = "cap-tryon") {
-                CapabilityPicker(
-                    title = "CLOUD TRY-ON MODELS",
+                CloudCapabilityDropdown(
+                    title = "CLOUD TRY-ON",
                     capability = AiCapability.TRY_ON,
                     selectedId = tryOnId,
+                    appSettings = appSettings,
+                    discovery = freeCloudDiscovery,
                     onSelect = appSettings::setCloudProvider,
                 )
             }
             item(key = "cap-gen") {
-                CapabilityPicker(
-                    title = "IMAGE GENERATION (cloud)",
+                CloudCapabilityDropdown(
+                    title = "IMAGE GENERATION",
                     capability = AiCapability.IMAGE_GEN,
                     selectedId = imageGenId,
+                    appSettings = appSettings,
+                    discovery = freeCloudDiscovery,
                     onSelect = appSettings::setImageGenProvider,
                 )
             }
             item(key = "cap-edit") {
-                CapabilityPicker(
-                    title = "IMAGE RECREATE / EDIT (cloud)",
+                CloudCapabilityDropdown(
+                    title = "IMAGE EDIT / RECREATE",
                     capability = AiCapability.IMAGE_EDIT,
                     selectedId = imageEditId,
+                    appSettings = appSettings,
+                    discovery = freeCloudDiscovery,
                     onSelect = appSettings::setImageEditProvider,
                 )
             }
             item(key = "cap-code") {
-                CapabilityPicker(
-                    title = "CODING MODELS (cloud)",
+                CloudCapabilityDropdown(
+                    title = "CODING MODELS",
                     capability = AiCapability.CODE,
                     selectedId = codeId,
+                    appSettings = appSettings,
+                    discovery = freeCloudDiscovery,
                     onSelect = appSettings::setCodeProvider,
                 )
             }
             item(key = "cap-video") {
-                CapabilityPicker(
-                    title = "VIDEO MODELS (cloud)",
+                CloudCapabilityDropdown(
+                    title = "VIDEO MODELS",
                     capability = AiCapability.VIDEO,
                     selectedId = videoId,
+                    appSettings = appSettings,
+                    discovery = freeCloudDiscovery,
                     onSelect = appSettings::setVideoProvider,
                 )
             }
-
-            item(key = "keys") {
-                Spacer(Modifier.height(14.dp))
-                GlassCard(elevation = 0.dp) {
-                    GlassSectionLabel("API KEYS (free tiers only)")
-                    Text(
-                        "Not needed for local Lite/Pro try-on. Optional free keys: HF (Spaces + Inference), Groq, OpenRouter :free. No paid services.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    KeyField("Hugging Face token (free)", hfInput) { hfInput = it }
-                    KeyField("Groq API key (free tier)", groqInput) { groqInput = it }
-                    KeyField("OpenRouter API key (use :free models)", openRouterInput) { openRouterInput = it }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Keys: huggingface.co/settings/tokens · console.groq.com · openrouter.ai/keys",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    TextButton(
-                        onClick = {
-                            appSettings.setHfToken(hfInput)
-                            appSettings.setGroqApiKey(groqInput)
-                            appSettings.setOpenRouterApiKey(openRouterInput)
-                        },
-                    ) { Text("Save API keys") }
-                }
-            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LocalPackRow(
-    entry: LocalModelEntry,
-    status: PackStatus?,
-    progress: Float,
-    onInstall: () -> Unit,
-    onSelectEngine: (EngineTier) -> Unit,
+private fun EngineDropdown(
+    selected: EngineTier,
+    availability: (EngineTier) -> Availability,
+    onSelect: (EngineTier) -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(entry.displayName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-            if (entry.openSource) {
-                GlassPill(text = "Open source", active = true)
-            }
-            if (entry.runnable && entry.offlineAfterInstall) {
-                GlassPill(text = "Offline", active = status == PackStatus.INSTALLED)
-            }
-        }
-        Text(entry.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            "${entry.license} · ${entry.approxSizeLabel} · ${entry.capability.displayLabel()}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    var expanded by remember { mutableStateOf(false) }
+    val options = remember { EngineTier.entries }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected.label(),
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            supportingText = {
+                Text(selected.description(availability(selected)))
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-        Text(entry.testingNote, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(6.dp))
-        when {
-            !entry.runnable -> Text(
-                "Planned for local AI device testing — not downloadable in this build.",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            entry.packId == null -> Unit
-            status == PackStatus.INSTALLED -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Installed", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                entry.engineTier?.let { tier ->
-                    TextButton(onClick = { onSelectEngine(tier) }) { Text("Use ${tier.name}") }
-                }
-            }
-            status == PackStatus.DOWNLOADING -> Column {
-                Text(
-                    "Downloading ${(progress * 100).toInt()}%… · resumes if network drops",
-                    style = MaterialTheme.typography.labelMedium,
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { tier ->
+                val avail = availability(tier)
+                val enabled = avail == Availability.Ready || tier == EngineTier.CLOUD || tier == EngineTier.AUTO
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(tier.label())
+                            Text(
+                                tier.description(avail),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                    onClick = {
+                        if (enabled) {
+                            onSelect(tier)
+                            expanded = false
+                        }
+                    },
+                    enabled = enabled,
                 )
             }
-            status == PackStatus.INCOMPATIBLE -> Text(
-                "Device doesn't meet RAM/NPU requirements",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-            status == PackStatus.UPDATE_AVAILABLE -> Button(onClick = onInstall) { Text("Update pack") }
-            status == null -> Text(
-                "Pack catalog not loaded yet — open Model packs to refresh.",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            else -> Button(onClick = onInstall) {
-                Text(if (progress > 0f) "Resume download" else "Download for local use")
-            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CapabilityPicker(
-    title: String,
-    capability: AiCapability,
+private fun PackDropdown(
+    choices: List<Pair<String, String>>,
     selectedId: String,
     onSelect: (String) -> Unit,
 ) {
-    var expanded by remember(capability) { mutableStateOf(false) }
-    val providers = remember(capability) { CloudModelCatalog.forCapability(capability) }
-    val selected = remember(providers, selectedId) {
-        providers.firstOrNull { it.id == selectedId } ?: providers.firstOrNull()
+    var expanded by remember { mutableStateOf(false) }
+    val label = choices.firstOrNull { it.first == selectedId }?.second ?: "Select a pack"
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = label,
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            choices.forEach { (id, name) ->
+                DropdownMenuItem(
+                    text = { Text(name) },
+                    onClick = {
+                        onSelect(id)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CloudCapabilityDropdown(
+    title: String,
+    capability: AiCapability,
+    selectedId: String,
+    appSettings: AppSettings,
+    discovery: FreeCloudDiscovery,
+    onSelect: (String) -> Unit,
+) {
+    val hfToken by appSettings.hfToken.collectAsState()
+    val groqKey by appSettings.groqApiKey.collectAsState()
+    val openRouterKey by appSettings.openRouterApiKey.collectAsState()
+    // Recompute when any token changes
+    val tokenEpoch = "${hfToken.orEmpty()}|${groqKey.orEmpty()}|${openRouterKey.orEmpty()}"
+
+    var discovered by remember(capability) { mutableStateOf<List<CloudModelProvider>>(emptyList()) }
+    var discovering by remember { mutableStateOf(false) }
+    var discoverError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val usable = remember(tokenEpoch, capability) { discovery.curatedUsable(appSettings, capability) }
+    val locked = remember(tokenEpoch, capability) { discovery.curatedLocked(appSettings, capability) }
+    val options = remember(usable, discovered) {
+        (usable + discovered).distinctBy { it.id }
     }
 
+    var expanded by remember { mutableStateOf(false) }
+    val selected = options.firstOrNull { it.id == selectedId }
+        ?: locked.firstOrNull { it.id == selectedId }
+        ?: options.firstOrNull()
+
     Spacer(Modifier.height(14.dp))
-    GlassCard(elevation = 0.dp) {
+    GlassCard {
         GlassSectionLabel(title)
         Text(
-            capability.displayLabel(),
+            when {
+                options.isNotEmpty() -> "${options.size} free models ready with your tokens"
+                locked.isNotEmpty() -> "Add the required token above to unlock ${locked.size} models"
+                else -> "No free models for this capability yet"
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
-        if (selected != null) {
-            CloudProviderRow(
-                provider = selected,
-                selected = true,
-                onSelect = { onSelect(selected.id) },
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = selected?.displayName ?: "Select model",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                supportingText = {
+                    Text(selected?.usageNote?.ifBlank { selected.description } ?: "")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                enabled = options.isNotEmpty(),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { provider ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(provider.displayName)
+                                Text(
+                                    "${provider.platform.name} · ${provider.license}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        onClick = {
+                            onSelect(provider.id)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+        if (locked.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Locked until token saved: " + locked.take(3).joinToString { it.displayName },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (!expanded) {
-            TextButton(onClick = { expanded = true }) {
-                Text("Show all ${providers.size} models")
-            }
-        } else {
-            providers
-                .filter { it.id != selected?.id }
-                .groupBy { it.platform }
-                .forEach { (platform, group) ->
-                    Text(
-                        platform.sectionTitle(),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                    )
-                    group.forEach { provider ->
-                        CloudProviderRow(
-                            provider = provider,
-                            selected = provider.id == selectedId,
-                            onSelect = { onSelect(provider.id) },
-                        )
+        Spacer(Modifier.height(4.dp))
+        TextButton(
+            onClick = {
+                discovering = true
+                discoverError = null
+                scope.launch {
+                    discovered = discovery.discoverHf(appSettings.hfToken.value, capability)
+                    appSettings.rememberDiscovered(discovered)
+                    discovering = false
+                    if (discovered.isEmpty() && !appSettings.hfToken.value.isNullOrBlank()) {
+                        discoverError = "No warm HF Inference models found for this capability"
+                    } else if (appSettings.hfToken.value.isNullOrBlank()) {
+                        discoverError = "Save an HF token above, then refresh"
                     }
                 }
-            TextButton(onClick = { expanded = false }) { Text("Show less") }
+            },
+            enabled = !discovering,
+        ) {
+            Text(if (discovering) "Refreshing HF free models…" else "Refresh free HF models from token")
+        }
+        discoverError?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -423,60 +494,6 @@ private fun KeyField(label: String, value: String, onChange: (String) -> Unit) {
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
     )
-}
-
-@Composable
-private fun CloudProviderRow(
-    provider: CloudModelProvider,
-    selected: Boolean,
-    onSelect: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .selectable(selected = selected, onClick = onSelect)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Column {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(provider.displayName, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    if (provider.freeTier) "Free" else "Blocked",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Text(
-                provider.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            val meta = buildString {
-                append(provider.license)
-                append(" · Q")
-                append(provider.qualityScore)
-                if (provider.estTokensPerRequest > 0) {
-                    append(" · ~")
-                    append(provider.estTokensPerRequest)
-                    append(" tok")
-                }
-                if (provider.usageNote.isNotBlank()) {
-                    append(" · ")
-                    append(provider.usageNote)
-                }
-            }
-            Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-private fun CloudPlatform.sectionTitle(): String = when (this) {
-    CloudPlatform.HF_SPACE -> "Hugging Face Spaces (free)"
-    CloudPlatform.HF_INFERENCE -> "Hugging Face Inference (free)"
-    CloudPlatform.GROQ -> "Groq (free tier)"
-    CloudPlatform.OPENROUTER -> "OpenRouter (:free only)"
 }
 
 private fun EngineTier.label(): String = when (this) {
@@ -496,10 +513,10 @@ private fun EngineTier.description(availability: Availability): String {
     return when (availability) {
         Availability.Ready -> base
         is Availability.Unavailable -> when (availability.reason) {
-            UnavailableReason.PACK_NOT_INSTALLED -> "$base\nModel pack not installed."
-            UnavailableReason.DEVICE_NOT_CAPABLE -> "$base\nDevice doesn't meet RAM requirements."
-            UnavailableReason.OFFLINE -> "$base\nNo internet connection."
-            UnavailableReason.NOT_CONFIGURED -> "$base\nAdd the required free API key above."
+            UnavailableReason.PACK_NOT_INSTALLED -> "$base Model pack not installed."
+            UnavailableReason.DEVICE_NOT_CAPABLE -> "$base Device doesn’t meet RAM requirements."
+            UnavailableReason.OFFLINE -> "$base No internet connection."
+            UnavailableReason.NOT_CONFIGURED -> "$base Add the required free API key above."
         }
     }
 }

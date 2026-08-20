@@ -12,6 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.packs.ModelPackManager
@@ -59,6 +60,7 @@ fun VestraNavHost(
     studioModels: com.zakir.vestra.data.StudioModelRepository,
     generative: GenerativeCloudService,
     usageLedger: UsageLedger,
+    freeCloudDiscovery: FreeCloudDiscovery,
     navController: NavHostController = rememberNavController(),
 ) {
     val onboardingComplete by appSettings.onboardingComplete.collectAsState()
@@ -222,6 +224,7 @@ fun VestraNavHost(
                 appSettings = appSettings,
                 engineRouter = engineRouter,
                 packManager = packManager,
+                freeCloudDiscovery = freeCloudDiscovery,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onBack = { navController.popBackStack() },

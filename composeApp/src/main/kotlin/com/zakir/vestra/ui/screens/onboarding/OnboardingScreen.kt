@@ -46,8 +46,8 @@ private val pages = listOf(
         "Shoppers preview looks. Sellers batch listing shots with Save all. Creators use Create and Video studios — on-device or free cloud.",
     ),
     OnboardingPage(
-        "Local or free cloud AI",
-        "Pro runs on-device (private, \$0). Cloud unlocks IDM-VTON, Leffa, Kolors, and more via free Hugging Face Spaces. Pack downloads resume if the network drops.",
+        "Keys unlock free cloud",
+        "In Settings, paste free Hugging Face, Groq, or OpenRouter tokens. Cloud models unlock automatically — local Lite/Pro never need a key.",
     ),
 )
 
@@ -69,13 +69,13 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Text(
                 "The Lookbook",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 "Modest wear · local AI",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
             )

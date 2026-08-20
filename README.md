@@ -23,7 +23,8 @@ An Android app that turns a garment photo into a photorealistic model wearing it
 
 ## Build & install (Pixel 9)
 
-Requires JDK 17+ and Android SDK (platform 36).
+Requires JDK 17+, Android SDK (platform 36), and a device/emulator on **Android 15 (API 35)+**.
+
 
 ```bash
 # Generate a signing keystore (once)
