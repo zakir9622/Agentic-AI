@@ -21,6 +21,7 @@ data class WardrobeEntry(
     val tier: EngineTier,
     /** Groups the shots of one photoshoot; null on entries from before shot sets. */
     val shootId: String? = null,
+    val favorited: Boolean = false,
 )
 
 /** Minimal platform file seam; androidMain/iosMain provide actuals. */
@@ -43,6 +44,14 @@ class WardrobeRepository(private val store: TextFileStore) {
         update(_entries.value.filterNot { it.id == id })
     }
 
+    fun toggleFavorite(id: String) {
+        update(
+            _entries.value.map { entry ->
+                if (entry.id == id) entry.copy(favorited = !entry.favorited) else entry
+            }.sortedWith(compareByDescending<WardrobeEntry> { it.favorited }.thenByDescending { it.createdAtEpochMillis }),
+        )
+    }
+
     private fun update(entries: List<WardrobeEntry>) {
         _entries.value = entries
         store.write(INDEX_FILE, json.encodeToString(entries))
@@ -51,7 +60,8 @@ class WardrobeRepository(private val store: TextFileStore) {
     private fun load(): List<WardrobeEntry> =
         store.read(INDEX_FILE)?.let { content ->
             runCatching { json.decodeFromString<List<WardrobeEntry>>(content) }.getOrNull()
-        } ?: emptyList()
+        }?.sortedWith(compareByDescending<WardrobeEntry> { it.favorited }.thenByDescending { it.createdAtEpochMillis })
+            ?: emptyList()
 
     private companion object {
         const val INDEX_FILE = "wardrobe_index.json"

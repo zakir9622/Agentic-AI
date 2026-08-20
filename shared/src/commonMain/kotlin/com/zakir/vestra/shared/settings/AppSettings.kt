@@ -9,13 +9,23 @@ import com.zakir.vestra.shared.domain.EngineTier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+enum class AppearanceMode {
+    SYSTEM,
+    LIGHT,
+    DARK,
+}
+
 class AppSettings(private val settings: Settings) {
 
     private val _engineTier = MutableStateFlow(readTier())
     val engineTier: StateFlow<EngineTier> = _engineTier
 
+    private val _appearanceMode = MutableStateFlow(readAppearance())
+    val appearanceMode: StateFlow<AppearanceMode> = _appearanceMode
+
     private val _likenessConsentAccepted = MutableStateFlow(settings.getBoolean(KEY_CONSENT, false))
     val likenessConsentAccepted: StateFlow<Boolean> = _likenessConsentAccepted
+
 
     private val _onboardingComplete = MutableStateFlow(settings.getBoolean(KEY_ONBOARDED, false))
     val onboardingComplete: StateFlow<Boolean> = _onboardingComplete
@@ -50,6 +60,17 @@ class AppSettings(private val settings: Settings) {
     fun setEngineTier(tier: EngineTier) {
         settings.putString(KEY_TIER, tier.name)
         _engineTier.value = tier
+    }
+
+    fun setAppearanceMode(mode: AppearanceMode) {
+        settings.putString(KEY_APPEARANCE, mode.name)
+        _appearanceMode.value = mode
+    }
+
+    fun clearApiTokens() {
+        setHfToken(null)
+        setGroqApiKey(null)
+        setOpenRouterApiKey(null)
     }
 
     fun setLikenessConsentAccepted() {
@@ -154,8 +175,14 @@ class AppSettings(private val settings: Settings) {
             EngineTier.entries.firstOrNull { it.name == stored }
         } ?: EngineTier.AUTO
 
+    private fun readAppearance(): AppearanceMode =
+        settings.getStringOrNull(KEY_APPEARANCE)?.let { stored ->
+            AppearanceMode.entries.firstOrNull { it.name == stored }
+        } ?: AppearanceMode.SYSTEM
+
     private companion object {
         const val KEY_TIER = "engine_tier"
+        const val KEY_APPEARANCE = "appearance_mode"
         const val KEY_CONSENT = "likeness_consent_accepted"
         const val KEY_ONBOARDED = "onboarding_complete"
         const val KEY_CLOUD_PROVIDER = "cloud_provider_id"

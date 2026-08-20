@@ -3,6 +3,8 @@ package com.zakir.vestra.ui.screens.studio
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,10 +47,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassPill
@@ -56,9 +61,12 @@ import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
 import java.io.File
+import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StudioScreen(
+    appSettings: AppSettings,
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
     onNewLook: () -> Unit,
@@ -70,11 +78,20 @@ fun StudioScreen(
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
 ) {
+    val context = LocalContext.current
     val recent by wardrobe.entries.collectAsState()
     val packStates by packManager.states.collectAsState()
     LaunchedEffect(Unit) { packManager.refresh() }
     val proReady = listOf("pro-v2-int8", "pro-v1").any { id ->
         packStates[id]?.status == PackStatus.INSTALLED
+    }
+
+    var online by remember { mutableStateOf(appSettings.networkLikelyAvailable()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            online = appSettings.networkLikelyAvailable()
+            delay(2_500)
+        }
     }
 
     var appeared by remember { mutableStateOf(false) }
@@ -111,7 +128,11 @@ fun StudioScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GlassPill(text = if (proReady) "Pro ready" else "Pro pack needed", active = proReady)
                     GlassPill(text = "On-device", active = true)
-                    GlassPill(text = "Free cloud", active = true, accent = MaterialTheme.colorScheme.secondary)
+                    GlassPill(
+                        text = if (online) "Online" else "Offline",
+                        active = online,
+                        accent = MaterialTheme.colorScheme.secondary,
+                    )
                 }
                 Spacer(Modifier.height(20.dp))
             }
@@ -201,14 +222,22 @@ fun StudioScreen(
                 if (recent.isNotEmpty()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(recent.take(10), key = { it.id }) { entry ->
+                            val file = File(entry.imagePath)
                             AsyncImage(
-                                model = File(entry.imagePath),
+                                model = file,
                                 contentDescription = "Recent look",
                                 modifier = Modifier
                                     .width(130.dp)
                                     .aspectRatio(0.75f)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .clickable(onClick = onOpenWardrobe),
+                                    .combinedClickable(
+                                        onClick = onOpenWardrobe,
+                                        onLongClick = {
+                                            if (file.exists()) {
+                                                MediaExport.share(context, file, "Share look")
+                                            }
+                                        },
+                                    ),
                                 contentScale = ContentScale.Crop,
                             )
                         }

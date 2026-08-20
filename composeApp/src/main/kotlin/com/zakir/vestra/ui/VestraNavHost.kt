@@ -104,6 +104,7 @@ fun VestraNavHost(
         }
         composable(Routes.STUDIO) {
             StudioScreen(
+                appSettings = appSettings,
                 wardrobe = wardrobe,
                 packManager = packManager,
                 onNewLook = {
@@ -225,6 +226,7 @@ fun VestraNavHost(
                 engineRouter = engineRouter,
                 packManager = packManager,
                 freeCloudDiscovery = freeCloudDiscovery,
+                usageLedger = usageLedger,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onBack = { navController.popBackStack() },
