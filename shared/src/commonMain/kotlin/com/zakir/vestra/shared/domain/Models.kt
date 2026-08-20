@@ -12,7 +12,7 @@ enum class EngineTier {
     /** On-device quantized try-on diffusion. Flagship devices, fully offline. */
     PRO,
 
-    /** Cloud open-source models (HF Spaces, Replicate, FAL). Requires network; explicit opt-in. */
+    /** Cloud free open-source models (HF Spaces). Requires network; explicit opt-in. */
     CLOUD,
 }
 

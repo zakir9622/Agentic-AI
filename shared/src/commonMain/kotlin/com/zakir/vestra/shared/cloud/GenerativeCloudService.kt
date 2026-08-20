@@ -3,6 +3,7 @@ package com.zakir.vestra.shared.cloud
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.JsonPrimitive
@@ -18,8 +19,7 @@ sealed interface GenerativeState {
 }
 
 /**
- * Unified cloud generative service for image gen/edit, coding LLMs, and video.
- * Try-on remains on [CloudEngine]; this covers Create / Code / Video studios.
+ * Free-tier generative service: HF Spaces for image/video, Groq/HF/OpenRouter-free for code.
  */
 class GenerativeCloudService(
     private val http: HttpClient,
@@ -28,7 +28,6 @@ class GenerativeCloudService(
     private val usage: UsageLedger,
 ) {
     private val hf = HfGradioClient(http)
-    private val fal = FalClient(http)
     private val llm = LlmClient(http)
 
     fun generateImage(prompt: String, referenceUri: String?): Flow<GenerativeState> = flow {
@@ -37,36 +36,27 @@ class GenerativeCloudService(
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
             requireKeyIfNeeded(provider)
+            require(settings.networkLikelyAvailable()) { "No internet connection" }
             emit(GenerativeState.Running(0.25f, "Generating image…"))
-            val url = when (provider.platform) {
-                CloudPlatform.HF_SPACE -> {
-                    val data = buildList {
-                        if (!referenceUri.isNullOrBlank()) {
-                            val bytes = io.loadImageBytes(referenceUri)
-                                ?: error("Couldn't read the reference image")
-                            add(io.toDataUrl(bytes))
-                        }
-                        add(prompt)
-                    }
-                    val result = hf.predict(provider.endpoint, provider.apiName, data, settings.hfToken.value)
-                    extractRef(result)
-                }
-                CloudPlatform.FAL -> {
-                    val key = settings.falApiKey.value!!
-                    val input = mutableMapOf("prompt" to prompt)
-                    if (!referenceUri.isNullOrBlank()) {
-                        val bytes = io.loadImageBytes(referenceUri)
-                            ?: error("Couldn't read the reference image")
-                        input["image_url"] = io.toDataUrl(bytes)
-                    }
-                    fal.predict(provider.endpoint, input, key)
-                }
-                else -> error("${provider.platform} not wired for image generation yet")
+            require(provider.platform == CloudPlatform.HF_SPACE) {
+                "Only free Hugging Face Spaces are supported for images"
             }
+            val data = buildList {
+                if (!referenceUri.isNullOrBlank()) {
+                    val bytes = io.loadImageBytes(referenceUri)
+                        ?: error("Couldn't read the reference image")
+                    add(io.toDataUrl(bytes))
+                }
+                add(prompt.trim())
+            }
+            val result = hf.predict(provider.endpoint, provider.apiName, data, settings.hfToken.value)
+            val url = extractRef(result)
             emit(GenerativeState.Running(0.85f, "Downloading…"))
-            val path = io.downloadResult(url)
+            val path = io.downloadResult(url, spaceHost = provider.endpoint)
             usage.record(provider, success = true, note = "Image · ${prompt.take(80)}")
             emit(GenerativeState.ImageReady(path, provider.id))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             usage.record(provider, success = false, note = e.message.orEmpty())
             emit(GenerativeState.Failed(e.message ?: "Image generation failed"))
@@ -78,9 +68,10 @@ class GenerativeCloudService(
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
             requireKeyIfNeeded(provider)
+            require(settings.networkLikelyAvailable()) { "No internet connection" }
             emit(GenerativeState.Running(0.3f, "Thinking…"))
             val key = settings.apiKeyFor(provider) ?: error("API key required for ${provider.displayName}")
-            val result = llm.chat(provider.platform, provider.endpoint, prompt, key)
+            val result = llm.chat(provider.platform, provider.endpoint, prompt.trim(), key)
             usage.record(
                 provider,
                 tokensIn = result.tokensIn,
@@ -89,6 +80,8 @@ class GenerativeCloudService(
                 note = "Code · ${prompt.take(80)}",
             )
             emit(GenerativeState.CodeReady(result.text, result.tokensIn, result.tokensOut, provider.id))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             usage.record(provider, success = false, note = e.message.orEmpty())
             emit(GenerativeState.Failed(e.message ?: "Code generation failed"))
@@ -100,30 +93,24 @@ class GenerativeCloudService(
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
             requireKeyIfNeeded(provider)
+            require(settings.networkLikelyAvailable()) { "No internet connection" }
             emit(GenerativeState.Running(0.2f, "Rendering video (this can take a minute)…"))
-            val url = when (provider.platform) {
-                CloudPlatform.HF_SPACE -> {
-                    val result = hf.predict(
-                        provider.endpoint,
-                        provider.apiName,
-                        listOf(prompt),
-                        settings.hfToken.value,
-                    )
-                    extractRef(result)
-                }
-                CloudPlatform.FAL -> {
-                    fal.predict(
-                        provider.endpoint,
-                        mapOf("prompt" to prompt),
-                        settings.falApiKey.value!!,
-                    )
-                }
-                else -> error("${provider.platform} not wired for video yet")
+            require(provider.platform == CloudPlatform.HF_SPACE) {
+                "Only free Hugging Face Spaces are supported for video"
             }
+            val result = hf.predict(
+                provider.endpoint,
+                provider.apiName,
+                listOf(prompt.trim()),
+                settings.hfToken.value,
+            )
+            val url = extractRef(result)
             emit(GenerativeState.Running(0.9f, "Downloading video…"))
-            val path = io.downloadResult(url)
+            val path = io.downloadResult(url, spaceHost = provider.endpoint)
             usage.record(provider, success = true, note = "Video · ${prompt.take(80)}")
             emit(GenerativeState.VideoReady(path, provider.id))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             usage.record(provider, success = false, note = e.message.orEmpty())
             emit(GenerativeState.Failed(e.message ?: "Video generation failed"))
@@ -132,7 +119,7 @@ class GenerativeCloudService(
 
     private fun requireKeyIfNeeded(provider: CloudModelProvider) {
         if (provider.requiresApiKey && settings.apiKeyFor(provider).isNullOrBlank()) {
-            error("Add the ${provider.platform.name} API key in Settings before using ${provider.displayName}")
+            error("Add the free ${provider.platform.name} API key in Settings before using ${provider.displayName}")
         }
     }
 

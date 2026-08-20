@@ -162,6 +162,9 @@ fun VestraNavHost(
                         popUpTo(Routes.STUDIO)
                     }
                 },
+                onBackToStudio = {
+                    navController.popBackStack(Routes.STUDIO, inclusive = false)
+                },
             )
         }
         composable(Routes.CREATE) {

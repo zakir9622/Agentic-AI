@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,21 +26,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.domain.GenerationState
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
 import com.zakir.vestra.ui.TryOnViewModel
+import com.zakir.vestra.ui.components.GlassPrimaryButton
+import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.effects.DevelopStage
 import com.zakir.vestra.ui.theme.VestraColors
 
-/**
- * The atelier monitor. A true-black canvas with a single frosted, glass-edged
- * container, perfectly centered — a cinematic view onto the multi-conditioning
- * pipeline (structure → texture → synthesis). Starts the shoot on entry; the
- * develop-front tracks real per-shot progress; completion lands a haptic beat.
- */
 @Composable
 fun GenerationScreen(
     viewModel: TryOnViewModel,
@@ -93,7 +89,6 @@ fun GenerationScreen(
             }
             Spacer(Modifier.height(28.dp))
 
-            // Frosted, glass-edged monitor frame — perfectly centered.
             Box(
                 Modifier
                     .size(268.dp, 356.dp)
@@ -104,7 +99,17 @@ fun GenerationScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 when (val inner = current?.inner) {
-                    is GenerationState.Failed -> FailureContent(inner.error, onAbort)
+                    is GenerationState.Failed -> FailureContent(
+                        error = inner.error,
+                        onRetry = {
+                            viewModel.cancelShoot()
+                            viewModel.startShoot()
+                        },
+                        onAbort = {
+                            viewModel.cancelShoot()
+                            onAbort()
+                        },
+                    )
                     else -> {
                         val shotFraction = when (val s = current?.inner) {
                             is GenerationState.Preparing -> 0.05f
@@ -120,7 +125,8 @@ fun GenerationScreen(
                             progress = animatedShot,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(RoundedCornerShape(14.dp)),
+                                .clip(RoundedCornerShape(14.dp))
+                                .semantics { contentDescription = "Generation progress ${(animatedShot * 100).toInt()} percent" },
                         )
                     }
                 }
@@ -143,9 +149,11 @@ fun GenerationScreen(
                     animationSpec = tween(450),
                     label = "overall",
                 )
-                LinearProgressIndicator(
+                androidx.compose.material3.LinearProgressIndicator(
                     progress = { animatedOverall },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = "Overall progress ${(animatedOverall * 100).toInt()} percent" },
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = VestraColors.GlassBorder,
                 )
@@ -156,13 +164,21 @@ fun GenerationScreen(
                     color = VestraColors.Ivory,
                     textAlign = TextAlign.Center,
                 )
+                Spacer(Modifier.height(20.dp))
+                GlassSecondaryButton(
+                    text = "Cancel shoot",
+                    onClick = {
+                        viewModel.cancelShoot()
+                        onAbort()
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun FailureContent(error: TryOnError, onAbort: () -> Unit) {
+private fun FailureContent(error: TryOnError, onRetry: () -> Unit, onAbort: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = error.userMessage(),
@@ -170,15 +186,17 @@ private fun FailureContent(error: TryOnError, onAbort: () -> Unit) {
             color = VestraColors.IvoryMuted,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onAbort) { Text("Back to studio") }
+        Spacer(Modifier.height(20.dp))
+        GlassPrimaryButton(text = "Retry", onClick = onRetry)
+        Spacer(Modifier.height(10.dp))
+        GlassSecondaryButton(text = "Back to studio", onClick = onAbort)
     }
 }
 
 private fun TryOnError.userMessage(): String = when (this) {
-    TryOnError.ModelPackMissing -> "The model pack for this engine isn't installed yet. Download it from Settings → Model packs."
-    TryOnError.DeviceNotCapable -> "This device can't run the selected engine. Switch to Lite, Cloud, or Auto in Settings."
-    TryOnError.NetworkUnavailable -> "Cloud generation needs an internet connection. Check your network or switch to an on-device engine."
+    TryOnError.ModelPackMissing -> "The model pack for this engine isn't installed yet. Download it from Settings → Open-source local packs."
+    TryOnError.DeviceNotCapable -> "This device can't run the selected engine. Switch to Lite or Auto in Settings."
+    TryOnError.NetworkUnavailable -> "Cloud generation needs internet. Check your network or switch to Lite/Pro (offline)."
     is TryOnError.SafetyBlocked -> "This image can't be used: $reason"
     is TryOnError.Internal -> message.ifBlank { "Something went wrong during generation. Please try again." }
 }

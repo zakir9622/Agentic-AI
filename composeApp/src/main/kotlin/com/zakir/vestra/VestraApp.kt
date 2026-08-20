@@ -1,17 +1,20 @@
 package com.zakir.vestra
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.russhwolf.settings.SharedPreferencesSettings
 import com.zakir.vestra.data.StudioModelRepository
 import com.zakir.vestra.shared.cloud.AndroidCloudIo
 import com.zakir.vestra.shared.cloud.CloudEngine
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
+import com.zakir.vestra.shared.domain.effectiveCategory
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.engine.lite.HumanParsing
 import com.zakir.vestra.shared.engine.lite.LiteEngine
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
 import com.zakir.vestra.shared.engine.pro.DiffusionEngine
-import com.zakir.vestra.shared.domain.effectiveCategory
 import com.zakir.vestra.shared.packs.AndroidDeviceProbe
 import com.zakir.vestra.shared.packs.AndroidPackFileSystem
 import com.zakir.vestra.shared.packs.ModelPackManager
@@ -49,6 +52,7 @@ class VestraApp : Application() {
         super.onCreate()
         val prefs = SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE))
         appSettings = AppSettings(prefs)
+        appSettings.networkProbe = { isNetworkAvailable(this) }
         usageLedger = UsageLedger(prefs)
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 
@@ -86,5 +90,12 @@ class VestraApp : Application() {
     companion object {
         const val PACKS_MANIFEST_URL =
             "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json"
+
+        fun isNetworkAvailable(context: Context): Boolean {
+            val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
+            val network = cm.activeNetwork ?: return false
+            val caps = cm.getNetworkCapabilities(network) ?: return false
+            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
     }
 }

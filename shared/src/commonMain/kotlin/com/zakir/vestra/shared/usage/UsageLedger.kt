@@ -64,11 +64,9 @@ class UsageLedger(private val settings: Settings) {
         tokensOut: Int = 0,
         success: Boolean = true,
         note: String = "",
-        costOverride: Double? = null,
     ) {
-        val inTok = if (tokensIn > 0) tokensIn else if (provider.estTokensPerRequest > 0) provider.estTokensPerRequest / 2 else 0
-        val outTok = if (tokensOut > 0) tokensOut else if (provider.estTokensPerRequest > 0) provider.estTokensPerRequest / 2 else 0
-        val cost = costOverride ?: provider.estCostUsd
+        val inTok = tokensIn.coerceAtLeast(0)
+        val outTok = tokensOut.coerceAtLeast(0)
         val event = UsageEvent(
             id = "${System.currentTimeMillis()}-${provider.id}",
             timestampMs = System.currentTimeMillis(),
@@ -78,7 +76,7 @@ class UsageLedger(private val settings: Settings) {
             capability = provider.capability.name,
             tokensIn = inTok,
             tokensOut = outTok,
-            estCostUsd = if (success) cost else 0.0,
+            estCostUsd = 0.0,
             success = success,
             note = note.ifBlank { provider.usageNote },
         )
@@ -96,13 +94,11 @@ class UsageLedger(private val settings: Settings) {
 
     fun estimateNext(provider: CloudModelProvider): String {
         val tokens = provider.estTokensPerRequest
-        val cost = provider.estCostUsd
         return buildString {
             append(provider.displayName)
             append(" · ")
             append(provider.platform.displayLabel())
-            if (provider.freeTier && cost <= 0.0) append(" · Free tier")
-            else if (cost > 0.0) append(" · ~$${ "%.3f".format(cost) }/request")
+            append(" · Free")
             if (tokens > 0) append(" · ~$tokens tokens/request")
             if (provider.usageNote.isNotBlank()) append("\n${provider.usageNote}")
         }
@@ -145,12 +141,10 @@ class UsageLedger(private val settings: Settings) {
 }
 
 fun CloudPlatform.displayLabel(): String = when (this) {
-    CloudPlatform.HF_SPACE -> "Hugging Face Space"
-    CloudPlatform.HF_INFERENCE -> "Hugging Face Inference"
-    CloudPlatform.REPLICATE -> "Replicate"
-    CloudPlatform.FAL -> "fal.ai"
-    CloudPlatform.GROQ -> "Groq"
-    CloudPlatform.OPENROUTER -> "OpenRouter"
+    CloudPlatform.HF_SPACE -> "Hugging Face Space (free)"
+    CloudPlatform.HF_INFERENCE -> "Hugging Face Inference (free)"
+    CloudPlatform.GROQ -> "Groq (free tier)"
+    CloudPlatform.OPENROUTER -> "OpenRouter (free)"
 }
 
 fun AiCapability.displayLabel(): String = when (this) {

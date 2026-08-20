@@ -132,7 +132,7 @@ fun StudioScreen(
             StudioTile(
                 icon = Icons.Outlined.Videocam,
                 title = "Video Studio",
-                body = "Open video models — LTX-Video, CogVideoX, Wan. Free Spaces or FAL.",
+                body = "Free HF Spaces — LTX-Video, CogVideoX. No paid APIs.",
                 onClick = onOpenVideo,
             )
 

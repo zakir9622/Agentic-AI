@@ -77,14 +77,10 @@ fun SettingsScreen(
     val videoId by appSettings.videoProviderId.collectAsState()
 
     val hfToken by appSettings.hfToken.collectAsState()
-    val replicateToken by appSettings.replicateToken.collectAsState()
-    val falKey by appSettings.falApiKey.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
     val openRouterKey by appSettings.openRouterApiKey.collectAsState()
 
     var hfInput by remember(hfToken) { mutableStateOf(hfToken.orEmpty()) }
-    var replicateInput by remember(replicateToken) { mutableStateOf(replicateToken.orEmpty()) }
-    var falInput by remember(falKey) { mutableStateOf(falKey.orEmpty()) }
     var groqInput by remember(groqKey) { mutableStateOf(groqKey.orEmpty()) }
     var openRouterInput by remember(openRouterKey) { mutableStateOf(openRouterKey.orEmpty()) }
 
@@ -230,21 +226,19 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(14.dp))
             GlassCard {
-                GlassSectionLabel("API KEYS (cloud only)")
+                GlassSectionLabel("API KEYS (free tiers only)")
                 Text(
-                    "Not needed for local Lite/Pro try-on. HF token helps free Spaces + Inference. Groq/OpenRouter for coding.",
+                    "Not needed for local Lite/Pro try-on. Optional free keys: HF (Spaces + Inference), Groq, OpenRouter :free. No paid services.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(10.dp))
-                KeyField("Hugging Face token", hfInput) { hfInput = it }
-                KeyField("Groq API key", groqInput) { groqInput = it }
-                KeyField("OpenRouter API key", openRouterInput) { openRouterInput = it }
-                KeyField("Replicate API token", replicateInput) { replicateInput = it }
-                KeyField("FAL API key", falInput) { falInput = it }
+                KeyField("Hugging Face token (free)", hfInput) { hfInput = it }
+                KeyField("Groq API key (free tier)", groqInput) { groqInput = it }
+                KeyField("OpenRouter API key (use :free models)", openRouterInput) { openRouterInput = it }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Keys: huggingface.co/settings/tokens · console.groq.com · openrouter.ai/keys · replicate.com/account · fal.ai/dashboard",
+                    "Keys: huggingface.co/settings/tokens · console.groq.com · openrouter.ai/keys",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -253,8 +247,6 @@ fun SettingsScreen(
                         appSettings.setHfToken(hfInput)
                         appSettings.setGroqApiKey(groqInput)
                         appSettings.setOpenRouterApiKey(openRouterInput)
-                        appSettings.setReplicateToken(replicateInput)
-                        appSettings.setFalApiKey(falInput)
                     },
                 ) { Text("Save API keys") }
             }
@@ -373,9 +365,8 @@ private fun CloudProviderRow(
                 Text(provider.displayName, style = MaterialTheme.typography.titleSmall)
                 Text(
                     when {
-                        provider.freeTier && provider.estCostUsd <= 0.0 -> "Free"
-                        provider.estCostUsd > 0.0 -> "~$${"%.3f".format(provider.estCostUsd)}"
-                        else -> "Paid"
+                        provider.freeTier -> "Free"
+                        else -> "Blocked"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
@@ -403,18 +394,16 @@ private fun CloudProviderRow(
 
 private fun CloudPlatform.sectionTitle(): String = when (this) {
     CloudPlatform.HF_SPACE -> "Hugging Face Spaces (free)"
-    CloudPlatform.HF_INFERENCE -> "Hugging Face Inference"
-    CloudPlatform.REPLICATE -> "Replicate (API key)"
-    CloudPlatform.FAL -> "fal.ai (API key)"
+    CloudPlatform.HF_INFERENCE -> "Hugging Face Inference (free)"
     CloudPlatform.GROQ -> "Groq (free tier)"
-    CloudPlatform.OPENROUTER -> "OpenRouter"
+    CloudPlatform.OPENROUTER -> "OpenRouter (:free only)"
 }
 
 private fun EngineTier.label(): String = when (this) {
     EngineTier.AUTO -> "Auto (on-device)"
     EngineTier.LITE -> "Lite — on device"
     EngineTier.PRO -> "Pro — on device"
-    EngineTier.CLOUD -> "Cloud — open-source try-on"
+    EngineTier.CLOUD -> "Cloud — free HF Spaces"
 }
 
 private fun EngineTier.description(availability: Availability): String {
@@ -422,7 +411,7 @@ private fun EngineTier.description(availability: Availability): String {
         EngineTier.AUTO -> "Best on-device engine. Never uses cloud automatically."
         EngineTier.LITE -> "Fast compositor. Works offline on every phone."
         EngineTier.PRO -> "SD1.5 diffusion on-device. Needs Pro pack."
-        EngineTier.CLOUD -> "HF / Replicate / FAL try-on. Select model below."
+        EngineTier.CLOUD -> "Free Hugging Face Spaces only. Select model below."
     }
     return when (availability) {
         Availability.Ready -> base
@@ -430,7 +419,7 @@ private fun EngineTier.description(availability: Availability): String {
             UnavailableReason.PACK_NOT_INSTALLED -> "$base\nModel pack not installed."
             UnavailableReason.DEVICE_NOT_CAPABLE -> "$base\nDevice doesn't meet RAM requirements."
             UnavailableReason.OFFLINE -> "$base\nNo internet connection."
-            UnavailableReason.NOT_CONFIGURED -> "$base\nAdd the required API key above."
+            UnavailableReason.NOT_CONFIGURED -> "$base\nAdd the required free API key above."
         }
     }
 }

@@ -218,6 +218,12 @@ class TryOnViewModel(
         _casting.value = CastingProfile()
         _shoot.value = null
     }
+
+    fun cancelShoot() {
+        shootJob?.cancel()
+        shootJob = null
+        _shoot.value = null
+    }
 }
 
 private fun PersonSource.label(): String = when (this) {

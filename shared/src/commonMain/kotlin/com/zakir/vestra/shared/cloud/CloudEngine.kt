@@ -13,14 +13,15 @@ import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Cloud try-on via curated open-source models (HF Spaces, Replicate, FAL).
- * Only runs when the user explicitly selects the Cloud tier — never auto-routed.
+ * Free-tier cloud try-on via Hugging Face Spaces only.
+ * Never auto-routed — user must explicitly select Cloud in Settings.
  */
 class CloudEngine(
     private val http: HttpClient,
@@ -30,8 +31,6 @@ class CloudEngine(
 ) : TryOnEngine {
 
     private val hf = HfGradioClient(http)
-    private val replicate = ReplicateClient(http)
-    private val fal = FalClient(http)
 
     override val tier: EngineTier = EngineTier.CLOUD
 
@@ -64,16 +63,13 @@ class CloudEngine(
 
         try {
             emit(GenerationState.Running(0.2f, "Uploading to ${provider.displayName}…"))
-            val resultUrlOrPath = when (provider.platform) {
-                CloudPlatform.HF_SPACE -> runHfSpace(provider, personDataUrl, garmentDataUrl, category)
-                CloudPlatform.REPLICATE -> runReplicate(provider, personDataUrl, garmentDataUrl, category)
-                CloudPlatform.FAL -> runFal(provider, personDataUrl, garmentDataUrl)
-                CloudPlatform.HF_INFERENCE, CloudPlatform.GROQ, CloudPlatform.OPENROUTER ->
-                    error("${provider.platform} is for coding models — pick a try-on provider in Settings")
+            require(provider.platform == CloudPlatform.HF_SPACE) {
+                "Only free Hugging Face Spaces are supported for try-on"
             }
+            val resultUrlOrPath = runHfSpace(provider, personDataUrl, garmentDataUrl, category)
 
             emit(GenerationState.Running(0.85f, "Downloading result…"))
-            val outPath = io.downloadResult(resultUrlOrPath)
+            val outPath = io.downloadResult(resultUrlOrPath, spaceHost = provider.endpoint)
             usage?.record(provider, success = true, note = "Try-on · ${provider.displayName}")
             emit(
                 GenerationState.Complete(
@@ -85,10 +81,16 @@ class CloudEngine(
                     ),
                 ),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             usage?.record(provider, success = false, note = e.message.orEmpty())
             val msg = e.message ?: "Cloud generation failed"
-            val error = if (msg.contains("Unable to resolve host") || msg.contains("Network")) {
+            val error = if (
+                msg.contains("Unable to resolve host", ignoreCase = true) ||
+                msg.contains("Network", ignoreCase = true) ||
+                msg.contains("timeout", ignoreCase = true)
+            ) {
                 TryOnError.NetworkUnavailable
             } else {
                 TryOnError.Internal(msg)
@@ -110,45 +112,6 @@ class CloudEngine(
             hfToken = settings.hfToken.value,
         )
         return extractImageRef(result)
-    }
-
-    private suspend fun runReplicate(
-        provider: CloudModelProvider,
-        person: String,
-        garment: String,
-        category: GarmentCategory,
-    ): String {
-        val token = settings.replicateToken.value ?: error("Replicate API token required")
-        val version = provider.replicateVersion ?: error("Replicate version not configured")
-        val input = when (provider.id) {
-            "ootd-replicate" -> mapOf(
-                "model_image" to person,
-                "garment_image" to garment,
-                "garment_category" to category.ootdReplicateCategory(),
-            )
-            else -> mapOf(
-                "human_img" to person,
-                "garm_img" to garment,
-                "garment_des" to category.replicateLabel(),
-            )
-        }
-        return replicate.predict(version = version, input = input, apiToken = token)
-    }
-
-    private suspend fun runFal(
-        provider: CloudModelProvider,
-        person: String,
-        garment: String,
-    ): String {
-        val key = settings.falApiKey.value ?: error("FAL API key required")
-        return fal.predict(
-            endpoint = provider.endpoint,
-            input = mapOf(
-                "human_image_url" to person,
-                "garment_image_url" to garment,
-            ),
-            apiKey = key,
-        )
     }
 
     private fun hfPayload(
@@ -185,17 +148,12 @@ private fun GarmentCategory.idmLabel(): String = when (this) {
     else -> "dresses"
 }
 
-private fun GarmentCategory.replicateLabel(): String = idmLabel()
-
 private fun GarmentCategory.ootdLabel(): String = when (this) {
     GarmentCategory.LOWER_BODY -> "Lower-body"
+    GarmentCategory.ABAYA, GarmentCategory.JILBAB, GarmentCategory.KAFTAN,
+    GarmentCategory.DRESS, GarmentCategory.SHALWAR_KAMEEZ, GarmentCategory.LEHENGA,
+    GarmentCategory.FULL_COVERAGE -> "Upper-body"
     else -> "Upper-body"
-}
-
-private fun GarmentCategory.ootdReplicateCategory(): String = when (this) {
-    GarmentCategory.LOWER_BODY -> "lowerbody"
-    GarmentCategory.ABAYA, GarmentCategory.KAFTAN, GarmentCategory.SHALWAR_KAMEEZ -> "dress"
-    else -> "upperbody"
 }
 
 private fun GarmentCategory.fitditLabel(): String = when (this) {
@@ -208,5 +166,5 @@ interface CloudImageIo {
     suspend fun loadImageBytes(person: com.zakir.vestra.shared.domain.PersonSource): ByteArray?
     suspend fun loadImageBytes(uri: String): ByteArray?
     fun toDataUrl(jpegBytes: ByteArray): String
-    suspend fun downloadResult(urlOrPath: String): String
+    suspend fun downloadResult(urlOrPath: String, spaceHost: String? = null): String
 }

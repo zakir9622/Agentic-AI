@@ -17,6 +17,7 @@ class EngineRouter(private val engines: List<TryOnEngine>) {
     fun resolve(requested: EngineTier): TryOnEngine? = when (requested) {
         EngineTier.AUTO ->
             engineFor(EngineTier.PRO)?.takeIf { it.isAvailable() == Availability.Ready }
+                ?: engineFor(EngineTier.LITE)?.takeIf { it.isAvailable() == Availability.Ready }
                 ?: engineFor(EngineTier.LITE)
         else -> engineFor(requested)
     }

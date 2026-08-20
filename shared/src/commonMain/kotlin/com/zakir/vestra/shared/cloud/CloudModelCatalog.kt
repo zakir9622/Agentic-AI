@@ -2,18 +2,17 @@ package com.zakir.vestra.shared.cloud
 
 import kotlinx.serialization.Serializable
 
+/**
+ * Free-tier cloud platforms only. Paid hosts (Replicate, fal.ai) are intentionally excluded.
+ */
 enum class CloudPlatform {
     /** Hugging Face Gradio Space — free ZeroGPU quota, optional HF token. */
     HF_SPACE,
     /** Hugging Face Inference / Router API — free tier with token. */
     HF_INFERENCE,
-    /** Replicate.com — pay-per-run. */
-    REPLICATE,
-    /** fal.ai — fast GPU inference. */
-    FAL,
-    /** Groq — free/paid LLM inference. */
+    /** Groq — free-tier LLM inference (TPM limits). */
     GROQ,
-    /** OpenRouter — multi-model gateway, free models available. */
+    /** OpenRouter free models only (`:free` suffix). */
     OPENROUTER,
 }
 
@@ -26,8 +25,8 @@ enum class AiCapability {
 }
 
 /**
- * Curated open-source / free-tier cloud models across try-on, image, code, and video.
- * Cost estimates are approximate USD per typical request for display in Usage.
+ * Curated **free** open-source cloud models. Every entry must be usable without payment.
+ * Cost estimates are always 0; token estimates help Usage tracking for LLMs.
  */
 @Serializable
 data class CloudModelProvider(
@@ -36,26 +35,21 @@ data class CloudModelProvider(
     val description: String,
     val platform: CloudPlatform,
     val capability: AiCapability,
-    /** HF Space host / Replicate owner/name / FAL endpoint / model id for LLMs. */
     val endpoint: String,
     val apiName: String = "predict",
     val license: String,
     val requiresApiKey: Boolean,
-    val freeTier: Boolean,
+    val freeTier: Boolean = true,
     val qualityScore: Int,
     val speedScore: Int,
-    val replicateVersion: String? = null,
-    /** Estimated tokens consumed per typical request (LLM) or -1 if N/A. */
     val estTokensPerRequest: Int = -1,
-    /** Estimated USD cost per request (0 = free tier). */
     val estCostUsd: Double = 0.0,
-    /** Human-readable usage note shown in Settings / Usage. */
     val usageNote: String = "",
 )
 
 object CloudModelCatalog {
     val providers: List<CloudModelProvider> = listOf(
-        // ── Virtual try-on ──────────────────────────────────────────────
+        // ── Virtual try-on (HF Spaces, free) ────────────────────────────
         CloudModelProvider(
             id = "idm-vton-hf",
             displayName = "IDM-VTON",
@@ -66,10 +60,9 @@ object CloudModelCatalog {
             apiName = "tryon",
             license = "CC BY-NC-SA 4.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 95,
             speedScore = 60,
-            usageNote = "Free ZeroGPU daily quota. HF token raises rate limits.",
+            usageNote = "Free ZeroGPU daily quota. Optional HF token raises rate limits.",
         ),
         CloudModelProvider(
             id = "leffa-hf",
@@ -81,7 +74,6 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "MIT",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 92,
             speedScore = 65,
             usageNote = "Free ZeroGPU. Optional HF token.",
@@ -96,7 +88,6 @@ object CloudModelCatalog {
             apiName = "process_hd",
             license = "CC BY-NC-SA 4.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 88,
             speedScore = 50,
             usageNote = "Free ZeroGPU. Queue common at peak hours.",
@@ -111,7 +102,6 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "Apache 2.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 94,
             speedScore = 55,
             usageNote = "Free HF Space (community GPU).",
@@ -126,60 +116,12 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "CC BY-NC 4.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 86,
             speedScore = 80,
             usageNote = "Free HF Space.",
         ),
-        CloudModelProvider(
-            id = "idm-vton-replicate",
-            displayName = "IDM-VTON (Replicate)",
-            description = "Same model on Replicate when HF Space is queued. ~\$0.02/image.",
-            platform = CloudPlatform.REPLICATE,
-            capability = AiCapability.TRY_ON,
-            endpoint = "cuuupid/idm-vton",
-            license = "CC BY-NC-SA 4.0",
-            requiresApiKey = true,
-            freeTier = false,
-            qualityScore = 95,
-            speedScore = 75,
-            replicateVersion = "0513734a452173b8173e907e3a59d19a36266e55b8a3c9d4883a6059c0aab5c",
-            estCostUsd = 0.02,
-            usageNote = "Billed per second of GPU. Typical try-on ≈ \$0.02.",
-        ),
-        CloudModelProvider(
-            id = "ootd-replicate",
-            displayName = "OOTDiffusion (Replicate)",
-            description = "Full-body outfit diffusion on Replicate. ~\$0.03/image.",
-            platform = CloudPlatform.REPLICATE,
-            capability = AiCapability.TRY_ON,
-            endpoint = "qiweiii/oot_diffusion_dc",
-            license = "CC BY-NC-SA 4.0",
-            requiresApiKey = true,
-            freeTier = false,
-            qualityScore = 88,
-            speedScore = 70,
-            replicateVersion = "430dcd2e0539e9531e0d556aaeca33c8bc4160fbf0ca7f5adedb4e3c1803036e",
-            estCostUsd = 0.03,
-            usageNote = "Replicate billing. Full-body ≈ \$0.03.",
-        ),
-        CloudModelProvider(
-            id = "catvton-fal",
-            displayName = "CatVTON (FAL)",
-            description = "Fast lightweight try-on on fal.ai.",
-            platform = CloudPlatform.FAL,
-            capability = AiCapability.TRY_ON,
-            endpoint = "fal-ai/cat-vton",
-            license = "CC BY-NC 4.0",
-            requiresApiKey = true,
-            freeTier = false,
-            qualityScore = 85,
-            speedScore = 90,
-            estCostUsd = 0.015,
-            usageNote = "FAL credits. Typical ≈ \$0.015/image.",
-        ),
 
-        // ── Image generation / recreate ─────────────────────────────────
+        // ── Image generation / recreate (free HF) ───────────────────────
         CloudModelProvider(
             id = "flux-schnell-hf",
             displayName = "FLUX.1 Schnell",
@@ -190,7 +132,6 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "Apache 2.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 93,
             speedScore = 85,
             usageNote = "Free ZeroGPU. ~4 inference steps.",
@@ -205,37 +146,20 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "OpenRAIL++",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 88,
             speedScore = 90,
             usageNote = "Free HF Space.",
         ),
         CloudModelProvider(
-            id = "flux-schnell-fal",
-            displayName = "FLUX.1 Schnell (FAL)",
-            description = "Same FLUX model on fal.ai — reliable when Spaces queue.",
-            platform = CloudPlatform.FAL,
-            capability = AiCapability.IMAGE_GEN,
-            endpoint = "fal-ai/flux/schnell",
-            license = "Apache 2.0",
-            requiresApiKey = true,
-            freeTier = false,
-            qualityScore = 93,
-            speedScore = 95,
-            estCostUsd = 0.003,
-            usageNote = "≈ \$0.003 per megapixel on FAL.",
-        ),
-        CloudModelProvider(
             id = "qwen-image-edit-hf",
             displayName = "Qwen Image Edit",
-            description = "Recreate / edit an input image from a text prompt (img2img style).",
+            description = "Recreate / edit an input image from a text prompt.",
             platform = CloudPlatform.HF_SPACE,
             capability = AiCapability.IMAGE_EDIT,
             endpoint = "qwen-qwen-image-edit.hf.space",
             apiName = "predict",
             license = "Apache 2.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 90,
             speedScore = 70,
             usageNote = "Free HF Space. Upload a reference + prompt.",
@@ -250,44 +174,25 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "MIT",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 82,
             speedScore = 75,
             usageNote = "Free HF Space. Prompt = edit instruction.",
         ),
 
-        // ── Coding LLMs ─────────────────────────────────────────────────
+        // ── Coding LLMs (free tiers) ────────────────────────────────────
         CloudModelProvider(
             id = "qwen25-coder-hf",
             displayName = "Qwen2.5-Coder 32B",
-            description = "Strong open coding model via Hugging Face Inference.",
+            description = "Strong open coding model via Hugging Face Inference (free tier).",
             platform = CloudPlatform.HF_INFERENCE,
             capability = AiCapability.CODE,
             endpoint = "Qwen/Qwen2.5-Coder-32B-Instruct",
             license = "Apache 2.0",
             requiresApiKey = true,
-            freeTier = true,
             qualityScore = 92,
             speedScore = 70,
             estTokensPerRequest = 2000,
-            estCostUsd = 0.0,
             usageNote = "HF free Inference with token. ~2k tokens/request typical.",
-        ),
-        CloudModelProvider(
-            id = "deepseek-coder-or",
-            displayName = "DeepSeek Coder V2 (OpenRouter)",
-            description = "Open coding model via OpenRouter free/cheap tier.",
-            platform = CloudPlatform.OPENROUTER,
-            capability = AiCapability.CODE,
-            endpoint = "deepseek/deepseek-coder",
-            license = "MIT",
-            requiresApiKey = true,
-            freeTier = true,
-            qualityScore = 90,
-            speedScore = 80,
-            estTokensPerRequest = 2500,
-            estCostUsd = 0.0,
-            usageNote = "OpenRouter free models when available; else low cost/1M tokens.",
         ),
         CloudModelProvider(
             id = "llama33-70b-groq",
@@ -298,31 +203,27 @@ object CloudModelCatalog {
             endpoint = "llama-3.3-70b-versatile",
             license = "Llama 3.3",
             requiresApiKey = true,
-            freeTier = true,
             qualityScore = 91,
             speedScore = 98,
             estTokensPerRequest = 2000,
-            estCostUsd = 0.0,
             usageNote = "Groq free tier TPM limits. Track tokens in Usage.",
         ),
         CloudModelProvider(
-            id = "codestral-or",
-            displayName = "Codestral (OpenRouter)",
-            description = "Mistral Codestral specialized for software engineering.",
+            id = "deepseek-r1-free-or",
+            displayName = "DeepSeek R1 Distill (OpenRouter free)",
+            description = "OpenRouter `:free` coding/chat model — no payment required.",
             platform = CloudPlatform.OPENROUTER,
             capability = AiCapability.CODE,
-            endpoint = "mistralai/codestral-2501",
-            license = "Mistral Research",
+            endpoint = "deepseek/deepseek-r1-distill-llama-70b:free",
+            license = "MIT",
             requiresApiKey = true,
-            freeTier = false,
-            qualityScore = 93,
-            speedScore = 85,
-            estTokensPerRequest = 3000,
-            estCostUsd = 0.01,
-            usageNote = "≈ \$0.30–\$2 / 1M tokens depending on plan.",
+            qualityScore = 90,
+            speedScore = 75,
+            estTokensPerRequest = 2500,
+            usageNote = "Strictly the :free OpenRouter route. No paid fallback.",
         ),
 
-        // ── Video generation ────────────────────────────────────────────
+        // ── Video (free HF Spaces) ──────────────────────────────────────
         CloudModelProvider(
             id = "ltx-video-hf",
             displayName = "LTX-Video",
@@ -333,10 +234,8 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "Apache 2.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 86,
             speedScore = 80,
-            estCostUsd = 0.0,
             usageNote = "Free ZeroGPU. Short clips from text prompt.",
         ),
         CloudModelProvider(
@@ -349,54 +248,33 @@ object CloudModelCatalog {
             apiName = "predict",
             license = "Apache 2.0",
             requiresApiKey = false,
-            freeTier = true,
             qualityScore = 88,
             speedScore = 45,
             usageNote = "Free HF Space. Slower; queues at peak.",
         ),
-        CloudModelProvider(
-            id = "wan-video-fal",
-            displayName = "Wan 2.1 (FAL)",
-            description = "Open Wan video model hosted on fal.ai.",
-            platform = CloudPlatform.FAL,
-            capability = AiCapability.VIDEO,
-            endpoint = "fal-ai/wan/v2.1/1.3b/text-to-video",
-            license = "Apache 2.0",
-            requiresApiKey = true,
-            freeTier = false,
-            qualityScore = 90,
-            speedScore = 70,
-            estCostUsd = 0.08,
-            usageNote = "≈ \$0.05–\$0.15 per short clip on FAL.",
-        ),
-        CloudModelProvider(
-            id = "ltx-video-fal",
-            displayName = "LTX-Video (FAL)",
-            description = "LTX-Video on fal.ai for reliable paid inference.",
-            platform = CloudPlatform.FAL,
-            capability = AiCapability.VIDEO,
-            endpoint = "fal-ai/ltx-video",
-            license = "Apache 2.0",
-            requiresApiKey = true,
-            freeTier = false,
-            qualityScore = 86,
-            speedScore = 88,
-            estCostUsd = 0.04,
-            usageNote = "FAL credits. Typical short clip ≈ \$0.04.",
-        ),
     )
+
+    init {
+        require(providers.all { it.freeTier && it.estCostUsd <= 0.0 }) {
+            "CloudModelCatalog must contain only free providers"
+        }
+        require(providers.none { it.platform.name in setOf("REPLICATE", "FAL") }) {
+            "Paid platforms are not allowed"
+        }
+    }
 
     fun byId(id: String): CloudModelProvider? = providers.firstOrNull { it.id == id }
 
     fun forCapability(capability: AiCapability): List<CloudModelProvider> =
         providers.filter { it.capability == capability }
 
+    fun defaultFor(capability: AiCapability): CloudModelProvider =
+        forCapability(capability).first()
+
     val defaultTryOnId: String = "idm-vton-hf"
     val defaultImageGenId: String = "flux-schnell-hf"
     val defaultImageEditId: String = "instruct-pix2pix-hf"
     val defaultCodeId: String = "llama33-70b-groq"
     val defaultVideoId: String = "ltx-video-hf"
-
-    /** Back-compat for try-on CloudEngine. */
     val defaultId: String = defaultTryOnId
 }

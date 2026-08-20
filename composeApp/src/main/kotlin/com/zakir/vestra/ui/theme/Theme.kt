@@ -26,10 +26,10 @@ object VestraColors {
     val AccentGlow = Color(0x332D6A4F)
 
     // Glass morphism tokens
-    val GlassFill = Color(0xD9FFFFFF)
-    val GlassFillStrong = Color(0xE6FFFFFF)
-    val GlassBorder = Color(0x33FFFFFF)
-    val GlassHighlight = Color(0x99FFFFFF)
+    val GlassFill = Color(0xE6FFFAF5)
+    val GlassFillStrong = Color(0xF2FFFFFF)
+    val GlassBorder = Color(0x662D6A4F)
+    val GlassHighlight = Color(0xCCFFFFFF)
     val GlassShadow = Color(0x1A2D6A4F)
 
     val Danger = Color(0xFFE5484D)

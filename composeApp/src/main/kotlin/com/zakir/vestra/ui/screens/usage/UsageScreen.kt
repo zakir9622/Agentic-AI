@@ -38,7 +38,7 @@ fun UsageScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                "Est. spend  $${"%.3f".format(summary.totalEstCostUsd)}",
+                "All cloud models are free-tier · \$0.00 estimated spend",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -56,7 +56,7 @@ fun UsageScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(p.displayName, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "${p.requests} runs · ${p.tokensIn + p.tokensOut} tokens · $${"%.3f".format(p.estCostUsd)}",
+                        "${p.requests} runs · ${p.tokensIn + p.tokensOut} tokens · free",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -84,7 +84,7 @@ fun UsageScreen(
                             if (e.tokensIn + e.tokensOut > 0) {
                                 append(" · ${e.tokensIn}→${e.tokensOut} tok")
                             }
-                            if (e.estCostUsd > 0) append(" · $${"%.3f".format(e.estCostUsd)}")
+                            append(" · free")
                             if (!e.success) append(" · failed")
                         },
                         style = MaterialTheme.typography.bodySmall,

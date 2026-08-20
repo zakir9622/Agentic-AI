@@ -8,7 +8,7 @@ import com.zakir.vestra.shared.domain.PersonSource
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
-import io.ktor.client.statement.readBytes
+import io.ktor.client.statement.readRawBytes
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -33,33 +33,44 @@ class AndroidCloudIo(
     override fun toDataUrl(jpegBytes: ByteArray): String =
         "data:image/jpeg;base64,${Base64.getEncoder().encodeToString(jpegBytes)}"
 
-    override suspend fun downloadResult(urlOrPath: String): String {
+    override suspend fun downloadResult(urlOrPath: String, spaceHost: String?): String {
+        val resolved = resolveUrl(urlOrPath, spaceHost)
         val bytes = when {
-            urlOrPath.startsWith("data:image") -> {
-                val b64 = urlOrPath.substringAfter("base64,")
+            resolved.startsWith("data:") -> {
+                val b64 = resolved.substringAfter("base64,")
                 Base64.getDecoder().decode(b64)
             }
-            urlOrPath.startsWith("http") -> http.get(urlOrPath).readBytes()
-            urlOrPath.startsWith("/") -> {
-                // Gradio local path on the Space host — fetch via URL if absolute
-                if (urlOrPath.contains("hf.space")) http.get(urlOrPath).readBytes()
-                else error("Local Gradio path cannot be fetched: $urlOrPath")
-            }
+            resolved.startsWith("http") -> http.get(resolved).readRawBytes()
             else -> {
-                val file = File(urlOrPath)
-                if (file.exists()) file.readBytes() else http.get(urlOrPath).readBytes()
+                val file = File(resolved)
+                if (file.exists()) file.readBytes()
+                else error("Cannot fetch result: $urlOrPath")
             }
         }
         val dir = File(context.filesDir, "generations").apply { mkdirs() }
         val ext = when {
-            urlOrPath.contains(".mp4") || bytesIsMp4(bytes) -> "mp4"
-            urlOrPath.contains(".webm") -> "webm"
-            urlOrPath.contains(".png") -> "png"
+            resolved.contains(".mp4", ignoreCase = true) || bytesIsMp4(bytes) -> "mp4"
+            resolved.contains(".webm", ignoreCase = true) -> "webm"
+            resolved.contains(".png", ignoreCase = true) -> "png"
             else -> "jpg"
         }
         val out = File(dir, "cloud_${System.currentTimeMillis()}.$ext")
         FileOutputStream(out).use { it.write(bytes) }
         return out.absolutePath
+    }
+
+    private fun resolveUrl(urlOrPath: String, spaceHost: String?): String {
+        val trimmed = urlOrPath.trim()
+        return when {
+            trimmed.startsWith("http") || trimmed.startsWith("data:") -> trimmed
+            trimmed.startsWith("/") && !spaceHost.isNullOrBlank() ->
+                "https://$spaceHost$trimmed"
+            trimmed.startsWith("file=") && !spaceHost.isNullOrBlank() ->
+                "https://$spaceHost/gradio_api/file=${trimmed.removePrefix("file=")}"
+            !spaceHost.isNullOrBlank() && trimmed.contains("/") ->
+                "https://$spaceHost/gradio_api/file=$trimmed"
+            else -> trimmed
+        }
     }
 
     private fun bytesIsMp4(bytes: ByteArray): Boolean =

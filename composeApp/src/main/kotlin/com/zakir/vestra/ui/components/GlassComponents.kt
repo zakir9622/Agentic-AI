@@ -251,3 +251,103 @@ fun GlassImageFrame(
         content = content,
     )
 }
+
+@Composable
+fun GlassPrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = if (enabled) VestraColors.Accent else VestraColors.Accent.copy(alpha = 0.4f),
+        contentColor = Color.White,
+    ) {
+        Box(Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.titleMedium, color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun GlassSecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, VestraColors.GlassBorder, shape),
+        shape = shape,
+        color = VestraColors.GlassFillStrong,
+        contentColor = VestraColors.Ink,
+    ) {
+        Box(Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
+fun GlassEmptyState(message: String, modifier: Modifier = Modifier, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
+    GlassCard(modifier = modifier) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (actionLabel != null && onAction != null) {
+                    Spacer(Modifier.padding(top = 12.dp))
+                    GlassSecondaryButton(text = actionLabel, onClick = onAction)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GlassErrorBanner(message: String, onRetry: (() -> Unit)? = null, onDismiss: (() -> Unit)? = null) {
+    GlassCard {
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        Spacer(Modifier.padding(top = 8.dp))
+        Row {
+            if (onRetry != null) {
+                GlassSecondaryButton(text = "Retry", onClick = onRetry, modifier = Modifier.weight(1f))
+            }
+            if (onDismiss != null) {
+                if (onRetry != null) Spacer(Modifier.padding(horizontal = 6.dp))
+                GlassSecondaryButton(text = "Dismiss", onClick = onDismiss, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+fun GlassLoadingCard(message: String, progress: Float? = null) {
+    GlassCard {
+        Text(message, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.padding(top = 10.dp))
+        if (progress != null) {
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { progress.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = VestraColors.Accent,
+                trackColor = VestraColors.GlassBorder,
+            )
+        } else {
+            androidx.compose.material3.CircularProgressIndicator(color = VestraColors.Accent)
+        }
+    }
+}
