@@ -1,5 +1,7 @@
 package com.zakir.vestra.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -78,7 +80,16 @@ fun VestraNavHost(
         },
     )
 
-    NavHost(navController = navController, startDestination = start) {
+    // Instant transitions — AnimatedContent measure of heavy screens (Settings)
+    // was ANRing the main thread on mid/low devices and looking like a crash.
+    NavHost(
+        navController = navController,
+        startDestination = start,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
         composable(Routes.ONBOARDING) {
             OnboardingScreen(
                 appSettings = appSettings,
