@@ -15,9 +15,13 @@ import java.io.FileOutputStream
 
 /**
  * Unified save / share for try-on, Create, and Video outputs.
- * Gallery paths: Pictures/The Lookbook (images), Movies/The Lookbook (video).
+ * Gallery paths: DCIM/The Lookbook (images — Photos app), Movies/The Lookbook (video).
  */
 object MediaExport {
+
+    /** App album under DCIM so the system Photos app lists looks in their own folder. */
+    const val IMAGE_ALBUM_RELATIVE_PATH = "DCIM/The Lookbook"
+    const val VIDEO_ALBUM_RELATIVE_PATH = "Movies/The Lookbook"
 
     fun saveImageToGallery(context: Context, file: File, quiet: Boolean = false): Boolean {
         if (!file.exists()) {
@@ -32,11 +36,12 @@ object MediaExport {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
             put(MediaStore.Images.Media.MIME_TYPE, mime)
-            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/The Lookbook")
+            put(MediaStore.Images.Media.RELATIVE_PATH, IMAGE_ALBUM_RELATIVE_PATH)
+            put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
         if (uri == null) {
-            if (!quiet) Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
+            if (!quiet) Toast.makeText(context, "Couldn't save to Photos", Toast.LENGTH_SHORT).show()
             return false
         }
         val written = runCatching {
@@ -46,10 +51,16 @@ object MediaExport {
         }.getOrDefault(false)
         if (!written) {
             runCatching { context.contentResolver.delete(uri, null, null) }
-            if (!quiet) Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
+            if (!quiet) Toast.makeText(context, "Couldn't save to Photos", Toast.LENGTH_SHORT).show()
             return false
         }
-        if (!quiet) Toast.makeText(context, "Saved to Pictures/The Lookbook", Toast.LENGTH_SHORT).show()
+        runCatching {
+            val done = ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
+            context.contentResolver.update(uri, done, null, null)
+        }
+        if (!quiet) {
+            Toast.makeText(context, "Saved to Photos · $IMAGE_ALBUM_RELATIVE_PATH", Toast.LENGTH_SHORT).show()
+        }
         return true
     }
 
@@ -65,7 +76,8 @@ object MediaExport {
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
             put(MediaStore.Video.Media.MIME_TYPE, mime)
-            put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/The Lookbook")
+            put(MediaStore.Video.Media.RELATIVE_PATH, VIDEO_ALBUM_RELATIVE_PATH)
+            put(MediaStore.Video.Media.IS_PENDING, 1)
         }
         val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
         if (uri == null) {
@@ -82,7 +94,13 @@ object MediaExport {
             if (!quiet) Toast.makeText(context, "Couldn't save video", Toast.LENGTH_SHORT).show()
             return false
         }
-        if (!quiet) Toast.makeText(context, "Saved to Movies/The Lookbook", Toast.LENGTH_SHORT).show()
+        runCatching {
+            val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
+            context.contentResolver.update(uri, done, null, null)
+        }
+        if (!quiet) {
+            Toast.makeText(context, "Saved to $VIDEO_ALBUM_RELATIVE_PATH", Toast.LENGTH_SHORT).show()
+        }
         return true
     }
 
@@ -92,9 +110,9 @@ object MediaExport {
         Toast.makeText(
             context,
             when {
-                ok == 0 -> "Couldn't save"
-                ok == 1 -> "Saved to Pictures/The Lookbook"
-                else -> "$ok shots saved to Pictures/The Lookbook"
+                ok == 0 -> "Couldn't save to Photos"
+                ok == 1 -> "Saved to Photos · $IMAGE_ALBUM_RELATIVE_PATH"
+                else -> "$ok shots saved to Photos · $IMAGE_ALBUM_RELATIVE_PATH"
             },
             Toast.LENGTH_SHORT,
         ).show()

@@ -129,7 +129,7 @@ fun WardrobeScreen(
                             Spacer(Modifier.height(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 GlassSecondaryButton(
-                                    text = "Save",
+                                    text = "Save to Photos",
                                     onClick = { MediaExport.saveImageToGallery(context, file) },
                                     modifier = Modifier.weight(1f),
                                 )

@@ -25,6 +25,8 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.AndroidTextFileStore
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
+import com.zakir.vestra.storage.DurableStorage
+import com.zakir.vestra.storage.TokenSidecar
 
 class VestraApp : Application() {
 
@@ -62,14 +64,16 @@ class VestraApp : Application() {
 
         val http = platformHttpClient()
         freeCloudDiscovery = FreeCloudDiscovery(http)
+        // Restore tokens from Documents/TheLookbook/tokens.json after reinstall.
+        TokenSidecar.restoreIntoPrefsIfEmpty(this, appSettings)
         packManager = ModelPackManager(
-            fs = AndroidPackFileSystem(this),
+            fs = AndroidPackFileSystem(this) { DurableStorage.resolvePacksRoot(this) },
             device = AndroidDeviceProbe(this),
             http = http,
             manifestUrl = PACKS_MANIFEST_URL,
         )
         PackDownloadWorker.dependencies = { packManager }
-        DebugPackBootstrap.seedLitePack(this)
+        DebugPackBootstrap.seedLitePack(this, DurableStorage.resolvePacksRoot(this))
         studioModels = StudioModelRepository(this, packManager)
 
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }

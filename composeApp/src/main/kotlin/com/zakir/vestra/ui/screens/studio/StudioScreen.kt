@@ -159,7 +159,7 @@ fun StudioScreen(
                 StudioTile(
                     icon = Icons.Outlined.Image,
                     title = "Create Studio",
-                    body = "Prompt or recreate product / lookbook stills. Save to gallery · share · wardrobe.",
+                    body = "Prompt or recreate product / lookbook stills. Save to Photos (DCIM) · share · wardrobe.",
                     onClick = onOpenCreate,
                 )
                 Spacer(Modifier.height(10.dp))

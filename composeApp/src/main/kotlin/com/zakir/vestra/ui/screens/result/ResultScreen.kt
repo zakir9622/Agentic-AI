@@ -191,7 +191,7 @@ fun ResultScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     GlassSecondaryButton(
-                        text = if (results.size > 1) "Save all" else "Save",
+                        text = if (results.size > 1) "Save all to Photos" else "Save to Photos",
                         onClick = {
                             MediaExport.saveAllImages(context, results.map { File(it.imagePath) })
                         },

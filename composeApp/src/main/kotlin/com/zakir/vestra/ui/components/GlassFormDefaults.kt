@@ -20,7 +20,11 @@ object GlassFormDefaults {
     val MenuShadow: Dp = 10.dp
 
     @Composable
-    fun menuContainerColor(): Color = VestraColors.SurfaceRaised
+    fun menuContainerColor(): Color {
+        // Force fully opaque — never inherit translucent glass fills.
+        val base = VestraColors.SurfaceRaised
+        return base.copy(alpha = 1f)
+    }
 
     @Composable
     fun outlinedFieldColors(): TextFieldColors {

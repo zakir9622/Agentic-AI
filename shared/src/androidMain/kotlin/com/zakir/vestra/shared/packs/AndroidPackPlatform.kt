@@ -6,11 +6,19 @@ import android.os.Build
 import java.io.File
 import java.security.MessageDigest
 
-class AndroidPackFileSystem(context: Context) : PackFileSystem {
+/**
+ * Pack filesystem. [rootProvider] should return a durable Documents tree when
+ * all-files access is granted so installs survive app uninstall/reinstall.
+ * The provider is invoked on each access so granting permission mid-session remounts.
+ */
+class AndroidPackFileSystem(
+    context: Context,
+    private val rootProvider: () -> File = { File(context.filesDir, "packs") },
+) : PackFileSystem {
 
-    private val root = File(context.filesDir, "packs")
+    private fun root(): File = rootProvider().also { it.mkdirs() }
 
-    override fun packsRoot(): String = root.absolutePath
+    override fun packsRoot(): String = root().absolutePath
 
     override fun exists(path: String): Boolean = File(path).exists()
 
@@ -56,7 +64,7 @@ class AndroidPackFileSystem(context: Context) : PackFileSystem {
         File(path).apply { parentFile?.mkdirs() }.writeText(content)
     }
 
-    override fun freeBytes(): Long = root.apply { mkdirs() }.usableSpace
+    override fun freeBytes(): Long = root().usableSpace
 }
 
 class AndroidDeviceProbe(private val context: Context) : DeviceProbe {
@@ -69,9 +77,6 @@ class AndroidDeviceProbe(private val context: Context) : DeviceProbe {
     }
 
     override fun hasNpu(): Boolean {
-        // Proxy signal: 64-bit device on Android 12+ with ≥6 GB RAM. Real NPU
-        // enumeration (QNN backend probe) replaces this in the Pro engine (M4),
-        // which additionally verifies the runtime can actually create a session.
         val is64Bit = Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()
         return is64Bit && Build.VERSION.SDK_INT >= 31 && totalRamMb() >= 6 * 1024
     }

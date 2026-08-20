@@ -19,8 +19,7 @@ object DebugPackBootstrap {
     private const val VERSION = 1
     private val FILES = listOf("garment_seg.onnx" to 1_321_751L, "human_parse.onnx" to 67_287_788L)
 
-    fun seedLitePack(context: Context) {
-        val packsRoot = File(context.filesDir, "packs")
+    fun seedLitePack(context: Context, packsRoot: File = File(context.filesDir, "packs")) {
         val versionDir = File(packsRoot, "$PACK_ID/$VERSION")
         val completeMarker = File(versionDir, ".complete")
         if (completeMarker.exists()) return
