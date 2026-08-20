@@ -56,9 +56,11 @@ import com.zakir.vestra.shared.settings.AppearanceMode
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.ui.components.GlassFormDefaults
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -423,19 +425,27 @@ private fun AppearanceDropdown(
             value = selected.label(),
             onValueChange = {},
             readOnly = true,
+            label = { Text("Theme") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            colors = GlassFormDefaults.outlinedFieldColors(),
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = GlassFormDefaults.menuContainerColor(),
+            shadowElevation = GlassFormDefaults.MenuShadow,
+        ) {
             AppearanceMode.entries.forEach { mode ->
                 DropdownMenuItem(
-                    text = { Text(mode.label()) },
+                    text = { Text(mode.label(), color = VestraColors.Ink) },
                     onClick = {
                         onSelect(mode)
                         expanded = false
                     },
+                    colors = GlassFormDefaults.menuItemColors(),
                 )
             }
         }
@@ -456,26 +466,33 @@ private fun EngineDropdown(
             value = selected.label(),
             onValueChange = {},
             readOnly = true,
+            label = { Text("Engine") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             supportingText = {
-                Text(selected.description(availability(selected)))
+                Text(selected.description(availability(selected)), color = VestraColors.InkMuted)
             },
+            colors = GlassFormDefaults.outlinedFieldColors(),
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = GlassFormDefaults.menuContainerColor(),
+            shadowElevation = GlassFormDefaults.MenuShadow,
+        ) {
             options.forEach { tier ->
                 val avail = availability(tier)
                 val enabled = avail == Availability.Ready || tier == EngineTier.CLOUD || tier == EngineTier.AUTO
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Text(tier.label())
+                            Text(tier.label(), color = VestraColors.Ink)
                             Text(
                                 tier.description(avail),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = VestraColors.InkMuted,
                             )
                         }
                     },
@@ -486,6 +503,7 @@ private fun EngineDropdown(
                         }
                     },
                     enabled = enabled,
+                    colors = GlassFormDefaults.menuItemColors(),
                 )
             }
         }
@@ -506,19 +524,27 @@ private fun PackDropdown(
             value = label,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Model pack") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            colors = GlassFormDefaults.outlinedFieldColors(),
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = GlassFormDefaults.menuContainerColor(),
+            shadowElevation = GlassFormDefaults.MenuShadow,
+        ) {
             choices.forEach { (id, name) ->
                 DropdownMenuItem(
-                    text = { Text(name) },
+                    text = { Text(name, color = VestraColors.Ink) },
                     onClick = {
                         onSelect(id)
                         expanded = false
                     },
+                    colors = GlassFormDefaults.menuItemColors(),
                 )
             }
         }
@@ -575,25 +601,35 @@ private fun CloudCapabilityDropdown(
                 value = selected?.displayName ?: "Select model",
                 onValueChange = {},
                 readOnly = true,
+                label = { Text("Model") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                 supportingText = {
-                    Text(selected?.usageNote?.ifBlank { selected.description } ?: "")
+                    Text(
+                        selected?.usageNote?.ifBlank { selected.description } ?: "",
+                        color = VestraColors.InkMuted,
+                    )
                 },
+                colors = GlassFormDefaults.outlinedFieldColors(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 enabled = options.isNotEmpty(),
             )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                containerColor = GlassFormDefaults.menuContainerColor(),
+                shadowElevation = GlassFormDefaults.MenuShadow,
+            ) {
                 options.forEach { provider ->
                     DropdownMenuItem(
                         text = {
                             Column {
-                                Text(provider.displayName)
+                                Text(provider.displayName, color = VestraColors.Ink)
                                 Text(
                                     "${provider.platform.name} · ${provider.license}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = VestraColors.InkMuted,
                                 )
                             }
                         },
@@ -601,6 +637,7 @@ private fun CloudCapabilityDropdown(
                             onSelect(provider.id)
                             expanded = false
                         },
+                        colors = GlassFormDefaults.menuItemColors(),
                     )
                 }
             }
@@ -648,6 +685,7 @@ private fun KeyField(label: String, value: String, onChange: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
+        colors = GlassFormDefaults.outlinedFieldColors(),
     )
 }
 
