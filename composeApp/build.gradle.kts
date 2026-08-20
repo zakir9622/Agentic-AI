@@ -10,10 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.zakir.vestra"
-        minSdk = 26
+        minSdk = 35
         targetSdk = 36
-        versionCode = 5
-        versionName = "2.0.3"
+        versionCode = 6
+        versionName = "2.1.0"
     }
 
     flavorDimensions += "distribution"

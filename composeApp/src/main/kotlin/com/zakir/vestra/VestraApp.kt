@@ -8,6 +8,7 @@ import com.russhwolf.settings.SharedPreferencesSettings
 import com.zakir.vestra.data.StudioModelRepository
 import com.zakir.vestra.shared.cloud.AndroidCloudIo
 import com.zakir.vestra.shared.cloud.CloudEngine
+import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.domain.effectiveCategory
 import com.zakir.vestra.shared.engine.EngineRouter
@@ -48,6 +49,9 @@ class VestraApp : Application() {
     lateinit var generative: GenerativeCloudService
         private set
 
+    lateinit var freeCloudDiscovery: FreeCloudDiscovery
+        private set
+
     override fun onCreate() {
         super.onCreate()
         val prefs = SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE))
@@ -57,6 +61,7 @@ class VestraApp : Application() {
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 
         val http = platformHttpClient()
+        freeCloudDiscovery = FreeCloudDiscovery(http)
         packManager = ModelPackManager(
             fs = AndroidPackFileSystem(this),
             device = AndroidDeviceProbe(this),

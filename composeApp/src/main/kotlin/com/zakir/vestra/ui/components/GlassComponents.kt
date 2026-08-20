@@ -55,10 +55,10 @@ fun SpatialBackground(
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            VestraColors.Accent.copy(alpha = 0.08f),
+                            VestraColors.Accent.copy(alpha = if (VestraColors.Accent.alpha > 0f) 0.18f else 0.18f),
                             Color.Transparent,
                         ),
-                        radius = 900f,
+                        radius = 1100f,
                     ),
                 ),
         )
@@ -68,11 +68,23 @@ fun SpatialBackground(
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            Color(0xFFE8D5C4).copy(alpha = 0.35f),
+                            VestraColors.AccentSoft.copy(alpha = 0.12f),
                             Color.Transparent,
                         ),
-                        center = androidx.compose.ui.geometry.Offset(0.9f, 0.1f),
-                        radius = 700f,
+                        center = androidx.compose.ui.geometry.Offset(0.92f, 0.08f),
+                        radius = 800f,
+                    ),
+                ),
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            VestraColors.Canvas.copy(alpha = 0.35f),
+                        ),
                     ),
                 ),
         )
@@ -84,7 +96,7 @@ fun SpatialBackground(
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
-    elevation: Dp = SpatialElevation.Raised.dp,
+    elevation: Dp = 0.dp,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -249,7 +261,7 @@ fun GlassImageFrame(
                 shape,
             )
             .graphicsLayer {
-                shadowElevation = SpatialElevation.Raised.dp.toPx()
+                shadowElevation = 0f
             },
         content = content,
     )
