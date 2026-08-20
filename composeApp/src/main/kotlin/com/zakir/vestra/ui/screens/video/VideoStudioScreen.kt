@@ -34,7 +34,7 @@ fun VideoStudioScreen(
     val estimate = viewModel.usage.estimateNext(provider)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
 
-    GlassScreen(title = "Video Studio", subtitle = "Free HF Spaces only", onBack = onBack) {
+    GlassScreen(title = "Video Studio", subtitle = "Creators · free HF only", onBack = onBack) {
         GlassCard {
             GlassSectionLabel("FREE MODEL")
             Text(provider.displayName, style = MaterialTheme.typography.titleMedium)
@@ -54,6 +54,18 @@ fun VideoStudioScreen(
                 placeholder = {
                     Text("Describe the clip… e.g. woman in black abaya walking through a Karachi night bazaar")
                 },
+            )
+            Spacer(Modifier.height(12.dp))
+            Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(6.dp))
+            com.zakir.vestra.ui.components.ExamplePromptRow(
+                examples = listOf(
+                    "Woman in black abaya walking through a Karachi night bazaar",
+                    "Slow pan across embroidered green shalwar kameez in soft daylight",
+                    "Hijabi model turning toward camera, linen texture detail",
+                ),
+                enabled = !busy,
+                onPick = viewModel::setPrompt,
             )
             Spacer(Modifier.height(12.dp))
             if (busy) {

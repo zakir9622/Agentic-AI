@@ -120,6 +120,34 @@ object CloudModelCatalog {
             speedScore = 80,
             usageNote = "Free HF Space.",
         ),
+        CloudModelProvider(
+            id = "catvton-flux-hf",
+            displayName = "CatVTON-FLUX",
+            description = "CatVTON + FLUX fill inpainting — stronger garment transfer on free ZeroGPU.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.TRY_ON,
+            endpoint = "xiaozaa-catvton-flux-try-on.hf.space",
+            apiName = "predict",
+            license = "Non-commercial / Space terms",
+            requiresApiKey = false,
+            qualityScore = 91,
+            speedScore = 55,
+            usageNote = "Free ZeroGPU Space (CatV2TON-class quality path). Queues at peak.",
+        ),
+        CloudModelProvider(
+            id = "kolors-vton-hf",
+            displayName = "Kolors Virtual Try-On",
+            description = "Kwai Kolors try-on — high garment fidelity on free HF Space.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.TRY_ON,
+            endpoint = "kwai-kolors-kolors-virtual-try-on.hf.space",
+            apiName = "tryon",
+            license = "Kolors / Space terms",
+            requiresApiKey = false,
+            qualityScore = 94,
+            speedScore = 50,
+            usageNote = "Free HF Space. Busy queues; API may be rate-limited. Prefer IDM/Leffa if unavailable.",
+        ),
 
         // ── Image generation / recreate (free HF) ───────────────────────
         CloudModelProvider(
@@ -268,8 +296,16 @@ object CloudModelCatalog {
     fun forCapability(capability: AiCapability): List<CloudModelProvider> =
         providers.filter { it.capability == capability }
 
-    fun defaultFor(capability: AiCapability): CloudModelProvider =
-        forCapability(capability).first()
+    fun defaultFor(capability: AiCapability): CloudModelProvider {
+        val preferredId = when (capability) {
+            AiCapability.TRY_ON -> defaultTryOnId
+            AiCapability.IMAGE_GEN -> defaultImageGenId
+            AiCapability.IMAGE_EDIT -> defaultImageEditId
+            AiCapability.CODE -> defaultCodeId
+            AiCapability.VIDEO -> defaultVideoId
+        }
+        return byId(preferredId) ?: forCapability(capability).first()
+    }
 
     val defaultTryOnId: String = "idm-vton-hf"
     val defaultImageGenId: String = "flux-schnell-hf"

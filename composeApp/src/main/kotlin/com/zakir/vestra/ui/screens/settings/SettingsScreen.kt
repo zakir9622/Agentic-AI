@@ -294,10 +294,19 @@ private fun LocalPackRow(
                     TextButton(onClick = { onSelectEngine(tier) }) { Text("Use ${tier.name}") }
                 }
             }
-            status == PackStatus.DOWNLOADING -> Text("Downloading ${(progress * 100).toInt()}%…", style = MaterialTheme.typography.labelMedium)
+            status == PackStatus.DOWNLOADING -> Column {
+                Text("Downloading ${(progress * 100).toInt()}%… · resumes if network drops", style = MaterialTheme.typography.labelMedium)
+            }
             status == PackStatus.INCOMPATIBLE -> Text("Device doesn't meet RAM/NPU requirements", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
             status == PackStatus.UPDATE_AVAILABLE -> Button(onClick = onInstall) { Text("Update pack") }
-            else -> Button(onClick = onInstall) { Text("Download for local use") }
+            status == null -> Text(
+                "Pack catalog not loaded yet — open Model packs to refresh.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            else -> Button(onClick = onInstall) {
+                Text(if (progress > 0f) "Resume download" else "Download for local use")
+            }
         }
     }
 }

@@ -61,6 +61,18 @@ fun CodeStudioScreen(
                 },
             )
             Spacer(Modifier.height(12.dp))
+            Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(6.dp))
+            com.zakir.vestra.ui.components.ExamplePromptRow(
+                examples = listOf(
+                    "Write a Kotlin Compose frosted glass card with border highlight",
+                    "Explain how to resume an Android OkHttp download with Range headers",
+                    "Refactor this into a StateFlow ViewModel pattern (paste code)",
+                ),
+                enabled = !busy,
+                onPick = viewModel::setPrompt,
+            )
+            Spacer(Modifier.height(12.dp))
             if (busy) {
                 GlassSecondaryButton(text = "Cancel", onClick = viewModel::cancel)
             } else {

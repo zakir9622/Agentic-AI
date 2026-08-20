@@ -74,7 +74,7 @@ fun VestraNavHost(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                GenerativeViewModel(generative, appSettings, usageLedger) as T
+                GenerativeViewModel(generative, appSettings, usageLedger, wardrobe) as T
         },
     )
 
@@ -170,19 +170,28 @@ fun VestraNavHost(
         composable(Routes.CREATE) {
             CreateStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    generativeViewModel.cancel()
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.CODE) {
             CodeStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    generativeViewModel.cancel()
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.VIDEO) {
             VideoStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    generativeViewModel.cancel()
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.USAGE) {

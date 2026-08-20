@@ -12,8 +12,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 5
+        versionName = "2.0.3"
     }
 
     flavorDimensions += "distribution"
@@ -89,6 +89,7 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.exifinterface)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

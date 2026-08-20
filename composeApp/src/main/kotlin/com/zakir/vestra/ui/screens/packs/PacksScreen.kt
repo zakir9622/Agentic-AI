@@ -1,12 +1,12 @@
 package com.zakir.vestra.ui.screens.packs
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +27,6 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
-import com.zakir.vestra.ui.components.GlassSectionLabel
 import kotlinx.coroutines.launch
 
 /** Model pack management: install/update/remove the engine packs. */
@@ -43,9 +42,9 @@ fun PacksScreen(
 
     LaunchedEffect(Unit) { packManager.refresh() }
 
-    GlassScreen(title = "Model packs", subtitle = "Open-source · on-device", onBack = onBack) {
+    GlassScreen(title = "Model packs", subtitle = "Open-source · on-device · resumable", onBack = onBack) {
         Text(
-            "These open-source packs turn your phone into a local AI device. Once installed, try-on needs no internet and uses \$0 tokens.",
+            "Download open-source packs once. Transfers resume after network drops. Installed packs work offline with \$0 tokens.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -64,11 +63,30 @@ fun PacksScreen(
             }
         }
 
+        lastError?.takeIf { states.isNotEmpty() }?.let { err ->
+            GlassCard {
+                Text(
+                    "Catalog refresh issue — $err. Showing cached packs. Downloads still resume from partial files.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
         states.values.forEach { state ->
             Spacer(Modifier.height(12.dp))
             PackCard(
                 state = state,
-                onInstall = { PackDownloadWorker.enqueue(context, state.pack.id) },
+                onInstall = {
+                    PackDownloadWorker.enqueue(context, state.pack.id)
+                    Toast.makeText(context, "Download started — resumes if interrupted", Toast.LENGTH_SHORT).show()
+                },
+                onCancel = {
+                    PackDownloadWorker.cancel(context, state.pack.id)
+                    packManager.markCancelled(state.pack.id)
+                    Toast.makeText(context, "Download paused — tap Download to resume", Toast.LENGTH_SHORT).show()
+                },
                 onUninstall = { packManager.uninstall(state.pack.id) },
             )
         }
@@ -80,6 +98,7 @@ fun PacksScreen(
 private fun PackCard(
     state: PackState,
     onInstall: () -> Unit,
+    onCancel: () -> Unit,
     onUninstall: () -> Unit,
 ) {
     GlassCard {
@@ -114,7 +133,9 @@ private fun PackCard(
         }
         Spacer(Modifier.height(12.dp))
         when (state.status) {
-            PackStatus.NOT_INSTALLED -> Button(onClick = onInstall) { Text("Download") }
+            PackStatus.NOT_INSTALLED -> Button(onClick = onInstall) {
+                Text(if (state.progress > 0f) "Resume download" else "Download")
+            }
             PackStatus.UPDATE_AVAILABLE -> Button(onClick = onInstall) { Text("Update") }
             PackStatus.DOWNLOADING -> {
                 LinearProgressIndicator(
@@ -122,11 +143,18 @@ private fun PackCard(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "${(state.progress * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "${(state.progress * 100).toInt()}% · resumes if network drops",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = onCancel) { Text("Cancel") }
+                }
             }
             PackStatus.INSTALLED -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(

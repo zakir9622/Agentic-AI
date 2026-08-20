@@ -1,9 +1,5 @@
 package com.zakir.vestra.ui.screens.result
 
-import android.content.ContentValues
-import android.content.Context
-import android.content.Intent
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,9 +25,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.SaveAlt
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,12 +49,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
 import com.zakir.vestra.data.LocalReportStore
 import com.zakir.vestra.data.ReportReason
+import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassImageFrame
+import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassTopBar
@@ -189,23 +183,23 @@ fun ResultScreen(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassPill(text = "AI-generated", active = true)
+                    GlassPill(text = "Provenance stamped", active = true, accent = MaterialTheme.colorScheme.secondary)
+                }
+                Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     GlassSecondaryButton(
-                        text = "Save",
+                        text = if (results.size > 1) "Save all" else "Save",
                         onClick = {
-                            results.forEach { shot -> saveToGallery(context, File(shot.imagePath), quiet = true) }
-                            Toast.makeText(
-                                context,
-                                if (results.size > 1) "${results.size} shots saved" else "Saved to Pictures/The Lookbook",
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            MediaExport.saveAllImages(context, results.map { File(it.imagePath) })
                         },
                         modifier = Modifier.weight(1f),
                     )
                     GlassSecondaryButton(
                         text = "Share",
-                        onClick = { share(context, File(result.imagePath)) },
+                        onClick = { MediaExport.share(context, File(result.imagePath), "Share look") },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -264,28 +258,3 @@ private fun BeforeAfter(beforeModel: Any, afterModel: Any) {
     }
 }
 
-private fun saveToGallery(context: Context, file: File, quiet: Boolean = false) {
-    val values = ContentValues().apply {
-        put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
-        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/The Lookbook")
-    }
-    val resolver = context.contentResolver
-    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-    if (uri == null) {
-        if (!quiet) Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
-        return
-    }
-    resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
-    if (!quiet) Toast.makeText(context, "Saved to Pictures/The Lookbook", Toast.LENGTH_SHORT).show()
-}
-
-private fun share(context: Context, file: File) {
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = if (file.extension.equals("mp4", true)) "video/mp4" else "image/jpeg"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(intent, "Share look"))
-}

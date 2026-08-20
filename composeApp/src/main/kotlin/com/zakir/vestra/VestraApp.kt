@@ -69,7 +69,12 @@ class VestraApp : Application() {
 
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
         val parsing = HumanParsing(packManager)
-        val cloudIo = AndroidCloudIo(this, liteIo, http)
+        val cloudIo = AndroidCloudIo(
+            this,
+            liteIo,
+            http,
+            applyVisibleWatermark = true, // always stamp AI provenance on cloud outputs
+        )
         generative = GenerativeCloudService(http, cloudIo, appSettings, usageLedger)
 
         engineRouter = EngineRouter(

@@ -3,9 +3,10 @@ package com.zakir.vestra.shared.cloud
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
+import androidx.exifinterface.media.ExifInterface
 import com.zakir.vestra.shared.domain.PersonSource
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
+import com.zakir.vestra.shared.engine.lite.Watermark
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
@@ -18,6 +19,7 @@ class AndroidCloudIo(
     private val context: Context,
     private val liteIo: LiteEngineIo,
     private val http: HttpClient,
+    private val applyVisibleWatermark: Boolean = true,
 ) : CloudImageIo {
 
     override suspend fun loadImageBytes(person: PersonSource): ByteArray? {
@@ -56,7 +58,28 @@ class AndroidCloudIo(
         }
         val out = File(dir, "cloud_${System.currentTimeMillis()}.$ext")
         FileOutputStream(out).use { it.write(bytes) }
+        if (ext in setOf("jpg", "jpeg", "png")) {
+            stampProvenance(out, ext)
+        }
         return out.absolutePath
+    }
+
+    private fun stampProvenance(file: File, ext: String) {
+        runCatching {
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
+            val stamped = if (applyVisibleWatermark) Watermark.apply(bitmap) else bitmap
+            val format = if (ext == "png") Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+            FileOutputStream(file).use { stamped.compress(format, 94, it) }
+            if (ext != "png") {
+                ExifInterface(file.absolutePath).apply {
+                    setAttribute(ExifInterface.TAG_USER_COMMENT, Watermark.EXIF_TAG_VALUE)
+                    setAttribute(ExifInterface.TAG_SOFTWARE, "The Lookbook")
+                    saveAttributes()
+                }
+            }
+            if (stamped !== bitmap) stamped.recycle()
+            bitmap.recycle()
+        }
     }
 
     private fun resolveUrl(urlOrPath: String, spaceHost: String?): String {

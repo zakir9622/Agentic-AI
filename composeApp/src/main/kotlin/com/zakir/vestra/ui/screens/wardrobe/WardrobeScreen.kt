@@ -1,9 +1,9 @@
 package com.zakir.vestra.ui.screens.wardrobe
 
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,8 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
+import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
@@ -42,12 +42,12 @@ fun WardrobeScreen(
 
     GlassScreen(
         title = "Wardrobe",
-        subtitle = "Your looks",
+        subtitle = "Looks · listings · assets",
         onBack = onBack,
         scrollable = false,
     ) {
         if (entries.isEmpty()) {
-            GlassEmptyState(message = "Your generated looks live here.")
+            GlassEmptyState(message = "Your try-on and Create Studio looks live here.")
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
@@ -56,35 +56,21 @@ fun WardrobeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(entries, key = { it.id }) { entry ->
+                    val file = File(entry.imagePath)
                     GlassCard {
                         AsyncImage(
-                            model = File(entry.imagePath),
+                            model = file,
                             contentDescription = "Generated look ${entry.personLabel}",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(0.75f)
                                 .clip(RoundedCornerShape(16.dp))
                                 .clickable {
-                                    val file = File(entry.imagePath)
                                     if (!file.exists()) {
                                         Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
                                         return@clickable
                                     }
-                                    val uri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        file,
-                                    )
-                                    context.startActivity(
-                                        Intent.createChooser(
-                                            Intent(Intent.ACTION_SEND).apply {
-                                                type = "image/jpeg"
-                                                putExtra(Intent.EXTRA_STREAM, uri)
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            },
-                                            "Share look",
-                                        ),
-                                    )
+                                    MediaExport.share(context, file, "Share look")
                                 },
                             contentScale = ContentScale.Crop,
                         )
@@ -95,10 +81,22 @@ fun WardrobeScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(6.dp))
-                        GlassSecondaryButton(
-                            text = "Delete",
-                            onClick = { wardrobe.remove(entry.id) },
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GlassSecondaryButton(
+                                text = "Save",
+                                onClick = { MediaExport.saveImageToGallery(context, file) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            GlassSecondaryButton(
+                                text = "Delete",
+                                onClick = {
+                                    runCatching { if (file.exists()) file.delete() }
+                                    wardrobe.remove(entry.id)
+                                    Toast.makeText(context, "Removed", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }

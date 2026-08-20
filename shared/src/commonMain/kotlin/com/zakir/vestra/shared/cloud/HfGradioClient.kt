@@ -31,6 +31,8 @@ class HfGradioClient(
         apiName: String,
         data: List<String>,
         hfToken: String?,
+        maxPolls: Int = 90,
+        pollDelayMs: Long = 2_000,
     ): JsonElement {
         val base = "https://$spaceHost"
         val eventId = http.post("$base/gradio_api/call/$apiName") {
@@ -40,7 +42,7 @@ class HfGradioClient(
         }.body<JsonObject>()["event_id"]?.jsonPrimitive?.content
             ?: error("Gradio did not return an event_id")
 
-        repeat(90) {
+        repeat(maxPolls) {
             val body = http.get("$base/gradio_api/call/$apiName/$eventId") {
                 hfToken?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }
             }.bodyAsText()
@@ -50,9 +52,9 @@ class HfGradioClient(
             if (body.contains("event: complete") || body.contains("\"event\":\"complete\"")) {
                 return parseCompletePayload(body)
             }
-            delay(2_000)
+            delay(pollDelayMs)
         }
-        error("Timed out waiting for Hugging Face Space ($spaceHost)")
+        error("Timed out waiting for Hugging Face Space ($spaceHost). Try again off-peak or pick a faster free model.")
     }
 
     private fun parseCompletePayload(raw: String): JsonElement {
