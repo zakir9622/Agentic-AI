@@ -11,6 +11,9 @@ enum class EngineTier {
 
     /** On-device quantized try-on diffusion. Flagship devices, fully offline. */
     PRO,
+
+    /** Cloud open-source models (HF Spaces, Replicate, FAL). Requires network; explicit opt-in. */
+    CLOUD,
 }
 
 /** Where the person in the output image comes from. */
@@ -149,6 +152,7 @@ sealed interface GenerationState {
 sealed interface TryOnError {
     data object ModelPackMissing : TryOnError
     data object DeviceNotCapable : TryOnError
+    data object NetworkUnavailable : TryOnError
     data class SafetyBlocked(val reason: String) : TryOnError
     data class Internal(val message: String) : TryOnError
 }

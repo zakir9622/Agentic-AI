@@ -2,43 +2,34 @@ package com.zakir.vestra.ui.screens.casting
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.domain.BodyType
+import com.zakir.vestra.shared.domain.CastingPresets
 import com.zakir.vestra.shared.domain.Ethnicity
 import com.zakir.vestra.shared.domain.GarmentColor
 import com.zakir.vestra.shared.domain.HairCoverage
 import com.zakir.vestra.shared.domain.Scenario
 import com.zakir.vestra.shared.domain.SkinTone
 import com.zakir.vestra.ui.TryOnViewModel
-import com.zakir.vestra.ui.theme.SpatialElevation
+import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.ui.components.GlassScreen
+import com.zakir.vestra.ui.components.GlassSectionLabel
 
-/** Spatial casting studio — parameter cards for ethnicity, body, scene, and color. */
+/** Spatial casting studio — presets and parameter cards for ethnicity, body, scene, and color. */
 @Composable
 fun CastingStudioScreen(
     viewModel: TryOnViewModel,
@@ -47,109 +38,97 @@ fun CastingStudioScreen(
 ) {
     val casting by viewModel.casting.collectAsState()
 
-    Surface(Modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .safeDrawingPadding()
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+    GlassScreen(
+        title = "Studio parameters",
+        subtitle = "Casting",
+        onBack = onBack,
+    ) {
+        GlassCard {
+            GlassSectionLabel("QUICK PRESETS")
+            Text(
+                "One-tap looks for abaya, bazaar, and traditional wear scenes.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(CastingPresets.all) { (name, preset) ->
+                    val selected = casting == preset
+                    FilterChip(
+                        selected = selected,
+                        onClick = { viewModel.applyPreset(preset) },
+                        label = { Text(name) },
+                    )
                 }
-                Column {
-                    Text("Casting", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("Studio parameters", style = MaterialTheme.typography.headlineMedium)
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            SpatialParamCard(title = "Ethnicity", elevation = SpatialElevation.Raised) {
-                ChipRow(Ethnicity.entries, casting.ethnicity) { viewModel.setEthnicity(it) }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SpatialParamCard(title = "Skin tone", elevation = SpatialElevation.Floating) {
-                ChipRow(SkinTone.entries, casting.skinTone) { viewModel.setSkinTone(it) }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SpatialParamCard(title = "Body type", elevation = SpatialElevation.Raised) {
-                ChipRow(BodyType.entries, casting.bodyType) { viewModel.setBodyType(it) }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SpatialParamCard(title = "Hair coverage", elevation = SpatialElevation.Floating) {
-                ChipRow(HairCoverage.entries, casting.hairCoverage) { viewModel.setHairCoverage(it) }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SpatialParamCard(title = "Garment color", elevation = SpatialElevation.Raised) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        FilterChip(
-                            selected = casting.garmentColor == null,
-                            onClick = { viewModel.setGarmentColor(null) },
-                            label = { Text("From photo") },
-                        )
-                    }
-                    items(GarmentColor.entries) { color ->
-                        FilterChip(
-                            selected = casting.garmentColor == color,
-                            onClick = { viewModel.setGarmentColor(color) },
-                            label = { Text(color.displayName) },
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SpatialParamCard(title = "Scenario", elevation = SpatialElevation.Floating) {
-                ChipRow(Scenario.entries, casting.scenario) { viewModel.setScenario(it) }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = onNext,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-            ) {
-                Text("Choose model & pose")
             }
         }
-    }
-}
 
-@Composable
-private fun SpatialParamCard(
-    title: String,
-    elevation: Float,
-    content: @Composable () -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                shadowElevation = elevation
-            },
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = elevation.dp,
-        shadowElevation = elevation.dp,
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(10.dp))
-            content()
+        Spacer(Modifier.height(12.dp))
+
+        GlassCard {
+            GlassSectionLabel("ETHNICITY")
+            ChipRow(Ethnicity.entries, casting.ethnicity) { viewModel.setEthnicity(it) }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        GlassCard {
+            GlassSectionLabel("SKIN TONE")
+            ChipRow(SkinTone.entries, casting.skinTone) { viewModel.setSkinTone(it) }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        GlassCard {
+            GlassSectionLabel("BODY TYPE")
+            ChipRow(BodyType.entries, casting.bodyType) { viewModel.setBodyType(it) }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        GlassCard {
+            GlassSectionLabel("HAIR COVERAGE")
+            ChipRow(HairCoverage.entries, casting.hairCoverage) { viewModel.setHairCoverage(it) }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        GlassCard {
+            GlassSectionLabel("GARMENT COLOR")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = casting.garmentColor == null,
+                        onClick = { viewModel.setGarmentColor(null) },
+                        label = { Text("From photo") },
+                    )
+                }
+                items(GarmentColor.entries) { color ->
+                    FilterChip(
+                        selected = casting.garmentColor == color,
+                        onClick = { viewModel.setGarmentColor(color) },
+                        label = { Text(color.displayName) },
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        GlassCard {
+            GlassSectionLabel("SCENARIO")
+            ChipRow(Scenario.entries, casting.scenario) { viewModel.setScenario(it) }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = onNext,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+        ) {
+            Text("Choose model & pose")
         }
     }
 }

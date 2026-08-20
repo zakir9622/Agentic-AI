@@ -79,6 +79,10 @@ class TryOnViewModel(
         _casting.value = profile
     }
 
+    fun applyPreset(preset: CastingProfile) {
+        _casting.value = preset
+    }
+
     fun setEthnicity(ethnicity: Ethnicity) {
         _casting.value = _casting.value.copy(ethnicity = ethnicity)
     }

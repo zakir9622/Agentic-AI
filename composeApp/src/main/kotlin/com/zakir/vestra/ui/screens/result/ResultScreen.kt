@@ -54,7 +54,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
-import com.zakir.vestra.ui.theme.SpatialElevation
+import com.zakir.vestra.ui.components.GlassImageFrame
+import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SpatialBackground
 import java.io.File
 
 @Composable
@@ -68,32 +70,23 @@ fun ResultScreen(
     var selectedShot by remember { mutableStateOf(0) }
     val result = results.getOrNull(selectedShot.coerceIn(0, (results.size - 1).coerceAtLeast(0)))
 
-    Surface(Modifier.fillMaxSize()) {
+    SpatialBackground {
         Column(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 20.dp),
         ) {
-            Spacer(Modifier.height(16.dp))
-            Text("Your look", style = MaterialTheme.typography.headlineMedium)
-            Text(
-                if (results.size > 1) "${results.size} shots generated" else "Generated image",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            GlassTopBar(title = "Your look", subtitle = if (results.size > 1) "${results.size} shots" else "Result")
             Spacer(Modifier.height(16.dp))
 
             val shotSources by viewModel.shots.collectAsState()
             val userPhoto = shotSources.filterIsInstance<com.zakir.vestra.shared.domain.PersonSource.UserPhoto>()
                 .firstOrNull()
-            Surface(
+            GlassImageFrame(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                shape = RoundedCornerShape(24.dp),
-                tonalElevation = SpatialElevation.Raised.dp,
-                shadowElevation = SpatialElevation.Floating.dp,
             ) {
                 Box(
                     Modifier

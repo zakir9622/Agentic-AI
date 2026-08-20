@@ -5,6 +5,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,6 +49,10 @@ import com.zakir.vestra.data.StudioModelRepository
 import com.zakir.vestra.shared.domain.PersonSource
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.TryOnViewModel
+import com.zakir.vestra.ui.components.GlassImageFrame
+import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.theme.VestraColors
 
 /**
  * The casting: pick which studio models (poses) wear the garment — each pick
@@ -116,22 +121,22 @@ fun PersonSourceScreen(
         )
     }
 
-    Surface(Modifier.fillMaxSize()) {
+    SpatialBackground {
         Column(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 20.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
-                }
-                Column {
-                    Text("Model & pose", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("Choose your model", style = MaterialTheme.typography.headlineMedium)
-                }
-            }
+            GlassTopBar(
+                title = "Choose your model",
+                subtitle = "Model & pose",
+                navigation = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
             Text(
                 "Every model you cast becomes one shot in the photoshoot.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -239,13 +244,12 @@ private fun PersonCard(
     } else {
         MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     }
-    Surface(
+    GlassImageFrame(
         modifier = Modifier
             .aspectRatio(0.75f)
             .clip(RoundedCornerShape(16.dp))
             .border(if (selected) 2.dp else 1.dp, borderColor, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         content()
     }

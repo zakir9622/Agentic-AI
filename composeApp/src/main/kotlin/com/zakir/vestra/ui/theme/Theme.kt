@@ -9,13 +9,13 @@ import androidx.compose.ui.graphics.Color
 /** Spatial Material 3 elevation tokens (dp). */
 object SpatialElevation {
     const val Surface = 1f
-    const val Raised = 6f
-    const val Floating = 12f
-    const val GlassOverlay = 3f
+    const val Raised = 8f
+    const val Floating = 16f
+    const val GlassOverlay = 4f
 }
 
 object VestraColors {
-    val Canvas = Color(0xFFF5F3F0)
+    val Canvas = Color(0xFFF3F0EB)
     val Surface = Color(0xFFFAFAF8)
     val SurfaceRaised = Color(0xFFFFFFFF)
     val SurfaceFloating = Color(0xFFF0EDE8)
@@ -23,7 +23,15 @@ object VestraColors {
     val InkMuted = Color(0xFF6B6560)
     val Accent = Color(0xFF2D6A4F)
     val AccentSoft = Color(0xFF40916C)
-    val GlassBorder = Color(0x1A000000)
+    val AccentGlow = Color(0x332D6A4F)
+
+    // Glass morphism tokens
+    val GlassFill = Color(0xD9FFFFFF)
+    val GlassFillStrong = Color(0xE6FFFFFF)
+    val GlassBorder = Color(0x33FFFFFF)
+    val GlassHighlight = Color(0x99FFFFFF)
+    val GlassShadow = Color(0x1A2D6A4F)
+
     val Danger = Color(0xFFE5484D)
 
     // Generation stage (dark monitor)
@@ -46,9 +54,9 @@ private val SpatialScheme = lightColorScheme(
     onSurface = VestraColors.Ink,
     surfaceVariant = VestraColors.SurfaceFloating,
     onSurfaceVariant = VestraColors.InkMuted,
-    surfaceContainer = VestraColors.SurfaceRaised,
-    surfaceContainerHigh = VestraColors.SurfaceFloating,
-    surfaceContainerHighest = VestraColors.SurfaceFloating,
+    surfaceContainer = VestraColors.GlassFill,
+    surfaceContainerHigh = VestraColors.GlassFillStrong,
+    surfaceContainerHighest = VestraColors.SurfaceRaised,
     outline = VestraColors.GlassBorder,
     error = VestraColors.Danger,
 )

@@ -47,6 +47,16 @@ class EngineRouterTest {
     }
 
     @Test
+    fun autoNeverSelectsCloud() {
+        val cloud = FakeEngine(EngineTier.CLOUD)
+        val pro = FakeEngine(EngineTier.PRO)
+        val lite = FakeEngine(EngineTier.LITE)
+        val router = EngineRouter(listOf(cloud, lite, pro))
+        assertEquals(pro, router.resolve(EngineTier.AUTO))
+        assertEquals(cloud, router.resolve(EngineTier.CLOUD))
+    }
+
+    @Test
     fun unavailableEngineFailsWithMappedError() = runTest {
         val pro = FakeEngine(EngineTier.PRO, Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED))
         val router = EngineRouter(listOf(pro))

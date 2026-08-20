@@ -3,6 +3,8 @@ package com.zakir.vestra
 import android.app.Application
 import com.russhwolf.settings.SharedPreferencesSettings
 import com.zakir.vestra.data.StudioModelRepository
+import com.zakir.vestra.shared.cloud.AndroidCloudIo
+import com.zakir.vestra.shared.cloud.CloudEngine
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.engine.lite.HumanParsing
 import com.zakir.vestra.shared.engine.lite.LiteEngine
@@ -18,9 +20,6 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.AndroidTextFileStore
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 
-/**
- * Manual composition root — fully on-device generation; no cloud dependencies.
- */
 class VestraApp : Application() {
 
     lateinit var appSettings: AppSettings
@@ -45,10 +44,11 @@ class VestraApp : Application() {
         )
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 
+        val http = platformHttpClient()
         packManager = ModelPackManager(
             fs = AndroidPackFileSystem(this),
             device = AndroidDeviceProbe(this),
-            http = platformHttpClient(),
+            http = http,
             manifestUrl = PACKS_MANIFEST_URL,
         )
         PackDownloadWorker.dependencies = { packManager }
@@ -57,6 +57,8 @@ class VestraApp : Application() {
 
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
         val parsing = HumanParsing(packManager)
+        val cloudIo = AndroidCloudIo(this, liteIo, http)
+
         engineRouter = EngineRouter(
             listOf(
                 LiteEngine(packManager, liteIo, parsing),
@@ -67,6 +69,7 @@ class VestraApp : Application() {
                     masker = { person, category -> parsing.analyze(person, category.effectiveCategory())?.mask },
                     applyWatermark = BuildConfig.APPLY_WATERMARK,
                 ),
+                CloudEngine(http, cloudIo, appSettings),
             ),
         )
     }

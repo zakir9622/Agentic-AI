@@ -26,5 +26,6 @@ sealed interface Availability {
 enum class UnavailableReason {
     PACK_NOT_INSTALLED,
     DEVICE_NOT_CAPABLE,
+    OFFLINE,
     NOT_CONFIGURED,
 }

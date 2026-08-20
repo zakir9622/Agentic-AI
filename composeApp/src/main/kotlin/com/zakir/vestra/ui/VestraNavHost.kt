@@ -1,6 +1,8 @@
 package com.zakir.vestra.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -14,6 +16,7 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
 import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
+import com.zakir.vestra.ui.screens.onboarding.OnboardingScreen
 import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
 import com.zakir.vestra.ui.screens.person.PersonSourceScreen
@@ -23,6 +26,7 @@ import com.zakir.vestra.ui.screens.studio.StudioScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
 object Routes {
+    const val ONBOARDING = "onboarding"
     const val STUDIO = "studio"
     const val GARMENT = "garment"
     const val CASTING = "casting"
@@ -43,6 +47,9 @@ fun VestraNavHost(
     studioModels: com.zakir.vestra.data.StudioModelRepository,
     navController: NavHostController = rememberNavController(),
 ) {
+    val onboardingComplete by appSettings.onboardingComplete.collectAsState()
+    val start = if (onboardingComplete) Routes.STUDIO else Routes.ONBOARDING
+
     val tryOnViewModel: TryOnViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -51,7 +58,17 @@ fun VestraNavHost(
         },
     )
 
-    NavHost(navController = navController, startDestination = Routes.STUDIO) {
+    NavHost(navController = navController, startDestination = start) {
+        composable(Routes.ONBOARDING) {
+            OnboardingScreen(
+                appSettings = appSettings,
+                onDone = {
+                    navController.navigate(Routes.STUDIO) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(Routes.STUDIO) {
             StudioScreen(
                 wardrobe = wardrobe,

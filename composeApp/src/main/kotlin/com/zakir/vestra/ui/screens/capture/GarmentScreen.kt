@@ -58,7 +58,9 @@ import coil3.compose.AsyncImage
 import com.zakir.vestra.shared.domain.Backdrop
 import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.ui.TryOnViewModel
-import com.zakir.vestra.ui.theme.SpatialElevation
+import com.zakir.vestra.ui.components.GlassImageFrame
+import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SpatialBackground
 import java.io.File
 
 @Composable
@@ -109,44 +111,31 @@ fun GarmentScreen(
 
     val active = outfit.getOrNull(selectedPiece.coerceIn(0, (outfit.size - 1).coerceAtLeast(0)))
 
-    Surface(Modifier.fillMaxSize()) {
+    SpatialBackground {
         Column(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 20.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
-                }
-                Column {
-                    Text("Garment", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        if (outfit.size > 1) "Your outfit" else "Your garment",
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                }
-            }
+                GlassTopBar(
+                    title = if (outfit.size > 1) "Your outfit" else "Your garment",
+                    subtitle = "Garment",
+                    navigation = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                )
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                shape = RoundedCornerShape(24.dp),
-                tonalElevation = SpatialElevation.Raised.dp,
-                shadowElevation = SpatialElevation.Floating.dp,
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .padding(4.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainer),
-                    contentAlignment = Alignment.Center,
+                GlassImageFrame(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                 ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (active != null) {
                         AsyncImage(
                             model = active.uri,
@@ -171,10 +160,10 @@ fun GarmentScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    }
                 }
-            }
 
-            Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(10.dp))
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 itemsIndexed(outfit) { index, piece ->
