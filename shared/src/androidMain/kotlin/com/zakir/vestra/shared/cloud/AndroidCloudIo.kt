@@ -51,10 +51,19 @@ class AndroidCloudIo(
             }
         }
         val dir = File(context.filesDir, "generations").apply { mkdirs() }
-        val out = File(dir, "cloud_${System.currentTimeMillis()}.jpg")
+        val ext = when {
+            urlOrPath.contains(".mp4") || bytesIsMp4(bytes) -> "mp4"
+            urlOrPath.contains(".webm") -> "webm"
+            urlOrPath.contains(".png") -> "png"
+            else -> "jpg"
+        }
+        val out = File(dir, "cloud_${System.currentTimeMillis()}.$ext")
         FileOutputStream(out).use { it.write(bytes) }
         return out.absolutePath
     }
+
+    private fun bytesIsMp4(bytes: ByteArray): Boolean =
+        bytes.size > 8 && bytes[4] == 'f'.code.toByte() && bytes[5] == 't'.code.toByte()
 
     private fun Bitmap.toJpegBytes(): ByteArray {
         val stream = ByteArrayOutputStream()

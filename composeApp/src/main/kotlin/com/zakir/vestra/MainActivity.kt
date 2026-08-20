@@ -20,6 +20,8 @@ class MainActivity : ComponentActivity() {
                     wardrobe = app.wardrobe,
                     packManager = app.packManager,
                     studioModels = app.studioModels,
+                    generative = app.generative,
+                    usageLedger = app.usageLedger,
                 )
             }
         }

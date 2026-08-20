@@ -23,10 +23,17 @@ class FalClient(private val http: HttpClient) {
             setBody(input)
         }.body<JsonObject>()
         return response["image"]?.jsonObject?.get("url")?.jsonPrimitive?.content
+            ?: response["video"]?.jsonObject?.get("url")?.jsonPrimitive?.content
+            ?: response["video"]?.jsonPrimitive?.content
             ?: response["output"]?.jsonPrimitive?.content
             ?: response["images"]?.let { arr ->
-                (arr as? kotlinx.serialization.json.JsonArray)?.firstOrNull()?.jsonPrimitive?.content
+                val first = (arr as? kotlinx.serialization.json.JsonArray)?.firstOrNull() ?: return@let null
+                when (first) {
+                    is kotlinx.serialization.json.JsonPrimitive -> first.content
+                    is JsonObject -> first["url"]?.jsonPrimitive?.content
+                    else -> null
+                }
             }
-            ?: error("FAL response missing image URL")
+            ?: error("FAL response missing media URL")
     }
 }

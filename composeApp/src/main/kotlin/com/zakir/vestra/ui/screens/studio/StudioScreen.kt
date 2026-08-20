@@ -15,13 +15,17 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Button
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -40,6 +45,7 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassPill
+import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
 import java.io.File
@@ -49,9 +55,13 @@ fun StudioScreen(
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
     onNewLook: () -> Unit,
+    onOpenCreate: () -> Unit,
+    onOpenCode: () -> Unit,
+    onOpenVideo: () -> Unit,
     onOpenWardrobe: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPacks: () -> Unit,
+    onOpenUsage: () -> Unit,
 ) {
     val recent by wardrobe.entries.collectAsState()
     val packStates by packManager.states.collectAsState()
@@ -65,7 +75,8 @@ fun StudioScreen(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
             GlassTopBar(
                 title = "The Lookbook",
@@ -82,27 +93,48 @@ fun StudioScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = if (proReady) "Pro ready" else "Pro pack needed", active = proReady)
-                GlassPill(text = "Cloud models", active = true, accent = MaterialTheme.colorScheme.secondary)
+                GlassPill(text = "Cloud AI", active = true, accent = MaterialTheme.colorScheme.secondary)
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
             GlassCard {
-                Text(
-                    "Modest wear photoshoots on your phone",
-                    style = MaterialTheme.typography.headlineMedium,
-                )
+                GlassSectionLabel("ESSENTIAL")
+                Text("Virtual try-on", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Abaya, hijab, niqab, shalwar kameez — cast models with ethnicity, body type, and scene parameters. Local AI or free cloud models.",
+                    "Abaya, hijab, niqab, shalwar kameez — cast ethnicity, body, and scene. On-device or free cloud models.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = onNewLook, modifier = Modifier.fillMaxWidth()) {
-                    Text("Start a shoot")
+                    Text("Start a garment shoot")
                 }
             }
+
+            Spacer(Modifier.height(14.dp))
+            GlassSectionLabel("MORE STUDIOS")
+            StudioTile(
+                icon = Icons.Outlined.Image,
+                title = "Create Studio",
+                body = "Generate or recreate any image from a text prompt (optional reference).",
+                onClick = onOpenCreate,
+            )
+            Spacer(Modifier.height(10.dp))
+            StudioTile(
+                icon = Icons.Outlined.Code,
+                title = "Code Studio",
+                body = "Open coding models — Qwen Coder, DeepSeek, Llama on Groq. Token usage tracked.",
+                onClick = onOpenCode,
+            )
+            Spacer(Modifier.height(10.dp))
+            StudioTile(
+                icon = Icons.Outlined.Videocam,
+                title = "Video Studio",
+                body = "Open video models — LTX-Video, CogVideoX, Wan. Free Spaces or FAL.",
+                onClick = onOpenVideo,
+            )
 
             if (!proReady) {
                 Spacer(Modifier.height(12.dp))
@@ -113,7 +145,7 @@ fun StudioScreen(
                         Column {
                             Text("Download Pro AI model", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "One-time ~2–4 GB download. Fully offline after. Or use free cloud models in Settings.",
+                                "One-time ~2–4 GB. Fully offline after. Or use free cloud try-on in Settings.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -122,9 +154,18 @@ fun StudioScreen(
                 }
             }
 
+            Spacer(Modifier.height(12.dp))
+            GlassCard(onClick = onOpenUsage) {
+                Text("Token & usage", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "See requests, tokens, and estimated cost per model and service.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             Spacer(Modifier.height(20.dp))
             Text("RECENT LOOKS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-
             Spacer(Modifier.height(10.dp))
 
             if (recent.isNotEmpty()) {
@@ -146,7 +187,7 @@ fun StudioScreen(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(180.dp)
+                        .height(140.dp)
                         .clip(RoundedCornerShape(24.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -157,16 +198,26 @@ fun StudioScreen(
                     )
                 }
             }
+            Spacer(Modifier.height(32.dp))
         }
+    }
+}
 
-        FloatingActionButton(
-            onClick = onNewLook,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-        ) {
-            Text("+", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimary)
+@Composable
+private fun StudioTile(
+    icon: ImageVector,
+    title: String,
+    body: String,
+    onClick: () -> Unit,
+) {
+    GlassCard(onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ import com.russhwolf.settings.SharedPreferencesSettings
 import com.zakir.vestra.data.StudioModelRepository
 import com.zakir.vestra.shared.cloud.AndroidCloudIo
 import com.zakir.vestra.shared.cloud.CloudEngine
+import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.engine.lite.HumanParsing
 import com.zakir.vestra.shared.engine.lite.LiteEngine
@@ -17,6 +18,7 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.AndroidTextFileStore
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 
@@ -37,11 +39,17 @@ class VestraApp : Application() {
     lateinit var studioModels: StudioModelRepository
         private set
 
+    lateinit var usageLedger: UsageLedger
+        private set
+
+    lateinit var generative: GenerativeCloudService
+        private set
+
     override fun onCreate() {
         super.onCreate()
-        appSettings = AppSettings(
-            SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE)),
-        )
+        val prefs = SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE))
+        appSettings = AppSettings(prefs)
+        usageLedger = UsageLedger(prefs)
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 
         val http = platformHttpClient()
@@ -58,6 +66,7 @@ class VestraApp : Application() {
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
         val parsing = HumanParsing(packManager)
         val cloudIo = AndroidCloudIo(this, liteIo, http)
+        generative = GenerativeCloudService(http, cloudIo, appSettings, usageLedger)
 
         engineRouter = EngineRouter(
             listOf(
@@ -69,7 +78,7 @@ class VestraApp : Application() {
                     masker = { person, category -> parsing.analyze(person, category.effectiveCategory())?.mask },
                     applyWatermark = BuildConfig.APPLY_WATERMARK,
                 ),
-                CloudEngine(http, cloudIo, appSettings),
+                CloudEngine(http, cloudIo, appSettings, usageLedger),
             ),
         )
     }

@@ -1,0 +1,162 @@
+package com.zakir.vestra.shared.usage
+
+import com.russhwolf.settings.Settings
+import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.CloudModelProvider
+import com.zakir.vestra.shared.cloud.CloudPlatform
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+@Serializable
+data class UsageEvent(
+    val id: String,
+    val timestampMs: Long,
+    val providerId: String,
+    val providerName: String,
+    val platform: String,
+    val capability: String,
+    val tokensIn: Int = 0,
+    val tokensOut: Int = 0,
+    val estCostUsd: Double = 0.0,
+    val success: Boolean = true,
+    val note: String = "",
+)
+
+@Serializable
+data class UsageSummary(
+    val totalRequests: Int = 0,
+    val successCount: Int = 0,
+    val totalTokensIn: Int = 0,
+    val totalTokensOut: Int = 0,
+    val totalEstCostUsd: Double = 0.0,
+    val byProvider: Map<String, ProviderUsage> = emptyMap(),
+)
+
+@Serializable
+data class ProviderUsage(
+    val providerId: String,
+    val displayName: String,
+    val requests: Int = 0,
+    val tokensIn: Int = 0,
+    val tokensOut: Int = 0,
+    val estCostUsd: Double = 0.0,
+)
+
+/**
+ * Local ledger of cloud AI usage so the user can see tokens/cost per model & service.
+ * Persisted in multiplatform Settings (SharedPreferences on Android).
+ */
+class UsageLedger(private val settings: Settings) {
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    private val _events = MutableStateFlow(loadEvents())
+    val events: StateFlow<List<UsageEvent>> = _events
+
+    private val _summary = MutableStateFlow(summarize(_events.value))
+    val summary: StateFlow<UsageSummary> = _summary
+
+    fun record(
+        provider: CloudModelProvider,
+        tokensIn: Int = 0,
+        tokensOut: Int = 0,
+        success: Boolean = true,
+        note: String = "",
+        costOverride: Double? = null,
+    ) {
+        val inTok = if (tokensIn > 0) tokensIn else if (provider.estTokensPerRequest > 0) provider.estTokensPerRequest / 2 else 0
+        val outTok = if (tokensOut > 0) tokensOut else if (provider.estTokensPerRequest > 0) provider.estTokensPerRequest / 2 else 0
+        val cost = costOverride ?: provider.estCostUsd
+        val event = UsageEvent(
+            id = "${System.currentTimeMillis()}-${provider.id}",
+            timestampMs = System.currentTimeMillis(),
+            providerId = provider.id,
+            providerName = provider.displayName,
+            platform = provider.platform.name,
+            capability = provider.capability.name,
+            tokensIn = inTok,
+            tokensOut = outTok,
+            estCostUsd = if (success) cost else 0.0,
+            success = success,
+            note = note.ifBlank { provider.usageNote },
+        )
+        val next = (listOf(event) + _events.value).take(MAX_EVENTS)
+        _events.value = next
+        _summary.value = summarize(next)
+        persist(next)
+    }
+
+    fun clear() {
+        _events.value = emptyList()
+        _summary.value = UsageSummary()
+        settings.remove(KEY)
+    }
+
+    fun estimateNext(provider: CloudModelProvider): String {
+        val tokens = provider.estTokensPerRequest
+        val cost = provider.estCostUsd
+        return buildString {
+            append(provider.displayName)
+            append(" · ")
+            append(provider.platform.displayLabel())
+            if (provider.freeTier && cost <= 0.0) append(" · Free tier")
+            else if (cost > 0.0) append(" · ~$${ "%.3f".format(cost) }/request")
+            if (tokens > 0) append(" · ~$tokens tokens/request")
+            if (provider.usageNote.isNotBlank()) append("\n${provider.usageNote}")
+        }
+    }
+
+    private fun loadEvents(): List<UsageEvent> {
+        val raw = settings.getStringOrNull(KEY) ?: return emptyList()
+        return runCatching { json.decodeFromString<List<UsageEvent>>(raw) }.getOrDefault(emptyList())
+    }
+
+    private fun persist(events: List<UsageEvent>) {
+        settings.putString(KEY, json.encodeToString(events))
+    }
+
+    private fun summarize(events: List<UsageEvent>): UsageSummary {
+        val by = events.groupBy { it.providerId }.mapValues { (id, list) ->
+            ProviderUsage(
+                providerId = id,
+                displayName = list.first().providerName,
+                requests = list.size,
+                tokensIn = list.sumOf { it.tokensIn },
+                tokensOut = list.sumOf { it.tokensOut },
+                estCostUsd = list.sumOf { it.estCostUsd },
+            )
+        }
+        return UsageSummary(
+            totalRequests = events.size,
+            successCount = events.count { it.success },
+            totalTokensIn = events.sumOf { it.tokensIn },
+            totalTokensOut = events.sumOf { it.tokensOut },
+            totalEstCostUsd = events.sumOf { it.estCostUsd },
+            byProvider = by,
+        )
+    }
+
+    private companion object {
+        const val KEY = "usage_ledger_v1"
+        const val MAX_EVENTS = 200
+    }
+}
+
+fun CloudPlatform.displayLabel(): String = when (this) {
+    CloudPlatform.HF_SPACE -> "Hugging Face Space"
+    CloudPlatform.HF_INFERENCE -> "Hugging Face Inference"
+    CloudPlatform.REPLICATE -> "Replicate"
+    CloudPlatform.FAL -> "fal.ai"
+    CloudPlatform.GROQ -> "Groq"
+    CloudPlatform.OPENROUTER -> "OpenRouter"
+}
+
+fun AiCapability.displayLabel(): String = when (this) {
+    AiCapability.TRY_ON -> "Virtual try-on"
+    AiCapability.IMAGE_GEN -> "Image generation"
+    AiCapability.IMAGE_EDIT -> "Image recreate / edit"
+    AiCapability.CODE -> "Coding"
+    AiCapability.VIDEO -> "Video"
+}

@@ -10,12 +10,16 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
 import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
+import com.zakir.vestra.ui.screens.code.CodeStudioScreen
+import com.zakir.vestra.ui.screens.create.CreateStudioScreen
 import com.zakir.vestra.ui.screens.onboarding.OnboardingScreen
 import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
@@ -23,6 +27,8 @@ import com.zakir.vestra.ui.screens.person.PersonSourceScreen
 import com.zakir.vestra.ui.screens.result.ResultScreen
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.studio.StudioScreen
+import com.zakir.vestra.ui.screens.usage.UsageScreen
+import com.zakir.vestra.ui.screens.video.VideoStudioScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
 object Routes {
@@ -36,6 +42,10 @@ object Routes {
     const val WARDROBE = "wardrobe"
     const val SETTINGS = "settings"
     const val PACKS = "packs"
+    const val CREATE = "create"
+    const val CODE = "code"
+    const val VIDEO = "video"
+    const val USAGE = "usage"
 }
 
 @Composable
@@ -45,6 +55,8 @@ fun VestraNavHost(
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
     studioModels: com.zakir.vestra.data.StudioModelRepository,
+    generative: GenerativeCloudService,
+    usageLedger: UsageLedger,
     navController: NavHostController = rememberNavController(),
 ) {
     val onboardingComplete by appSettings.onboardingComplete.collectAsState()
@@ -55,6 +67,14 @@ fun VestraNavHost(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 TryOnViewModel(engineRouter, appSettings, wardrobe) as T
+        },
+    )
+
+    val generativeViewModel: GenerativeViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                GenerativeViewModel(generative, appSettings, usageLedger) as T
         },
     )
 
@@ -77,9 +97,26 @@ fun VestraNavHost(
                     tryOnViewModel.resetSession()
                     navController.navigate(Routes.GARMENT)
                 },
+                onOpenCreate = {
+                    generativeViewModel.clearResult()
+                    generativeViewModel.setPrompt("")
+                    generativeViewModel.setReference(null)
+                    navController.navigate(Routes.CREATE)
+                },
+                onOpenCode = {
+                    generativeViewModel.clearResult()
+                    generativeViewModel.setPrompt("")
+                    navController.navigate(Routes.CODE)
+                },
+                onOpenVideo = {
+                    generativeViewModel.clearResult()
+                    generativeViewModel.setPrompt("")
+                    navController.navigate(Routes.VIDEO)
+                },
                 onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
+                onOpenUsage = { navController.navigate(Routes.USAGE) },
             )
         }
         composable(Routes.GARMENT) {
@@ -127,6 +164,30 @@ fun VestraNavHost(
                 },
             )
         }
+        composable(Routes.CREATE) {
+            CreateStudioScreen(
+                viewModel = generativeViewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.CODE) {
+            CodeStudioScreen(
+                viewModel = generativeViewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.VIDEO) {
+            VideoStudioScreen(
+                viewModel = generativeViewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.USAGE) {
+            UsageScreen(
+                usage = usageLedger,
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(Routes.WARDROBE) {
             WardrobeScreen(
                 wardrobe = wardrobe,
@@ -138,6 +199,7 @@ fun VestraNavHost(
                 appSettings = appSettings,
                 engineRouter = engineRouter,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
+                onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onBack = { navController.popBackStack() },
             )
         }

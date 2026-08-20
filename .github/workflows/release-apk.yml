@@ -1,17 +1,22 @@
 name: Release APK
 
-# Builds an installable sideload release APK on every merge to main.
+# Builds an installable sideload release APK and publishes it to GitHub Releases.
+# - push to main → rolling "latest" release
+# - push to cursor/** feature branches → "preview" pre-release (always overwritten)
+# - tags v* → versioned release
+# - workflow_dispatch → same as branch rules above
 
 on:
   push:
-    branches: [main]
+    branches: [main, "cursor/**"]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-apk
+  group: release-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,13 +45,35 @@ jobs:
           KEYSTORE_PASSWORD: lookbook
           KEY_ALIAS: lookbook
           KEY_PASSWORD: lookbook
-        run: ./gradlew :composeApp:assembleSideloadRelease
+        run: ./gradlew :composeApp:assembleSideloadRelease --no-daemon
 
       - name: Stage APK
+        id: stage
         run: |
           mkdir -p dist
-          cp composeApp/build/outputs/apk/sideload/release/*.apk \
-            "dist/the-lookbook-sideload-${{ github.run_number }}.apk"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            NAME="the-lookbook-${TAG}.apk"
+            IS_PRERELEASE=false
+            TITLE="The Lookbook ${TAG}"
+          elif [[ "${GITHUB_REF_NAME}" == main ]]; then
+            TAG="latest"
+            NAME="the-lookbook-sideload-${{ github.run_number }}.apk"
+            IS_PRERELEASE=false
+            TITLE="The Lookbook — latest APK (build #${{ github.run_number }})"
+          else
+            TAG="preview"
+            NAME="the-lookbook-preview-${SHORT_SHA}.apk"
+            IS_PRERELEASE=true
+            TITLE="The Lookbook — preview (${GITHUB_REF_NAME} @ ${SHORT_SHA})"
+          fi
+          cp composeApp/build/outputs/apk/sideload/release/*.apk "dist/${NAME}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
+          echo "title=${TITLE}" >> "$GITHUB_OUTPUT"
+          ls -lh "dist/${NAME}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -54,13 +81,37 @@ jobs:
           path: dist/*.apk
           retention-days: 30
 
-      - name: Publish to rolling 'latest' release
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.stage.outputs.tag }}
+          APK_NAME: ${{ steps.stage.outputs.name }}
+          IS_PRERELEASE: ${{ steps.stage.outputs.prerelease }}
+          TITLE: ${{ steps.stage.outputs.title }}
         run: |
-          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest \
-            --target "${{ github.sha }}" \
-            --title "The Lookbook — latest APK (build #${{ github.run_number }})" \
-            --notes "Sideload release APK from \`main\` (${{ github.sha }}). Install on Pixel 9 / Android 8.0+. Download the Pro model pack from Model packs inside the app (~2–4 GB, one-time, fully offline after)." \
-            "dist/the-lookbook-sideload-${{ github.run_number }}.apk"
+          NOTES="$(cat <<EOF
+          Sideload release APK from \`${GITHUB_REF_NAME}\` (\`${GITHUB_SHA}\`).
+
+          **Install:** Pixel 9 / Android 8.0+. Allow unknown sources, then open the APK.
+
+          **Engines:**
+          - On-device Lite (bundled for debug) / Pro pack (~2–4 GB, Model packs)
+          - Cloud try-on: Hugging Face Spaces (free), Replicate, fal.ai
+          - Create Studio: prompt image gen / edit
+          - Code & Video: open-source cloud models (configure in Settings)
+
+          Download Pro from **Settings → Model packs** inside the app (one-time, fully offline after).
+          EOF
+          )"
+          gh release delete "${TAG}" --yes --cleanup-tag 2>/dev/null || true
+          EXTRA=()
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            EXTRA+=(--prerelease)
+          fi
+          gh release create "${TAG}" \
+            --target "${GITHUB_SHA}" \
+            --title "${TITLE}" \
+            --notes "${NOTES}" \
+            "${EXTRA[@]}" \
+            "dist/${APK_NAME}"
+          echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"

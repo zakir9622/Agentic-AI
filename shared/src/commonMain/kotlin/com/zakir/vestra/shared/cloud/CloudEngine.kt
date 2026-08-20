@@ -11,6 +11,7 @@ import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.usage.UsageLedger
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -25,6 +26,7 @@ class CloudEngine(
     private val http: HttpClient,
     private val io: CloudImageIo,
     private val settings: AppSettings,
+    private val usage: UsageLedger? = null,
 ) : TryOnEngine {
 
     private val hf = HfGradioClient(http)
@@ -66,10 +68,13 @@ class CloudEngine(
                 CloudPlatform.HF_SPACE -> runHfSpace(provider, personDataUrl, garmentDataUrl, category)
                 CloudPlatform.REPLICATE -> runReplicate(provider, personDataUrl, garmentDataUrl, category)
                 CloudPlatform.FAL -> runFal(provider, personDataUrl, garmentDataUrl)
+                CloudPlatform.HF_INFERENCE, CloudPlatform.GROQ, CloudPlatform.OPENROUTER ->
+                    error("${provider.platform} is for coding models — pick a try-on provider in Settings")
             }
 
             emit(GenerationState.Running(0.85f, "Downloading result…"))
             val outPath = io.downloadResult(resultUrlOrPath)
+            usage?.record(provider, success = true, note = "Try-on · ${provider.displayName}")
             emit(
                 GenerationState.Complete(
                     TryOnResult(
@@ -81,6 +86,7 @@ class CloudEngine(
                 ),
             )
         } catch (e: Exception) {
+            usage?.record(provider, success = false, note = e.message.orEmpty())
             val msg = e.message ?: "Cloud generation failed"
             val error = if (msg.contains("Unable to resolve host") || msg.contains("Network")) {
                 TryOnError.NetworkUnavailable
