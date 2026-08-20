@@ -1,6 +1,7 @@
 package com.zakir.vestra.ui.screens.capture
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,6 +62,7 @@ import com.zakir.vestra.ui.TryOnViewModel
 import com.zakir.vestra.ui.components.GlassImageFrame
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.util.rememberCameraGatedAction
 import java.io.File
 
 @Composable
@@ -98,13 +100,20 @@ fun GarmentScreen(
         pendingCaptureUri = null
     }
 
-    fun launchCamera() {
+    fun openCameraCapture() {
         val captures = File(context.filesDir, "captures").apply { mkdirs() }
         val file = File(captures, "garment_${System.currentTimeMillis()}.jpg")
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         pendingCaptureUri = uri
         captureLauncher.launch(uri)
     }
+
+    val launchCamera = rememberCameraGatedAction(
+        onGranted = { openCameraCapture() },
+        onDenied = {
+            Toast.makeText(context, "Camera permission is needed to take a photo", Toast.LENGTH_SHORT).show()
+        },
+    )
 
     fun pickFromGallery() =
         pickLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -254,7 +263,7 @@ fun GarmentScreen(
                     Spacer(Modifier.width(4.dp))
                     Text(if (outfit.isEmpty()) "Gallery" else "Add piece")
                 }
-                OutlinedButton(onClick = ::launchCamera, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = launchCamera, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Outlined.PhotoCamera, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("Camera")

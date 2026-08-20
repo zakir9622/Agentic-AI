@@ -45,5 +45,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          WorkManager's merged SystemForegroundService declares no type.
+          targetSdk 34+ requires dataSync or downloads crash with
+          MissingForegroundServiceTypeException / IllegalArgumentException.
+        -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge"
+            tools:ignore="MissingClass" />
     </application>
 </manifest>

@@ -134,17 +134,19 @@ class GenerativeViewModel(
 
     private fun ingestCreateImage(path: String) {
         val promptSnippet = _prompt.value.trim().take(80).ifBlank { "create" }
-        wardrobe.add(
-            WardrobeEntry(
-                id = Uuid.random().toString(),
-                createdAtEpochMillis = System.currentTimeMillis(),
-                imagePath = path,
-                garmentUri = "create:$promptSnippet",
-                personLabel = "Create",
-                tier = EngineTier.CLOUD,
-                shootId = null,
-            ),
-        )
+        runCatching {
+            wardrobe.add(
+                WardrobeEntry(
+                    id = Uuid.random().toString(),
+                    createdAtEpochMillis = System.currentTimeMillis(),
+                    imagePath = path,
+                    garmentUri = "create:$promptSnippet",
+                    personLabel = "Create",
+                    tier = EngineTier.CLOUD,
+                    shootId = null,
+                ),
+            )
+        }
     }
 
     private companion object {

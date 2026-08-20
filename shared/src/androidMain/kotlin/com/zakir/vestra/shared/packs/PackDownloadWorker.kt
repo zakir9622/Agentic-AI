@@ -60,7 +60,11 @@ class PackDownloadWorker(
         }
         val startFraction = (doneBytes.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
         manager.markDownloading(packId, startFraction)
-        setForeground(foregroundInfo(pack.displayName, (startFraction * 100).toInt()))
+        // FGS may be blocked when WorkManager retries from the background
+        // (ForegroundServiceStartNotAllowedException). Retry later rather than crash.
+        if (!promoteToForeground(pack.displayName, (startFraction * 100).toInt())) {
+            return Result.retry()
+        }
         setProgress(workDataOf(KEY_PROGRESS to startFraction))
 
         val http = HttpClient(OkHttp)
@@ -113,7 +117,7 @@ class PackDownloadWorker(
                                 val fraction = (doneBytes.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
                                 manager.markDownloading(packId, fraction)
                                 setProgress(workDataOf(KEY_PROGRESS to fraction))
-                                setForeground(foregroundInfo(pack.displayName, (fraction * 100).toInt()))
+                                promoteToForeground(pack.displayName, (fraction * 100).toInt())
                             }
                         }
                         out.flush()
@@ -126,7 +130,7 @@ class PackDownloadWorker(
                 val fraction = (doneBytes.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
                 manager.markDownloading(packId, fraction)
                 setProgress(workDataOf(KEY_PROGRESS to fraction))
-                setForeground(foregroundInfo(pack.displayName, (fraction * 100).toInt()))
+                promoteToForeground(pack.displayName, (fraction * 100).toInt())
             }
 
             return if (manager.completeInstall(packId, stagingDir.absolutePath)) {
@@ -150,6 +154,19 @@ class PackDownloadWorker(
             http.close()
         }
     }
+
+    /**
+     * Promotes this worker to a dataSync foreground service. Returns false when
+     * the OS refuses FGS start (background retry); other failures are swallowed
+     * so progress updates never abort an in-flight download.
+     */
+    private suspend fun promoteToForeground(packName: String, percent: Int): Boolean =
+        try {
+            setForeground(foregroundInfo(packName, percent))
+            true
+        } catch (_: Exception) {
+            false
+        }
 
     private fun foregroundInfo(packName: String, percent: Int): ForegroundInfo {
         val manager =
