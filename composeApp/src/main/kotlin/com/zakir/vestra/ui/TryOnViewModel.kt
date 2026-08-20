@@ -139,17 +139,19 @@ class TryOnViewModel(
                 val shotResult = renderShot(person, layers, shotIndex, shots.size, completed)
                     ?: return@launch
                 completed += shotResult
-                wardrobe.add(
-                    WardrobeEntry(
-                        id = Uuid.random().toString(),
-                        createdAtEpochMillis = System.currentTimeMillis(),
-                        imagePath = shotResult.imagePath,
-                        garmentUri = outfit.first().uri,
-                        personLabel = person.label(),
-                        tier = shotResult.executedTier,
-                        shootId = shootId,
-                    ),
-                )
+                runCatching {
+                    wardrobe.add(
+                        WardrobeEntry(
+                            id = Uuid.random().toString(),
+                            createdAtEpochMillis = System.currentTimeMillis(),
+                            imagePath = shotResult.imagePath,
+                            garmentUri = outfit.first().uri,
+                            personLabel = person.label(),
+                            tier = shotResult.executedTier,
+                            shootId = shootId,
+                        ),
+                    )
+                }
                 _shoot.value = ShootState(shotIndex, shots.size, GenerationState.Complete(shotResult), completed.toList())
             }
         }

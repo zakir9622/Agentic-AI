@@ -27,7 +27,10 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
+import com.zakir.vestra.ui.util.rememberPackDownloadStarter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Model pack management: install/update/remove the engine packs. */
 @Composable
@@ -39,6 +42,7 @@ fun PacksScreen(
     val states by packManager.states.collectAsState()
     val lastError by packManager.lastError.collectAsState()
     val scope = rememberCoroutineScope()
+    val startDownload = rememberPackDownloadStarter(showToast = true)
 
     LaunchedEffect(Unit) { packManager.refresh() }
 
@@ -78,16 +82,17 @@ fun PacksScreen(
             Spacer(Modifier.height(12.dp))
             PackCard(
                 state = state,
-                onInstall = {
-                    PackDownloadWorker.enqueue(context, state.pack.id)
-                    Toast.makeText(context, "Download started — resumes if interrupted", Toast.LENGTH_SHORT).show()
-                },
+                onInstall = { startDownload(state.pack.id) },
                 onCancel = {
                     PackDownloadWorker.cancel(context, state.pack.id)
                     packManager.markCancelled(state.pack.id)
                     Toast.makeText(context, "Download paused — tap Download to resume", Toast.LENGTH_SHORT).show()
                 },
-                onUninstall = { packManager.uninstall(state.pack.id) },
+                onUninstall = {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { packManager.uninstall(state.pack.id) }
+                    }
+                },
             )
         }
         Spacer(Modifier.height(24.dp))

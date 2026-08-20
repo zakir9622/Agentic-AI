@@ -30,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -45,7 +44,6 @@ import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.local.LocalModelEntry
 import com.zakir.vestra.shared.packs.ModelPackManager
-import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.displayLabel
 import com.zakir.vestra.ui.components.GlassCard
@@ -53,6 +51,7 @@ import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.util.rememberPackDownloadStarter
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 
@@ -65,9 +64,9 @@ fun SettingsScreen(
     onOpenUsage: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
     val packStates by packManager.states.collectAsState()
+    val startDownload = rememberPackDownloadStarter(showToast = true)
     LaunchedEffect(Unit) { packManager.refresh() }
 
     val tryOnId by appSettings.cloudProviderId.collectAsState()
@@ -173,7 +172,7 @@ fun SettingsScreen(
                         status = entry.packId?.let { packStates[it]?.status },
                         progress = entry.packId?.let { packStates[it]?.progress } ?: 0f,
                         onInstall = {
-                            entry.packId?.let { PackDownloadWorker.enqueue(context, it) }
+                            entry.packId?.let { startDownload(it) }
                         },
                         onSelectEngine = { tier ->
                             appSettings.setEngineTier(tier)
