@@ -1,5 +1,8 @@
 package com.zakir.vestra.ui.screens.settings
 
+import android.content.ClipboardManager
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,6 +44,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.zakir.vestra.BuildConfig
 import com.zakir.vestra.media.CacheCleanup
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -54,7 +61,10 @@ import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppearanceMode
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.settings.TokenPortals
 import com.zakir.vestra.shared.usage.UsageLedger
+import com.zakir.vestra.storage.DurableStorage
+import com.zakir.vestra.storage.TokenSidecar
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassFormDefaults
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -102,6 +112,62 @@ fun SettingsScreen(
     var keysSavedFlash by remember { mutableStateOf(false) }
     var confirmClearTokens by remember { mutableStateOf(false) }
     var clearingCache by remember { mutableStateOf(false) }
+    var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
+    var clipboardHint by remember { mutableStateOf<String?>(null) }
+
+    fun applyClipboardToken() {
+        val cm = context.getSystemService(ClipboardManager::class.java) ?: return
+        val raw = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+        val detected = TokenSidecar.detectClipboardToken(raw) ?: run {
+            clipboardHint = null
+            return
+        }
+        when (detected.first) {
+            TokenPortals.Kind.HF -> hfInput = detected.second
+            TokenPortals.Kind.GROQ -> groqInput = detected.second
+            TokenPortals.Kind.OPENROUTER -> openRouterInput = detected.second
+        }
+        clipboardHint = "Detected ${detected.first.name} token from clipboard — tap Save tokens"
+    }
+
+    fun openPortal(url: String) {
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure {
+            Toast.makeText(context, "No browser available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun saveTokens() {
+        appSettings.setHfToken(hfInput.trim().ifBlank { null })
+        appSettings.setGroqApiKey(groqInput.trim().ifBlank { null })
+        appSettings.setOpenRouterApiKey(openRouterInput.trim().ifBlank { null })
+        keysSavedFlash = true
+        clipboardHint = null
+        val saved = TokenSidecar.persist(context, appSettings)
+        if (!saved && !DurableStorage.hasAllFilesAccess()) {
+            Toast.makeText(
+                context,
+                "Tokens saved in-app. Enable durable storage below so they survive reinstall.",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                durableReady = DurableStorage.hasAllFilesAccess()
+                applyClipboardToken()
+                if (durableReady) {
+                    scope.launch { packManager.refresh() }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val localPackChoices = remember { LocalModelCatalog.entries.filter { it.packId != null && it.runnable } }
     var selectedPackId by remember {
@@ -117,6 +183,7 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         appSettings.clearApiTokens()
+                        TokenSidecar.clearFile()
                         hfInput = ""
                         groqInput = ""
                         openRouterInput = ""
@@ -158,31 +225,110 @@ fun SettingsScreen(
                 GlassCard {
                     GlassSectionLabel("API TOKENS")
                     Text(
-                        "Paste free-tier tokens here. Cloud models below unlock automatically from these keys. Local Lite/Pro never need a token.",
+                        "Create a free key in your browser, copy it, then return here — we auto-detect clipboard tokens. Local Lite/Pro never need a token.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { openPortal(TokenSidecar.Portal.HF) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Get HF") }
+                        OutlinedButton(
+                            onClick = { openPortal(TokenSidecar.Portal.GROQ) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Get Groq") }
+                        OutlinedButton(
+                            onClick = { openPortal(TokenSidecar.Portal.OPENROUTER) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Get OR") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            applyClipboardToken()
+                            if (clipboardHint == null) {
+                                Toast.makeText(
+                                    context,
+                                    "No HF/Groq/OpenRouter token found on clipboard",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Paste token from clipboard")
+                    }
+                    clipboardHint?.let {
+                        Spacer(Modifier.height(6.dp))
+                        Text(it, style = MaterialTheme.typography.labelMedium, color = VestraColors.Accent)
+                    }
                     Spacer(Modifier.height(10.dp))
                     KeyField("Hugging Face token", hfInput) { hfInput = it }
                     KeyField("Groq API key", groqInput) { groqInput = it }
                     KeyField("OpenRouter API key (:free models)", openRouterInput) { openRouterInput = it }
                     Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { saveTokens() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (keysSavedFlash) "Saved" else "Save tokens")
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+
+            item(key = "durable") {
+                GlassCard {
+                    GlassSectionLabel("SURVIVES REINSTALL")
                     Text(
-                        "huggingface.co/settings/tokens · console.groq.com · openrouter.ai/keys",
+                        if (durableReady) {
+                            "Packs & tokens use Documents/TheLookbook. After uninstall/reinstall they are detected automatically — no re-download or re-paste needed."
+                        } else {
+                            "Allow all-files access once so model packs and tokens.json live in Documents/TheLookbook and survive uninstall."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Path: Documents/${DurableStorage.ROOT_FOLDER}/",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            appSettings.setHfToken(hfInput.trim().ifBlank { null })
-                            appSettings.setGroqApiKey(groqInput.trim().ifBlank { null })
-                            appSettings.setOpenRouterApiKey(openRouterInput.trim().ifBlank { null })
-                            keysSavedFlash = true
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(if (keysSavedFlash) "Saved" else "Save tokens")
+                    if (!durableReady) {
+                        Button(
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(DurableStorage.manageAllFilesIntent(context))
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Enable durable storage")
+                        }
+                    } else {
+                        Text(
+                            "Durable storage on · packs root remounted",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = VestraColors.Accent,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val ok = TokenSidecar.persist(context, appSettings)
+                                Toast.makeText(
+                                    context,
+                                    if (ok) "Wrote ${DurableStorage.TOKENS_FILE}" else "Could not write sidecar",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Export tokens file now")
+                        }
                     }
                 }
                 Spacer(Modifier.height(14.dp))

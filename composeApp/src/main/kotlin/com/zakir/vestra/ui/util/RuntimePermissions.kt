@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.zakir.vestra.shared.packs.PackDownloadWorker
+import com.zakir.vestra.storage.DurableStorage
 
 fun Context.hasPostNotificationsPermission(): Boolean =
     Build.VERSION.SDK_INT < 33 ||
@@ -26,8 +27,8 @@ fun Context.hasCameraPermission(): Boolean =
         PackageManager.PERMISSION_GRANTED
 
 /**
- * Enqueues a pack download after optionally requesting [POST_NOTIFICATIONS] (API 33+).
- * Denial still starts the download — only the progress notification may be hidden.
+ * Enqueues a pack download after ensuring durable storage access (so packs survive
+ * uninstall) and optionally requesting [POST_NOTIFICATIONS] (API 33+).
  */
 @Composable
 fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
@@ -40,12 +41,21 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
         pendingPackId = null
         if (id != null) enqueuePackDownload(context, id, showToast)
     }
-    return { packId ->
-        if (context.hasPostNotificationsPermission()) {
-            enqueuePackDownload(context, packId, showToast)
-        } else {
-            pendingPackId = packId
-            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    return remember(showToast) {
+        { packId: String ->
+            if (!DurableStorage.hasAllFilesAccess()) {
+                Toast.makeText(
+                    context,
+                    "Allow all-files access so this pack survives uninstall, then tap Download again",
+                    Toast.LENGTH_LONG,
+                ).show()
+                runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
+            } else if (context.hasPostNotificationsPermission()) {
+                enqueuePackDownload(context, packId, showToast)
+            } else {
+                pendingPackId = packId
+                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 }

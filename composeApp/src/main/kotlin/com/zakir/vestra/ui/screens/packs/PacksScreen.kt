@@ -16,7 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +28,7 @@ import com.zakir.vestra.shared.domain.PackState
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
+import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
@@ -43,8 +47,12 @@ fun PacksScreen(
     val lastError by packManager.lastError.collectAsState()
     val scope = rememberCoroutineScope()
     val startDownload = rememberPackDownloadStarter(showToast = true)
+    var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
 
-    LaunchedEffect(Unit) { packManager.refresh() }
+    LaunchedEffect(Unit) {
+        durableReady = DurableStorage.hasAllFilesAccess()
+        packManager.refresh()
+    }
 
     GlassScreen(title = "Model packs", subtitle = "Open-source · on-device · resumable", onBack = onBack) {
         Text(
@@ -52,6 +60,29 @@ fun PacksScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(12.dp))
+        GlassCard {
+            Text(
+                if (durableReady) {
+                    "Durable: Documents/TheLookbook/packs — survives uninstall. Reinstall detects packs automatically."
+                } else {
+                    "Enable durable storage before downloading so packs remain after uninstall/reinstall."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!durableReady) {
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Enable durable storage")
+                }
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         if (states.isEmpty()) {
