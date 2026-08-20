@@ -58,8 +58,9 @@ private val LightPalette = VestraPalette(
     accent = Color(0xFF0F766E),
     accentSoft = Color(0xFF14B8A6),
     accentGlow = Color(0x3314B8A6),
-    glassFill = Color(0xD9F7FBFC),
-    glassFillStrong = Color(0xF2FFFFFF),
+    // Near-opaque so body text stays ≥4.5:1 over glass; keep a soft edge only.
+    glassFill = Color(0xF2F7FBFC),
+    glassFillStrong = Color(0xFAFFFFFF),
     glassBorder = Color(0x6614B8A6),
     glassHighlight = Color(0xCCFFFFFF),
     glassShadow = Color(0x1A0F1720),
@@ -81,8 +82,9 @@ private val DarkPalette = VestraPalette(
     accent = Color(0xFF2DD4BF),
     accentSoft = Color(0xFF5EEAD4),
     accentGlow = Color(0x402DD4BF),
-    glassFill = Color(0x331E293B),
-    glassFillStrong = Color(0x591E293B),
+    // Opaque enough for WCAG text on glass; menus use surfaceRaised separately.
+    glassFill = Color(0xF21A222C),
+    glassFillStrong = Color(0xF8252E3A),
     glassBorder = Color(0x662DD4BF),
     glassHighlight = Color(0x33FFFFFF),
     glassShadow = Color(0x66000000),
@@ -141,9 +143,11 @@ private fun VestraPalette.toScheme() = if (isDark) {
         onSurface = ink,
         surfaceVariant = surfaceFloating,
         onSurfaceVariant = inkMuted,
-        surfaceContainer = glassFill,
-        surfaceContainerHigh = glassFillStrong,
-        surfaceContainerHighest = surfaceRaised,
+        // Opaque containers — Material menus/dialogs use these; never translucent glass.
+        surfaceContainerLowest = surface,
+        surfaceContainer = surfaceRaised,
+        surfaceContainerHigh = surfaceRaised,
+        surfaceContainerHighest = Color(0xFF243040),
         outline = glassBorder,
         error = danger,
     )
@@ -161,9 +165,11 @@ private fun VestraPalette.toScheme() = if (isDark) {
         onSurface = ink,
         surfaceVariant = surfaceFloating,
         onSurfaceVariant = inkMuted,
-        surfaceContainer = glassFill,
-        surfaceContainerHigh = glassFillStrong,
-        surfaceContainerHighest = surfaceRaised,
+        // Opaque containers — Material menus/dialogs use these; never translucent glass.
+        surfaceContainerLowest = Color.White,
+        surfaceContainer = Color.White,
+        surfaceContainerHigh = surfaceRaised,
+        surfaceContainerHighest = Color.White,
         outline = glassBorder,
         error = danger,
     )

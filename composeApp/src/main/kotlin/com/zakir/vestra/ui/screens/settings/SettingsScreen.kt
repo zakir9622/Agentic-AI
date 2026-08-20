@@ -1,5 +1,6 @@
 package com.zakir.vestra.ui.screens.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,10 +36,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.BuildConfig
+import com.zakir.vestra.media.CacheCleanup
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
@@ -48,13 +52,19 @@ import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.settings.AppearanceMode
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.ui.components.GlassFormDefaults
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,11 +73,14 @@ fun SettingsScreen(
     engineRouter: EngineRouter,
     packManager: ModelPackManager,
     freeCloudDiscovery: FreeCloudDiscovery,
+    usageLedger: UsageLedger,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
+    val appearance by appSettings.appearanceMode.collectAsState()
     val packStates by packManager.states.collectAsState()
     val startDownload = rememberPackDownloadStarter(showToast = true)
     val scope = rememberCoroutineScope()
@@ -87,10 +100,36 @@ fun SettingsScreen(
     var groqInput by remember(groqKey) { mutableStateOf(groqKey.orEmpty()) }
     var openRouterInput by remember(openRouterKey) { mutableStateOf(openRouterKey.orEmpty()) }
     var keysSavedFlash by remember { mutableStateOf(false) }
+    var confirmClearTokens by remember { mutableStateOf(false) }
+    var clearingCache by remember { mutableStateOf(false) }
 
     val localPackChoices = remember { LocalModelCatalog.entries.filter { it.packId != null && it.runnable } }
     var selectedPackId by remember {
         mutableStateOf(localPackChoices.firstOrNull()?.packId.orEmpty())
+    }
+
+    if (confirmClearTokens) {
+        AlertDialog(
+            onDismissRequest = { confirmClearTokens = false },
+            title = { Text("Clear API tokens?") },
+            text = { Text("Removes Hugging Face, Groq, and OpenRouter keys from this device. Cloud models will lock until you paste keys again.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        appSettings.clearApiTokens()
+                        hfInput = ""
+                        groqInput = ""
+                        openRouterInput = ""
+                        keysSavedFlash = false
+                        confirmClearTokens = false
+                        Toast.makeText(context, "Tokens cleared", Toast.LENGTH_SHORT).show()
+                    },
+                ) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearTokens = false }) { Text("Cancel") }
+            },
+        )
     }
 
     SpatialBackground {
@@ -145,6 +184,23 @@ fun SettingsScreen(
                     ) {
                         Text(if (keysSavedFlash) "Saved" else "Save tokens")
                     }
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+
+            item(key = "appearance") {
+                GlassCard {
+                    GlassSectionLabel("APPEARANCE")
+                    Text(
+                        "Pearl day / graphite night. System follows your phone setting.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    AppearanceDropdown(
+                        selected = appearance,
+                        onSelect = appSettings::setAppearanceMode,
+                    )
                 }
                 Spacer(Modifier.height(14.dp))
             }
@@ -283,6 +339,115 @@ fun SettingsScreen(
                     onSelect = appSettings::setVideoProvider,
                 )
             }
+
+            item(key = "storage") {
+                Spacer(Modifier.height(14.dp))
+                GlassCard {
+                    GlassSectionLabel("STORAGE & PRIVACY")
+                    Text(
+                        "Clears regenerable caches only. Installed model packs and wardrobe index stay.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = {
+                            if (clearingCache) return@OutlinedButton
+                            clearingCache = true
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    CacheCleanup.clearAppCaches(context)
+                                }
+                                clearingCache = false
+                                Toast.makeText(
+                                    context,
+                                    "Cleared ${result.deletedFiles} files · ${CacheCleanup.formatBytes(result.freedBytes)}",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        enabled = !clearingCache,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (clearingCache) "Clearing…" else "Clear cache")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            usageLedger.clear()
+                            Toast.makeText(context, "Usage ledger cleared", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Clear usage ledger")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { confirmClearTokens = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Clear API tokens")
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+
+            item(key = "about") {
+                GlassCard {
+                    GlassSectionLabel("ABOUT")
+                    Text("The Lookbook", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Modest-wear try-on · on-device Lite/Pro · free-tier cloud only",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppearanceDropdown(
+    selected: AppearanceMode,
+    onSelect: (AppearanceMode) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected.label(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Theme") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            colors = GlassFormDefaults.outlinedFieldColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = GlassFormDefaults.menuContainerColor(),
+            shadowElevation = GlassFormDefaults.MenuShadow,
+        ) {
+            AppearanceMode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(mode.label(), color = VestraColors.Ink) },
+                    onClick = {
+                        onSelect(mode)
+                        expanded = false
+                    },
+                    colors = GlassFormDefaults.menuItemColors(),
+                )
+            }
         }
     }
 }
@@ -301,26 +466,33 @@ private fun EngineDropdown(
             value = selected.label(),
             onValueChange = {},
             readOnly = true,
+            label = { Text("Engine") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             supportingText = {
-                Text(selected.description(availability(selected)))
+                Text(selected.description(availability(selected)), color = VestraColors.InkMuted)
             },
+            colors = GlassFormDefaults.outlinedFieldColors(),
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = GlassFormDefaults.menuContainerColor(),
+            shadowElevation = GlassFormDefaults.MenuShadow,
+        ) {
             options.forEach { tier ->
                 val avail = availability(tier)
                 val enabled = avail == Availability.Ready || tier == EngineTier.CLOUD || tier == EngineTier.AUTO
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Text(tier.label())
+                            Text(tier.label(), color = VestraColors.Ink)
                             Text(
                                 tier.description(avail),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = VestraColors.InkMuted,
                             )
                         }
                     },
@@ -331,6 +503,7 @@ private fun EngineDropdown(
                         }
                     },
                     enabled = enabled,
+                    colors = GlassFormDefaults.menuItemColors(),
                 )
             }
         }
@@ -351,19 +524,27 @@ private fun PackDropdown(
             value = label,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Model pack") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            colors = GlassFormDefaults.outlinedFieldColors(),
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = GlassFormDefaults.menuContainerColor(),
+            shadowElevation = GlassFormDefaults.MenuShadow,
+        ) {
             choices.forEach { (id, name) ->
                 DropdownMenuItem(
-                    text = { Text(name) },
+                    text = { Text(name, color = VestraColors.Ink) },
                     onClick = {
                         onSelect(id)
                         expanded = false
                     },
+                    colors = GlassFormDefaults.menuItemColors(),
                 )
             }
         }
@@ -420,25 +601,35 @@ private fun CloudCapabilityDropdown(
                 value = selected?.displayName ?: "Select model",
                 onValueChange = {},
                 readOnly = true,
+                label = { Text("Model") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                 supportingText = {
-                    Text(selected?.usageNote?.ifBlank { selected.description } ?: "")
+                    Text(
+                        selected?.usageNote?.ifBlank { selected.description } ?: "",
+                        color = VestraColors.InkMuted,
+                    )
                 },
+                colors = GlassFormDefaults.outlinedFieldColors(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 enabled = options.isNotEmpty(),
             )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                containerColor = GlassFormDefaults.menuContainerColor(),
+                shadowElevation = GlassFormDefaults.MenuShadow,
+            ) {
                 options.forEach { provider ->
                     DropdownMenuItem(
                         text = {
                             Column {
-                                Text(provider.displayName)
+                                Text(provider.displayName, color = VestraColors.Ink)
                                 Text(
                                     "${provider.platform.name} · ${provider.license}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = VestraColors.InkMuted,
                                 )
                             }
                         },
@@ -446,6 +637,7 @@ private fun CloudCapabilityDropdown(
                             onSelect(provider.id)
                             expanded = false
                         },
+                        colors = GlassFormDefaults.menuItemColors(),
                     )
                 }
             }
@@ -493,7 +685,14 @@ private fun KeyField(label: String, value: String, onChange: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
+        colors = GlassFormDefaults.outlinedFieldColors(),
     )
+}
+
+private fun AppearanceMode.label(): String = when (this) {
+    AppearanceMode.SYSTEM -> "System"
+    AppearanceMode.LIGHT -> "Light"
+    AppearanceMode.DARK -> "Dark"
 }
 
 private fun EngineTier.label(): String = when (this) {

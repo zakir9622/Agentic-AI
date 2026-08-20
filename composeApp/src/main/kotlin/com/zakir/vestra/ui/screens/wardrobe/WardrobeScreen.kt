@@ -13,11 +13,15 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -39,6 +43,10 @@ fun WardrobeScreen(
 ) {
     val entries by wardrobe.entries.collectAsState()
     val context = LocalContext.current
+    var favoritesOnly by remember { mutableStateOf(false) }
+    val visible = remember(entries, favoritesOnly) {
+        if (favoritesOnly) entries.filter { it.favorited } else entries
+    }
 
     GlassScreen(
         title = "Wardrobe",
@@ -49,53 +57,92 @@ fun WardrobeScreen(
         if (entries.isEmpty()) {
             GlassEmptyState(message = "Your try-on and Create Studio looks live here.")
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(entries, key = { it.id }) { entry ->
-                    val file = File(entry.imagePath)
-                    GlassCard {
-                        AsyncImage(
-                            model = file,
-                            contentDescription = "Generated look ${entry.personLabel}",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(0.75f)
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable {
-                                    if (!file.exists()) {
-                                        Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
-                                        return@clickable
-                                    }
-                                    MediaExport.share(context, file, "Share look")
-                                },
-                            contentScale = ContentScale.Crop,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "${entry.personLabel} · ${entry.tier.name.lowercase()}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            GlassSecondaryButton(
-                                text = "Save",
-                                onClick = { MediaExport.saveImageToGallery(context, file) },
-                                modifier = Modifier.weight(1f),
+                FilterChip(
+                    selected = !favoritesOnly,
+                    onClick = { favoritesOnly = false },
+                    label = { Text("All (${entries.size})") },
+                )
+                FilterChip(
+                    selected = favoritesOnly,
+                    onClick = { favoritesOnly = true },
+                    label = { Text("Favorites (${entries.count { it.favorited }})") },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            if (visible.isEmpty()) {
+                GlassEmptyState(message = "No favorites yet — tap ★ on a look.")
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(visible, key = { it.id }) { entry ->
+                        val file = File(entry.imagePath)
+                        GlassCard {
+                            AsyncImage(
+                                model = file,
+                                contentDescription = "Generated look ${entry.personLabel}",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(0.75f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        if (!file.exists()) {
+                                            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                                            return@clickable
+                                        }
+                                        MediaExport.share(context, file, "Share look")
+                                    },
+                                contentScale = ContentScale.Crop,
                             )
-                            GlassSecondaryButton(
-                                text = "Delete",
-                                onClick = {
-                                    runCatching { if (file.exists()) file.delete() }
-                                    wardrobe.remove(entry.id)
-                                    Toast.makeText(context, "Removed", Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.weight(1f),
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "${entry.personLabel} · ${entry.tier.name.lowercase()}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                GlassSecondaryButton(
+                                    text = if (entry.favorited) "★ Fav" else "☆ Fav",
+                                    onClick = { wardrobe.toggleFavorite(entry.id) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                GlassSecondaryButton(
+                                    text = "Share",
+                                    onClick = {
+                                        if (!file.exists()) {
+                                            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            MediaExport.share(context, file, "Share look")
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                GlassSecondaryButton(
+                                    text = "Save",
+                                    onClick = { MediaExport.saveImageToGallery(context, file) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                GlassSecondaryButton(
+                                    text = "Delete",
+                                    onClick = {
+                                        runCatching { if (file.exists()) file.delete() }
+                                        wardrobe.remove(entry.id)
+                                        Toast.makeText(context, "Removed", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }

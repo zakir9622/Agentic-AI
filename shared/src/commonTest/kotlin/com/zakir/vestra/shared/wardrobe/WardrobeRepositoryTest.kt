@@ -53,6 +53,20 @@ class WardrobeRepositoryTest {
     }
 
     @Test
+    fun toggleFavoritePinsAndPersists() {
+        val store = InMemoryStore()
+        val repo = WardrobeRepository(store)
+        repo.add(entry("a"))
+        repo.add(entry("b"))
+        repo.toggleFavorite("a")
+        assertEquals(listOf("a", "b"), repo.entries.value.map { it.id })
+        assertTrue(repo.entries.value.first { it.id == "a" }.favorited)
+        val reloaded = WardrobeRepository(store)
+        assertTrue(reloaded.entries.value.first { it.id == "a" }.favorited)
+        assertEquals("a", reloaded.entries.value.first().id)
+    }
+
+    @Test
     fun corruptIndexFallsBackToEmpty() {
         val store = InMemoryStore()
         store.files["wardrobe_index.json"] = "{not json"
