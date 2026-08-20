@@ -22,6 +22,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -36,25 +38,38 @@ import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.engine.UnavailableReason
+import com.zakir.vestra.shared.local.LocalModelCatalog
+import com.zakir.vestra.shared.local.LocalModelEntry
+import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.displayLabel
 import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 
 @Composable
 fun SettingsScreen(
     appSettings: AppSettings,
     engineRouter: EngineRouter,
+    packManager: ModelPackManager,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
+    val packStates by packManager.states.collectAsState()
+    LaunchedEffect(Unit) { packManager.refresh() }
+
     val tryOnId by appSettings.cloudProviderId.collectAsState()
     val imageGenId by appSettings.imageGenProviderId.collectAsState()
     val imageEditId by appSettings.imageEditProviderId.collectAsState()
@@ -93,8 +108,15 @@ fun SettingsScreen(
             Spacer(Modifier.height(20.dp))
 
             GlassCard {
-                GlassSectionLabel("TRY-ON ENGINE")
-                EngineTier.entries.forEach { tier ->
+                GlassSectionLabel("LOCAL AI DEVICE")
+                Text(
+                    "Open-source models that run on this phone. Download once → fully offline. Use Auto/Lite/Pro for private try-on testing.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("Try-on engine", style = MaterialTheme.typography.titleSmall)
+                EngineTier.entries.filter { it != EngineTier.CLOUD }.forEach { tier ->
                     val availability = if (tier == EngineTier.AUTO) Availability.Ready else engineRouter.availability(tier)
                     val enabled = availability == Availability.Ready
                     Row(
@@ -103,7 +125,7 @@ fun SettingsScreen(
                             .selectable(selected = tier == selectedTier, enabled = enabled) {
                                 appSettings.setEngineTier(tier)
                             }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -114,20 +136,65 @@ fun SettingsScreen(
                         }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .selectable(selected = selectedTier == EngineTier.CLOUD) {
+                            appSettings.setEngineTier(EngineTier.CLOUD)
+                        }
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = selectedTier == EngineTier.CLOUD,
+                        onClick = { appSettings.setEngineTier(EngineTier.CLOUD) },
+                    )
+                    Column {
+                        Text(EngineTier.CLOUD.label(), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            EngineTier.CLOUD.description(engineRouter.availability(EngineTier.CLOUD)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(14.dp))
-            GlassCard(onClick = onOpenPacks) {
-                GlassSectionLabel("ON-DEVICE MODELS")
-                Text("Model packs", style = MaterialTheme.typography.titleMedium)
-                Text("Download Pro/Lite for offline garment try-on.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            GlassCard {
+                GlassSectionLabel("OPEN-SOURCE LOCAL PACKS")
+                Text(
+                    "Install these to turn the phone into a local AI try-on device. Status refreshes from the HF packs manifest.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                LocalModelCatalog.entries.forEach { entry ->
+                    LocalPackRow(
+                        entry = entry,
+                        status = entry.packId?.let { packStates[it]?.status },
+                        progress = entry.packId?.let { packStates[it]?.progress } ?: 0f,
+                        onInstall = {
+                            entry.packId?.let { PackDownloadWorker.enqueue(context, it) }
+                        },
+                        onSelectEngine = { tier ->
+                            appSettings.setEngineTier(tier)
+                        },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
+                OutlinedButton(onClick = onOpenPacks, modifier = Modifier.fillMaxWidth()) {
+                    Text("Open full Model packs screen")
+                }
             }
 
             Spacer(Modifier.height(14.dp))
             GlassCard(onClick = onOpenUsage) {
                 GlassSectionLabel("USAGE")
                 Text("Token & cost ledger", style = MaterialTheme.typography.titleMedium)
-                Text("See requests, tokens, and estimated spend per model.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Cloud requests only — local packs use \$0 tokens.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             CapabilityPicker(
@@ -137,25 +204,25 @@ fun SettingsScreen(
                 onSelect = appSettings::setCloudProvider,
             )
             CapabilityPicker(
-                title = "IMAGE GENERATION",
+                title = "IMAGE GENERATION (cloud)",
                 capability = AiCapability.IMAGE_GEN,
                 selectedId = imageGenId,
                 onSelect = appSettings::setImageGenProvider,
             )
             CapabilityPicker(
-                title = "IMAGE RECREATE / EDIT",
+                title = "IMAGE RECREATE / EDIT (cloud)",
                 capability = AiCapability.IMAGE_EDIT,
                 selectedId = imageEditId,
                 onSelect = appSettings::setImageEditProvider,
             )
             CapabilityPicker(
-                title = "CODING MODELS",
+                title = "CODING MODELS (cloud)",
                 capability = AiCapability.CODE,
                 selectedId = codeId,
                 onSelect = appSettings::setCodeProvider,
             )
             CapabilityPicker(
-                title = "VIDEO MODELS",
+                title = "VIDEO MODELS (cloud)",
                 capability = AiCapability.VIDEO,
                 selectedId = videoId,
                 onSelect = appSettings::setVideoProvider,
@@ -163,9 +230,9 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(14.dp))
             GlassCard {
-                GlassSectionLabel("API KEYS")
+                GlassSectionLabel("API KEYS (cloud only)")
                 Text(
-                    "HF token improves free Spaces + unlocks Inference. Groq/OpenRouter for coding. Replicate/FAL for paid media.",
+                    "Not needed for local Lite/Pro try-on. HF token helps free Spaces + Inference. Groq/OpenRouter for coding.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -192,6 +259,53 @@ fun SettingsScreen(
                 ) { Text("Save API keys") }
             }
             Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun LocalPackRow(
+    entry: LocalModelEntry,
+    status: PackStatus?,
+    progress: Float,
+    onInstall: () -> Unit,
+    onSelectEngine: (EngineTier) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(entry.displayName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (entry.openSource) {
+                GlassPill(text = "Open source", active = true)
+            }
+            if (entry.runnable && entry.offlineAfterInstall) {
+                GlassPill(text = "Offline", active = status == PackStatus.INSTALLED)
+            }
+        }
+        Text(entry.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            "${entry.license} · ${entry.approxSizeLabel} · ${entry.capability.displayLabel()}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(entry.testingNote, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(6.dp))
+        when {
+            !entry.runnable -> Text(
+                "Planned for local AI device testing — not downloadable in this build.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            entry.packId == null -> Unit
+            status == PackStatus.INSTALLED -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Installed", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                entry.engineTier?.let { tier ->
+                    TextButton(onClick = { onSelectEngine(tier) }) { Text("Use ${tier.name}") }
+                }
+            }
+            status == PackStatus.DOWNLOADING -> Text("Downloading ${(progress * 100).toInt()}%…", style = MaterialTheme.typography.labelMedium)
+            status == PackStatus.INCOMPATIBLE -> Text("Device doesn't meet RAM/NPU requirements", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+            status == PackStatus.UPDATE_AVAILABLE -> Button(onClick = onInstall) { Text("Update pack") }
+            else -> Button(onClick = onInstall) { Text("Download for local use") }
         }
     }
 }

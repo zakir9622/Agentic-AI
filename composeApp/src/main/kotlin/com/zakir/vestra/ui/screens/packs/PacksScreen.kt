@@ -43,9 +43,9 @@ fun PacksScreen(
 
     LaunchedEffect(Unit) { packManager.refresh() }
 
-    GlassScreen(title = "Model packs", subtitle = "On-device AI", onBack = onBack) {
+    GlassScreen(title = "Model packs", subtitle = "Open-source · on-device", onBack = onBack) {
         Text(
-            "Packs run entirely on this phone. Once installed, generation needs no internet.",
+            "These open-source packs turn your phone into a local AI device. Once installed, try-on needs no internet and uses \$0 tokens.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

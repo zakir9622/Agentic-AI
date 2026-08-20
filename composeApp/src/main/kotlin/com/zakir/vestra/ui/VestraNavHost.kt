@@ -198,6 +198,7 @@ fun VestraNavHost(
             SettingsScreen(
                 appSettings = appSettings,
                 engineRouter = engineRouter,
+                packManager = packManager,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onBack = { navController.popBackStack() },
