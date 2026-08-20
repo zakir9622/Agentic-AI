@@ -1,49 +1,70 @@
-# The Lookbook — AI Garment Photoshoot Studio
+# The Lookbook — Local Modest-Wear AI Studio
 
-An Android app that turns a single photo of a garment into a photoshoot of it being worn. Point it at a dress on a hanger, a flat-lay, or a catalog shot, and The Lookbook casts studio models, shoots the garment on them across poses, and stages each shot on a studio backdrop — no models, no studio, no photographer.
+An Android app that turns a garment photo into a photorealistic model wearing it — abaya, hijab, niqab, shalwar kameez, kurta, and more. **Everything runs on-device.** Model packs download once; generation works fully offline after that.
 
-Built modest-wear-first: abayas, hijabs, kaftans, and every category of covered clothing are first-class, alongside western wear.
+> Internal package: `com.zakir.vestra` · Product name: **The Lookbook**
 
-**Generation runs fully on-device.** No internet is required to create images; model packs are downloaded once and everything after that happens locally. An optional cloud tier (explicit opt-in) offers maximum quality when online.
+## Features
 
-> The internal module namespace remains `com.zakir.vestra` from the project's first iteration; the product name is **The Lookbook**.
-
-> 📋 **Picking this up (new dev or AI)? Start with [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)** — the full handoff: every build phase, what's live, the architecture, known issues, and the roadmap.
+- **Fully local AI** — SD1.5 + ControlNet-Depth + IP-Adapter try-on via ONNX Runtime
+- **Casting parameters** — ethnicity, skin tone, body type, hair coverage, garment color, scenario
+- **Modest-wear first** — abaya, hijab, niqab, dupatta, Pakistani traditional wear
+- **Spatial Material 3 UI** — elevated cards, light spatial palette
+- **Pixel 9 ready** — 10 GB+ RAM gate, NNAPI acceleration, INT8 pack support
+- **Sideload build** — unrestricted local generation, no cloud dependency
 
 ## Generation engines
 
-| Tier | Where it runs | Devices | Model pack | Status |
-|---|---|---|---|---|
-| **Lite** | On device — segmentation, warp, harmonization (*compositor*) | All phones (Android 8.0+) | ~270 MB | built; not hosted |
-| **Pro** | On device — SD1.5 + ControlNet-Depth + IP-Adapter diffusion (NPU) | 12 GB+ RAM flagships | ~4.3 GB fp16 | ✅ **live** on Hugging Face |
-| **Cloud** | Supabase Edge Function → Replicate IDM-VTON | Any, online only | none | ✅ **live** |
+| Tier | Where | Devices | Pack |
+|---|---|---|---|
+| **Pro** | On-device diffusion | 10 GB+ RAM (Pixel 9) | `pro-v2-int8` (~2 GB) or `pro-v1` (~4.3 GB FP16) |
+| **Lite** | On-device compositor | All phones | ~270 MB |
+| **Auto** | Best installed on-device | — | Never uses network |
 
-The engine is user-selectable in Settings; **Auto** picks the best installed on-device engine and **never touches the network**.
+## Build & install (Pixel 9)
 
-**A note on quality.** The Lite engine is a *compositor* (segment → warp → blend) — fast and offline, but it cannot synthesize a person and won't reach diffusion photorealism. For photoreal output use the **Cloud** engine (live — pennies/image, any phone) or the **Pro** on-device engine (live — free per image, offline, but ~4.3 GB and 12 GB+ RAM flagship only). The Pro pack's ONNX components were each converted and validated end-to-end; INT8 quantization to reach normal 8 GB phones is the top roadmap item. All engines share the same studio-model gallery, backdrops, and outfit layering.
+Requires JDK 17+ and Android SDK (platform 36).
+
+```bash
+# Generate a signing keystore (once)
+keytool -genkey -v -keystore release.keystore -alias lookbook \
+  -keyalg RSA -keysize 2048 -validity 10000
+
+# Build sideload APK
+export KEYSTORE_PATH=release.keystore KEYSTORE_PASSWORD=lookbook \
+       KEY_ALIAS=lookbook KEY_PASSWORD=lookbook
+./gradlew :composeApp:assembleSideloadRelease
+
+# Install on Pixel 9
+adb install composeApp/build/outputs/apk/sideload/release/composeApp-sideload-release.apk
+```
+
+After install: open app → **Model packs** → download Pro pack over Wi-Fi → create a look.
 
 ## Project layout
 
-- `composeApp/` — Android app (Jetpack Compose, cinematic dark UI)
-- `shared/` — Kotlin Multiplatform core: domain models, engine routing, pack manager, cloud client. Pure Kotlin `commonMain`, ready for the iOS port (`docs/IOS_PORT.md`)
-- `ml/` — Python export tooling that produces the downloadable model packs (not shipped in the app)
-- `supabase/` — Edge Functions for the cloud tier and AI-content reports ([deploy runbook](supabase/README.md))
-- `docs/` — [**project status & handoff**](docs/PROJECT_STATUS.md) · [architecture](docs/ARCHITECTURE.md) · [on-device pipeline](docs/PIPELINE.md) · [cloud setup](docs/CLOUD_SETUP.md) · [Hugging Face packs](docs/HUGGINGFACE_SETUP.md) · [Play compliance](docs/PLAY_COMPLIANCE.md) · [privacy policy](docs/PRIVACY_POLICY.md) · [iOS port plan](docs/IOS_PORT.md)
-- `ml/MODEL_LICENSES.md` — license status of every shipped model (read before publishing packs)
+- `composeApp/` — Android UI (Jetpack Compose, Spatial Material 3)
+- `shared/` — KMP core: engines, pack manager, domain models
+- `ml/` — Python tooling to export/quantize model packs (not shipped in APK)
+- `docs/` — architecture, pipeline, compliance
 
-## Status at a glance
+## Model packs
 
-- **Cloud tier:** live (Supabase `lookbook-cloud` + Replicate; add Replicate billing for live runs).
-- **On-device Pro pack:** converted, CPU-validated, and hosted at `Iamzakirzr/vestra-packs` (~4.3 GB, 12 GB+ RAM phones).
-- **Next up:** INT8-quantize the Pro pack for 8 GB phones; real-device test pass; modest-wear-tuned cloud model. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) §8.
-
-## Building
-
-Requires JDK 17+ and the Android SDK (platform 36).
+Pro packs are hosted on Hugging Face (`Iamzakirzr/vestra-packs`). To rebuild:
 
 ```bash
-./gradlew :composeApp:assembleDebug   # build the app
-./gradlew :shared:testDebugUnitTest   # run core unit tests
+cd ml && ./download_pro_models.sh pro_src
+python convert_pro_pack.py --src pro_src --out exports/pro-v1
+python export_depth.py --out exports/pro-v1/depth.onnx
+python quantize_pro_pack.py --src exports/pro-v1 --out exports/pro-v2-int8
+python manifest_gen.py exports/ --base-url https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main
+```
+
+## Tests
+
+```bash
+./gradlew :shared:testDebugUnitTest
+./gradlew :composeApp:lintDebug
 ```
 
 ## License

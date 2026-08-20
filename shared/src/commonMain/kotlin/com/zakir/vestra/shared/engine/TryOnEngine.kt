@@ -6,15 +6,13 @@ import com.zakir.vestra.shared.domain.TryOnRequest
 import kotlinx.coroutines.flow.Flow
 
 /**
- * One implementation per tier (Lite, Pro, Cloud) plus a mock for development.
- * Implementations emit [GenerationState] updates and finish with either
- * [GenerationState.Complete] or [GenerationState.Failed] — they never throw
- * for expected failure modes.
+ * One implementation per on-device tier. Implementations emit [GenerationState]
+ * updates and finish with either [GenerationState.Complete] or
+ * [GenerationState.Failed] — they never throw for expected failure modes.
  */
 interface TryOnEngine {
     val tier: EngineTier
 
-    /** Cheap synchronous check used by the router and by Settings to grey out tiers. */
     fun isAvailable(): Availability
 
     fun generate(request: TryOnRequest): Flow<GenerationState>

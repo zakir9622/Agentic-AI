@@ -19,9 +19,9 @@ class MainActivity : ComponentActivity() {
                     engineRouter = app.engineRouter,
                     wardrobe = app.wardrobe,
                     packManager = app.packManager,
-                    reportQueue = app.reportQueue,
                     studioModels = app.studioModels,
-                    garmentGuard = app.garmentGuard,
+                    generative = app.generative,
+                    usageLedger = app.usageLedger,
                 )
             }
         }

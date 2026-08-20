@@ -128,15 +128,16 @@ class SdControlNetPipeline(
     // ── helpers (kept small; heavy tensor work is in the ONNX graphs) ──
 
     private fun encodePrompt(inputs: ConditioningInputs): FloatArray {
-        // The text encoder needs tokenized ids. A full CLIP BPE tokenizer is
-        // heavy, so packs may omit it; without one we feed a neutral zero-id
-        // sequence (IP-Adapter image tokens carry the garment appearance). A
-        // tokenizer pack can replace this to apply the PromptStyle tokens.
         val textEncoder = config.textEncoder ?: return FloatArray(TEXT_TOKENS * HIDDEN_DIM)
         val path = "$packDir/$textEncoder"
         if (!File(path).exists()) return FloatArray(TEXT_TOKENS * HIDDEN_DIM)
+        val tokenIds = if (ClipTokenizer.isAvailable(packDir)) {
+            ClipTokenizer(packDir).encode(inputs.prompt.positive)
+        } else {
+            LongArray(TEXT_TOKENS)
+        }
         return OrtGraph(path).use { te ->
-            te.runSingle(mapOf(te.inputNames.first() to te.longTensor(LongArray(TEXT_TOKENS), 1, TEXT_TOKENS.toLong())))
+            te.runSingle(mapOf(te.inputNames.first() to te.longTensor(tokenIds, 1, TEXT_TOKENS.toLong())))
         }
     }
 

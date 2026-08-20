@@ -39,11 +39,12 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import shutil
 from pathlib import Path
 
 IMG, LAT, OPSET = 512, 64, 18
-# ~12 GB-RAM flagship + NPU: the full fp16 stack is ~4.3 GB of weights.
-MIN_SPEC = {"minRamMb": 11000, "requiresNpu": True, "minSdk": 31}
+# Pixel 9 (12 GB RAM) and similar flagships.
+MIN_SPEC = {"minRamMb": 10000, "requiresNpu": False, "minSdk": 26}
 
 
 def log(*a):
@@ -188,7 +189,33 @@ def main() -> None:
     validate(fp32 / "unet.onnx", uf)
 
     log("all components exported + validated (fp32). packing fp16…")
+    copy_tokenizer(args.src, fp32)
     pack_fp16(fp32, args.out, res_shapes, ip_seq, ip_dim)
+
+
+def copy_tokenizer(src: Path, out: Path) -> None:
+    """Copy CLIP tokenizer files from the SD1.5 source tree into the pack."""
+    from transformers import CLIPTokenizer
+
+    candidates = [
+        src / "realistic_vision" / "tokenizer",
+        src / "tokenizer",
+    ]
+    for tok_dir in candidates:
+        if (tok_dir / "vocab.json").exists():
+            for name in ("vocab.json", "merges.txt", "tokenizer.json"):
+                f = tok_dir / name
+                if f.exists():
+                    shutil.copy2(f, out / name)
+            log(f"  tokenizer copied from {tok_dir}")
+            return
+    # Fallback: export from transformers hub layout
+    try:
+        tok = CLIPTokenizer.from_pretrained(str(src / "realistic_vision"), subfolder="tokenizer")
+    except Exception:
+        tok = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+    tok.save_pretrained(str(out))
+    log("  tokenizer exported via transformers")
 
 
 def pack_fp16(fp32: Path, out: Path, res_shapes, ip_seq, ip_dim) -> None:
@@ -220,9 +247,13 @@ def pack_fp16(fp32: Path, out: Path, res_shapes, ip_seq, ip_dim) -> None:
     (out / "pack.json").write_text(json.dumps({
         "version": 1, "tier": "PRO", "kind": "ENGINE",
         "displayName": "Pro engine (SD1.5 + ControlNet-Depth + IP-Adapter)",
-        "description": "Photorealistic on-device try-on for 12GB+ RAM flagship NPUs.",
+        "description": "Photorealistic on-device try-on for Pixel 9 class phones (10 GB+ RAM).",
         "minSpec": MIN_SPEC,
     }, indent=2))
+    for name in ("vocab.json", "merges.txt", "tokenizer.json"):
+        src = fp32 / name
+        if src.exists():
+            shutil.copy2(src, out / name)
     log(f"Pro pack written to {out}. Add depth.onnx (export_depth.py), then manifest_gen.py.")
 
 

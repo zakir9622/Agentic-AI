@@ -8,15 +8,20 @@ import java.nio.LongBuffer
 
 /**
  * Thin multi-input/multi-output ONNX Runtime wrapper for the SD1.5 +
- * ControlNet + IP-Adapter graphs, where OrtModel's single-input helper isn't
- * enough. Opens with NNAPI when available (Pro tier is NPU-gated), CPU otherwise.
+ * ControlNet + IP-Adapter graphs. Prefers NNAPI (Tensor G4 on Pixel 9) with
+ * XNNPACK CPU threads as fallback.
  */
 class OrtGraph(modelPath: String) : AutoCloseable {
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
     private val session: OrtSession = env.createSession(
         modelPath,
-        OrtSession.SessionOptions().apply { runCatching { addNnapi() } },
+        OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(4)
+            setInterOpNumThreads(2)
+            runCatching { addNnapi() }
+            runCatching { addXnnpack(emptyMap()) }
+        },
     )
 
     val inputNames: Set<String> get() = session.inputNames.toSet()

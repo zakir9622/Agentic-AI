@@ -10,14 +10,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,19 +24,18 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,181 +52,184 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
-import com.zakir.vestra.shared.domain.GenerationState
-import kotlinx.coroutines.launch
+import com.zakir.vestra.data.LocalReportStore
+import com.zakir.vestra.data.ReportReason
+import com.zakir.vestra.ui.components.GlassEmptyState
+import com.zakir.vestra.ui.components.GlassImageFrame
+import com.zakir.vestra.ui.components.GlassPrimaryButton
+import com.zakir.vestra.ui.components.GlassSecondaryButton
+import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SpatialBackground
 import java.io.File
 
-/**
- * The reveal: draggable before/after when the look was generated on the
- * user's own photo, plus save / share / report.
- */
 @Composable
 fun ResultScreen(
     viewModel: com.zakir.vestra.ui.TryOnViewModel,
-    reportQueue: com.zakir.vestra.shared.safety.ReportQueue,
     onNewLook: () -> Unit,
+    onBackToStudio: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val reportStore = remember { LocalReportStore(context) }
     val shoot by viewModel.shoot.collectAsState()
     val results = shoot?.completed.orEmpty()
     var selectedShot by remember { mutableStateOf(0) }
+    var showReport by remember { mutableStateOf(false) }
     val result = results.getOrNull(selectedShot.coerceIn(0, (results.size - 1).coerceAtLeast(0)))
-    var showReportDialog by remember { mutableStateOf(false) }
 
-    if (showReportDialog) {
-        ReportDialog(
-            onDismiss = { showReportDialog = false },
-            onReport = { reason ->
-                showReportDialog = false
-                scope.launch {
-                    reportQueue.submit(reason, details = null, engineTier = result?.executedTier?.name)
+    if (showReport && result != null) {
+        AlertDialog(
+            onDismissRequest = { showReport = false },
+            title = { Text("Report content") },
+            text = {
+                Column {
+                    Text("Reports are stored on this device only (no paid services). Why are you reporting?")
+                    Spacer(Modifier.height(8.dp))
+                    ReportReason.entries.forEach { reason ->
+                        TextButton(
+                            onClick = {
+                                reportStore.submit(result.imagePath, reason)
+                                showReport = false
+                                Toast.makeText(context, "Report saved locally", Toast.LENGTH_SHORT).show()
+                            },
+                        ) { Text(reason.label) }
+                    }
                 }
-                Toast.makeText(context, "Thanks — your report was submitted.", Toast.LENGTH_SHORT)
-                    .show()
+            },
+            confirmButton = {
+                TextButton(onClick = { showReport = false }) { Text("Cancel") }
             },
         )
     }
 
-    Surface(Modifier.fillMaxSize()) {
+    SpatialBackground {
         Column(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 20.dp),
         ) {
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "The editorial",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                if (results.size > 1) "${results.size} SHOTS · AI-GENERATED" else "AI-GENERATED IMAGE",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+            GlassTopBar(
+                title = "Your look",
+                subtitle = if (results.size > 1) "${results.size} shots" else "Result",
+                navigation = {
+                    IconButton(onClick = onBackToStudio) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back to studio")
+                    }
+                },
             )
             Spacer(Modifier.height(16.dp))
 
             val shotSources by viewModel.shots.collectAsState()
             val userPhoto = shotSources.filterIsInstance<com.zakir.vestra.shared.domain.PersonSource.UserPhoto>()
                 .firstOrNull()
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(20.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                when {
-                    result != null && userPhoto != null && results.size == 1 ->
-                        BeforeAfter(
-                            beforeModel = userPhoto.uri,
-                            afterModel = File(result.imagePath),
-                        )
-                    result != null ->
-                        AsyncImage(
-                            model = File(result.imagePath),
-                            contentDescription = "Photoshoot shot ${selectedShot + 1}",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                        )
-                    else ->
-                        Text(
-                            "No shots to show — start a new shoot.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                }
-            }
 
-            if (results.size > 1) {
-                Spacer(Modifier.height(12.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+            if (result == null) {
+                GlassEmptyState(
+                    message = "No shots to show — start a new shoot.",
+                    actionLabel = "New shoot",
+                    onAction = onNewLook,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                GlassImageFrame(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                 ) {
-                    itemsIndexed(results) { index, shot ->
-                        AsyncImage(
-                            model = File(shot.imagePath),
-                            contentDescription = "Shot ${index + 1}",
-                            modifier = Modifier
-                                .height(72.dp)
-                                .aspectRatio(0.75f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .border(
-                                    width = if (index == selectedShot) 2.dp else 1.dp,
-                                    color = if (index == selectedShot) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                                    },
-                                    shape = RoundedCornerShape(10.dp),
-                                )
-                                .clickable { selectedShot = index },
-                            contentScale = ContentScale.Crop,
-                        )
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (userPhoto != null && results.size == 1) {
+                            BeforeAfter(beforeModel = userPhoto.uri, afterModel = File(result.imagePath))
+                        } else {
+                            AsyncImage(
+                                model = File(result.imagePath),
+                                contentDescription = "Photoshoot shot ${selectedShot + 1}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                            )
+                        }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(16.dp))
+                if (results.size > 1) {
+                    Spacer(Modifier.height(12.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(results) { index, shot ->
+                            AsyncImage(
+                                model = File(shot.imagePath),
+                                contentDescription = "Shot ${index + 1}",
+                                modifier = Modifier
+                                    .height(72.dp)
+                                    .aspectRatio(0.75f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(
+                                        width = if (index == selectedShot) 2.dp else 1.dp,
+                                        color = if (index == selectedShot) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                    )
+                                    .clickable { selectedShot = index },
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    }
+                }
 
-            if (result != null) {
+                Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
+                    GlassSecondaryButton(
+                        text = "Save",
                         onClick = {
                             results.forEach { shot -> saveToGallery(context, File(shot.imagePath), quiet = true) }
                             Toast.makeText(
                                 context,
-                                if (results.size > 1) "${results.size} shots saved to Pictures/The Lookbook" else "Saved to Pictures/The Lookbook",
+                                if (results.size > 1) "${results.size} shots saved" else "Saved to Pictures/The Lookbook",
                                 Toast.LENGTH_SHORT,
                             ).show()
                         },
                         modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.Outlined.SaveAlt, contentDescription = null)
-                        Spacer(Modifier.padding(4.dp))
-                        Text(if (results.size > 1) "Save all" else "Save")
-                    }
-                    OutlinedButton(
+                    )
+                    GlassSecondaryButton(
+                        text = "Share",
                         onClick = { share(context, File(result.imagePath)) },
                         modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.Outlined.Share, contentDescription = null)
-                        Spacer(Modifier.padding(4.dp))
-                        Text("Share")
-                    }
-                    OutlinedButton(onClick = { showReportDialog = true }) {
-                        Icon(Icons.Outlined.Flag, contentDescription = "Report this image")
-                    }
+                    )
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
+                GlassSecondaryButton(text = "Report content", onClick = { showReport = true })
+                Spacer(Modifier.height(10.dp))
             }
 
-            Button(
+            GlassPrimaryButton(
+                text = "New shoot",
                 onClick = onNewLook,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-            ) {
-                Text("New shoot")
-            }
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
         }
     }
 }
 
-/**
- * Draggable before/after reveal: the original photo on the left of the
- * divider, the generated look on the right.
- */
 @Composable
 private fun BeforeAfter(beforeModel: Any, afterModel: Any) {
     var fraction by remember { mutableStateOf(0.5f) }
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
+            .semantics { contentDescription = "Before and after comparison. Drag horizontally to adjust." }
             .pointerInput(Unit) {
                 detectDragGestures { change, _ ->
                     change.consume()
@@ -261,61 +261,7 @@ private fun BeforeAfter(beforeModel: Any, afterModel: Any) {
                 .offset { IntOffset((fraction * widthPx).toInt() - 1, 0) }
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)),
         )
-        Text(
-            text = "◂ drag ▸",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp),
-        )
     }
-}
-
-@Composable
-private fun ReportDialog(
-    onDismiss: () -> Unit,
-    onReport: (com.zakir.vestra.shared.safety.ReportReason) -> Unit,
-) {
-    var selected by remember {
-        mutableStateOf(com.zakir.vestra.shared.safety.ReportReason.OTHER)
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Report this image") },
-        text = {
-            Column {
-                Text(
-                    "If this generation is offensive or misuses someone's likeness, " +
-                        "report it and we'll review. Reports are anonymous and work offline.",
-                )
-                Spacer(Modifier.height(12.dp))
-                com.zakir.vestra.shared.safety.ReportReason.entries.forEach { reason ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = reason == selected,
-                                onClick = { selected = reason },
-                            ),
-                    ) {
-                        RadioButton(
-                            selected = reason == selected,
-                            onClick = { selected = reason },
-                        )
-                        Text(reason.label, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onReport(selected) }) { Text("Report") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
 }
 
 private fun saveToGallery(context: Context, file: File, quiet: Boolean = false) {
@@ -337,7 +283,7 @@ private fun saveToGallery(context: Context, file: File, quiet: Boolean = false) 
 private fun share(context: Context, file: File) {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "image/jpeg"
+        type = if (file.extension.equals("mp4", true)) "video/mp4" else "image/jpeg"
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }

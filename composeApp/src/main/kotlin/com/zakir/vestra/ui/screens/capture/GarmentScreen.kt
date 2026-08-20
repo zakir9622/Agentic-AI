@@ -55,21 +55,17 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
-import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.shared.domain.Backdrop
+import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.ui.TryOnViewModel
+import com.zakir.vestra.ui.components.GlassImageFrame
+import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SpatialBackground
 import java.io.File
 
-/**
- * The outfit: add one garment for a single piece, or several for a full suit
- * (trousers + kurta + dupatta). Each piece is captured from the gallery or
- * camera and tagged with a category (Auto by default); the shoot layers them
- * onto the model in the right order.
- */
 @Composable
 fun GarmentScreen(
     viewModel: TryOnViewModel,
-    guard: com.zakir.vestra.data.GarmentInputGuard,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
@@ -78,7 +74,6 @@ fun GarmentScreen(
     val outfit by viewModel.outfit.collectAsState()
     var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
     var selectedPiece by remember { mutableIntStateOf(0) }
-    var wornWarning by remember { mutableStateOf(false) }
 
     val pickLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
@@ -86,7 +81,7 @@ fun GarmentScreen(
         uri?.let {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             viewModel.addGarment(it.toString())
-            selectedPiece = outfit.size // the newly added piece
+            selectedPiece = outfit.size
         }
     }
 
@@ -116,103 +111,60 @@ fun GarmentScreen(
 
     val active = outfit.getOrNull(selectedPiece.coerceIn(0, (outfit.size - 1).coerceAtLeast(0)))
 
-    // Warn when the selected piece looks like a photo of a person wearing the
-    // outfit rather than a flat garment — the Lite compositor can't isolate a
-    // garment from a full model shot.
-    androidx.compose.runtime.LaunchedEffect(active?.uri) {
-        wornWarning = active?.uri?.let { guard.looksLikeWornPhoto(it) } ?: false
-    }
-
-    Surface(Modifier.fillMaxSize()) {
+    SpatialBackground {
         Column(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 20.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
-                }
-                Column {
-                    Text("Act I", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        if (outfit.size > 1) "The outfit" else "The garment",
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                }
-            }
+                GlassTopBar(
+                    title = if (outfit.size > 1) "Your outfit" else "Your garment",
+                    subtitle = "Garment",
+                    navigation = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                )
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-            // Stage for the selected piece.
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(20.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (active != null) {
-                    AsyncImage(
-                        model = active.uri,
-                        contentDescription = "Selected garment",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit,
-                    )
-                    // Manual rotate for photos with no EXIF orientation tag.
-                    IconButton(
-                        onClick = {
-                            com.zakir.vestra.data.ImageRotator.rotate90(context, active.uri)?.let {
-                                viewModel.setGarmentUri(selectedPiece, it)
-                            }
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(8.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.Rotate90DegreesCw,
-                            contentDescription = "Rotate 90°",
-                            tint = MaterialTheme.colorScheme.primary,
+                GlassImageFrame(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    if (active != null) {
+                        AsyncImage(
+                            model = active.uri,
+                            contentDescription = "Selected garment",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
+                        IconButton(
+                            onClick = {
+                                com.zakir.vestra.data.ImageRotator.rotate90(context, active.uri)?.let {
+                                    viewModel.setGarmentUri(selectedPiece, it)
+                                }
+                            },
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                        ) {
+                            Icon(Icons.Outlined.Rotate90DegreesCw, contentDescription = "Rotate 90°")
+                        }
+                    } else {
+                        Text(
+                            "Add abaya, hijab, niqab, kurta, or shalwar kameez.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                } else {
-                    Text(
-                        text = "Add each piece of the outfit —\nkurta, trousers, dupatta.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    }
                 }
-            }
 
-            if (wornWarning) {
-                Spacer(Modifier.height(8.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        "This looks like a photo of someone already wearing the outfit. " +
-                            "For a clean result use a flat-lay or hanger shot of just the garment — " +
-                            "or switch to the Cloud engine in Settings, which can restyle a full look.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(12.dp),
-                    )
-                }
-            }
+                Spacer(Modifier.height(10.dp))
 
-            Spacer(Modifier.height(10.dp))
-
-            // Outfit strip: each added piece + an "add" tile.
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 itemsIndexed(outfit) { index, piece ->
                     Box {
@@ -241,11 +193,7 @@ fun GarmentScreen(
                             },
                             modifier = Modifier.size(22.dp).align(Alignment.TopEnd),
                         ) {
-                            Icon(
-                                Icons.Outlined.Close,
-                                contentDescription = "Remove piece",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
+                            Icon(Icons.Outlined.Close, contentDescription = "Remove piece")
                         }
                     }
                 }
@@ -254,26 +202,17 @@ fun GarmentScreen(
                         Modifier
                             .size(64.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                                RoundedCornerShape(10.dp),
-                            )
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
                             .clickable(onClick = ::pickFromGallery),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            Icons.Outlined.Add,
-                            contentDescription = "Add a piece",
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
+                        Icon(Icons.Outlined.Add, contentDescription = "Add a piece")
                     }
                 }
             }
 
             if (active != null) {
                 Spacer(Modifier.height(10.dp))
-                // Category of the selected piece (Auto detects abaya/hijab/dress/…).
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         FilterChip(
@@ -282,8 +221,7 @@ fun GarmentScreen(
                             label = { Text("Auto") },
                         )
                     }
-                    items(categoryChips.size) { i ->
-                        val (category, label) = categoryChips[i]
+                    items(categoryChips) { (category, label) ->
                         FilterChip(
                             selected = active.category == category,
                             onClick = { viewModel.setGarmentCategory(selectedPiece, category) },
@@ -328,20 +266,21 @@ fun GarmentScreen(
             Button(
                 onClick = onNext,
                 enabled = outfit.isNotEmpty(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             ) {
-                Text("Cast the models")
+                Text("Set casting parameters")
             }
         }
     }
 }
 
 private val categoryChips = listOf(
-    GarmentCategory.DRESS to "Dress",
-    GarmentCategory.FULL_COVERAGE to "Abaya / Kaftan",
-    GarmentCategory.HEADSCARF to "Hijab / Dupatta",
-    GarmentCategory.UPPER_BODY to "Kurta / Top",
+    GarmentCategory.ABAYA to "Abaya",
+    GarmentCategory.HIJAB to "Hijab",
+    GarmentCategory.NIQAB to "Niqab",
+    GarmentCategory.SHALWAR_KAMEEZ to "Shalwar kameez",
+    GarmentCategory.KURTA to "Kurta",
+    GarmentCategory.DUPATTA to "Dupatta",
+    GarmentCategory.KAFTAN to "Kaftan",
     GarmentCategory.LOWER_BODY to "Trousers",
 )

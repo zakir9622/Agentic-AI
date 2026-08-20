@@ -3,35 +3,35 @@ package com.zakir.vestra.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.domain.Backdrop
+import com.zakir.vestra.shared.domain.CastingProfile
+import com.zakir.vestra.shared.domain.Ethnicity
 import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.domain.GarmentColor
 import com.zakir.vestra.shared.domain.GarmentImage
 import com.zakir.vestra.shared.domain.GenerationState
 import com.zakir.vestra.shared.domain.PersonSource
 import com.zakir.vestra.shared.domain.ShootState
 import com.zakir.vestra.shared.domain.TryOnRequest
 import com.zakir.vestra.shared.domain.TryOnResult
+import com.zakir.vestra.shared.domain.BodyType
+import com.zakir.vestra.shared.domain.HairCoverage
+import com.zakir.vestra.shared.domain.Scenario
+import com.zakir.vestra.shared.domain.SkinTone
 import com.zakir.vestra.shared.domain.layerRank
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeEntry
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-/**
- * Holds the in-flight photoshoot: the outfit (one or more garment pieces — a
- * South Asian suit is trousers + kurta + dupatta), the cast (one or more person
- * sources = shots), and per-shot progress. For each shot the pieces are layered
- * onto the model in [layerRank] order by chaining: each layer's output becomes
- * the next layer's input, so a full outfit renders in a single shot.
- */
 class TryOnViewModel(
     private val engineRouter: EngineRouter,
     private val appSettings: AppSettings,
@@ -40,6 +40,9 @@ class TryOnViewModel(
 
     private val _outfit = MutableStateFlow<List<GarmentImage>>(emptyList())
     val outfit: StateFlow<List<GarmentImage>> = _outfit
+
+    private val _casting = MutableStateFlow(CastingProfile())
+    val casting: StateFlow<CastingProfile> = _casting
 
     private val _shots = MutableStateFlow<List<PersonSource>>(emptyList())
     val shots: StateFlow<List<PersonSource>> = _shots
@@ -51,8 +54,6 @@ class TryOnViewModel(
     val shoot: StateFlow<ShootState?> = _shoot
 
     private var shootJob: Job? = null
-
-    // ── outfit building ────────────────────────────────────────────────────────
 
     fun addGarment(uri: String) {
         _outfit.value = _outfit.value + GarmentImage(uri = uri)
@@ -68,11 +69,42 @@ class TryOnViewModel(
         }
     }
 
-    /** Replaces a piece's image (used after manual rotation), keeping its category. */
     fun setGarmentUri(index: Int, uri: String) {
         _outfit.value = _outfit.value.mapIndexed { i, piece ->
             if (i == index) piece.copy(uri = uri) else piece
         }
+    }
+
+    fun setCasting(profile: CastingProfile) {
+        _casting.value = profile
+    }
+
+    fun applyPreset(preset: CastingProfile) {
+        _casting.value = preset
+    }
+
+    fun setEthnicity(ethnicity: Ethnicity) {
+        _casting.value = _casting.value.copy(ethnicity = ethnicity)
+    }
+
+    fun setSkinTone(skinTone: SkinTone) {
+        _casting.value = _casting.value.copy(skinTone = skinTone)
+    }
+
+    fun setBodyType(bodyType: BodyType) {
+        _casting.value = _casting.value.copy(bodyType = bodyType)
+    }
+
+    fun setHairCoverage(hairCoverage: HairCoverage) {
+        _casting.value = _casting.value.copy(hairCoverage = hairCoverage)
+    }
+
+    fun setGarmentColor(color: GarmentColor?) {
+        _casting.value = _casting.value.copy(garmentColor = color)
+    }
+
+    fun setScenario(scenario: Scenario) {
+        _casting.value = _casting.value.copy(scenario = scenario)
     }
 
     fun setShots(sources: List<PersonSource>) {
@@ -92,13 +124,10 @@ class TryOnViewModel(
         _backdrop.value = backdrop
     }
 
-    // ── shoot ──────────────────────────────────────────────────────────────────
-
     @OptIn(ExperimentalUuidApi::class)
     fun startShoot() {
         val outfit = _outfit.value.ifEmpty { return }
         val shots = _shots.value.ifEmpty { return }
-        // Trousers first, kurta next, dupatta on top.
         val layers = outfit.sortedBy { it.category.layerRank() }
         shootJob?.cancel()
         val shootId = Uuid.random().toString()
@@ -108,7 +137,7 @@ class TryOnViewModel(
             val completed = mutableListOf<TryOnResult>()
             for ((shotIndex, person) in shots.withIndex()) {
                 val shotResult = renderShot(person, layers, shotIndex, shots.size, completed)
-                    ?: return@launch // a failed layer ends the shoot; earlier shots stay saved
+                    ?: return@launch
                 completed += shotResult
                 wardrobe.add(
                     WardrobeEntry(
@@ -126,7 +155,6 @@ class TryOnViewModel(
         }
     }
 
-    /** Chains every outfit layer onto [person]; returns the final composited shot, or null on failure. */
     private suspend fun renderShot(
         person: PersonSource,
         layers: List<GarmentImage>,
@@ -143,16 +171,14 @@ class TryOnViewModel(
                     garment = piece,
                     person = currentPerson,
                     tier = appSettings.engineTier.value,
-                    // Stage the backdrop only on the final layer; intermediate
-                    // layers keep the original scene so the next layer segments cleanly.
                     backdrop = if (isLastLayer) _backdrop.value else Backdrop.ORIGINAL,
+                    casting = _casting.value,
                 ),
             ).onEachReport(shotIndex, totalShots, layerIndex, layers.size, completed).last()
 
             when (terminal) {
                 is GenerationState.Complete -> {
                     lastResult = terminal.result
-                    // Feed this layer's output forward as the person for the next piece.
                     currentPerson = PersonSource.UserPhoto("file://${terminal.result.imagePath}")
                 }
                 is GenerationState.Failed -> {
@@ -165,7 +191,6 @@ class TryOnViewModel(
         return lastResult
     }
 
-    /** Republishes each engine state as shoot progress, folding layer into the label. */
     private fun Flow<GenerationState>.onEachReport(
         shotIndex: Int,
         totalShots: Int,
@@ -178,8 +203,6 @@ class TryOnViewModel(
         } else {
             state
         }
-        // Don't surface a layer's Complete as the shot's Complete — the shoot
-        // loop emits the shot Complete once all layers finish.
         val forShoot = if (labelled is GenerationState.Complete && layerIndex < layerCount - 1) {
             GenerationState.Running(1f, "Layer ${layerIndex + 1} done")
         } else {
@@ -192,6 +215,13 @@ class TryOnViewModel(
         shootJob?.cancel()
         _outfit.value = emptyList()
         _shots.value = emptyList()
+        _casting.value = CastingProfile()
+        _shoot.value = null
+    }
+
+    fun cancelShoot() {
+        shootJob?.cancel()
+        shootJob = null
         _shoot.value = null
     }
 }
