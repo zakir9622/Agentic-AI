@@ -26,6 +26,13 @@ val VestraTypography = Typography(
         lineHeight = 1.1.em,
         letterSpacing = (-0.015).em,
     ),
+    displaySmall = TextStyle(
+        fontFamily = Display,
+        fontWeight = FontWeight.Medium,
+        fontSize = 32.sp,
+        lineHeight = 1.12.em,
+        letterSpacing = (-0.01).em,
+    ),
     headlineLarge = TextStyle(
         fontFamily = Display,
         fontWeight = FontWeight.Medium,

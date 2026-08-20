@@ -77,6 +77,26 @@ class ModelPackManager(
         updateStatus(id) { it.copy(status = PackStatus.NOT_INSTALLED, progress = 0f) }
     }
 
+    /** Drop an in-flight download UI state while keeping staged bytes for a later resume. */
+    fun markCancelled(id: String) {
+        updateStatus(id) { current ->
+            val staged = stagedBytes(current.pack)
+            val progress = (staged.toFloat() / current.pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 0.99f)
+            current.copy(status = PackStatus.NOT_INSTALLED, progress = progress)
+        }
+    }
+
+    /** Bytes already staged for [pack] (used to restore DOWNLOADING after catalog refresh). */
+    fun stagedBytes(pack: ModelPack): Long {
+        val staging = stagingDir(pack)
+        return pack.files.sumOf { file ->
+            val path = "$staging/${file.path}"
+            if (fs.exists(path)) fs.fileSize(path).coerceAtMost(file.bytes) else 0L
+        }
+    }
+
+    fun hasPartialStaging(pack: ModelPack): Boolean = stagedBytes(pack) > 0L
+
     /**
      * Called by the platform downloader once all files are staged. Verifies
      * every sha256 before committing; a corrupt file aborts the install.
@@ -118,17 +138,35 @@ class ModelPackManager(
     fun stagingDir(pack: ModelPack): String = "${fs.packsRoot()}/.staging/${pack.id}"
 
     private fun rebuildStates(manifest: PackManifest) {
+        val previous = _states.value
         _states.value = manifest.packs.associate { pack ->
             val dir = versionDir(pack)
             val installedAnyVersion = fs.listFiles("${fs.packsRoot()}/${pack.id}")
                 .any { fs.exists("$it/$COMPLETE_MARKER") }
+            val prior = previous[pack.id]
+            val staged = stagedBytes(pack)
             val status = when {
                 fs.exists("$dir/$COMPLETE_MARKER") -> PackStatus.INSTALLED
+                // Preserve in-flight downloads across Studio/Settings/Packs refreshes.
+                prior?.status == PackStatus.DOWNLOADING -> PackStatus.DOWNLOADING
                 installedAnyVersion -> PackStatus.UPDATE_AVAILABLE
                 !deviceMeets(pack.minSpec) -> PackStatus.INCOMPATIBLE
                 else -> PackStatus.NOT_INSTALLED
             }
-            pack.id to PackState(pack = pack, status = status)
+            val progress = when (status) {
+                PackStatus.DOWNLOADING -> {
+                    if (prior?.status == PackStatus.DOWNLOADING && prior.progress > 0f) {
+                        prior.progress
+                    } else {
+                        (staged.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 0.99f)
+                    }
+                }
+                PackStatus.INSTALLED -> 1f
+                PackStatus.NOT_INSTALLED ->
+                    (staged.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 0.99f)
+                else -> 0f
+            }
+            pack.id to PackState(pack = pack, status = status, progress = progress)
         }
     }
 

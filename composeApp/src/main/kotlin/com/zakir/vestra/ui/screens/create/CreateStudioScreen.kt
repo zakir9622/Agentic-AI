@@ -83,6 +83,18 @@ fun CreateStudioScreen(
                 },
             )
             Spacer(Modifier.height(10.dp))
+            Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(6.dp))
+            com.zakir.vestra.ui.components.ExamplePromptRow(
+                examples = listOf(
+                    "Emerald abaya in a Lahore bazaar at golden hour",
+                    "Soft studio light, navy silk hijab, ivory backdrop",
+                    "Black niqab portrait, shallow depth of field",
+                ),
+                enabled = !busy,
+                onPick = viewModel::setPrompt,
+            )
+            Spacer(Modifier.height(10.dp))
             GlassSecondaryButton(
                 text = if (reference == null) "Add reference image (recreate)" else "Change reference image",
                 onClick = {

@@ -296,8 +296,16 @@ object CloudModelCatalog {
     fun forCapability(capability: AiCapability): List<CloudModelProvider> =
         providers.filter { it.capability == capability }
 
-    fun defaultFor(capability: AiCapability): CloudModelProvider =
-        forCapability(capability).first()
+    fun defaultFor(capability: AiCapability): CloudModelProvider {
+        val preferredId = when (capability) {
+            AiCapability.TRY_ON -> defaultTryOnId
+            AiCapability.IMAGE_GEN -> defaultImageGenId
+            AiCapability.IMAGE_EDIT -> defaultImageEditId
+            AiCapability.CODE -> defaultCodeId
+            AiCapability.VIDEO -> defaultVideoId
+        }
+        return byId(preferredId) ?: forCapability(capability).first()
+    }
 
     val defaultTryOnId: String = "idm-vton-hf"
     val defaultImageGenId: String = "flux-schnell-hf"

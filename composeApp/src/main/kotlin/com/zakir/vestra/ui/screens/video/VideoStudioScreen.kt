@@ -56,6 +56,18 @@ fun VideoStudioScreen(
                 },
             )
             Spacer(Modifier.height(12.dp))
+            Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(6.dp))
+            com.zakir.vestra.ui.components.ExamplePromptRow(
+                examples = listOf(
+                    "Woman in black abaya walking through a Karachi night bazaar",
+                    "Slow pan across embroidered green shalwar kameez in soft daylight",
+                    "Hijabi model turning toward camera, linen texture detail",
+                ),
+                enabled = !busy,
+                onPick = viewModel::setPrompt,
+            )
+            Spacer(Modifier.height(12.dp))
             if (busy) {
                 GlassSecondaryButton(text = "Cancel", onClick = viewModel::cancel)
             } else {

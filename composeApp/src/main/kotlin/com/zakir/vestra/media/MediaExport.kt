@@ -39,7 +39,16 @@ object MediaExport {
             if (!quiet) Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
             return false
         }
-        context.contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+        val written = runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { it.copyTo(out) }
+            } != null
+        }.getOrDefault(false)
+        if (!written) {
+            runCatching { context.contentResolver.delete(uri, null, null) }
+            if (!quiet) Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
+            return false
+        }
         if (!quiet) Toast.makeText(context, "Saved to Pictures/The Lookbook", Toast.LENGTH_SHORT).show()
         return true
     }
@@ -63,7 +72,16 @@ object MediaExport {
             if (!quiet) Toast.makeText(context, "Couldn't save video", Toast.LENGTH_SHORT).show()
             return false
         }
-        context.contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+        val written = runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { it.copyTo(out) }
+            } != null
+        }.getOrDefault(false)
+        if (!written) {
+            runCatching { context.contentResolver.delete(uri, null, null) }
+            if (!quiet) Toast.makeText(context, "Couldn't save video", Toast.LENGTH_SHORT).show()
+            return false
+        }
         if (!quiet) Toast.makeText(context, "Saved to Movies/The Lookbook", Toast.LENGTH_SHORT).show()
         return true
     }
@@ -87,6 +105,9 @@ object MediaExport {
         if (!file.exists()) {
             Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
             return
+        }
+        if (file.extension.lowercase() in setOf("jpg", "jpeg", "png")) {
+            Provenance.ensureImageFile(file, applyVisibleWatermark = false)
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val type = when (file.extension.lowercase()) {

@@ -176,6 +176,32 @@ class ModelPackManagerTest {
     }
 
     @Test
+    fun refreshPreservesDownloadingState() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        manager.markDownloading("lite-v1", 0.42f)
+        manager.refresh()
+        val state = manager.states.value.getValue("lite-v1")
+        assertEquals(PackStatus.DOWNLOADING, state.status)
+        assertEquals(0.42f, state.progress, 0.001f)
+    }
+
+    @Test
+    fun cancelKeepsPartialProgressForResumeLabel() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        manager.markDownloading("lite-v1", 0.6f)
+        manager.markCancelled("lite-v1")
+        val state = manager.states.value.getValue("lite-v1")
+        assertEquals(PackStatus.NOT_INSTALLED, state.status)
+        assertTrue(state.progress > 0f)
+    }
+
+    @Test
     fun hasSpaceForRespectsMargin() = runTest {
         val fs = FakeFs()
         val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")

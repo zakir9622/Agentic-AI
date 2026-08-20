@@ -92,13 +92,16 @@ fun GlassCard(
     val glassFill = VestraColors.GlassFill
     val base = Modifier
         .fillMaxWidth()
-        .graphicsLayer {
-            shadowElevation = elevation.toPx()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                ambientShadowColor = Color(0x1A2D6A4F)
-                spotShadowColor = Color(0x332D6A4F)
-            }
-        }
+        .then(
+            if (elevation > 0.dp) {
+                Modifier.graphicsLayer {
+                    // Soft elevation; avoid ambient/spot shadow colors that blank on some GPU paths.
+                    shadowElevation = elevation.toPx().coerceAtMost(12f)
+                }
+            } else {
+                Modifier
+            },
+        )
         .clip(shape)
         .background(glassFill)
         .border(

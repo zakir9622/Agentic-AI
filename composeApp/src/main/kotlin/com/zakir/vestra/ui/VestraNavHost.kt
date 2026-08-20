@@ -170,19 +170,28 @@ fun VestraNavHost(
         composable(Routes.CREATE) {
             CreateStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    generativeViewModel.cancel()
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.CODE) {
             CodeStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    generativeViewModel.cancel()
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.VIDEO) {
             VideoStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    generativeViewModel.cancel()
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.USAGE) {

@@ -99,10 +99,12 @@ class GenerativeCloudService(
                 "Only free Hugging Face Spaces are supported for video"
             }
             val result = hf.predict(
-                provider.endpoint,
-                provider.apiName,
-                listOf(prompt.trim()),
-                settings.hfToken.value,
+                spaceHost = provider.endpoint,
+                apiName = provider.apiName,
+                data = listOf(prompt.trim()),
+                hfToken = settings.hfToken.value,
+                maxPolls = 180,
+                pollDelayMs = 3_000,
             )
             val url = extractRef(result)
             emit(GenerativeState.Running(0.9f, "Downloading video…"))
