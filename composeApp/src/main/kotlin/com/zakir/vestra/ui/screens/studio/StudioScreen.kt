@@ -80,7 +80,7 @@ fun StudioScreen(
         ) {
             GlassTopBar(
                 title = "The Lookbook",
-                subtitle = "Spatial studio",
+                subtitle = "Shop · sell · create",
                 actions = {
                     IconButton(onClick = onOpenWardrobe) {
                         Icon(Icons.Outlined.Checkroom, contentDescription = "Wardrobe")
@@ -93,17 +93,18 @@ fun StudioScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = if (proReady) "Pro ready" else "Pro pack needed", active = proReady)
-                GlassPill(text = "Cloud AI", active = true, accent = MaterialTheme.colorScheme.secondary)
+                GlassPill(text = "On-device", active = true)
+                GlassPill(text = "Free cloud", active = true, accent = MaterialTheme.colorScheme.secondary)
             }
 
             Spacer(Modifier.height(20.dp))
 
             GlassCard {
-                GlassSectionLabel("ESSENTIAL")
+                GlassSectionLabel("ESSENTIAL · ALL PERSONAS")
                 Text("Virtual try-on", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Abaya, hijab, niqab, shalwar kameez — cast ethnicity, body, and scene. On-device or free cloud models.",
+                    "Shoppers preview modest wear. Sellers batch listing shots. Creators cast looks — on-device Lite/Pro or free cloud try-on.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -114,26 +115,26 @@ fun StudioScreen(
             }
 
             Spacer(Modifier.height(14.dp))
-            GlassSectionLabel("MORE STUDIOS")
+            GlassSectionLabel("MEDIA LOOP")
             StudioTile(
                 icon = Icons.Outlined.Image,
                 title = "Create Studio",
-                body = "Generate or recreate any image from a text prompt (optional reference).",
+                body = "Prompt or recreate product / lookbook stills. Save to gallery · share · wardrobe.",
                 onClick = onOpenCreate,
-            )
-            Spacer(Modifier.height(10.dp))
-            StudioTile(
-                icon = Icons.Outlined.Code,
-                title = "Code Studio",
-                body = "Open coding models — Qwen Coder, DeepSeek, Llama on Groq. Token usage tracked.",
-                onClick = onOpenCode,
             )
             Spacer(Modifier.height(10.dp))
             StudioTile(
                 icon = Icons.Outlined.Videocam,
                 title = "Video Studio",
-                body = "Free HF Spaces — LTX-Video, CogVideoX. No paid APIs.",
+                body = "Free HF clips (LTX, CogVideoX). Save to Movies/The Lookbook.",
                 onClick = onOpenVideo,
+            )
+            Spacer(Modifier.height(10.dp))
+            StudioTile(
+                icon = Icons.Outlined.Code,
+                title = "Code Studio",
+                body = "Free coding models — Qwen, DeepSeek, Llama on Groq. Tokens in Usage.",
+                onClick = onOpenCode,
             )
 
             if (!proReady) {

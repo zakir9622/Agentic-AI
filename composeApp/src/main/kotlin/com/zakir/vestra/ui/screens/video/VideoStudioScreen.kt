@@ -34,7 +34,7 @@ fun VideoStudioScreen(
     val estimate = viewModel.usage.estimateNext(provider)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
 
-    GlassScreen(title = "Video Studio", subtitle = "Free HF Spaces only", onBack = onBack) {
+    GlassScreen(title = "Video Studio", subtitle = "Creators · free HF only", onBack = onBack) {
         GlassCard {
             GlassSectionLabel("FREE MODEL")
             Text(provider.displayName, style = MaterialTheme.typography.titleMedium)

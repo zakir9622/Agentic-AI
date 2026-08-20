@@ -5,18 +5,25 @@ import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.cloud.GenerativeState
+import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
 import com.zakir.vestra.shared.usage.UsageLedger
+import com.zakir.vestra.shared.wardrobe.WardrobeEntry
+import com.zakir.vestra.shared.wardrobe.WardrobeRepository
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalUuidApi::class)
 class GenerativeViewModel(
     private val generative: GenerativeCloudService,
     val appSettings: AppSettings,
     val usage: UsageLedger,
+    private val wardrobe: WardrobeRepository,
 ) : ViewModel() {
 
     private val _prompt = MutableStateFlow("")
@@ -113,12 +120,31 @@ class GenerativeViewModel(
         job = viewModelScope.launch {
             try {
                 block().collect { next ->
-                    if (epoch == generationEpoch) _state.value = next
+                    if (epoch != generationEpoch) return@collect
+                    _state.value = next
+                    if (next is GenerativeState.ImageReady) {
+                        ingestCreateImage(next.path)
+                    }
                 }
             } catch (_: kotlinx.coroutines.CancellationException) {
                 // Expected on cancel / clear
             }
         }
+    }
+
+    private fun ingestCreateImage(path: String) {
+        val promptSnippet = _prompt.value.trim().take(80).ifBlank { "create" }
+        wardrobe.add(
+            WardrobeEntry(
+                id = Uuid.random().toString(),
+                createdAtEpochMillis = System.currentTimeMillis(),
+                imagePath = path,
+                garmentUri = "create:$promptSnippet",
+                personLabel = "Create",
+                tier = EngineTier.CLOUD,
+                shootId = null,
+            ),
+        )
     }
 
     private companion object {

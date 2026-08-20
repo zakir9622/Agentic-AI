@@ -1,10 +1,11 @@
 package com.zakir.vestra.ui.screens.create
 
-import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,14 +21,15 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
+import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.GlassLoadingCard
+import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
@@ -53,7 +55,7 @@ fun CreateStudioScreen(
         viewModel.setReference(uri?.toString())
     }
 
-    GlassScreen(title = "Create Studio", subtitle = "Free prompt image", onBack = onBack) {
+    GlassScreen(title = "Create Studio", subtitle = "Shop · sell · create — free models", onBack = onBack) {
         GlassCard {
             GlassSectionLabel("FREE MODEL")
             Text(provider.displayName, style = MaterialTheme.typography.titleMedium)
@@ -138,6 +140,11 @@ internal fun ResultPane(
         is GenerativeState.Running -> GlassLoadingCard(state.stage, progress = state.fraction)
         is GenerativeState.ImageReady -> GlassCard {
             GlassSectionLabel("RESULT")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassPill(text = "AI-generated", active = true)
+                GlassPill(text = "In wardrobe", active = true, accent = MaterialTheme.colorScheme.secondary)
+            }
+            Spacer(Modifier.height(8.dp))
             AsyncImage(
                 model = File(state.path),
                 contentDescription = "Generated",
@@ -145,53 +152,42 @@ internal fun ResultPane(
                 contentScale = ContentScale.Fit,
             )
             Spacer(Modifier.height(10.dp))
-            GlassSecondaryButton(
-                text = "Share image",
-                onClick = {
-                    val file = File(state.path)
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                    context.startActivity(
-                        Intent.createChooser(
-                            Intent(Intent.ACTION_SEND).apply {
-                                type = "image/jpeg"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            },
-                            "Share",
-                        ),
-                    )
-                },
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                GlassSecondaryButton(
+                    text = "Save",
+                    onClick = { MediaExport.saveImageToGallery(context, File(state.path)) },
+                    modifier = Modifier.weight(1f),
+                )
+                GlassSecondaryButton(
+                    text = "Share",
+                    onClick = { MediaExport.share(context, File(state.path), "Share image") },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         is GenerativeState.VideoReady -> GlassCard {
             GlassSectionLabel("VIDEO READY")
-            Text("Saved on device. Open with a free system video player.", style = MaterialTheme.typography.bodyMedium)
+            GlassPill(text = "AI-generated", active = true)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Saved on device. Save to Movies/The Lookbook or open with a system player.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
             Spacer(Modifier.height(8.dp))
             Text(state.path, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(10.dp))
-            GlassSecondaryButton(
-                text = "Open / share video",
-                onClick = {
-                    val file = File(state.path)
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                    val view = Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(uri, "video/*")
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    runCatching { context.startActivity(view) }.onFailure {
-                        context.startActivity(
-                            Intent.createChooser(
-                                Intent(Intent.ACTION_SEND).apply {
-                                    type = "video/mp4"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                },
-                                "Share video",
-                            ),
-                        )
-                    }
-                },
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                GlassSecondaryButton(
+                    text = "Save",
+                    onClick = { MediaExport.saveVideoToGallery(context, File(state.path)) },
+                    modifier = Modifier.weight(1f),
+                )
+                GlassSecondaryButton(
+                    text = "Open / share",
+                    onClick = { MediaExport.openVideo(context, File(state.path)) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         is GenerativeState.CodeReady -> GlassCard {
             GlassSectionLabel("CODE · ${state.tokensIn + state.tokensOut} free tokens")
