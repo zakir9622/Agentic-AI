@@ -166,7 +166,7 @@ internal fun ResultPane(
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 GlassSecondaryButton(
-                    text = "Save",
+                    text = "Save to Photos",
                     onClick = { MediaExport.saveImageToGallery(context, File(state.path)) },
                     modifier = Modifier.weight(1f),
                 )
@@ -190,7 +190,7 @@ internal fun ResultPane(
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 GlassSecondaryButton(
-                    text = "Save",
+                    text = "Save to Gallery",
                     onClick = { MediaExport.saveVideoToGallery(context, File(state.path)) },
                     modifier = Modifier.weight(1f),
                 )
