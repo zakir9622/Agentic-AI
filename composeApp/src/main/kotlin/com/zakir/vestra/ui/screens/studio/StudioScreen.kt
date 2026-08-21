@@ -59,6 +59,7 @@ import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
 import kotlinx.coroutines.delay
 
@@ -116,10 +117,18 @@ fun StudioScreen(
                     subtitle = "Shop · sell · create",
                     actions = {
                         IconButton(onClick = onOpenWardrobe) {
-                            Icon(Icons.Outlined.Checkroom, contentDescription = "Wardrobe")
+                            Icon(
+                                Icons.Outlined.Checkroom,
+                                contentDescription = "Wardrobe",
+                                tint = VestraColors.Ink,
+                            )
                         }
                         IconButton(onClick = onOpenSettings) {
-                            Icon(Icons.Outlined.Settings, contentDescription = "Settings")
+                            Icon(
+                                Icons.Outlined.Settings,
+                                contentDescription = "Settings",
+                                tint = VestraColors.Accent,
+                            )
                         }
                     },
                 )

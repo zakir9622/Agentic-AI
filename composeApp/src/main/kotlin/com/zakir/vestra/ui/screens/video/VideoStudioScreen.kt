@@ -1,8 +1,12 @@
 package com.zakir.vestra.ui.screens.video
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -16,9 +20,9 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
-import com.zakir.vestra.ui.components.GlassPrimaryButton
+import com.zakir.vestra.ui.components.GlassGenerateActions
+import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassScreen
-import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.screens.create.ResultPane
 
@@ -30,6 +34,8 @@ fun VideoStudioScreen(
     val prompt by viewModel.prompt.collectAsState()
     val state by viewModel.state.collectAsState()
     val preflight by viewModel.preflightMessage.collectAsState()
+    val detailBoost by viewModel.detailBoost.collectAsState()
+    val fashionContext by viewModel.fashionContext.collectAsState()
     val provider = viewModel.appSettings.selectedProvider(AiCapability.VIDEO)
     val estimate = viewModel.usage.estimateNext(provider)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
@@ -55,6 +61,27 @@ fun VideoStudioScreen(
                     Text("Describe the clip… e.g. woman in black abaya walking through a Karachi night bazaar")
                 },
             )
+            Spacer(Modifier.height(10.dp))
+            GlassSectionLabel("MODEL OPTIONS")
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                GlassOptionToggle(
+                    text = "Fashion context",
+                    active = fashionContext,
+                    enabled = !busy,
+                    onToggle = { viewModel.setFashionContext(!fashionContext) },
+                )
+                GlassOptionToggle(
+                    text = "Detail boost",
+                    active = detailBoost,
+                    enabled = !busy,
+                    onToggle = { viewModel.setDetailBoost(!detailBoost) },
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(6.dp))
@@ -68,15 +95,14 @@ fun VideoStudioScreen(
                 onPick = viewModel::setPrompt,
             )
             Spacer(Modifier.height(12.dp))
-            if (busy) {
-                GlassSecondaryButton(text = "Cancel", onClick = viewModel::cancel)
-            } else {
-                GlassPrimaryButton(
-                    text = "Generate video (free)",
-                    onClick = viewModel::generateVideo,
-                    enabled = prompt.isNotBlank(),
-                )
-            }
+            GlassGenerateActions(
+                busy = busy,
+                generateLabel = "Generate video (free)",
+                onGenerate = viewModel::generateVideo,
+                onStop = { viewModel.forceStop() },
+                enabled = prompt.isNotBlank(),
+                statusText = "Rendering… leave anytime — Force stop cancels",
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Free HF Spaces can queue at peak hours. No paid video APIs are used.",

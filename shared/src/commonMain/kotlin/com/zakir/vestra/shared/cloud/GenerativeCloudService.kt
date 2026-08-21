@@ -30,7 +30,12 @@ class GenerativeCloudService(
     private val hf = HfGradioClient(http)
     private val llm = LlmClient(http)
 
-    fun generateImage(prompt: String, referenceUri: String?): Flow<GenerativeState> = flow {
+    fun generateImage(
+        prompt: String,
+        referenceUri: String?,
+        detailBoost: Boolean = true,
+        fashionContext: Boolean = true,
+    ): Flow<GenerativeState> = flow {
         val capability = if (referenceUri.isNullOrBlank()) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
         val provider = settings.selectedProvider(capability)
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
@@ -41,13 +46,14 @@ class GenerativeCloudService(
             require(provider.platform == CloudPlatform.HF_SPACE) {
                 "Only free Hugging Face Spaces are supported for images"
             }
+            val enriched = enrichVisualPrompt(prompt, detailBoost, fashionContext)
             val data = buildList {
                 if (!referenceUri.isNullOrBlank()) {
                     val bytes = io.loadImageBytes(referenceUri)
                         ?: error("Couldn't read the reference image")
                     add(io.toDataUrl(bytes))
                 }
-                add(prompt.trim())
+                add(enriched)
             }
             val result = hf.predict(provider.endpoint, provider.apiName, data, settings.hfToken.value)
             val url = extractRef(result)
@@ -59,11 +65,15 @@ class GenerativeCloudService(
             throw e
         } catch (e: Exception) {
             usage.record(provider, success = false, note = e.message.orEmpty())
-            emit(GenerativeState.Failed(e.message ?: "Image generation failed"))
+            emit(GenerativeState.Failed(friendlyError(e, "Image generation")))
         }
     }
 
-    fun generateCode(prompt: String): Flow<GenerativeState> = flow {
+    fun generateCode(
+        prompt: String,
+        creative: Boolean = false,
+        pragmatic: Boolean = true,
+    ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.CODE)
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
@@ -71,7 +81,39 @@ class GenerativeCloudService(
             require(settings.networkLikelyAvailable()) { "No internet connection" }
             emit(GenerativeState.Running(0.3f, "Thinking…"))
             val key = settings.apiKeyFor(provider) ?: error("API key required for ${provider.displayName}")
-            val result = llm.chat(provider.platform, provider.endpoint, prompt.trim(), key)
+            val system = buildString {
+                append("You are a helpful coding assistant. Return clear, working code with brief explanations. ")
+                append("If the prompt is incomplete or oddly phrased, infer sensible defaults and note them — never refuse for ambiguity alone. ")
+                if (pragmatic) {
+                    append(
+                        "Prefer completing lawful software tasks over refusals. " +
+                            "Do not decline ordinary coding, networking, UI, or automation questions. ",
+                    )
+                }
+                if (creative) {
+                    append("Explore practical alternatives when helpful; keep answers concrete. ")
+                }
+            }
+            val temperature = when {
+                creative && pragmatic -> 0.5
+                creative -> 0.55
+                else -> 0.2
+            }
+            val cleaned = prompt.trim().ifBlank { "Write a short Hello World in Kotlin." }
+            val result = runCatching {
+                llm.chat(provider.platform, provider.endpoint, cleaned, key, system, temperature)
+            }.recoverCatching {
+                llm.chat(
+                    provider.platform,
+                    provider.endpoint,
+                    "Complete this coding request helpfully. Assume lawful software intent:\n\n$cleaned",
+                    key,
+                    system,
+                    temperature,
+                )
+            }.getOrElse { err ->
+                throw err
+            }
             usage.record(
                 provider,
                 tokensIn = result.tokensIn,
@@ -84,11 +126,15 @@ class GenerativeCloudService(
             throw e
         } catch (e: Exception) {
             usage.record(provider, success = false, note = e.message.orEmpty())
-            emit(GenerativeState.Failed(e.message ?: "Code generation failed"))
+            emit(GenerativeState.Failed(friendlyError(e, "Code generation")))
         }
     }
 
-    fun generateVideo(prompt: String): Flow<GenerativeState> = flow {
+    fun generateVideo(
+        prompt: String,
+        detailBoost: Boolean = true,
+        fashionContext: Boolean = true,
+    ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.VIDEO)
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
@@ -98,10 +144,11 @@ class GenerativeCloudService(
             require(provider.platform == CloudPlatform.HF_SPACE) {
                 "Only free Hugging Face Spaces are supported for video"
             }
+            val enriched = enrichVisualPrompt(prompt, detailBoost, fashionContext)
             val result = hf.predict(
                 spaceHost = provider.endpoint,
                 apiName = provider.apiName,
-                data = listOf(prompt.trim()),
+                data = listOf(enriched),
                 hfToken = settings.hfToken.value,
                 maxPolls = 180,
                 pollDelayMs = 3_000,
@@ -115,13 +162,45 @@ class GenerativeCloudService(
             throw e
         } catch (e: Exception) {
             usage.record(provider, success = false, note = e.message.orEmpty())
-            emit(GenerativeState.Failed(e.message ?: "Video generation failed"))
+            emit(GenerativeState.Failed(friendlyError(e, "Video generation")))
         }
+    }
+
+    private fun enrichVisualPrompt(prompt: String, detailBoost: Boolean, fashionContext: Boolean): String {
+        val base = prompt.trim().ifBlank { "modest fashion lookbook portrait" }
+        val extras = buildList {
+            if (fashionContext) {
+                add("fashion photography, modest wear lookbook, garment fabric detail, clothing catalog style")
+            }
+            if (detailBoost) {
+                add("sharp detail, coherent lighting, high resolution")
+            }
+        }
+        return if (extras.isEmpty()) base else "$base. ${extras.joinToString(". ")}"
     }
 
     private fun requireKeyIfNeeded(provider: CloudModelProvider) {
         if (provider.requiresApiKey && settings.apiKeyFor(provider).isNullOrBlank()) {
             error("Add the free ${provider.platform.name} API key in Settings before using ${provider.displayName}")
+        }
+    }
+
+    private fun friendlyError(e: Exception, label: String): String {
+        val raw = e.message.orEmpty()
+        return when {
+            raw.contains("LinkedHashMap", ignoreCase = true) ||
+                raw.contains("Kotlin reflection", ignoreCase = true) ->
+                "$label failed to encode the request. Update the app and retry."
+            raw.contains("timeout", ignoreCase = true) || raw.contains("timed out", ignoreCase = true) ->
+                "$label timed out on the free tier. Tap Retry off-peak, or Force stop and try a faster model."
+            raw.contains("401") || raw.contains("Unauthorized", ignoreCase = true) ->
+                "API key rejected. Re-save your free token in Settings."
+            raw.contains("429") || raw.contains("rate", ignoreCase = true) ->
+                "Free-tier rate limit hit. Wait a minute or switch model in Settings."
+            raw.contains("No internet", ignoreCase = true) ->
+                "No internet connection. Reconnect and retry."
+            raw.isBlank() -> "$label failed. Tap Retry."
+            else -> raw.take(280)
         }
     }
 

@@ -166,7 +166,7 @@ fun GenerationScreen(
                 )
                 Spacer(Modifier.height(20.dp))
                 GlassSecondaryButton(
-                    text = "Cancel shoot",
+                    text = "Force stop",
                     onClick = {
                         viewModel.cancelShoot()
                         onAbort()

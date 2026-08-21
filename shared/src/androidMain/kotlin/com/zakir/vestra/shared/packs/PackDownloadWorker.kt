@@ -16,8 +16,12 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.zakir.vestra.shared.domain.ModelPack
+import com.zakir.vestra.shared.domain.PackFile
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpTimeoutConfig
 import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
@@ -27,12 +31,19 @@ import io.ktor.utils.io.readAvailable
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 
 /**
- * Resumable model-pack download. Each file is fetched with an HTTP Range
- * request continuing from whatever is already staged, so an interrupted
- * multi-gigabyte download picks up where it left off. Verification and the
- * atomic install commit happen in ModelPackManager.completeInstall.
+ * Resumable model-pack download. Files download in parallel (up to [PARALLEL_FILES])
+ * with HTTP Range resume. Verification and the atomic install commit happen in
+ * ModelPackManager.completeInstall.
  *
  * The host app must provide the manager via [PackDownloadWorker.dependencies].
  */
@@ -55,10 +66,12 @@ class PackDownloadWorker(
         }
 
         val stagingDir = File(manager.stagingDir(pack)).apply { mkdirs() }
-        var doneBytes = pack.files.sumOf { file ->
-            File(stagingDir, file.path).takeIf { it.exists() }?.length()?.coerceAtMost(file.bytes) ?: 0L
-        }
-        val startFraction = (doneBytes.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
+        val doneBytes = AtomicLong(
+            pack.files.sumOf { file ->
+                File(stagingDir, file.path).takeIf { it.exists() }?.length()?.coerceAtMost(file.bytes) ?: 0L
+            },
+        )
+        val startFraction = (doneBytes.get().toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
         manager.markDownloading(packId, startFraction)
         // FGS may be blocked when WorkManager retries from the background
         // (ForegroundServiceStartNotAllowedException). Retry later rather than crash.
@@ -67,70 +80,39 @@ class PackDownloadWorker(
         }
         setProgress(workDataOf(KEY_PROGRESS to startFraction))
 
-        val http = HttpClient(OkHttp)
+        val http = HttpClient(OkHttp) {
+            install(HttpTimeout) {
+                // Streaming multi-GB transfers — don't abort mid-file on wall clock.
+                requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS
+                connectTimeoutMillis = 45_000
+                socketTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS
+            }
+            engine {
+                config {
+                    retryOnConnectionFailure(true)
+                    followRedirects(true)
+                    followSslRedirects(true)
+                }
+            }
+        }
         try {
-            for (file in pack.files) {
-                val target = File(stagingDir, file.path).apply { parentFile?.mkdirs() }
-                var existing = target.length()
-                if (existing > file.bytes) {
-                    target.delete()
-                    existing = 0
-                }
-                if (existing == file.bytes) continue
-
-                http.prepareGet(file.url) {
-                    if (existing > 0) header(HttpHeaders.Range, "bytes=$existing-")
-                }.execute { response ->
-                    when (response.status) {
-                        HttpStatusCode.OK -> {
-                            if (existing > 0) {
-                                target.delete()
-                                existing = 0
-                                doneBytes = pack.files.sumOf { f ->
-                                    File(stagingDir, f.path).takeIf { it.exists() }?.length()?.coerceAtMost(f.bytes) ?: 0L
-                                }
-                            }
+            val gate = Semaphore(PARALLEL_FILES)
+            coroutineScope {
+                pack.files.map { file ->
+                    async(Dispatchers.IO) {
+                        gate.withPermit {
+                            downloadOneFile(
+                                http = http,
+                                pack = pack,
+                                file = file,
+                                stagingDir = stagingDir,
+                                doneBytes = doneBytes,
+                                manager = manager,
+                                packId = packId,
+                            )
                         }
-                        HttpStatusCode.PartialContent -> {
-                            if (existing <= 0) error("Unexpected 206 without Range request")
-                        }
-                        HttpStatusCode.RequestedRangeNotSatisfiable -> {
-                            target.delete()
-                            existing = 0
-                            error("Range not satisfiable — restarting ${file.path}")
-                        }
-                        else -> error("Download failed HTTP ${response.status.value} for ${file.path}")
                     }
-
-                    FileOutputStream(target, existing > 0 && response.status == HttpStatusCode.PartialContent).use { out ->
-                        val channel = response.bodyAsChannel()
-                        val buffer = ByteArray(256 * 1024)
-                        var lastUiAt = 0L
-                        while (!channel.isClosedForRead) {
-                            val read = channel.readAvailable(buffer, 0, buffer.size)
-                            if (read <= 0) continue
-                            out.write(buffer, 0, read)
-                            doneBytes += read
-                            val now = System.currentTimeMillis()
-                            if (now - lastUiAt >= 400L) {
-                                lastUiAt = now
-                                val fraction = (doneBytes.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
-                                manager.markDownloading(packId, fraction)
-                                setProgress(workDataOf(KEY_PROGRESS to fraction))
-                                promoteToForeground(pack.displayName, (fraction * 100).toInt())
-                            }
-                        }
-                        out.flush()
-                    }
-                }
-
-                if (target.length() != file.bytes) {
-                    error("Incomplete ${file.path}: got ${target.length()}, expected ${file.bytes}")
-                }
-                val fraction = (doneBytes.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
-                manager.markDownloading(packId, fraction)
-                setProgress(workDataOf(KEY_PROGRESS to fraction))
-                promoteToForeground(pack.displayName, (fraction * 100).toInt())
+                }.awaitAll()
             }
 
             return if (manager.completeInstall(packId, stagingDir.absolutePath)) {
@@ -142,7 +124,7 @@ class PackDownloadWorker(
             }
         } catch (error: Exception) {
             // Keep staging + DOWNLOADING so UI shows resume progress across retries.
-            val fraction = (doneBytes.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
+            val fraction = (doneBytes.get().toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
             manager.markDownloading(packId, fraction)
             return if (runAttemptCount < MAX_RETRIES) {
                 Result.retry()
@@ -153,6 +135,78 @@ class PackDownloadWorker(
         } finally {
             http.close()
         }
+    }
+
+    private suspend fun downloadOneFile(
+        http: HttpClient,
+        pack: ModelPack,
+        file: PackFile,
+        stagingDir: File,
+        doneBytes: AtomicLong,
+        manager: ModelPackManager,
+        packId: String,
+    ) = withContext(Dispatchers.IO) {
+        val target = File(stagingDir, file.path).apply { parentFile?.mkdirs() }
+        var existing = target.length()
+        if (existing > file.bytes) {
+            target.delete()
+            existing = 0
+        }
+        if (existing == file.bytes) return@withContext
+
+        http.prepareGet(file.url) {
+            if (existing > 0) header(HttpHeaders.Range, "bytes=$existing-")
+        }.execute { response ->
+            when (response.status) {
+                HttpStatusCode.OK -> {
+                    if (existing > 0) {
+                        // Server ignored Range — restart this file; adjust counter.
+                        doneBytes.addAndGet(-existing)
+                        target.delete()
+                        existing = 0
+                    }
+                }
+                HttpStatusCode.PartialContent -> {
+                    if (existing <= 0) error("Unexpected 206 without Range request")
+                }
+                HttpStatusCode.RequestedRangeNotSatisfiable -> {
+                    doneBytes.addAndGet(-existing)
+                    target.delete()
+                    existing = 0
+                    error("Range not satisfiable — restarting ${file.path}")
+                }
+                else -> error("Download failed HTTP ${response.status.value} for ${file.path}")
+            }
+
+            FileOutputStream(target, existing > 0 && response.status == HttpStatusCode.PartialContent).use { out ->
+                val channel = response.bodyAsChannel()
+                val buffer = ByteArray(BUFFER_BYTES)
+                var lastUiAt = 0L
+                while (!channel.isClosedForRead) {
+                    val read = channel.readAvailable(buffer, 0, buffer.size)
+                    if (read <= 0) continue
+                    out.write(buffer, 0, read)
+                    val total = doneBytes.addAndGet(read.toLong())
+                    val now = System.currentTimeMillis()
+                    if (now - lastUiAt >= 350L) {
+                        lastUiAt = now
+                        val fraction = (total.toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        manager.markDownloading(packId, fraction)
+                        setProgress(workDataOf(KEY_PROGRESS to fraction))
+                        promoteToForeground(pack.displayName, (fraction * 100).toInt())
+                    }
+                }
+                out.flush()
+            }
+        }
+
+        if (target.length() != file.bytes) {
+            error("Incomplete ${file.path}: got ${target.length()}, expected ${file.bytes}")
+        }
+        val fraction = (doneBytes.get().toFloat() / pack.totalBytes.coerceAtLeast(1)).coerceIn(0f, 1f)
+        manager.markDownloading(packId, fraction)
+        setProgress(workDataOf(KEY_PROGRESS to fraction))
+        promoteToForeground(pack.displayName, (fraction * 100).toInt())
     }
 
     /**
@@ -176,7 +230,7 @@ class PackDownloadWorker(
         )
         val notification: Notification = Notification.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle("Downloading $packName")
-            .setContentText(if (percent > 0) "$percent% — resumes if interrupted" else "Starting…")
+            .setContentText(if (percent > 0) "$percent% — parallel · resumes if interrupted" else "Starting…")
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setProgress(100, percent, percent == 0)
             .setOngoing(true)
@@ -195,6 +249,8 @@ class PackDownloadWorker(
         private const val CHANNEL_ID = "pack_downloads"
         private const val NOTIFICATION_ID = 2001
         private const val MAX_RETRIES = 8
+        private const val PARALLEL_FILES = 3
+        private const val BUFFER_BYTES = 1024 * 1024
 
         /** Injected by the app's composition root before any work is enqueued. */
         var dependencies: (() -> ModelPackManager)? = null
@@ -216,7 +272,8 @@ class PackDownloadWorker(
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 workName(packId),
-                ExistingWorkPolicy.KEEP,
+                // REPLACE lets Force stop → Download restart immediately instead of KEEP stalling.
+                ExistingWorkPolicy.REPLACE,
                 request,
             )
         }

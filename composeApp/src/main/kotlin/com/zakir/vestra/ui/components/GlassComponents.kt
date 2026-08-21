@@ -3,6 +3,7 @@ package com.zakir.vestra.ui.components
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -286,6 +287,79 @@ fun GlassPrimaryButton(
         Box(Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
             Text(text, style = MaterialTheme.typography.titleMedium, color = Color.White)
         }
+    }
+}
+
+/**
+ * Generate CTA that swaps to an in-button spinner + Force stop while work runs
+ * (cloud jobs continue if you leave the screen; Stop cancels the ViewModel job).
+ */
+@Composable
+fun GlassGenerateActions(
+    busy: Boolean,
+    generateLabel: String,
+    onGenerate: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    statusText: String = "Working… you can leave — tap Force stop to cancel",
+) {
+    Column(modifier.fillMaxWidth()) {
+        if (busy) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = VestraColors.Accent,
+                )
+                Text(
+                    statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            GlassSecondaryButton(text = "Force stop", onClick = onStop)
+        } else {
+            GlassPrimaryButton(text = generateLabel, onClick = onGenerate, enabled = enabled)
+        }
+    }
+}
+
+/** Compact toggle chip for model assist options (pragmatic, fashion context, etc.). */
+@Composable
+fun GlassOptionToggle(
+    text: String,
+    active: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onToggle,
+        enabled = enabled,
+        modifier = modifier,
+        shape = shape,
+        color = if (active) VestraColors.GlassFillStrong else VestraColors.GlassFill,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (active) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
+        ),
+        contentColor = if (active) VestraColors.Ink else VestraColors.InkMuted,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            maxLines = 1,
+        )
     }
 }
 
