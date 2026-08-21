@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,11 +29,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,17 +54,22 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
+import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.AtelierHero
+import com.zakir.vestra.ui.components.AtelierRail
+import com.zakir.vestra.ui.components.AtelierTab
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.SpatialBackground
@@ -83,6 +91,7 @@ fun StudioScreen(
     onOpenSettings: () -> Unit,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
+    onOpenHelp: () -> Unit,
 ) {
     val context = LocalContext.current
     val recent by wardrobe.entries.collectAsState()
@@ -113,204 +122,304 @@ fun StudioScreen(
         label = "heroLift",
     )
 
+    val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
     val statusLine = buildString {
-        append(if (proReady) "Pro on-device" else "Lite · cloud ready")
+        append(if (proReady) "Pro on-device" else "Lite pack · cloud available")
         append("  ·  ")
-        append(if (online) "Signal live" else "Offline")
+        append(if (online) "Online" else "Offline")
+        append("  ·  ")
+        append(tryOnModel)
     }
 
     SpatialBackground {
-        LazyColumn(
-            Modifier
-                .fillMaxSize()
-                .safeDrawingPadding()
-                .padding(horizontal = 18.dp)
-                .alpha(fade),
-            contentPadding = PaddingValues(bottom = 40.dp),
-        ) {
-            item(key = "chrome") {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onOpenWardrobe) {
-                        Icon(
-                            Icons.Outlined.Checkroom,
-                            contentDescription = "Wardrobe",
-                            tint = VestraColors.Ink,
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(
+                Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding()
+                    .padding(horizontal = 18.dp)
+                    .alpha(fade),
+                contentPadding = PaddingValues(bottom = 96.dp),
+            ) {
+                item(key = "chrome") {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text(
+                                LookbookCopy.PRODUCT_NAME,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = VestraColors.Ink,
+                            )
+                            Text(
+                                LookbookCopy.STUDIO_HOME,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = VestraColors.Accent,
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(VestraColors.SaffronDeep, VestraColors.Accent),
+                                        ),
+                                    )
+                                    .clickable(onClick = onOpenPacks)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Text(
+                                    if (proReady) "Pro" else "Lite",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                )
+                            }
+                            IconButton(onClick = onOpenHelp) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.HelpOutline,
+                                    contentDescription = LookbookCopy.STUDIO_HELP,
+                                    tint = VestraColors.Ink,
+                                )
+                            }
+                            IconButton(onClick = onOpenWardrobe) {
+                                Icon(
+                                    Icons.Outlined.Checkroom,
+                                    contentDescription = LookbookCopy.STUDIO_WARDROBE,
+                                    tint = VestraColors.Ink,
+                                )
+                            }
+                            IconButton(onClick = onOpenSettings) {
+                                Box(
+                                    Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(VestraColors.GlassFillStrong)
+                                        .border(1.5.dp, VestraColors.Accent.copy(alpha = 0.7f), CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = LookbookCopy.STUDIO_SETTINGS,
+                                        tint = VestraColors.Accent,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                item(key = "hero") {
+                    Box(Modifier.padding(bottom = heroLift.dp)) {
+                        AtelierHero(
+                            brand = LookbookCopy.PRODUCT_NAME,
+                            headline = "Creativity for modest wear",
+                            support = "Cast abaya, hijab, and shalwar looks on-device — or open free cloud studios for stills, video, and code.",
+                            cta = LookbookCopy.ACTION_START_TRY_ON,
+                            onCta = onNewLook,
+                            statusLine = statusLine,
                         )
                     }
-                    IconButton(onClick = onOpenSettings) {
-                        Box(
-                            Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(VestraColors.GlassFillStrong)
-                                .border(1.5.dp, VestraColors.Accent.copy(alpha = 0.7f), CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Filled.Settings,
-                                contentDescription = "Settings",
-                                tint = VestraColors.Accent,
-                                modifier = Modifier.size(22.dp),
+                    Spacer(Modifier.height(20.dp))
+                }
+
+                item(key = "studios-label") {
+                    GlassSectionLabel("CREATE")
+                }
+
+                item(key = "mosaic") {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CapabilityTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Outlined.Image,
+                            title = "Image",
+                            body = "Stills · recreate",
+                            accent = VestraColors.Accent,
+                            onClick = onOpenCreate,
+                        )
+                        CapabilityTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Outlined.Videocam,
+                            title = "Video",
+                            body = "Free cloud clips",
+                            accent = VestraColors.SaffronDeep,
+                            onClick = onOpenVideo,
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    CapabilityTile(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Outlined.Code,
+                        title = "Code",
+                        body = "Groq · Hugging Face · OpenRouter",
+                        accent = VestraColors.AccentSoft,
+                        onClick = onOpenCode,
+                        compact = true,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    CapabilityTile(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Outlined.Insights,
+                        title = LookbookCopy.STUDIO_USAGE,
+                        body = "Requests · tokens · failure notes",
+                        accent = VestraColors.Accent,
+                        onClick = onOpenUsage,
+                        compact = true,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    CapabilityTile(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                        title = LookbookCopy.STUDIO_HELP,
+                        body = "Guides · permissions · recovery",
+                        accent = VestraColors.SaffronDeep,
+                        onClick = onOpenHelp,
+                        compact = true,
+                    )
+                }
+
+                if (!proReady) {
+                    item(key = "pro-cta") {
+                        Spacer(Modifier.height(14.dp))
+                        GlassCard(onClick = onOpenPacks) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconWell(Icons.Outlined.Cloud)
+                                Spacer(Modifier.width(14.dp))
+                                Column {
+                                    Text("Install Pro pack", style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        "One download. Fully offline after. Free cloud try-on stays in Settings.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item(key = "recent-header") {
+                    Spacer(Modifier.height(22.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                GlassSectionLabel("RECENT LOOKS")
+                        if (recent.isNotEmpty()) {
+                            Text(
+                                "Open gallery",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = VestraColors.Accent,
+                                modifier = Modifier
+                                    .padding(bottom = 8.dp)
+                                    .clickable(onClick = onOpenWardrobe),
                             )
                         }
                     }
                 }
-                Spacer(Modifier.height(4.dp))
-            }
 
-            item(key = "hero") {
-                Box(Modifier.padding(bottom = heroLift.dp)) {
-                    AtelierHero(
-                        brand = "The Lookbook",
-                        headline = "Modest wear · local AI",
-                        support = "Cast abaya, hijab, and shalwar looks on-device — or spin free cloud studios for stills, video, and code.",
-                        cta = "Start a garment shoot",
-                        onCta = onNewLook,
-                        statusLine = statusLine,
-                    )
-                }
-                Spacer(Modifier.height(22.dp))
-            }
-
-            item(key = "studios-label") {
-                GlassSectionLabel("STUDIOS")
-            }
-
-            item(key = "create") {
-                StudioTile(
-                    icon = Icons.Outlined.Image,
-                    title = "Create",
-                    body = "Prompt stills · recreate · Photos",
-                    onClick = onOpenCreate,
-                )
-                Spacer(Modifier.height(10.dp))
-            }
-            item(key = "video") {
-                StudioTile(
-                    icon = Icons.Outlined.Videocam,
-                    title = "Video",
-                    body = "Free HF clips · Movies gallery",
-                    onClick = onOpenVideo,
-                )
-                Spacer(Modifier.height(10.dp))
-            }
-            item(key = "code") {
-                StudioTile(
-                    icon = Icons.Outlined.Code,
-                    title = "Code",
-                    body = "Groq · HF · OpenRouter free",
-                    onClick = onOpenCode,
-                )
-            }
-
-            if (!proReady) {
-                item(key = "pro-cta") {
-                    Spacer(Modifier.height(14.dp))
-                    GlassCard(onClick = onOpenPacks) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconWell(Icons.Outlined.Cloud)
-                            Spacer(Modifier.width(14.dp))
-                            Column {
-                                Text("Install Pro pack", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "One download. Fully offline after. Free cloud try-on stays in Settings.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            item(key = "usage") {
-                Spacer(Modifier.height(12.dp))
-                GlassCard(onClick = onOpenUsage) {
-                    Text("Token & usage", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Requests, tokens, and free-tier spend per model.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.height(22.dp))
-                GlassSectionLabel("RECENT LOOKS")
-            }
-
-            item(key = "recent") {
-                if (recent.isNotEmpty()) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(recent.take(10), key = { it.id }) { entry ->
-                            val file = File(entry.imagePath)
-                            Box(
-                                Modifier
-                                    .width(138.dp)
-                                    .aspectRatio(0.72f)
-                                    .clip(RoundedCornerShape(22.dp))
-                                    .border(
-                                        1.dp,
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                VestraColors.GlassHighlight,
-                                                VestraColors.Accent.copy(alpha = 0.35f),
-                                            ),
-                                        ),
-                                        RoundedCornerShape(22.dp),
-                                    )
-                                    .combinedClickable(
-                                        onClick = onOpenWardrobe,
-                                        onLongClick = {
-                                            if (file.exists()) {
-                                                MediaExport.share(context, file, "Share look")
-                                            }
-                                        },
-                                    ),
-                            ) {
-                                AsyncImage(
-                                    model = file,
-                                    contentDescription = "Recent look",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                )
+                item(key = "recent") {
+                    if (recent.isNotEmpty()) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(recent.take(12), key = { it.id }) { entry ->
+                                val file = File(entry.imagePath)
                                 Box(
                                     Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .height(48.dp)
-                                        .background(
+                                        .width(148.dp)
+                                        .aspectRatio(0.72f)
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .border(
+                                            1.dp,
                                             Brush.verticalGradient(
                                                 listOf(
-                                                    androidx.compose.ui.graphics.Color.Transparent,
-                                                    VestraColors.AtelierCanvas.copy(alpha = 0.75f),
+                                                    VestraColors.GlassHighlight,
+                                                    VestraColors.Accent.copy(alpha = 0.35f),
                                                 ),
                                             ),
+                                            RoundedCornerShape(24.dp),
+                                        )
+                                        .combinedClickable(
+                                            onClick = onOpenWardrobe,
+                                            onLongClick = {
+                                                if (file.exists()) {
+                                                    MediaExport.share(context, file, "Share look")
+                                                }
+                                            },
                                         ),
-                                )
+                                ) {
+                                    AsyncImage(
+                                        model = file,
+                                        contentDescription = "Recent look",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop,
+                                    )
+                                    Box(
+                                        Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .height(52.dp)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        Color.Transparent,
+                                                        VestraColors.AtelierCanvas.copy(alpha = 0.8f),
+                                                    ),
+                                                ),
+                                            ),
+                                    )
+                                    Text(
+                                        "Look",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = VestraColors.Ivory,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(12.dp),
+                                    )
+                                }
                             }
                         }
-                    }
-                } else {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(148.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(VestraColors.GlassFill)
-                            .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(24.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "Your generated looks appear here",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    } else {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(148.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(VestraColors.GlassFill)
+                                .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(24.dp))
+                                .clickable(onClick = onNewLook),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "Tap to cast your first look",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
+
+            AtelierRail(
+                selected = AtelierTab.HOME,
+                onSelect = { tab ->
+                    when (tab) {
+                        AtelierTab.HOME -> Unit
+                        AtelierTab.CREATE -> onOpenCreate()
+                        AtelierTab.TRY_ON -> onNewLook()
+                        AtelierTab.VIDEO -> onOpenVideo()
+                        AtelierTab.SETTINGS -> onOpenSettings()
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }
@@ -330,32 +439,61 @@ private fun IconWell(icon: ImageVector) {
 }
 
 @Composable
-private fun StudioTile(
+private fun CapabilityTile(
+    modifier: Modifier,
     icon: ImageVector,
     title: String,
     body: String,
+    accent: Color,
     onClick: () -> Unit,
+    compact: Boolean = false,
 ) {
     var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.98f else 1f,
+        targetValue = if (pressed) 0.97f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "tileScale",
+        label = "capScale",
     )
-    GlassCard(
-        onClick = {
-            pressed = true
-            onClick()
-        },
-        modifier = Modifier.scale(scale),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconWell(icon)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleLarge)
-                Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val shape = RoundedCornerShape(24.dp)
+    Column(
+        modifier
+            .scale(scale)
+            .clip(shape)
+            .background(VestraColors.GlassFill)
+            .border(
+                1.dp,
+                Brush.verticalGradient(listOf(VestraColors.GlassHighlight, accent.copy(alpha = 0.45f))),
+                shape,
+            )
+            .clickable {
+                pressed = true
+                onClick()
             }
+            .padding(if (compact) 16.dp else 18.dp),
+    ) {
+        if (compact) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconWell(icon)
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(title, style = MaterialTheme.typography.titleLarge)
+                    Text(body, style = MaterialTheme.typography.bodySmall, color = VestraColors.InkMuted)
+                }
+            }
+        } else {
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accent.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = VestraColors.InkMuted)
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

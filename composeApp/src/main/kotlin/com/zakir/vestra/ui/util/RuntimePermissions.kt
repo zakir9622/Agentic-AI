@@ -2,11 +2,17 @@ package com.zakir.vestra.ui.util
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.storage.DurableStorage
 
@@ -26,14 +33,38 @@ fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
 
+fun Context.openAppSystemSettings() {
+    val intent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", packageName, null),
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { startActivity(intent) }
+}
+
+fun Context.openNotificationSettings() {
+    val intent = if (Build.VERSION.SDK_INT >= 26) {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(
+            Settings.EXTRA_APP_PACKAGE,
+            packageName,
+        )
+    } else {
+        Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null),
+        )
+    }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { startActivity(intent) }
+}
+
 /**
- * Enqueues a pack download after ensuring durable storage access (so packs survive
- * uninstall) and optionally requesting [POST_NOTIFICATIONS] (API 33+).
+ * Enqueues a pack download after durable storage + optional [POST_NOTIFICATIONS] (API 33+),
+ * with an enterprise rationale dialog before the system prompt.
  */
 @Composable
 fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
     val context = LocalContext.current
     var pendingPackId by remember { mutableStateOf<String?>(null) }
+    var showNotifRationale by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {
@@ -41,20 +72,54 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
         pendingPackId = null
         if (id != null) enqueuePackDownload(context, id, showToast)
     }
+
+    if (showNotifRationale) {
+        AlertDialog(
+            onDismissRequest = {
+                showNotifRationale = false
+                pendingPackId = null
+            },
+            title = { Text(LookbookCopy.PERM_NOTIFICATIONS_TITLE) },
+            text = { Text(LookbookCopy.PERM_NOTIFICATIONS_BODY) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showNotifRationale = false
+                        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                ) { Text("Continue") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        val id = pendingPackId
+                        showNotifRationale = false
+                        pendingPackId = null
+                        // Still download without notifications.
+                        if (id != null) enqueuePackDownload(context, id, showToast)
+                    },
+                ) { Text("Not now") }
+            },
+        )
+    }
+
     return remember(showToast) {
         { packId: String ->
-            if (!DurableStorage.hasAllFilesAccess()) {
-                Toast.makeText(
-                    context,
-                    "Allow all-files access so this pack survives uninstall, then tap Download again",
-                    Toast.LENGTH_LONG,
-                ).show()
-                runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
-            } else if (context.hasPostNotificationsPermission()) {
-                enqueuePackDownload(context, packId, showToast)
-            } else {
-                pendingPackId = packId
-                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            when {
+                !DurableStorage.hasAllFilesAccess() -> {
+                    Toast.makeText(
+                        context,
+                        "Enable durable storage so this pack survives uninstall, then tap Download again",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
+                }
+                context.hasPostNotificationsPermission() ->
+                    enqueuePackDownload(context, packId, showToast)
+                else -> {
+                    pendingPackId = packId
+                    showNotifRationale = true
+                }
             }
         }
     }
@@ -63,17 +128,22 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
 private fun enqueuePackDownload(context: Context, packId: String, showToast: Boolean) {
     PackDownloadWorker.enqueue(context, packId)
     if (showToast) {
-        Toast.makeText(context, "Download started — resumes if interrupted", Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            context,
+            "Download started — progress appears in notifications when allowed",
+            Toast.LENGTH_SHORT,
+        ).show()
     }
 }
 
 /**
- * Requests [CAMERA] then runs [onGranted], or [onDenied] if refused.
+ * Requests [CAMERA] with rationale, then runs [onGranted], or [onDenied] if refused.
  */
 @Composable
 fun rememberCameraGatedAction(onGranted: () -> Unit, onDenied: () -> Unit = {}): () -> Unit {
     val context = LocalContext.current
     var awaiting by remember { mutableStateOf(false) }
+    var showRationale by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -81,12 +151,36 @@ fun rememberCameraGatedAction(onGranted: () -> Unit, onDenied: () -> Unit = {}):
         awaiting = false
         if (granted) onGranted() else onDenied()
     }
+
+    if (showRationale) {
+        AlertDialog(
+            onDismissRequest = { showRationale = false },
+            title = { Text(LookbookCopy.PERM_CAMERA_TITLE) },
+            text = { Text(LookbookCopy.PERM_CAMERA_BODY) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRationale = false
+                        awaiting = true
+                        launcher.launch(Manifest.permission.CAMERA)
+                    },
+                ) { Text("Allow camera") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showRationale = false
+                        onDenied()
+                    },
+                ) { Text("Use photo picker") }
+            },
+        )
+    }
+
     return {
-        if (context.hasCameraPermission()) {
-            onGranted()
-        } else {
-            awaiting = true
-            launcher.launch(Manifest.permission.CAMERA)
+        when {
+            context.hasCameraPermission() -> onGranted()
+            else -> showRationale = true
         }
     }
 }

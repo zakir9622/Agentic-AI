@@ -321,16 +321,36 @@ fun GlassPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         shape = shape,
-        color = if (enabled) VestraColors.Accent else VestraColors.Accent.copy(alpha = 0.4f),
+        color = Color.Transparent,
         contentColor = Color.White,
     ) {
-        Box(Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = if (enabled) {
+                        Brush.horizontalGradient(
+                            listOf(VestraColors.SaffronDeep, VestraColors.Accent, VestraColors.AccentSoft),
+                        )
+                    } else {
+                        Brush.horizontalGradient(
+                            listOf(
+                                VestraColors.Accent.copy(alpha = 0.35f),
+                                VestraColors.AccentSoft.copy(alpha = 0.35f),
+                            ),
+                        )
+                    },
+                    shape = shape,
+                )
+                .padding(vertical = 15.dp),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(text, style = MaterialTheme.typography.titleMedium, color = Color.White)
         }
     }
@@ -348,7 +368,7 @@ fun GlassGenerateActions(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    statusText: String = "Working… you can leave — tap Force stop to cancel",
+    statusText: String = "Working… you can leave this screen — tap Cancel generation to stop",
 ) {
     Column(modifier.fillMaxWidth()) {
         if (busy) {
@@ -371,7 +391,7 @@ fun GlassGenerateActions(
                     modifier = Modifier.weight(1f),
                 )
             }
-            GlassSecondaryButton(text = "Force stop", onClick = onStop)
+            GlassSecondaryButton(text = "Cancel generation", onClick = onStop)
         } else {
             GlassPrimaryButton(text = generateLabel, onClick = onGenerate, enabled = enabled)
         }
@@ -393,10 +413,10 @@ fun GlassOptionToggle(
         enabled = enabled,
         modifier = modifier,
         shape = shape,
-        color = if (active) VestraColors.GlassFillStrong else VestraColors.GlassFill,
+        color = if (active) VestraColors.Accent.copy(alpha = 0.18f) else VestraColors.GlassFill,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (active) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
+            if (active) VestraColors.Accent.copy(alpha = 0.75f) else VestraColors.GlassBorder,
         ),
         contentColor = if (active) VestraColors.Ink else VestraColors.InkMuted,
     ) {

@@ -57,6 +57,7 @@ import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.engine.Availability
@@ -76,6 +77,10 @@ import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.util.hasCameraPermission
+import com.zakir.vestra.ui.util.hasPostNotificationsPermission
+import com.zakir.vestra.ui.util.openAppSystemSettings
+import com.zakir.vestra.ui.util.openNotificationSettings
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -91,6 +96,7 @@ fun SettingsScreen(
     usageLedger: UsageLedger,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
+    onOpenHelp: () -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -153,7 +159,7 @@ fun SettingsScreen(
             TokenPortals.Kind.GROQ -> groqInput = detected.second
             TokenPortals.Kind.OPENROUTER -> openRouterInput = detected.second
         }
-        clipboardHint = "Detected ${detected.first.name} token from clipboard — tap Save tokens"
+        clipboardHint = "Detected ${detected.first.name} key from clipboard — tap Save API keys"
     }
 
     fun openPortal(url: String) {
@@ -203,7 +209,7 @@ fun SettingsScreen(
     if (confirmClearTokens) {
         AlertDialog(
             onDismissRequest = { confirmClearTokens = false },
-            title = { Text("Clear API tokens?") },
+            title = { Text("Clear API keys?") },
             text = { Text("Removes Hugging Face, Groq, and OpenRouter keys from this device. Cloud models will lock until you paste keys again.") },
             confirmButton = {
                 TextButton(
@@ -235,8 +241,8 @@ fun SettingsScreen(
         ) {
             item(key = "top") {
                 GlassTopBar(
-                    title = "Settings",
-                    subtitle = "Keys · engines · models",
+                    title = LookbookCopy.STUDIO_SETTINGS,
+                    subtitle = "API keys · engines · models · help",
                     navigation = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
@@ -246,12 +252,25 @@ fun SettingsScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
-            // —— Tokens first (this is where HF / Groq / OpenRouter go) ——
+            item(key = "help") {
+                GlassCard(onClick = onOpenHelp) {
+                    GlassSectionLabel("HELP")
+                    Text(LookbookCopy.STUDIO_HELP, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Searchable FAQ for packs, API keys, permissions, queues, and recovery.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+
+            // —— Keys first (this is where HF / Groq / OpenRouter go) ——
             item(key = "keys") {
                 GlassCard {
-                    GlassSectionLabel("API TOKENS")
+                    GlassSectionLabel("API KEYS")
                     Text(
-                        "Create a free Write/Read HF token (classic, not fine-grained without Inference), copy it, then Save. Or import tokens.json / tokens.txt. Local Lite/Pro never need a token.",
+                        "Create a free classic HF Write/Read key with Inference Providers (not fine-grained discussion-only), copy it, then Save — or import tokens.json / tokens.txt. Clipboard keys are detected automatically. Local Lite/Pro packs never need a key.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -260,15 +279,15 @@ fun SettingsScreen(
                         OutlinedButton(
                             onClick = { openPortal(TokenSidecar.Portal.HF) },
                             modifier = Modifier.weight(1f),
-                        ) { Text("Get HF") }
+                        ) { Text("Hugging Face") }
                         OutlinedButton(
                             onClick = { openPortal(TokenSidecar.Portal.GROQ) },
                             modifier = Modifier.weight(1f),
-                        ) { Text("Get Groq") }
+                        ) { Text("Groq") }
                         OutlinedButton(
                             onClick = { openPortal(TokenSidecar.Portal.OPENROUTER) },
                             modifier = Modifier.weight(1f),
-                        ) { Text("Get OR") }
+                        ) { Text("OpenRouter") }
                     }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(
@@ -277,14 +296,14 @@ fun SettingsScreen(
                             if (clipboardHint == null) {
                                 Toast.makeText(
                                     context,
-                                    "No HF/Groq/OpenRouter token found on clipboard",
+                                    "No Hugging Face / Groq / OpenRouter key found on clipboard",
                                     Toast.LENGTH_SHORT,
                                 ).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Paste token from clipboard")
+                        Text("Paste key from clipboard")
                     }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(
@@ -338,15 +357,15 @@ fun SettingsScreen(
                         Text(it, style = MaterialTheme.typography.labelMedium, color = VestraColors.Accent)
                     }
                     Spacer(Modifier.height(10.dp))
-                    KeyField("Hugging Face token", hfInput) { hfInput = it }
+                    KeyField("Hugging Face API key", hfInput) { hfInput = it }
                     KeyField("Groq API key", groqInput) { groqInput = it }
-                    KeyField("OpenRouter API key (:free models)", openRouterInput) { openRouterInput = it }
+                    KeyField("OpenRouter API key (free models)", openRouterInput) { openRouterInput = it }
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = { saveTokens() },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(if (keysSavedFlash) "Saved" else "Save tokens")
+                        Text(if (keysSavedFlash) "Saved" else LookbookCopy.ACTION_SAVE_TOKENS)
                     }
                     if (!hfToken.isNullOrBlank()) {
                         Spacer(Modifier.height(6.dp))
@@ -512,9 +531,9 @@ fun SettingsScreen(
             item(key = "usage") {
                 GlassCard(onClick = onOpenUsage) {
                     GlassSectionLabel("USAGE")
-                    Text("Token & cost ledger", style = MaterialTheme.typography.titleMedium)
+                    Text(LookbookCopy.STUDIO_USAGE, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Cloud requests only — local packs use \$0 tokens.",
+                        "Local ledger of free-tier cloud requests, tokens, and failure notes. Local packs are \$0.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -618,7 +637,56 @@ fun SettingsScreen(
                         onClick = { confirmClearTokens = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Clear API tokens")
+                        Text("Clear API keys")
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+
+            item(key = "permissions") {
+                GlassCard {
+                    GlassSectionLabel("PERMISSIONS")
+                    Text(
+                        LookbookCopy.PERM_NOTIFICATIONS_TITLE + ": " +
+                            if (context.hasPostNotificationsPermission()) "Allowed" else "Not allowed",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        LookbookCopy.PERM_CAMERA_TITLE + ": " +
+                            if (context.hasCameraPermission()) "Allowed" else "Not allowed",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        LookbookCopy.PERM_STORAGE_TITLE + ": " +
+                            if (DurableStorage.hasAllFilesAccess()) "Allowed" else "Not allowed",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Photos use the system picker (no media-library permission). Pack downloads may request notifications and durable storage.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { context.openAppSystemSettings() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Open app permission settings") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { context.openNotificationSettings() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Open notification settings") }
+                    if (!DurableStorage.hasAllFilesAccess()) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(DurableStorage.manageAllFilesIntent(context))
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Enable durable storage") }
                     }
                 }
                 Spacer(Modifier.height(14.dp))
@@ -627,7 +695,7 @@ fun SettingsScreen(
             item(key = "about") {
                 GlassCard {
                     GlassSectionLabel("ABOUT")
-                    Text("The Lookbook", style = MaterialTheme.typography.titleMedium)
+                    Text(LookbookCopy.PRODUCT_NAME, style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                         style = MaterialTheme.typography.bodyMedium,
@@ -635,10 +703,14 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Modest-wear try-on · on-device Lite/Pro · free-tier cloud only",
+                        LookbookCopy.PRODUCT_BLURB,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(onClick = onOpenHelp, modifier = Modifier.fillMaxWidth()) {
+                        Text(LookbookCopy.ACTION_OPEN_HELP)
+                    }
                 }
             }
         }

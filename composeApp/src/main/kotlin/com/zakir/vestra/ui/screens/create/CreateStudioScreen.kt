@@ -4,15 +4,12 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,16 +24,18 @@ import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.GenerativeState
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.GenerativeViewModel
+import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
-import com.zakir.vestra.ui.components.GlassGenerateActions
 import com.zakir.vestra.ui.components.GlassLoadingCard
 import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.PromptComposer
 import java.io.File
 
 @Composable
@@ -57,115 +56,79 @@ fun CreateStudioScreen(
     )
     val estimate = viewModel.usage.estimateNext(provider)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
+    val assistCount = listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         viewModel.setReference(uri?.toString())
     }
 
-    GlassScreen(title = "Create Studio", subtitle = "Shop · sell · create — free models", onBack = onBack) {
-        GlassCard {
-            GlassSectionLabel("ATELIER")
-            Text(provider.displayName, style = MaterialTheme.typography.titleLarge)
-            Text(estimate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
+    GlassScreen(title = LookbookCopy.STUDIO_IMAGE, subtitle = "Free cloud stills", onBack = onBack) {
+        Text(
+            estimate,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(12.dp))
 
-        GlassCard {
-            GlassSectionLabel("PROMPT")
-            OutlinedTextField(
-                value = prompt,
-                onValueChange = viewModel::setPrompt,
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 4,
-                enabled = !busy,
-                placeholder = {
-                    Text(
-                        if (reference == null) {
-                            "Describe the image… e.g. emerald abaya in a Lahore bazaar at golden hour"
-                        } else {
-                            "Describe how to recreate / edit… e.g. change to navy silk, soft studio light"
-                        },
-                    )
-                },
-            )
-            Spacer(Modifier.height(10.dp))
-            GlassSectionLabel("MODEL OPTIONS")
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+        PromptComposer(
+            prompt = prompt,
+            onPromptChange = viewModel::setPrompt,
+            modelLabel = provider.displayName,
+            assistCount = assistCount,
+            busy = busy,
+            enabled = true,
+            onSend = viewModel::generateImage,
+            onStop = { viewModel.forceStop() },
+            placeholder = if (reference == null) {
+                "Describe the image… emerald abaya in a Lahore bazaar"
+            } else {
+                "Describe the edit… change to navy silk, soft studio light"
+            },
+            referenceUri = reference,
+            onAddReference = {
+                pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onClearReference = { viewModel.setReference(null) },
+            assistToggles = {
                 GlassOptionToggle(
-                    text = "Bypass filter assist",
+                    text = LookbookCopy.ASSIST_EDITORIAL,
                     active = bypassFilter,
                     enabled = !busy,
                     onToggle = { viewModel.setBypassFilter(!bypassFilter) },
                 )
                 GlassOptionToggle(
-                    text = "Fashion context",
+                    text = LookbookCopy.ASSIST_FASHION,
                     active = fashionContext,
                     enabled = !busy,
                     onToggle = { viewModel.setFashionContext(!fashionContext) },
                 )
                 GlassOptionToggle(
-                    text = "Detail boost",
+                    text = LookbookCopy.ASSIST_DETAIL,
                     active = detailBoost,
                     enabled = !busy,
                     onToggle = { viewModel.setDetailBoost(!detailBoost) },
                 )
                 GlassOptionToggle(
-                    text = "Quality guard",
+                    text = LookbookCopy.ASSIST_QUALITY,
                     active = qualityGuard,
                     enabled = !busy,
                     onToggle = { viewModel.setQualityGuard(!qualityGuard) },
                 )
-            }
-            Text(
-                "Assists rewrite the free-model prompt. Failed runs auto-retry with a softer variant.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(10.dp))
-            Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(6.dp))
-            com.zakir.vestra.ui.components.ExamplePromptRow(
-                examples = listOf(
-                    "Emerald abaya in a Lahore bazaar at golden hour",
-                    "Soft studio light, navy silk hijab, ivory backdrop",
-                    "Black niqab portrait, shallow depth of field",
-                ),
-                enabled = !busy,
-                onPick = viewModel::setPrompt,
-            )
-            Spacer(Modifier.height(10.dp))
-            GlassSecondaryButton(
-                text = if (reference == null) "Add reference image (recreate)" else "Change reference image",
-                onClick = {
-                    pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                },
-                enabled = !busy,
-            )
-            if (reference != null) {
-                Spacer(Modifier.height(8.dp))
-                AsyncImage(
-                    model = reference,
-                    contentDescription = "Reference",
-                    modifier = Modifier.fillMaxWidth().height(160.dp),
-                    contentScale = ContentScale.Crop,
-                )
-                GlassSecondaryButton(text = "Clear reference", onClick = { viewModel.setReference(null) }, enabled = !busy)
-            }
-            Spacer(Modifier.height(12.dp))
-            GlassGenerateActions(
-                busy = busy,
-                generateLabel = if (reference == null) "Generate image (free)" else "Recreate from prompt (free)",
-                onGenerate = viewModel::generateImage,
-                onStop = { viewModel.forceStop() },
-                enabled = prompt.isNotBlank(),
-            )
-        }
+            },
+        )
+
+        Spacer(Modifier.height(12.dp))
+        Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(6.dp))
+        ExamplePromptRow(
+            examples = listOf(
+                "Emerald abaya in a Lahore bazaar at golden hour",
+                "Soft studio light, navy silk hijab, ivory backdrop",
+                "Black niqab portrait, shallow depth of field",
+            ),
+            enabled = !busy,
+            onPick = viewModel::setPrompt,
+        )
 
         if (preflight != null) {
             Spacer(Modifier.height(12.dp))

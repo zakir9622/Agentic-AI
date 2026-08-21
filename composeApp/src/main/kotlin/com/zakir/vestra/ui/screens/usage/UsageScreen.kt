@@ -33,7 +33,7 @@ fun UsageScreen(
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
     val failCount = summary.totalRequests - summary.successCount
 
-    GlassScreen(title = "Token & usage", subtitle = "Cloud AI ledger", onBack = onBack) {
+    GlassScreen(title = "Cloud usage", subtitle = "Free-tier request ledger", onBack = onBack) {
         GlassCard {
             GlassSectionLabel("SUMMARY")
             Text(

@@ -19,8 +19,8 @@ object SpatialElevation {
 }
 
 /**
- * Futuristic atelier tokens — pearl day / graphite night with luminous teal glass.
- * Avoids purple gradients, cream+terracotta, and broadsheet looks.
+ * Midnight Saffron atelier — Lookbook-specific fashion palette.
+ * Warm saffron dye + deep ink silk. Avoids purple, cream+terracotta, and acid-neon defaults.
  */
 @Immutable
 data class VestraPalette(
@@ -43,56 +43,60 @@ data class VestraPalette(
     val atelierContainer: Color,
     val ivory: Color,
     val ivoryMuted: Color,
+    val saffronDeep: Color,
+    val silkMist: Color,
     val isDark: Boolean,
 )
 
 val LocalVestraPalette = staticCompositionLocalOf { LightPalette }
 
 private val LightPalette = VestraPalette(
-    canvas = Color(0xFFE6EEF2),
-    surface = Color(0xFFF4F8FA),
+    canvas = Color(0xFFE8EEF2),
+    surface = Color(0xFFF5F8FA),
     surfaceRaised = Color(0xFFFFFFFF),
-    surfaceFloating = Color(0xFFDCE7ED),
-    ink = Color(0xFF0F1720),
-    inkMuted = Color(0xFF5B6B78),
-    accent = Color(0xFF0F766E),
-    accentSoft = Color(0xFF14B8A6),
-    accentGlow = Color(0x3314B8A6),
-    // Near-opaque so body text stays ≥4.5:1 over glass; keep a soft edge only.
+    surfaceFloating = Color(0xFFD9E3EA),
+    ink = Color(0xFF12181E),
+    inkMuted = Color(0xFF5C6B76),
+    accent = Color(0xFFB8792E),
+    accentSoft = Color(0xFFD4A054),
+    accentGlow = Color(0x33D4A054),
     glassFill = Color(0xF2F7FBFC),
     glassFillStrong = Color(0xFAFFFFFF),
-    glassBorder = Color(0x6614B8A6),
+    glassBorder = Color(0x66D4A054),
     glassHighlight = Color(0xCCFFFFFF),
-    glassShadow = Color(0x1A0F1720),
-    danger = Color(0xFFE11D48),
-    atelierCanvas = Color(0xFF0B0F14),
-    atelierContainer = Color(0xFF151A22),
-    ivory = Color(0xFFF0F7FA),
-    ivoryMuted = Color(0xFF94A3B8),
+    glassShadow = Color(0x1A12181E),
+    danger = Color(0xFFC2410C),
+    atelierCanvas = Color(0xFF0C0A09),
+    atelierContainer = Color(0xFF171311),
+    ivory = Color(0xFFF7F1E8),
+    ivoryMuted = Color(0xFFB5A899),
+    saffronDeep = Color(0xFF8B5A1E),
+    silkMist = Color(0xFFD9E3EA),
     isDark = false,
 )
 
 private val DarkPalette = VestraPalette(
-    canvas = Color(0xFF070A0E),
-    surface = Color(0xFF10151C),
-    surfaceRaised = Color(0xFF1A222C),
-    surfaceFloating = Color(0xFF0C1118),
-    ink = Color(0xFFE8F1F5),
-    inkMuted = Color(0xFF9AABB8),
-    accent = Color(0xFF2DD4BF),
-    accentSoft = Color(0xFF5EEAD4),
-    accentGlow = Color(0x402DD4BF),
-    // Opaque enough for WCAG text on glass; menus use surfaceRaised separately.
-    glassFill = Color(0xF21A222C),
-    glassFillStrong = Color(0xF8252E3A),
-    glassBorder = Color(0x662DD4BF),
+    canvas = Color(0xFF08070A),
+    surface = Color(0xFF121014),
+    surfaceRaised = Color(0xFF1C1917),
+    surfaceFloating = Color(0xFF0E0C10),
+    ink = Color(0xFFF3EDE4),
+    inkMuted = Color(0xFFA89B8C),
+    accent = Color(0xFFE0B45C),
+    accentSoft = Color(0xFFF0C97A),
+    accentGlow = Color(0x40E0B45C),
+    glassFill = Color(0xF21C1917),
+    glassFillStrong = Color(0xF828241F),
+    glassBorder = Color(0x66E0B45C),
     glassHighlight = Color(0x33FFFFFF),
     glassShadow = Color(0x66000000),
-    danger = Color(0xFFFB7185),
-    atelierCanvas = Color(0xFF05070A),
-    atelierContainer = Color(0xFF121820),
-    ivory = Color(0xFFE8F1F5),
-    ivoryMuted = Color(0xFF94A3B8),
+    danger = Color(0xFFFB923C),
+    atelierCanvas = Color(0xFF050408),
+    atelierContainer = Color(0xFF14110F),
+    ivory = Color(0xFFF3EDE4),
+    ivoryMuted = Color(0xFFA89B8C),
+    saffronDeep = Color(0xFFC9893A),
+    silkMist = Color(0xFF3D342C),
     isDark = true,
 )
 
@@ -127,13 +131,15 @@ object VestraColors {
     val AtelierContainer get() = active.atelierContainer
     val Ivory get() = active.ivory
     val IvoryMuted get() = active.ivoryMuted
+    val SaffronDeep get() = active.saffronDeep
+    val SilkMist get() = active.silkMist
 }
 
 private fun VestraPalette.toScheme() = if (isDark) {
     darkColorScheme(
         primary = accent,
-        onPrimary = Color(0xFF042F2E),
-        primaryContainer = accentSoft.copy(alpha = 0.25f),
+        onPrimary = Color(0xFF1A1208),
+        primaryContainer = accentSoft.copy(alpha = 0.22f),
         onPrimaryContainer = ivory,
         secondary = Color(0xFFC4A484),
         onSecondary = Color(0xFF1A1208),
@@ -143,21 +149,21 @@ private fun VestraPalette.toScheme() = if (isDark) {
         onSurface = ink,
         surfaceVariant = surfaceFloating,
         onSurfaceVariant = inkMuted,
-        // Opaque containers — Material menus/dialogs use these; never translucent glass.
         surfaceContainerLowest = surface,
         surfaceContainer = surfaceRaised,
         surfaceContainerHigh = surfaceRaised,
-        surfaceContainerHighest = Color(0xFF243040),
+        surfaceContainerHighest = Color(0xFF2A241E),
         outline = glassBorder,
         error = danger,
+        tertiary = saffronDeep,
     )
 } else {
     lightColorScheme(
         primary = accent,
         onPrimary = Color.White,
         primaryContainer = accentSoft,
-        onPrimaryContainer = Color.White,
-        secondary = Color(0xFFB8956C),
+        onPrimaryContainer = Color(0xFF1A1208),
+        secondary = Color(0xFF8B6B4A),
         onSecondary = Color.White,
         background = canvas,
         onBackground = ink,
@@ -165,13 +171,13 @@ private fun VestraPalette.toScheme() = if (isDark) {
         onSurface = ink,
         surfaceVariant = surfaceFloating,
         onSurfaceVariant = inkMuted,
-        // Opaque containers — Material menus/dialogs use these; never translucent glass.
         surfaceContainerLowest = Color.White,
         surfaceContainer = Color.White,
         surfaceContainerHigh = surfaceRaised,
         surfaceContainerHighest = Color.White,
         outline = glassBorder,
         error = danger,
+        tertiary = saffronDeep,
     )
 }
 

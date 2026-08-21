@@ -1,21 +1,18 @@
 package com.zakir.vestra.ui.screens.onboarding
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -29,32 +26,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 
 private data class OnboardingPage(val title: String, val body: String)
 
 private val pages = listOf(
     OnboardingPage(
-        "Modest wear, on your phone",
-        "Generate abaya, hijab, niqab, and Pakistani traditional wear with AI — fully offline after downloading the Pro model pack.",
+        "Always the perfect look",
+        "Generate abaya, hijab, niqab, and shalwar looks with on-device AI — fully offline after the Pro pack.",
     ),
     OnboardingPage(
-        "Cast your perfect scene",
-        "Set ethnicity, body type, hair coverage, color, and scenario. One garment photo becomes a full photoshoot.",
+        "Cast your scene",
+        "Set ethnicity, body type, hair coverage, color, and scenario. One garment photo becomes a full shoot.",
     ),
     OnboardingPage(
-        "Shop, sell, and create",
-        "Shoppers preview looks. Sellers batch listing shots with Save all. Creators use Create and Video studios — on-device or free cloud.",
+        "Create stills, video, code",
+        "Free cloud studios for shoppers, sellers, and makers — Image, Video, and Code beside local try-on.",
     ),
     OnboardingPage(
         "Keys unlock free cloud",
-        "In Settings, paste free Hugging Face, Groq, or OpenRouter tokens. Cloud models unlock automatically — local Lite/Pro never need a key.",
+        "Paste free Hugging Face, Groq, or OpenRouter tokens in Settings. Local Lite/Pro never need a key.",
     ),
 )
 
@@ -62,7 +69,6 @@ private val pages = listOf(
 fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
     var page by remember { mutableIntStateOf(0) }
     val slide = pages[page]
-    val shape = RoundedCornerShape(24.dp)
 
     SpatialBackground {
         Column(
@@ -73,19 +79,73 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
-                "The Lookbook",
+                LookbookCopy.PRODUCT_NAME,
                 style = MaterialTheme.typography.displaySmall,
                 color = VestraColors.Ink,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "Modest wear · local AI",
+                LookbookCopy.PRODUCT_TAGLINE,
                 style = MaterialTheme.typography.labelLarge,
                 color = VestraColors.Accent,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Collage strip — first viewport brand + atmosphere (no secondary marketing clutter).
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(210.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(VestraColors.AtelierContainer, VestraColors.AtelierCanvas),
+                        ),
+                    ),
+            ) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 28.dp)
+                        .size(110.dp, 150.dp)
+                        .rotate(-10f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF3D2A18), VestraColors.SaffronDeep),
+                            ),
+                        ),
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.Center)
+                        .size(120.dp, 160.dp)
+                        .rotate(4f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF1E2430), VestraColors.AccentSoft.copy(alpha = 0.7f)),
+                            ),
+                        ),
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 24.dp)
+                        .size(100.dp, 140.dp)
+                        .rotate(14f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF2C1810), Color(0xFF5C3A22)),
+                            ),
+                        ),
+                )
+            }
 
             Spacer(Modifier.height(20.dp))
 
@@ -98,24 +158,7 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 label = "onboardSlide",
                 modifier = Modifier.fillMaxWidth(),
             ) { current ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(shape)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(VestraColors.GlassFillStrong, VestraColors.GlassFill),
-                            ),
-                        )
-                        .border(
-                            1.dp,
-                            Brush.verticalGradient(
-                                listOf(VestraColors.GlassHighlight, VestraColors.GlassBorder),
-                            ),
-                            shape,
-                        )
-                        .padding(20.dp),
-                ) {
+                Column(Modifier.fillMaxWidth()) {
                     Text(
                         text = current.title,
                         style = MaterialTheme.typography.headlineMedium,
@@ -131,17 +174,24 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "${page + 1} / ${pages.size}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pages.indices.forEach { i ->
+                    Box(
+                        Modifier
+                            .size(if (i == page) 10.dp else 8.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (i == page) VestraColors.Accent else VestraColors.InkMuted.copy(alpha = 0.35f),
+                            ),
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
 
             if (page < pages.lastIndex) {
                 GlassPrimaryButton(
-                    text = "Next",
+                    text = "Continue",
                     onClick = { page += 1 },
                 )
                 TextButton(onClick = {
@@ -150,7 +200,7 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 }) { Text("Skip") }
             } else {
                 GlassPrimaryButton(
-                    text = "Enter the atelier",
+                    text = "Get started",
                     onClick = {
                         appSettings.setOnboardingComplete()
                         onDone()
