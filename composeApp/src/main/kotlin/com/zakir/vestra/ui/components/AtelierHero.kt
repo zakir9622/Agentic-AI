@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.util.rememberReduceMotion
 import kotlin.math.abs
 
 /**
@@ -45,21 +46,22 @@ fun AtelierHero(
     modifier: Modifier = Modifier,
     statusLine: String? = null,
 ) {
+    val reduceMotion = rememberReduceMotion()
     val infinite = rememberInfiniteTransition(label = "heroScan")
     val scan by infinite.animateFloat(
         initialValue = 0f,
-        targetValue = 1f,
+        targetValue = if (reduceMotion) 0f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4800, easing = LinearEasing),
+            animation = tween(if (reduceMotion) 1 else 4800, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "scan",
     )
     val drift by infinite.animateFloat(
-        initialValue = -6f,
-        targetValue = 6f,
+        initialValue = if (reduceMotion) 0f else -6f,
+        targetValue = if (reduceMotion) 0f else 6f,
         animationSpec = infiniteRepeatable(
-            animation = tween(7000, easing = LinearEasing),
+            animation = tween(if (reduceMotion) 1 else 7000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "panelDrift",

@@ -1,5 +1,7 @@
 package com.zakir.vestra.ui.screens.create
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -16,9 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
@@ -151,7 +151,6 @@ internal fun ResultPane(
     onDismiss: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     when (state) {
         null -> Unit
         is GenerativeState.Preparing -> GlassLoadingCard(state.message)
@@ -160,7 +159,7 @@ internal fun ResultPane(
             GlassSectionLabel("RESULT")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI-generated", active = true)
-                GlassPill(text = "In wardrobe", active = true, accent = MaterialTheme.colorScheme.secondary)
+                GlassPill(text = "In looks gallery", active = true, accent = MaterialTheme.colorScheme.secondary)
             }
             Spacer(Modifier.height(8.dp))
             AsyncImage(
@@ -220,7 +219,8 @@ internal fun ResultPane(
             GlassSecondaryButton(
                 text = "Copy code",
                 onClick = {
-                    clipboard.setText(AnnotatedString(state.text))
+                    val cm = context.getSystemService(ClipboardManager::class.java)
+                    cm?.setPrimaryClip(ClipData.newPlainText("lookbook-code", state.text))
                     Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                 },
             )

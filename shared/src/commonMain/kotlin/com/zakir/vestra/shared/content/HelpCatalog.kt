@@ -192,4 +192,13 @@ object HelpCatalog {
                 it.category.lowercase().contains(q)
         }
     }
+
+    /** Live catalog readiness lines for Help — kept in sync with CloudModelContracts. */
+    fun modelReadinessLines(): List<String> =
+        com.zakir.vestra.shared.cloud.CloudModelCatalog.providers.map { provider ->
+            val c = com.zakir.vestra.shared.cloud.CloudModelContracts.forProvider(provider)
+            "${provider.displayName} · ${
+                c.support.name.lowercase().replaceFirstChar { ch -> ch.uppercaseChar() }
+            } · ${c.schemaNote}"
+        }
 }

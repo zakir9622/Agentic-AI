@@ -47,28 +47,30 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.ui.theme.SpatialElevation
 import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.util.rememberReduceMotion
 
-/** Full-screen spatial canvas with breathing teal orbs behind content. */
+/** Full-screen spatial canvas with breathing saffron orbs behind content. */
 @Composable
 fun SpatialBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val reduceMotion = rememberReduceMotion()
     val infinite = rememberInfiniteTransition(label = "spatial")
     val breathe by infinite.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.1f,
+        initialValue = if (reduceMotion) 1f else 0.9f,
+        targetValue = if (reduceMotion) 1f else 1.1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(5600, easing = LinearEasing),
+            animation = tween(if (reduceMotion) 1 else 5600, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "orbBreathe",
     )
     val drift by infinite.animateFloat(
-        initialValue = -18f,
-        targetValue = 18f,
+        initialValue = if (reduceMotion) 0f else -18f,
+        targetValue = if (reduceMotion) 0f else 18f,
         animationSpec = infiniteRepeatable(
-            animation = tween(8800, easing = LinearEasing),
+            animation = tween(if (reduceMotion) 1 else 8800, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "orbDrift",

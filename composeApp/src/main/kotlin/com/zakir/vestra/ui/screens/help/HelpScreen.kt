@@ -78,6 +78,25 @@ fun HelpScreen(
             )
         }
 
+        Spacer(Modifier.height(12.dp))
+        GlassCard {
+            GlassSectionLabel("CLOUD MODEL READINESS")
+            Text(
+                "Live app contracts for curated free models. Prefer Ready; Degraded may queue; Unsupported is blocked.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            HelpCatalog.modelReadinessLines().forEach { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+        }
+
         if (grouped.isEmpty()) {
             Spacer(Modifier.height(16.dp))
             Text(

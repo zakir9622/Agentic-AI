@@ -110,10 +110,10 @@ fun ResultScreen(
         ) {
             GlassTopBar(
                 title = "Your look",
-                subtitle = if (results.size > 1) "${results.size} shots" else "Result",
+                subtitle = if (results.size > 1) "${results.size} variations" else "Try-on result",
                 navigation = {
                     IconButton(onClick = onBackToStudio) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back to studio")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back to atelier")
                     }
                 },
             )
@@ -125,8 +125,8 @@ fun ResultScreen(
 
             if (result == null) {
                 GlassEmptyState(
-                    message = "No shots to show — start a new shoot.",
-                    actionLabel = "New shoot",
+                    message = "No looks to show — start a new try-on.",
+                    actionLabel = "Start try-on",
                     onAction = onNewLook,
                     modifier = Modifier.weight(1f),
                 )
@@ -209,7 +209,7 @@ fun ResultScreen(
             }
 
             GlassPrimaryButton(
-                text = "New shoot",
+                text = "Start try-on",
                 onClick = onNewLook,
                 modifier = Modifier.padding(bottom = 16.dp),
             )
