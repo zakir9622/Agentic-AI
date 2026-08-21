@@ -1,5 +1,6 @@
 package com.zakir.vestra.ui.screens.video
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +38,13 @@ fun VideoStudioScreen(
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     val assistCount = listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
 
-    GlassScreen(title = LookbookCopy.STUDIO_VIDEO, subtitle = "Free cloud clips", onBack = onBack) {
+    fun leave() {
+        if (busy) viewModel.forceStop(showStopped = false)
+        onBack()
+    }
+    BackHandler { leave() }
+
+    GlassScreen(title = LookbookCopy.STUDIO_VIDEO, subtitle = "Free cloud clips", onBack = ::leave) {
         Text(
             estimate,
             style = MaterialTheme.typography.bodySmall,
@@ -104,6 +111,7 @@ fun VideoStudioScreen(
         Spacer(Modifier.height(12.dp))
         ResultPane(
             state = state,
+            onCancel = { viewModel.forceStop() },
             onRetry = {
                 viewModel.clearResult()
                 viewModel.generateVideo()

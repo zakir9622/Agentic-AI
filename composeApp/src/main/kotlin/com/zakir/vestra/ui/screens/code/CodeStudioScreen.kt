@@ -1,5 +1,6 @@
 package com.zakir.vestra.ui.screens.code
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +36,13 @@ fun CodeStudioScreen(
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     val assistCount = listOf(pragmatic, creative).count { it }
 
-    GlassScreen(title = LookbookCopy.STUDIO_CODE, subtitle = "Free open models", onBack = onBack) {
+    fun leave() {
+        if (busy) viewModel.forceStop(showStopped = false)
+        onBack()
+    }
+    BackHandler { leave() }
+
+    GlassScreen(title = LookbookCopy.STUDIO_CODE, subtitle = "Free open models", onBack = ::leave) {
         Text(
             estimate,
             style = MaterialTheme.typography.bodySmall,
@@ -90,6 +97,7 @@ fun CodeStudioScreen(
         Spacer(Modifier.height(12.dp))
         ResultPane(
             state = state,
+            onCancel = { viewModel.forceStop() },
             onRetry = {
                 viewModel.clearResult()
                 viewModel.generateCode()

@@ -1,46 +1,54 @@
-# Vestra Privacy Policy
+# The Lookbook Privacy Policy
 
-_Last updated: 2026-07-16_
+_Last updated: 2026-08-21_
 
-Vestra generates images of garments worn on people. It is designed so that
-your photos stay on your phone.
+The Lookbook (package `com.zakir.vestra`) generates modest-fashion try-on looks
+and optional cloud studio outputs (image, video, code). It is designed so your
+photos stay on your phone unless you explicitly choose a free-tier cloud model.
 
 ## What happens on your device
 
-- Photos you pick or capture (garments, yourself) are processed **entirely on
-  your device** by default. They are stored only in Vestra's app-private
-  storage and never leave your phone.
-- Generated images are saved on your device and marked as AI-generated
-  (visible watermark and image metadata).
-- Deleting the app deletes all of this data. You can also remove individual
-  looks from the Wardrobe.
+- Photos you pick or capture (garments, yourself) are processed **on your
+  device** when you use Lite or Pro model packs. They are stored in app-private
+  storage (or Documents/TheLookbook when durable storage is enabled) and are
+  not sold or used for advertising.
+- Generated looks are saved on your device and marked as AI-generated (visible
+  watermark on store builds and image metadata).
+- Deleting the app deletes private app storage. You can also remove individual
+  looks from the Looks gallery. Durable Documents copies may remain until you
+  delete them.
 
-## The optional Cloud engine
+## Optional free-tier cloud studios
 
-If — and only if — you select the **Cloud** engine in Settings:
+If — and only if — you select a **Cloud** try-on engine or run Image / Video /
+Code studio with a free Hugging Face Space, Groq, or OpenRouter model:
 
-- Your garment and person images are uploaded over HTTPS to our processing
-  backend, passed to a hosted generation model, and **deleted immediately
-  after the result is returned**, whether generation succeeds or fails.
+- Your prompt text and any attached reference or garment/person images are
+  uploaded over HTTPS to the selected free provider for that job, then the
+  provider returns a result. Providers’ retention policies apply to their
+  infrastructure; The Lookbook does not keep a second copy of uploads on a
+  Lookbook server.
 - Images are re-encoded before upload so location and device metadata (EXIF)
-  are stripped.
-- No account is required and no persistent identifier accompanies the upload.
+  are stripped when possible.
+- API keys you paste (Hugging Face, Groq, OpenRouter) stay on your device and
+  are sent only to the matching provider when you generate.
 
 ## Content reports
 
-If you report a generated image, we receive: the reason you chose, optional
-text you enter, the engine tier, and the app version. Reports are anonymous.
+If you report a generated image or clip, The Lookbook stores the reason and
+file path **on this device only** (no paid report backend). Use this for Play
+policy review workflows and your own records.
 
 ## What we never do
 
 - No ads, no trackers, no analytics SDKs.
-- No sale or sharing of personal data.
-- No collection of contacts, location, or browsing data.
+- No sale or sharing of personal data for advertising.
+- No collection of contacts, precise location, or browsing history.
 
 ## Children
 
-Vestra is not directed at children under 13, and the likeness-consent gate
-prohibits generating images of anyone without their permission.
+The Lookbook is not directed at children under 13, and the likeness-consent
+gate prohibits generating images of anyone without their permission.
 
 ## Contact
 

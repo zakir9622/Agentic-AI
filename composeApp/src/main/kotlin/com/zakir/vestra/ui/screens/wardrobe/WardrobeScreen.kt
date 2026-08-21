@@ -41,6 +41,7 @@ import java.io.File
 fun WardrobeScreen(
     wardrobe: WardrobeRepository,
     onBack: () -> Unit,
+    onStartTryOn: (() -> Unit)? = null,
 ) {
     val entries by wardrobe.entries.collectAsState()
     val context = LocalContext.current
@@ -56,7 +57,11 @@ fun WardrobeScreen(
         scrollable = false,
     ) {
         if (entries.isEmpty()) {
-            GlassEmptyState(message = "Your try-on and Image studio looks appear here.")
+            GlassEmptyState(
+                message = LookbookCopy.EMPTY_GALLERY,
+                actionLabel = onStartTryOn?.let { LookbookCopy.ACTION_START_TRY_ON },
+                onAction = onStartTryOn,
+            )
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -75,7 +80,11 @@ fun WardrobeScreen(
             }
             Spacer(Modifier.height(12.dp))
             if (visible.isEmpty()) {
-                GlassEmptyState(message = "No favorites yet — tap ★ on a look.")
+                GlassEmptyState(
+                    message = LookbookCopy.EMPTY_FAVORITES,
+                    actionLabel = LookbookCopy.ACTION_SHOW_ALL_LOOKS,
+                    onAction = { favoritesOnly = false },
+                )
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),

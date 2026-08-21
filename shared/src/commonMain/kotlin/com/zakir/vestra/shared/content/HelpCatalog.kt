@@ -24,8 +24,21 @@ object LookbookCopy {
     const val ACTION_START_TRY_ON = "Start try-on"
     const val ACTION_GENERATE = "Generate"
     const val ACTION_CANCEL_GENERATION = "Cancel generation"
+    const val ACTION_RETRY = "Retry"
+    const val ACTION_BACK_ATELIER = "Back to atelier"
     const val ACTION_SAVE_TOKENS = "Save API keys"
     const val ACTION_OPEN_HELP = "Open Help & FAQ"
+    const val ACTION_OPEN_PRIVACY = "Privacy policy"
+    const val ACTION_REPORT = "Report content"
+    const val ACTION_SHARE = "Share"
+    const val ACTION_OPEN_VIDEO = "Open"
+    const val ACTION_SHOW_ALL_LOOKS = "Show all looks"
+
+    const val LABEL_VIRTUAL_TRY_ON = "VIRTUAL TRY-ON"
+    const val EMPTY_GALLERY = "Your try-on and Image studio looks appear here."
+    const val EMPTY_FAVORITES = "No favorites yet — tap ★ on a look."
+    const val PRIVACY_URL =
+        "https://github.com/zakir9622/Agentic-AI/blob/main/docs/PRIVACY_POLICY.md"
 
     const val ASSIST_EDITORIAL = "Editorial assist"
     const val ASSIST_FASHION = "Modest fashion"

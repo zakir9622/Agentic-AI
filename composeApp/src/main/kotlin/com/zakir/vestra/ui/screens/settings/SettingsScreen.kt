@@ -713,6 +713,19 @@ fun SettingsScreen(
                     OutlinedButton(onClick = onOpenHelp, modifier = Modifier.fillMaxWidth()) {
                         Text(LookbookCopy.ACTION_OPEN_HELP)
                     }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(LookbookCopy.PRIVACY_URL),
+                            )
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(LookbookCopy.ACTION_OPEN_PRIVACY)
+                    }
                 }
             }
         }

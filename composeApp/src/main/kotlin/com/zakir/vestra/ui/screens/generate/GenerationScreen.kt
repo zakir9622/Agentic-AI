@@ -1,5 +1,6 @@
 package com.zakir.vestra.ui.screens.generate
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -30,6 +31,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.GenerationState
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
@@ -47,6 +49,13 @@ fun GenerationScreen(
 ) {
     val shoot by viewModel.shoot.collectAsState()
     val haptics = LocalHapticFeedback.current
+
+    fun abortGeneration() {
+        viewModel.cancelShoot()
+        onAbort()
+    }
+
+    BackHandler { abortGeneration() }
 
     LaunchedEffect(Unit) {
         if (shoot == null) viewModel.startShoot()
@@ -74,7 +83,7 @@ fun GenerationScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                "VIRTUAL TRY-ON",
+                LookbookCopy.LABEL_VIRTUAL_TRY_ON,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -105,10 +114,7 @@ fun GenerationScreen(
                             viewModel.cancelShoot()
                             viewModel.startShoot()
                         },
-                        onAbort = {
-                            viewModel.cancelShoot()
-                            onAbort()
-                        },
+                        onAbort = ::abortGeneration,
                     )
                     else -> {
                         val shotFraction = when (val s = current?.inner) {
@@ -166,11 +172,8 @@ fun GenerationScreen(
                 )
                 Spacer(Modifier.height(20.dp))
                 GlassSecondaryButton(
-                    text = "Cancel generation",
-                    onClick = {
-                        viewModel.cancelShoot()
-                        onAbort()
-                    },
+                    text = LookbookCopy.ACTION_CANCEL_GENERATION,
+                    onClick = ::abortGeneration,
                 )
             }
         }
@@ -187,9 +190,9 @@ private fun FailureContent(error: TryOnError, onRetry: () -> Unit, onAbort: () -
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(20.dp))
-        GlassPrimaryButton(text = "Retry", onClick = onRetry)
+        GlassPrimaryButton(text = LookbookCopy.ACTION_RETRY, onClick = onRetry)
         Spacer(Modifier.height(10.dp))
-        GlassSecondaryButton(text = "Back to atelier", onClick = onAbort)
+        GlassSecondaryButton(text = LookbookCopy.ACTION_BACK_ATELIER, onClick = onAbort)
     }
 }
 

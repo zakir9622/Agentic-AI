@@ -218,6 +218,11 @@ fun VestraNavHost(
             WardrobeScreen(
                 wardrobe = wardrobe,
                 onBack = { navController.popBackStack() },
+                onStartTryOn = {
+                    navController.navigate(Routes.GARMENT) {
+                        popUpTo(Routes.STUDIO)
+                    }
+                },
             )
         }
         composable(Routes.SETTINGS) {

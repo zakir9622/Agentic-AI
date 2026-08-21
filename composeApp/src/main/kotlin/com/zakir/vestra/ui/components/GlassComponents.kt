@@ -43,8 +43,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.theme.SpatialElevation
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -393,7 +396,7 @@ fun GlassGenerateActions(
                     modifier = Modifier.weight(1f),
                 )
             }
-            GlassSecondaryButton(text = "Cancel generation", onClick = onStop)
+            GlassSecondaryButton(text = LookbookCopy.ACTION_CANCEL_GENERATION, onClick = onStop)
         } else {
             GlassPrimaryButton(text = generateLabel, onClick = onGenerate, enabled = enabled)
         }
@@ -481,7 +484,7 @@ fun GlassErrorBanner(message: String, onRetry: (() -> Unit)? = null, onDismiss: 
         Spacer(Modifier.padding(top = 8.dp))
         Row {
             if (onRetry != null) {
-                GlassSecondaryButton(text = "Retry", onClick = onRetry, modifier = Modifier.weight(1f))
+                GlassSecondaryButton(text = LookbookCopy.ACTION_RETRY, onClick = onRetry, modifier = Modifier.weight(1f))
             }
             if (onDismiss != null) {
                 if (onRetry != null) Spacer(Modifier.padding(horizontal = 6.dp))
@@ -492,19 +495,38 @@ fun GlassErrorBanner(message: String, onRetry: (() -> Unit)? = null, onDismiss: 
 }
 
 @Composable
-fun GlassLoadingCard(message: String, progress: Float? = null) {
+fun GlassLoadingCard(
+    message: String,
+    progress: Float? = null,
+    onCancel: (() -> Unit)? = null,
+) {
+    val progressLabel = progress?.let { "Generation progress ${(it.coerceIn(0f, 1f) * 100).toInt()} percent" }
+        ?: "Generation in progress"
     GlassCard {
-        Text(message, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { contentDescription = progressLabel },
+        )
         Spacer(Modifier.padding(top = 10.dp))
         if (progress != null) {
             androidx.compose.material3.LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = progressLabel },
                 color = VestraColors.Accent,
                 trackColor = VestraColors.GlassBorder,
             )
         } else {
-            androidx.compose.material3.CircularProgressIndicator(color = VestraColors.Accent)
+            androidx.compose.material3.CircularProgressIndicator(
+                color = VestraColors.Accent,
+                modifier = Modifier.semantics { contentDescription = progressLabel },
+            )
+        }
+        if (onCancel != null) {
+            Spacer(Modifier.padding(top = 12.dp))
+            GlassSecondaryButton(text = LookbookCopy.ACTION_CANCEL_GENERATION, onClick = onCancel)
         }
     }
 }

@@ -3,6 +3,7 @@ package com.zakir.vestra.ui.screens.create
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,16 +12,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.zakir.vestra.data.LocalReportStore
+import com.zakir.vestra.data.ReportReason
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.GenerativeState
@@ -58,11 +66,17 @@ fun CreateStudioScreen(
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     val assistCount = listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
 
+    fun leave() {
+        if (busy) viewModel.forceStop(showStopped = false)
+        onBack()
+    }
+    BackHandler { leave() }
+
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         viewModel.setReference(uri?.toString())
     }
 
-    GlassScreen(title = LookbookCopy.STUDIO_IMAGE, subtitle = "Free cloud stills", onBack = onBack) {
+    GlassScreen(title = LookbookCopy.STUDIO_IMAGE, subtitle = "Free cloud stills", onBack = ::leave) {
         Text(
             estimate,
             style = MaterialTheme.typography.bodySmall,
@@ -122,9 +136,9 @@ fun CreateStudioScreen(
         Spacer(Modifier.height(6.dp))
         ExamplePromptRow(
             examples = listOf(
-                "Emerald abaya in a Lahore bazaar at golden hour",
-                "Soft studio light, navy silk hijab, ivory backdrop",
-                "Black niqab portrait, shallow depth of field",
+                "Emerald abaya in a Lahore bazaar, soft afternoon light",
+                "Navy silk hijab portrait, studio softbox, editorial",
+                "Cream linen shalwar kameez, courtyard architecture",
             ),
             enabled = !busy,
             onPick = viewModel::setPrompt,
@@ -136,10 +150,15 @@ fun CreateStudioScreen(
         }
 
         Spacer(Modifier.height(12.dp))
-        ResultPane(state, onRetry = {
-            viewModel.clearResult()
-            viewModel.generateImage()
-        }, onDismiss = viewModel::clearResult)
+        ResultPane(
+            state = state,
+            onCancel = { viewModel.forceStop() },
+            onRetry = {
+                viewModel.clearResult()
+                viewModel.generateImage()
+            },
+            onDismiss = viewModel::clearResult,
+        )
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -149,12 +168,45 @@ internal fun ResultPane(
     state: GenerativeState?,
     onRetry: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
+    onCancel: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val reportStore = remember { LocalReportStore(context) }
+    var reportPath by remember { mutableStateOf<String?>(null) }
+
+    reportPath?.let { path ->
+        AlertDialog(
+            onDismissRequest = { reportPath = null },
+            title = { Text("Report content") },
+            text = {
+                androidx.compose.foundation.layout.Column {
+                    Text("Reports are stored on this device only (no paid services). Why are you reporting?")
+                    Spacer(Modifier.height(8.dp))
+                    ReportReason.entries.forEach { reason ->
+                        TextButton(
+                            onClick = {
+                                reportStore.submit(path, reason)
+                                reportPath = null
+                                Toast.makeText(context, "Report saved locally", Toast.LENGTH_SHORT).show()
+                            },
+                        ) { Text(reason.label) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { reportPath = null }) { Text("Cancel") }
+            },
+        )
+    }
+
     when (state) {
         null -> Unit
-        is GenerativeState.Preparing -> GlassLoadingCard(state.message)
-        is GenerativeState.Running -> GlassLoadingCard(state.stage, progress = state.fraction)
+        is GenerativeState.Preparing -> GlassLoadingCard(state.message, onCancel = onCancel)
+        is GenerativeState.Running -> GlassLoadingCard(
+            message = state.stage,
+            progress = state.fraction,
+            onCancel = onCancel,
+        )
         is GenerativeState.ImageReady -> GlassCard {
             GlassSectionLabel("RESULT")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -164,7 +216,7 @@ internal fun ResultPane(
             Spacer(Modifier.height(8.dp))
             AsyncImage(
                 model = File(state.path),
-                contentDescription = "Generated",
+                contentDescription = "Generated look",
                 modifier = Modifier.fillMaxWidth().height(320.dp),
                 contentScale = ContentScale.Fit,
             )
@@ -176,11 +228,16 @@ internal fun ResultPane(
                     modifier = Modifier.weight(1f),
                 )
                 GlassSecondaryButton(
-                    text = "Share",
+                    text = LookbookCopy.ACTION_SHARE,
                     onClick = { MediaExport.share(context, File(state.path), "Share image") },
                     modifier = Modifier.weight(1f),
                 )
             }
+            Spacer(Modifier.height(10.dp))
+            GlassSecondaryButton(
+                text = LookbookCopy.ACTION_REPORT,
+                onClick = { reportPath = state.path },
+            )
         }
         is GenerativeState.VideoReady -> GlassCard {
             GlassSectionLabel("VIDEO READY")
@@ -200,8 +257,21 @@ internal fun ResultPane(
                     modifier = Modifier.weight(1f),
                 )
                 GlassSecondaryButton(
-                    text = "Open / share",
+                    text = LookbookCopy.ACTION_OPEN_VIDEO,
                     onClick = { MediaExport.openVideo(context, File(state.path)) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                GlassSecondaryButton(
+                    text = LookbookCopy.ACTION_SHARE,
+                    onClick = { MediaExport.share(context, File(state.path), "Share clip") },
+                    modifier = Modifier.weight(1f),
+                )
+                GlassSecondaryButton(
+                    text = LookbookCopy.ACTION_REPORT,
+                    onClick = { reportPath = state.path },
                     modifier = Modifier.weight(1f),
                 )
             }
