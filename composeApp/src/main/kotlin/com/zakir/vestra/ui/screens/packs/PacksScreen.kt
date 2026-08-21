@@ -23,6 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.domain.PackState
 import com.zakir.vestra.shared.domain.PackStatus
@@ -139,15 +141,23 @@ private fun PackCard(
 ) {
     GlassCard {
         Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(state.pack.displayName, style = MaterialTheme.typography.titleMedium)
+            Text(
+                state.pack.displayName,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
             Text(
                 formatBytes(state.pack.totalBytes),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Visible,
+                textAlign = TextAlign.End,
             )
         }
         Spacer(Modifier.height(4.dp))
@@ -188,6 +198,7 @@ private fun PackCard(
                         "${(state.progress * 100).toInt()}% · resumes if network drops",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
                     OutlinedButton(onClick = onCancel) { Text("Cancel") }
                 }

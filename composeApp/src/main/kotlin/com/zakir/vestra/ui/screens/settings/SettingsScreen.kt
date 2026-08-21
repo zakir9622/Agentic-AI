@@ -92,6 +92,7 @@ fun SettingsScreen(
     val selectedTier by appSettings.engineTier.collectAsState()
     val appearance by appSettings.appearanceMode.collectAsState()
     val packStates by packManager.states.collectAsState()
+    val packCatalogError by packManager.lastError.collectAsState()
     val startDownload = rememberPackDownloadStarter(showToast = true)
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { packManager.refresh() }
@@ -395,7 +396,12 @@ fun SettingsScreen(
                             PackStatus.INCOMPATIBLE -> "This device doesn’t meet pack requirements"
                             PackStatus.UPDATE_AVAILABLE -> "Update available"
                             PackStatus.NOT_INSTALLED -> if (progress > 0f) "Partial download — can resume" else "Not installed"
-                            null -> "Catalog loading…"
+                            null -> when {
+                                packStates.isEmpty() && !packCatalogError.isNullOrBlank() ->
+                                    "Catalog unavailable — open All packs to retry"
+                                packStates.isEmpty() -> "Loading pack catalog…"
+                                else -> "Not in catalog yet — open All packs or tap Download"
+                            }
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -716,6 +722,7 @@ private fun CloudCapabilityDropdown(
     var discovered by remember(capability) { mutableStateOf<List<CloudModelProvider>>(emptyList()) }
     var discovering by remember { mutableStateOf(false) }
     var discoverError by remember { mutableStateOf<String?>(null) }
+    var discoverInfo by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     val usable = remember(tokenEpoch, capability) { discovery.curatedUsable(appSettings, capability) }
@@ -728,6 +735,8 @@ private fun CloudCapabilityDropdown(
     val selected = options.firstOrNull { it.id == selectedId }
         ?: locked.firstOrNull { it.id == selectedId }
         ?: options.firstOrNull()
+    val selectedNeedsToken = selected != null && locked.any { it.id == selected.id }
+    val lockedOthers = locked.filter { it.id != selected?.id }
 
     Spacer(Modifier.height(14.dp))
     GlassCard {
@@ -751,8 +760,12 @@ private fun CloudCapabilityDropdown(
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                 supportingText = {
                     Text(
-                        selected?.usageNote?.ifBlank { selected.description } ?: "",
-                        color = VestraColors.InkMuted,
+                        when {
+                            selectedNeedsToken ->
+                                "Save a ${selected?.platform?.name?.replace('_', ' ') ?: "API"} key above to use this model"
+                            else -> selected?.usageNote?.ifBlank { selected.description } ?: ""
+                        },
+                        color = if (selectedNeedsToken) MaterialTheme.colorScheme.error else VestraColors.InkMuted,
                     )
                 },
                 colors = GlassFormDefaults.outlinedFieldColors(),
@@ -788,36 +801,59 @@ private fun CloudCapabilityDropdown(
                 }
             }
         }
-        if (locked.isNotEmpty()) {
+        if (lockedOthers.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
             Text(
-                "Locked until token saved: " + locked.take(3).joinToString { it.displayName },
+                "Also needs a token: " + lockedOthers.take(3).joinToString { it.displayName },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.height(4.dp))
-        TextButton(
-            onClick = {
-                discovering = true
-                discoverError = null
-                scope.launch {
-                    discovered = discovery.discoverHf(appSettings.hfToken.value, capability)
-                    appSettings.rememberDiscovered(discovered)
-                    discovering = false
-                    if (discovered.isEmpty() && !appSettings.hfToken.value.isNullOrBlank()) {
-                        discoverError = "No warm HF Inference models found for this capability"
-                    } else if (appSettings.hfToken.value.isNullOrBlank()) {
-                        discoverError = "Save an HF token above, then refresh"
+        // HF Inference discovery only applies to gen/edit/code — try-on & video use curated Spaces.
+        val discoverySupported = capability == AiCapability.IMAGE_GEN ||
+            capability == AiCapability.IMAGE_EDIT ||
+            capability == AiCapability.CODE
+        if (discoverySupported) {
+            TextButton(
+                onClick = {
+                    discovering = true
+                    discoverError = null
+                    discoverInfo = null
+                    scope.launch {
+                        val token = appSettings.hfToken.value
+                        if (token.isNullOrBlank()) {
+                            discoverError = "Save an HF token above, then refresh"
+                            discovering = false
+                            return@launch
+                        }
+                        discovered = discovery.discoverHf(token, capability)
+                        appSettings.rememberDiscovered(discovered)
+                        discovering = false
+                        if (discovered.isEmpty()) {
+                            // Curated catalog is the source of truth — empty discovery is not a failure.
+                            discoverInfo = "No extra warm HF Inference models right now. Curated free models above still work."
+                        } else {
+                            discoverInfo = "Added ${discovered.size} warm HF Inference model(s)"
+                        }
                     }
-                }
-            },
-            enabled = !discovering,
-        ) {
-            Text(if (discovering) "Refreshing HF free models…" else "Refresh free HF models from token")
+                },
+                enabled = !discovering,
+            ) {
+                Text(if (discovering) "Refreshing HF free models…" else "Refresh free HF models from token")
+            }
+        } else {
+            Text(
+                "Uses curated free HF Spaces / APIs — live Inference discovery isn’t needed here.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         discoverError?.let {
             Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+        }
+        discoverInfo?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
