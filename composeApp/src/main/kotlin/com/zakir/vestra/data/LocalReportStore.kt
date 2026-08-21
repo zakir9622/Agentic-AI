@@ -35,6 +35,10 @@ class LocalReportStore(context: Context) {
 
     fun count(): Int = load().length()
 
+    fun exportFile(): File = file
+
+    fun exportJson(): String = load().toString(2)
+
     private fun load(): JSONArray {
         if (!file.exists()) return JSONArray()
         return runCatching { JSONArray(file.readText()) }.getOrDefault(JSONArray())

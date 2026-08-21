@@ -249,7 +249,10 @@ internal fun ResultPane(
         }
         is GenerativeState.VideoReady -> GlassCard {
             GlassSectionLabel("VIDEO READY")
-            GlassPill(text = "AI-generated", active = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassPill(text = "AI-generated", active = true)
+                GlassPill(text = "In looks gallery", active = true, accent = VestraColors.Accent)
+            }
             Spacer(Modifier.height(8.dp))
             Text(
                 "Saved on device. Save to Movies/The Lookbook or open with a system player.",

@@ -97,6 +97,7 @@ fun SettingsScreen(
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
     onOpenHelp: () -> Unit,
+    onOpenPrivacy: () -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -288,13 +289,7 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(
-                        onClick = {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(LookbookCopy.PRIVACY_URL),
-                            )
-                            context.startActivity(intent)
-                        },
+                        onClick = onOpenPrivacy,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(LookbookCopy.ACTION_OPEN_PRIVACY)
@@ -676,6 +671,31 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Clear API keys")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    val reportStore = remember { com.zakir.vestra.data.LocalReportStore(context) }
+                    Text(
+                        "Content reports on device: ${reportStore.count()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            if (reportStore.count() == 0) {
+                                Toast.makeText(context, "No reports yet", Toast.LENGTH_SHORT).show()
+                                return@OutlinedButton
+                            }
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "The Lookbook content reports")
+                                putExtra(Intent.EXTRA_TEXT, reportStore.exportJson())
+                            }
+                            context.startActivity(Intent.createChooser(send, LookbookCopy.ACTION_EXPORT_REPORTS))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(LookbookCopy.ACTION_EXPORT_REPORTS)
                     }
                 }
                 Spacer(Modifier.height(14.dp))

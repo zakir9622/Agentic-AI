@@ -36,6 +36,7 @@ import com.zakir.vestra.ui.screens.studio.StudioScreen
 import com.zakir.vestra.ui.screens.usage.UsageScreen
 import com.zakir.vestra.ui.screens.video.VideoStudioScreen
 import com.zakir.vestra.ui.screens.help.HelpScreen
+import com.zakir.vestra.ui.screens.privacy.PrivacyScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
 object Routes {
@@ -54,6 +55,7 @@ object Routes {
     const val VIDEO = "video"
     const val USAGE = "usage"
     const val HELP = "help"
+    const val PRIVACY = "privacy"
 
     fun deepLink(route: String) = "lookbook://screen/$route"
 }
@@ -201,6 +203,7 @@ fun VestraNavHost(
         composable(Routes.RESULT) {
             ResultScreen(
                 viewModel = tryOnViewModel,
+                wardrobe = wardrobe,
                 onNewLook = {
                     tryOnViewModel.resetSession()
                     navController.navigate(Routes.GARMENT) {
@@ -210,6 +213,7 @@ fun VestraNavHost(
                 onBackToStudio = {
                     navController.popBackStack(Routes.STUDIO, inclusive = false)
                 },
+                onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
             )
         }
         composable(
@@ -255,6 +259,10 @@ fun VestraNavHost(
             UsageScreen(
                 usage = usageLedger,
                 onBack = { navController.popBackStack() },
+                onOpenCreate = {
+                    generativeViewModel.prepareStudio(resetIfIdle = true)
+                    navController.navigate(Routes.CREATE)
+                },
             )
         }
         composable(
@@ -268,6 +276,14 @@ fun VestraNavHost(
                         launchSingleTop = true
                     }
                 },
+            )
+        }
+        composable(
+            route = Routes.PRIVACY,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.PRIVACY) }),
+        ) {
+            PrivacyScreen(
+                onBack = { navController.popBackStack() },
             )
         }
         composable(
@@ -297,6 +313,7 @@ fun VestraNavHost(
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
+                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
                 onBack = { navController.popBackStack() },
             )
         }

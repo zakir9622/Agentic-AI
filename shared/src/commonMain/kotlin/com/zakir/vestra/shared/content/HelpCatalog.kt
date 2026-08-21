@@ -30,6 +30,9 @@ object LookbookCopy {
     const val ACTION_OPEN_HELP = "Open Help & FAQ"
     const val ACTION_OPEN_PRIVACY = "Privacy policy"
     const val ACTION_OPEN_SETTINGS = "Open Settings"
+    const val ACTION_CONTACT_SUPPORT = "Email support"
+    const val ACTION_EXPORT_REPORTS = "Export content reports"
+    const val SUPPORT_EMAIL = "zakir9622@gmail.com"
     const val ACTION_REPORT = "Report content"
     const val ACTION_SHARE = "Share"
     const val ACTION_OPEN_VIDEO = "Open"
@@ -191,7 +194,21 @@ object HelpCatalog {
             category = "Troubleshooting",
             question = "How do I get further help?",
             answer = "Use this Help & FAQ first, then review Cloud usage for the last failure note. " +
-                "For pack or device compatibility issues, open Model packs — incompatible devices are labeled clearly.",
+                "Email ${LookbookCopy.SUPPORT_EMAIL} for pack or device issues. Open Privacy policy in Settings for data practices.",
+        ),
+        HelpTopic(
+            id = "privacy-policy",
+            category = "Privacy & security",
+            question = "Where is the Privacy Policy?",
+            answer = "Open Settings → About → Privacy policy for the full on-device policy. " +
+                "A hosted GitHub copy is also linked for store listings.",
+        ),
+        HelpTopic(
+            id = "content-reports",
+            category = "Privacy & security",
+            question = "What happens when I report content?",
+            answer = "Reports are stored only on this device (reason + path). " +
+                "Export them from Settings → Storage & privacy → Export content reports for Play review workflows.",
         ),
     )
 

@@ -27,6 +27,7 @@ import java.util.Locale
 fun UsageScreen(
     usage: UsageLedger,
     onBack: () -> Unit,
+    onOpenCreate: (() -> Unit)? = null,
 ) {
     val summary by usage.summary.collectAsState()
     val events by usage.events.collectAsState()
@@ -34,6 +35,15 @@ fun UsageScreen(
     val failCount = summary.totalRequests - summary.successCount
 
     GlassScreen(title = "Cloud usage", subtitle = "Free-tier request ledger", onBack = onBack) {
+        if (summary.totalRequests == 0) {
+            com.zakir.vestra.ui.components.GlassEmptyState(
+                message = "No cloud runs yet. Open Image or Video studio to generate with free Spaces.",
+                actionLabel = onOpenCreate?.let { "Open Image studio" },
+                onAction = onOpenCreate,
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+
         GlassCard {
             GlassSectionLabel("SUMMARY")
             Text(

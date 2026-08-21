@@ -14,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.content.HelpCatalog
 import com.zakir.vestra.shared.content.LookbookCopy
@@ -53,7 +55,9 @@ fun HelpScreen(
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Search Help and FAQ" },
             singleLine = true,
             label = { Text("Search Help") },
             placeholder = { Text("e.g. token, pack, queue, camera") },
@@ -63,7 +67,7 @@ fun HelpScreen(
         GlassCard {
             GlassSectionLabel("QUICK ACTIONS")
             GlassPrimaryButton(
-                text = "Open Settings",
+                text = LookbookCopy.ACTION_OPEN_SETTINGS,
                 onClick = onOpenSettings,
             )
             Spacer(Modifier.height(8.dp))
@@ -75,6 +79,17 @@ fun HelpScreen(
             GlassPrimaryButton(
                 text = "Notification settings",
                 onClick = { context.openNotificationSettings() },
+            )
+            Spacer(Modifier.height(8.dp))
+            GlassPrimaryButton(
+                text = LookbookCopy.ACTION_CONTACT_SUPPORT,
+                onClick = {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                        data = android.net.Uri.parse("mailto:${LookbookCopy.SUPPORT_EMAIL}")
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, "The Lookbook support")
+                    }
+                    runCatching { context.startActivity(intent) }
+                },
             )
         }
 

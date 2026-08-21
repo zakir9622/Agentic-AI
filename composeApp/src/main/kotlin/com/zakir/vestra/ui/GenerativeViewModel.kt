@@ -207,7 +207,9 @@ class GenerativeViewModel(
                     if (epoch != generationEpoch) return@collect
                     _state.value = next
                     if (next is GenerativeState.ImageReady) {
-                        ingestCreateImage(next.path)
+                        ingestCreateImage(next.path, label = "Create")
+                    } else if (next is GenerativeState.VideoReady) {
+                        ingestCreateImage(next.path, label = "Video")
                     }
                 }
             } catch (_: CancellationException) {
@@ -222,16 +224,16 @@ class GenerativeViewModel(
         }
     }
 
-    private fun ingestCreateImage(path: String) {
-        val promptSnippet = _prompt.value.trim().take(80).ifBlank { "create" }
+    private fun ingestCreateImage(path: String, label: String) {
+        val promptSnippet = _prompt.value.trim().take(80).ifBlank { label.lowercase() }
         runCatching {
             wardrobe.add(
                 WardrobeEntry(
                     id = Uuid.random().toString(),
                     createdAtEpochMillis = System.currentTimeMillis(),
                     imagePath = path,
-                    garmentUri = "create:$promptSnippet",
-                    personLabel = "Create",
+                    garmentUri = "${label.lowercase()}:$promptSnippet",
+                    personLabel = label,
                     tier = EngineTier.CLOUD,
                     shootId = null,
                 ),

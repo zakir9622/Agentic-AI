@@ -77,6 +77,7 @@ import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.util.rememberReduceMotion
 import java.io.File
 import kotlinx.coroutines.delay
 
@@ -113,15 +114,16 @@ fun StudioScreen(
     }
 
     var appeared by remember { mutableStateOf(false) }
+    val reduceMotion = rememberReduceMotion()
     LaunchedEffect(Unit) { appeared = true }
     val fade by animateFloatAsState(
-        targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(640),
+        targetValue = if (appeared || reduceMotion) 1f else 0f,
+        animationSpec = if (reduceMotion) tween(0) else tween(640),
         label = "studioFade",
     )
     val heroLift by animateFloatAsState(
-        targetValue = if (appeared) 0f else 18f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (appeared || reduceMotion) 0f else 18f,
+        animationSpec = if (reduceMotion) tween(0) else spring(stiffness = Spring.StiffnessMediumLow),
         label = "heroLift",
     )
 

@@ -53,6 +53,8 @@ import coil3.compose.AsyncImage
 import com.zakir.vestra.data.LocalReportStore
 import com.zakir.vestra.data.ReportReason
 import com.zakir.vestra.media.MediaExport
+import com.zakir.vestra.shared.content.LookbookCopy
+import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassImageFrame
 import com.zakir.vestra.ui.components.GlassPill
@@ -66,16 +68,22 @@ import java.io.File
 @Composable
 fun ResultScreen(
     viewModel: com.zakir.vestra.ui.TryOnViewModel,
+    wardrobe: WardrobeRepository,
     onNewLook: () -> Unit,
     onBackToStudio: () -> Unit,
+    onOpenWardrobe: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val reportStore = remember { LocalReportStore(context) }
     val shoot by viewModel.shoot.collectAsState()
+    val wardrobeEntries by wardrobe.entries.collectAsState()
     val results = shoot?.completed.orEmpty()
     var selectedShot by remember { mutableStateOf(0) }
     var showReport by remember { mutableStateOf(false) }
     val result = results.getOrNull(selectedShot.coerceIn(0, (results.size - 1).coerceAtLeast(0)))
+    val wardrobeMatch = result?.let { shot ->
+        wardrobeEntries.firstOrNull { it.imagePath == shot.imagePath }
+    }
 
     if (showReport && result != null) {
         AlertDialog(
@@ -205,12 +213,26 @@ fun ResultScreen(
                     )
                 }
                 Spacer(Modifier.height(10.dp))
-                GlassSecondaryButton(text = "Report content", onClick = { showReport = true })
+                GlassSecondaryButton(text = LookbookCopy.ACTION_REPORT, onClick = { showReport = true })
+                if (wardrobeMatch != null) {
+                    Spacer(Modifier.height(10.dp))
+                    GlassSecondaryButton(
+                        text = if (wardrobeMatch.favorited) "Remove favorite" else "Add favorite",
+                        onClick = { wardrobe.toggleFavorite(wardrobeMatch.id) },
+                    )
+                }
+                if (onOpenWardrobe != null) {
+                    Spacer(Modifier.height(10.dp))
+                    GlassSecondaryButton(
+                        text = "Open Looks gallery",
+                        onClick = onOpenWardrobe,
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
             }
 
             GlassPrimaryButton(
-                text = "Start try-on",
+                text = LookbookCopy.ACTION_START_TRY_ON,
                 onClick = onNewLook,
                 modifier = Modifier.padding(bottom = 16.dp),
             )
