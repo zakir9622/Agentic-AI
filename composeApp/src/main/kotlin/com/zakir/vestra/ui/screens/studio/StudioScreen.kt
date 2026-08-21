@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -359,7 +360,7 @@ fun StudioScreen(
                                 ) {
                                     AsyncImage(
                                         model = file,
-                                        contentDescription = "Recent look",
+                                        contentDescription = "Recent look ${entry.personLabel}",
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop,
                                     )
@@ -378,13 +379,34 @@ fun StudioScreen(
                                             ),
                                     )
                                     Text(
-                                        "Look",
+                                        entry.personLabel.ifBlank { "Look" },
                                         style = MaterialTheme.typography.labelMedium,
                                         color = VestraColors.Ivory,
+                                        maxLines = 1,
                                         modifier = Modifier
                                             .align(Alignment.BottomStart)
-                                            .padding(12.dp),
+                                            .padding(start = 12.dp, end = 44.dp, bottom = 12.dp),
                                     )
+                                    IconButton(
+                                        onClick = {
+                                            if (file.exists()) {
+                                                MediaExport.share(context, file, LookbookCopy.ACTION_SHARE)
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(4.dp)
+                                            .semantics {
+                                                contentDescription = LookbookCopy.ACTION_SHARE
+                                            },
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Share,
+                                            contentDescription = null,
+                                            tint = VestraColors.Ivory,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
                                 }
                             }
                         }

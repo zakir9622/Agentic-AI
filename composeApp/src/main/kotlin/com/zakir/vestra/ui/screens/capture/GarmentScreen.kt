@@ -272,12 +272,12 @@ fun GarmentScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = ::pickFromGallery, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
+                    Icon(Icons.Outlined.PhotoLibrary, contentDescription = "Pick from gallery")
                     Spacer(Modifier.width(4.dp))
                     Text(if (outfit.isEmpty()) "Gallery" else "Add piece")
                 }
                 OutlinedButton(onClick = launchCamera, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Outlined.PhotoCamera, contentDescription = null)
+                    Icon(Icons.Outlined.PhotoCamera, contentDescription = "Capture with camera")
                     Spacer(Modifier.width(4.dp))
                     Text("Camera")
                 }

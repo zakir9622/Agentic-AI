@@ -33,8 +33,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.theme.VestraColors
 
 /**
@@ -173,12 +176,18 @@ private fun ModelChip(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(50)
+    val a11y = if (onClick != null) {
+        "Selected model $label. Opens model settings."
+    } else {
+        "Selected model $label"
+    }
     Row(
         modifier
             .clip(shape)
             .background(VestraColors.GlassFill)
             .border(1.dp, VestraColors.Accent.copy(alpha = 0.4f), shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics { contentDescription = a11y }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -201,18 +210,24 @@ private fun ModelChip(
 @Composable
 private fun AssistChip(count: Int, onClick: (() -> Unit)?) {
     val shape = RoundedCornerShape(50)
+    val a11y = when {
+        count <= 0 -> "No assists active"
+        count == 1 -> "1 assist active"
+        else -> "$count assists active"
+    }
     Row(
         Modifier
             .clip(shape)
             .background(VestraColors.GlassFill)
             .border(1.dp, VestraColors.GlassBorder, shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics { contentDescription = a11y }
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             Icons.Outlined.Layers,
-            contentDescription = "Assists active",
+            contentDescription = null,
             tint = VestraColors.InkMuted,
             modifier = Modifier.size(16.dp),
         )
