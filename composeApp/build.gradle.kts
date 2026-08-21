@@ -18,6 +18,7 @@ android {
         versionName = "2.5.1"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
         buildConfigField("String", "DEFAULT_HF_TOKEN", "\"\"")
+        buildConfigField("String", "DEFAULT_OPENROUTER_TOKEN", "\"\"")
     }
 
     flavorDimensions += "distribution"
@@ -54,7 +55,11 @@ android {
             val hfDefault = (localProps.getProperty("lookbook.hf.token")
                 ?: System.getenv("LOOKBOOK_HF_TOKEN")
                 ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
+            val orDefault = (localProps.getProperty("lookbook.openrouter.token")
+                ?: System.getenv("LOOKBOOK_OPENROUTER_TOKEN")
+                ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
             buildConfigField("String", "DEFAULT_HF_TOKEN", "\"$hfDefault\"")
+            buildConfigField("String", "DEFAULT_OPENROUTER_TOKEN", "\"$orDefault\"")
         }
         release {
             isMinifyEnabled = true
@@ -67,6 +72,7 @@ android {
                 it.storeFile?.exists() == true
             } ?: signingConfigs.getByName("debug")
             buildConfigField("String", "DEFAULT_HF_TOKEN", "\"\"")
+            buildConfigField("String", "DEFAULT_OPENROUTER_TOKEN", "\"\"")
         }
     }
 

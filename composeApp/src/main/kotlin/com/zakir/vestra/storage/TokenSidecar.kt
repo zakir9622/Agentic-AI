@@ -115,6 +115,13 @@ object TokenSidecar {
         return true
     }
 
+    fun applyDefaultOpenRouterIfBlank(settings: AppSettings, defaultToken: String?): Boolean {
+        val token = defaultToken?.trim()?.takeIf { it.isNotBlank() && it != "null" } ?: return false
+        if (!settings.openRouterApiKey.value.isNullOrBlank()) return false
+        settings.setOpenRouterApiKey(token)
+        return true
+    }
+
     private fun applyParsed(
         parsed: TokenFileParser.Tokens,
         settings: AppSettings,
