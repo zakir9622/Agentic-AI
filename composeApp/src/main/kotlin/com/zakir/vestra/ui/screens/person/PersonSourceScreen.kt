@@ -130,7 +130,7 @@ fun PersonSourceScreen(
         ) {
             GlassTopBar(
                 title = "Choose your model",
-                subtitle = "Model & pose",
+                subtitle = "Step 3 · Person",
                 navigation = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")

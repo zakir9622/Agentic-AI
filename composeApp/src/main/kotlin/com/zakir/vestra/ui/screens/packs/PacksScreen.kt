@@ -30,6 +30,7 @@ import com.zakir.vestra.shared.domain.PackState
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
@@ -56,7 +57,11 @@ fun PacksScreen(
         packManager.refresh()
     }
 
-    GlassScreen(title = "Model packs", subtitle = "Open-source · on-device · resumable", onBack = onBack) {
+    GlassScreen(
+        title = LookbookCopy.STUDIO_PACKS,
+        subtitle = "On-device · resumable · survives reinstall",
+        onBack = onBack,
+    ) {
         Text(
             "Download open-source packs once. Transfers resume after network drops. Installed packs work offline with \$0 tokens.",
             style = MaterialTheme.typography.bodyMedium,

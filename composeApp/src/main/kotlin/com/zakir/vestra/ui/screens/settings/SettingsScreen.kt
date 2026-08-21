@@ -126,6 +126,7 @@ fun SettingsScreen(
     var clearingCache by remember { mutableStateOf(false) }
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
     var clipboardHint by remember { mutableStateOf<String?>(null) }
+    var permissionEpoch by remember { mutableStateOf(0) }
 
     val importTokensLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -191,6 +192,7 @@ fun SettingsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 durableReady = DurableStorage.hasAllFilesAccess()
+                permissionEpoch += 1
                 applyClipboardToken()
                 if (durableReady) {
                     scope.launch { packManager.refresh() }
@@ -221,7 +223,7 @@ fun SettingsScreen(
                         openRouterInput = ""
                         keysSavedFlash = false
                         confirmClearTokens = false
-                        Toast.makeText(context, "Tokens cleared", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "API keys cleared", Toast.LENGTH_SHORT).show()
                     },
                 ) { Text("Clear") }
             },
@@ -643,7 +645,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
-            item(key = "permissions") {
+            item(key = "permissions-$permissionEpoch") {
                 GlassCard {
                     GlassSectionLabel("PERMISSIONS")
                     Text(

@@ -135,7 +135,7 @@ fun GarmentScreen(
         ) {
                 GlassTopBar(
                     title = if (outfit.size > 1) "Your outfit" else "Your garment",
-                    subtitle = "Garment",
+                    subtitle = "Step 1 · Capture",
                     navigation = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")

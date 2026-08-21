@@ -39,8 +39,8 @@ fun CastingStudioScreen(
     val casting by viewModel.casting.collectAsState()
 
     GlassScreen(
-        title = "Studio parameters",
-        subtitle = "Casting",
+        title = "Casting studio",
+        subtitle = "Step 2 · Scene",
         onBack = onBack,
     ) {
         GlassCard {

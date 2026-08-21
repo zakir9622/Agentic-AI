@@ -74,7 +74,7 @@ fun GenerationScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                "THE SHOOT",
+                "VIRTUAL TRY-ON",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -82,7 +82,7 @@ fun GenerationScreen(
             if (current != null && current.totalShots > 1) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Shot ${current.shotIndex + 1} of ${current.totalShots}",
+                    "Look ${current.shotIndex + 1} of ${current.totalShots}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = VestraColors.IvoryMuted,
                 )
@@ -166,7 +166,7 @@ fun GenerationScreen(
                 )
                 Spacer(Modifier.height(20.dp))
                 GlassSecondaryButton(
-                    text = "Force stop",
+                    text = "Cancel generation",
                     onClick = {
                         viewModel.cancelShoot()
                         onAbort()
@@ -189,14 +189,17 @@ private fun FailureContent(error: TryOnError, onRetry: () -> Unit, onAbort: () -
         Spacer(Modifier.height(20.dp))
         GlassPrimaryButton(text = "Retry", onClick = onRetry)
         Spacer(Modifier.height(10.dp))
-        GlassSecondaryButton(text = "Back to studio", onClick = onAbort)
+        GlassSecondaryButton(text = "Back to atelier", onClick = onAbort)
     }
 }
 
 private fun TryOnError.userMessage(): String = when (this) {
-    TryOnError.ModelPackMissing -> "The model pack for this engine isn't installed yet. Download it from Settings → Open-source local packs."
-    TryOnError.DeviceNotCapable -> "This device can't run the selected engine. Switch to Lite or Auto in Settings."
-    TryOnError.NetworkUnavailable -> "Cloud generation needs internet. Check your network or switch to Lite/Pro (offline)."
-    is TryOnError.SafetyBlocked -> "This image can't be used: $reason"
-    is TryOnError.Internal -> message.ifBlank { "Something went wrong during generation. Please try again." }
+    TryOnError.ModelPackMissing ->
+        "The model pack for this engine isn’t installed yet. Download it from Settings → Model packs."
+    TryOnError.DeviceNotCapable ->
+        "This device can’t run the selected engine. Switch to Lite or Auto in Settings."
+    TryOnError.NetworkUnavailable ->
+        "Cloud generation needs internet. Check your network or switch to Lite/Pro (offline)."
+    is TryOnError.SafetyBlocked -> "This image can’t be used: $reason"
+    is TryOnError.Internal -> message.ifBlank { "Generation failed. Please try again or open Help & FAQ." }
 }
