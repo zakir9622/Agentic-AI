@@ -1,5 +1,11 @@
 package com.zakir.vestra.ui.screens.onboarding
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
@@ -12,7 +18,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,9 +29,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
 
@@ -55,7 +62,7 @@ private val pages = listOf(
 fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
     var page by remember { mutableIntStateOf(0) }
     val slide = pages[page]
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(24.dp)
 
     SpatialBackground {
         Column(
@@ -66,71 +73,91 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(20.dp))
             Text(
                 "The Lookbook",
                 style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = VestraColors.Ink,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 "Modest wear · local AI",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
+                color = VestraColors.Accent,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(20.dp))
 
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(VestraColors.GlassFillStrong)
-                    .border(1.dp, VestraColors.GlassBorder, shape)
-                    .padding(14.dp),
-            ) {
-                Text(
-                    text = slide.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = VestraColors.Ink,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = slide.body,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VestraColors.InkMuted,
-                    textAlign = TextAlign.Start,
-                )
+            AnimatedContent(
+                targetState = slide,
+                transitionSpec = {
+                    (fadeIn() + slideInHorizontally { it / 5 }) togetherWith
+                        (fadeOut() + slideOutHorizontally { -it / 5 })
+                },
+                label = "onboardSlide",
+                modifier = Modifier.fillMaxWidth(),
+            ) { current ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(shape)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(VestraColors.GlassFillStrong, VestraColors.GlassFill),
+                            ),
+                        )
+                        .border(
+                            1.dp,
+                            Brush.verticalGradient(
+                                listOf(VestraColors.GlassHighlight, VestraColors.GlassBorder),
+                            ),
+                            shape,
+                        )
+                        .padding(20.dp),
+                ) {
+                    Text(
+                        text = current.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = VestraColors.Ink,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = current.body,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = VestraColors.InkMuted,
+                        textAlign = TextAlign.Start,
+                    )
+                }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
                 "${page + 1} / ${pages.size}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(14.dp))
 
             if (page < pages.lastIndex) {
-                Button(
+                GlassPrimaryButton(
+                    text = "Next",
                     onClick = { page += 1 },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Next") }
+                )
                 TextButton(onClick = {
                     appSettings.setOnboardingComplete()
                     onDone()
                 }) { Text("Skip") }
             } else {
-                Button(
+                GlassPrimaryButton(
+                    text = "Enter the atelier",
                     onClick = {
                         appSettings.setOnboardingComplete()
                         onDone()
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Get started") }
+                )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

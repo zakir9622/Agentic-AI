@@ -44,8 +44,8 @@ fun VideoStudioScreen(
 
     GlassScreen(title = "Video Studio", subtitle = "Creators · free HF only", onBack = onBack) {
         GlassCard {
-            GlassSectionLabel("FREE MODEL")
-            Text(provider.displayName, style = MaterialTheme.typography.titleMedium)
+            GlassSectionLabel("ATELIER")
+            Text(provider.displayName, style = MaterialTheme.typography.titleLarge)
             Text(estimate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
