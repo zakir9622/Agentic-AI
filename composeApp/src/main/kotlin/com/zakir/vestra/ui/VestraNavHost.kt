@@ -78,8 +78,20 @@ fun VestraNavHost(
     LaunchedEffect(pendingDeepLinkIntent, onboardingComplete) {
         val intent = pendingDeepLinkIntent ?: return@LaunchedEffect
         if (!onboardingComplete) return@LaunchedEffect
-        val handled = navController.handleDeepLink(intent)
-        if (handled) onDeepLinkHandled()
+        val route = intent.data
+            ?.takeIf { it.scheme == "lookbook" && it.host == "screen" }
+            ?.pathSegments
+            ?.firstOrNull()
+        if (route.isNullOrBlank()) return@LaunchedEffect
+        // Prefer explicit navigate — handleDeepLink is flaky when the graph
+        // is already composed on a warm singleTop Activity.
+        runCatching {
+            navController.navigate(route) {
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+        onDeepLinkHandled()
     }
 
     val tryOnViewModel: TryOnViewModel = viewModel(

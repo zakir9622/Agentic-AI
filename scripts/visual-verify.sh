@@ -1,37 +1,44 @@
 #!/usr/bin/env bash
-# Deep-link visual verification — no UI Automator taps.
+# Deep-link visual verification — warm process + lookbook://screen/{route}.
 # Usage: scripts/visual-verify.sh [serial] [outdir]
+# Tip: adb shell cmd package compile -m speed -f com.zakir.vestra
 set -euo pipefail
 SERIAL="${1:-emulator-5554}"
 OUT="${2:-/opt/cursor/artifacts/screenshots/visual-verify}"
 PKG=com.zakir.vestra
-SETTLE="${SETTLE:-14}"
+POST_NAV_SLEEP="${POST_NAV_SLEEP:-3.5}"
 mkdir -p "$OUT"
 
 shot() {
   local name="$1"
+  sleep "$POST_NAV_SLEEP"
   adb -s "$SERIAL" exec-out screencap -p > "$OUT/${name}.png"
-  local bytes
-  bytes=$(wc -c < "$OUT/${name}.png")
-  echo "✓ $name ($bytes bytes)"
+  echo "✓ $name ($(wc -c < "$OUT/${name}.png") bytes)"
 }
 
 open_route() {
   local route="$1"
-  adb -s "$SERIAL" shell am force-stop "$PKG"
-  # Warm ART a bit less painfully: start then wait
   adb -s "$SERIAL" shell am start -a android.intent.action.VIEW \
     -d "lookbook://screen/${route}" -n "$PKG/.MainActivity" >/dev/null || true
-  sleep "$SETTLE"
 }
 
 adb -s "$SERIAL" shell settings put global window_animation_scale 0
 adb -s "$SERIAL" shell settings put global transition_animation_scale 0
 adb -s "$SERIAL" shell settings put global animator_duration_scale 0
 
-# One warm launch so subsequent screenshots are richer
+adb -s "$SERIAL" shell am force-stop "$PKG"
 open_route studio
-shot "01-atelier"
+for i in $(seq 1 40); do
+  adb -s "$SERIAL" exec-out screencap -p > "$OUT/_probe.png"
+  bytes=$(wc -c < "$OUT/_probe.png")
+  if [ "$bytes" -gt 200000 ]; then
+    echo "warm after probe $i ($bytes bytes)"
+    break
+  fi
+  sleep 2
+done
+cp "$OUT/_probe.png" "$OUT/01-atelier.png"
+echo "✓ 01-atelier ($(wc -c < "$OUT/01-atelier.png") bytes)"
 
 for pair in \
   "create:02-image-studio" \
@@ -43,19 +50,20 @@ for pair in \
   "usage:09-cloud-usage" \
   "garment:10-garment-capture"
 do
-  route="${pair%%:*}"
-  name="${pair##*:}"
-  open_route "$route"
-  shot "$name"
+  open_route "${pair%%:*}"
+  shot "${pair##*:}"
 done
 
-# About section: already on settings from last? re-open settings then scroll
 open_route settings
-adb -s "$SERIAL" shell input swipe 540 2000 540 200 450
-sleep 0.5
-adb -s "$SERIAL" shell input swipe 540 2000 540 200 450
+sleep 2
+for _ in 1 2 3 4; do
+  adb -s "$SERIAL" shell input swipe 540 2000 540 250 350
+  sleep 0.35
+done
 sleep 1
-shot "08-settings-about"
+adb -s "$SERIAL" exec-out screencap -p > "$OUT/08-settings-about.png"
+echo "✓ 08-settings-about ($(wc -c < "$OUT/08-settings-about.png") bytes)"
 
+rm -f "$OUT/_probe.png"
 echo "Artifacts in $OUT"
 ls -lh "$OUT"
