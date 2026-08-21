@@ -41,6 +41,8 @@ class CloudEngine(
                 Availability.Unavailable(UnavailableReason.OFFLINE)
             provider.requiresApiKey && settings.apiKeyFor(provider).isNullOrBlank() ->
                 Availability.Unavailable(UnavailableReason.NOT_CONFIGURED)
+            CloudModelContracts.preflightOrNull(provider) != null ->
+                Availability.Unavailable(UnavailableReason.NOT_CONFIGURED)
             else -> Availability.Ready
         }
     }
@@ -48,6 +50,16 @@ class CloudEngine(
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
         val provider = settings.selectedCloudProvider()
         val startedAt = System.currentTimeMillis()
+
+        CloudModelContracts.preflightOrNull(provider)?.let { blocked ->
+            usage?.record(
+                provider,
+                success = false,
+                note = CloudModelContracts.usageFailureNote(provider, blocked),
+            )
+            emit(GenerationState.Failed(TryOnError.Internal(blocked)))
+            return@flow
+        }
 
         emit(GenerationState.Preparing("Connecting to ${provider.displayName}"))
         val personBytes = io.loadImageBytes(request.person)
@@ -70,7 +82,11 @@ class CloudEngine(
 
             emit(GenerationState.Running(0.85f, "Downloading result…"))
             val outPath = io.downloadResult(resultUrlOrPath, spaceHost = provider.endpoint)
-            usage?.record(provider, success = true, note = "Try-on · ${provider.displayName}")
+            usage?.record(
+                provider,
+                success = true,
+                note = "Try-on · ${provider.displayName} · ${CloudModelContracts.statusLabel(provider)}",
+            )
             emit(
                 GenerationState.Complete(
                     TryOnResult(
@@ -84,16 +100,20 @@ class CloudEngine(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            usage?.record(provider, success = false, note = e.message.orEmpty())
-            val msg = e.message ?: "Cloud generation failed"
+            val friendly = CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Try-on")
+            usage?.record(
+                provider,
+                success = false,
+                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+            )
             val error = if (
-                msg.contains("Unable to resolve host", ignoreCase = true) ||
-                msg.contains("Network", ignoreCase = true) ||
-                msg.contains("timeout", ignoreCase = true)
+                friendly.contains("No internet", ignoreCase = true) ||
+                e.message.orEmpty().contains("Unable to resolve host", ignoreCase = true) ||
+                e.message.orEmpty().contains("timeout", ignoreCase = true)
             ) {
                 TryOnError.NetworkUnavailable
             } else {
-                TryOnError.Internal(msg)
+                TryOnError.Internal(friendly)
             }
             emit(GenerationState.Failed(error))
         }
@@ -105,27 +125,13 @@ class CloudEngine(
         garment: String,
         category: GarmentCategory,
     ): String {
-        val result = hf.predictStrings(
+        val result = hf.predict(
             spaceHost = provider.endpoint,
-            apiName = provider.apiName,
-            data = hfPayload(provider.id, person, garment, category),
+            apiName = CloudModelContracts.effectiveApiName(provider),
+            data = SpacePayloads.forTryOn(provider.id, person, garment, category),
             hfToken = settings.hfToken.value,
         )
         return extractImageRef(result)
-    }
-
-    private fun hfPayload(
-        id: String,
-        person: String,
-        garment: String,
-        category: GarmentCategory,
-    ): List<String> = when (id) {
-        "idm-vton-hf" -> listOf(person, garment, category.idmLabel(), "upper_body", "false", "30", "42")
-        "leffa-hf" -> listOf(person, garment, "vton", "1.0")
-        "ootd-hf" -> listOf(person, garment, category.ootdLabel(), "1.0")
-        "fitdit-hf" -> listOf(person, garment, category.fitditLabel())
-        "catvton-hf" -> listOf(person, garment)
-        else -> listOf(person, garment)
     }
 
     private fun extractImageRef(element: kotlinx.serialization.json.JsonElement): String {
@@ -140,25 +146,6 @@ class CloudEngine(
             else -> error("Unrecognized cloud output format")
         }
     }
-}
-
-private fun GarmentCategory.idmLabel(): String = when (this) {
-    GarmentCategory.LOWER_BODY -> "lower_body"
-    GarmentCategory.HIJAB, GarmentCategory.NIQAB, GarmentCategory.DUPATTA, GarmentCategory.HEADSCARF -> "upper_body"
-    else -> "dresses"
-}
-
-private fun GarmentCategory.ootdLabel(): String = when (this) {
-    GarmentCategory.LOWER_BODY -> "Lower-body"
-    GarmentCategory.ABAYA, GarmentCategory.JILBAB, GarmentCategory.KAFTAN,
-    GarmentCategory.DRESS, GarmentCategory.SHALWAR_KAMEEZ, GarmentCategory.LEHENGA,
-    GarmentCategory.FULL_COVERAGE -> "Upper-body"
-    else -> "Upper-body"
-}
-
-private fun GarmentCategory.fitditLabel(): String = when (this) {
-    GarmentCategory.LOWER_BODY -> "lower"
-    else -> "upper"
 }
 
 /** Platform seam for loading/saving images for cloud engines. */

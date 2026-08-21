@@ -62,7 +62,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 95,
             speedScore = 60,
-            usageNote = "Free ZeroGPU daily quota. Optional HF token raises rate limits.",
+            usageNote = "Ready · tryon ImageEditor+garment+auto-mask. Free ZeroGPU.",
         ),
         CloudModelProvider(
             id = "leffa-hf",
@@ -76,7 +76,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 92,
             speedScore = 65,
-            usageNote = "Free ZeroGPU. Optional HF token.",
+            usageNote = "Degraded · host often 503. Prefer IDM-VTON.",
         ),
         CloudModelProvider(
             id = "ootd-hf",
@@ -90,12 +90,12 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 50,
-            usageNote = "Free ZeroGPU. Queue common at peak hours.",
+            usageNote = "Ready · process_hd model+garment+steps/guidance/seed. Queues at peak.",
         ),
         CloudModelProvider(
             id = "fitdit-hf",
             displayName = "FitDiT",
-            description = "Diffusion Transformer try-on with exceptional garment detail.",
+            description = "Diffusion Transformer try-on — requires mask + pose (not supported in-app yet).",
             platform = CloudPlatform.HF_SPACE,
             capability = AiCapability.TRY_ON,
             endpoint = "boyuanjiang-fitdit.hf.space",
@@ -104,7 +104,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 94,
             speedScore = 55,
-            usageNote = "Free HF Space. Needs mask UI path — prefer IDM-VTON if this fails.",
+            usageNote = "Unsupported in-app · needs mask editor + pose. Use IDM-VTON.",
         ),
         CloudModelProvider(
             id = "catvton-hf",
@@ -118,7 +118,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 86,
             speedScore = 80,
-            usageNote = "Free HF Space. Prefer IDM-VTON if mask editor fails.",
+            usageNote = "Ready · ImageEditor person + cloth type. Prefer IDM if busy.",
         ),
         CloudModelProvider(
             id = "catvton-flux-hf",
@@ -132,7 +132,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 91,
             speedScore = 55,
-            usageNote = "Free ZeroGPU Space. Often queued; prefer IDM-VTON when busy.",
+            usageNote = "Degraded · often 503/queued. Prefer IDM-VTON or CatVTON.",
         ),
         // Kolors Space no longer exposes tryon API — removed.
 
@@ -149,7 +149,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 93,
             speedScore = 85,
-            usageNote = "Free ZeroGPU. ~4 inference steps. Verified working.",
+            usageNote = "Ready · infer prompt+seed+size+4 steps.",
         ),
         CloudModelProvider(
             id = "sdxl-lightning-hf",
@@ -163,7 +163,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 92,
-            usageNote = "Free HF Space. 4-step lightning.",
+            usageNote = "Ready · generate_image prompt + 4-Step dropdown.",
         ),
         CloudModelProvider(
             id = "qwen-image-edit-hf",
@@ -177,7 +177,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 90,
             speedScore = 70,
-            usageNote = "Free HF Space. Upload a reference + prompt.",
+            usageNote = "Ready · infer reference image + prompt + guidance/steps.",
         ),
         CloudModelProvider(
             id = "instruct-pix2pix-hf",
@@ -191,7 +191,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 82,
             speedScore = 75,
-            usageNote = "Free HF Space. Prompt = edit instruction.",
+            usageNote = "Ready · generate image + edit instruction + CFG/seed.",
         ),
 
         // ── Coding LLMs (free tiers) ────────────────────────────────────
@@ -207,7 +207,7 @@ object CloudModelCatalog {
             qualityScore = 92,
             speedScore = 70,
             estTokensPerRequest = 2000,
-            usageNote = "Needs HF token with Inference Providers permission (not fine-grained discussion-only).",
+            usageNote = "Ready · needs HF token with Inference Providers. Tokens tracked in Usage.",
         ),
         CloudModelProvider(
             id = "llama33-70b-groq",
@@ -221,7 +221,7 @@ object CloudModelCatalog {
             qualityScore = 91,
             speedScore = 98,
             estTokensPerRequest = 2000,
-            usageNote = "Groq free tier TPM limits. Track tokens in Usage. Recommended for Code.",
+            usageNote = "Ready · Groq TPM limits. Tokens tracked in Usage. Recommended for Code.",
         ),
         CloudModelProvider(
             id = "openrouter-free",
@@ -235,7 +235,7 @@ object CloudModelCatalog {
             qualityScore = 88,
             speedScore = 80,
             estTokensPerRequest = 2000,
-            usageNote = "Uses OpenRouter's free router slug. Requires a free OpenRouter API key.",
+            usageNote = "Ready · openrouter/free. Requires free OpenRouter API key.",
         ),
         CloudModelProvider(
             id = "deepseek-r1-free-or",
@@ -249,7 +249,7 @@ object CloudModelCatalog {
             qualityScore = 88,
             speedScore = 80,
             estTokensPerRequest = 2000,
-            usageNote = "DeepSeek :free was retired by OpenRouter; this id now uses openrouter/free.",
+            usageNote = "Ready · legacy id → openrouter/free (DeepSeek :free retired).",
         ),
 
         // ── Video (free HF Spaces) ──────────────────────────────────────
@@ -265,7 +265,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 86,
             speedScore = 55,
-            usageNote = "Free community Space. Queue full at peak — retry off-peak.",
+            usageNote = "Degraded · generate_video 8-arg schema; queues fill often.",
         ),
         CloudModelProvider(
             id = "ltx-zerogpu-hf",
@@ -274,12 +274,12 @@ object CloudModelCatalog {
             platform = CloudPlatform.HF_SPACE,
             capability = AiCapability.VIDEO,
             endpoint = "DeepRat-LTX-Video-ZeroGPU-Optimized.hf.space",
-            apiName = "apply_smart_config",
+            apiName = "text_to_video",
             license = "Apache 2.0",
             requiresApiKey = false,
             qualityScore = 84,
             speedScore = 70,
-            usageNote = "Community Space — API surface may change; prefer Wan2 when available.",
+            usageNote = "Ready · text_to_video (14 args). Prefer when Wan2 is queued.",
         ),
     )
 
@@ -312,6 +312,6 @@ object CloudModelCatalog {
     val defaultImageGenId: String = "flux-schnell-hf"
     val defaultImageEditId: String = "instruct-pix2pix-hf"
     val defaultCodeId: String = "llama33-70b-groq"
-    val defaultVideoId: String = "wan2-video-hf"
+    val defaultVideoId: String = "ltx-zerogpu-hf"
     val defaultId: String = defaultTryOnId
 }

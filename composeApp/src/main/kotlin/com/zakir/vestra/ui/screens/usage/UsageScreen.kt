@@ -11,7 +11,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.CloudModelCatalog
+import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.usage.UsageLedger
+import com.zakir.vestra.shared.usage.displayLabel
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -27,11 +31,15 @@ fun UsageScreen(
     val summary by usage.summary.collectAsState()
     val events by usage.events.collectAsState()
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
+    val failCount = summary.totalRequests - summary.successCount
 
     GlassScreen(title = "Token & usage", subtitle = "Cloud AI ledger", onBack = onBack) {
         GlassCard {
             GlassSectionLabel("SUMMARY")
-            Text("${summary.totalRequests} requests · ${summary.successCount} ok", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "${summary.totalRequests} requests · ${summary.successCount} ok · $failCount failed",
+                style = MaterialTheme.typography.titleMedium,
+            )
             Spacer(Modifier.height(6.dp))
             Text(
                 "Tokens in ${summary.totalTokensIn} · out ${summary.totalTokensOut}",
@@ -54,12 +62,27 @@ fun UsageScreen(
                 GlassSectionLabel("BY MODEL / SERVICE")
                 summary.byProvider.values.sortedByDescending { it.requests }.forEach { p ->
                     Spacer(Modifier.height(8.dp))
-                    Text(p.displayName, style = MaterialTheme.typography.titleSmall)
+                    val catalog = CloudModelCatalog.byId(p.providerId)
+                    val status = catalog?.let { CloudModelContracts.statusLabel(it) }
+                    Text(
+                        buildString {
+                            append(p.displayName)
+                            if (status != null) append(" · $status")
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                    )
                     Text(
                         "${p.requests} runs · ${p.tokensIn + p.tokensOut} tokens · free",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    catalog?.usageNote?.takeIf { it.isNotBlank() }?.let { note ->
+                        Text(
+                            note,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -68,17 +91,23 @@ fun UsageScreen(
         GlassCard {
             GlassSectionLabel("RECENT")
             if (events.isEmpty()) {
-                Text("No cloud usage yet. Run Create, Code, Video, or Cloud try-on.", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "No cloud usage yet. Run Create, Code, Video, or Cloud try-on.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             } else {
-                events.take(30).forEach { e ->
+                events.take(40).forEach { e ->
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "${fmt.format(Date(e.timestampMs))} · ${e.providerName}",
                         style = MaterialTheme.typography.titleSmall,
                     )
+                    val capabilityLabel = runCatching {
+                        AiCapability.valueOf(e.capability).displayLabel()
+                    }.getOrDefault(e.capability)
                     Text(
                         buildString {
-                            append(e.capability)
+                            append(capabilityLabel)
                             append(" · ")
                             append(e.platform)
                             if (e.tokensIn + e.tokensOut > 0) {
@@ -88,8 +117,23 @@ fun UsageScreen(
                             if (!e.success) append(" · failed")
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (e.success) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
                     )
+                    if (e.note.isNotBlank()) {
+                        Text(
+                            e.note.take(280),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (e.success) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        )
+                    }
                 }
             }
         }

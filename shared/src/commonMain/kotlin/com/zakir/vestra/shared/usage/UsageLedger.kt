@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.usage
 
 import com.russhwolf.settings.Settings
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -94,13 +95,21 @@ class UsageLedger(private val settings: Settings) {
 
     fun estimateNext(provider: CloudModelProvider): String {
         val tokens = provider.estTokensPerRequest
+        val contract = CloudModelContracts.forProvider(provider)
         return buildString {
             append(provider.displayName)
+            append(" · ")
+            append(CloudModelContracts.statusLabel(provider))
             append(" · ")
             append(provider.platform.displayLabel())
             append(" · Free")
             if (tokens > 0) append(" · ~$tokens tokens/request")
-            if (provider.usageNote.isNotBlank()) append("\n${provider.usageNote}")
+            append("\n")
+            append(contract.schemaNote)
+            if (provider.usageNote.isNotBlank() && provider.usageNote != contract.schemaNote) {
+                append("\n")
+                append(provider.usageNote)
+            }
         }
     }
 

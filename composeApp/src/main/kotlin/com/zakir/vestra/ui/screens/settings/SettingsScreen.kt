@@ -52,9 +52,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.zakir.vestra.BuildConfig
 import com.zakir.vestra.media.CacheCleanup
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
+import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.engine.Availability
@@ -805,6 +807,7 @@ private fun CloudCapabilityDropdown(
 
     val usable = remember(tokenEpoch, capability) { discovery.curatedUsable(appSettings, capability) }
     val locked = remember(tokenEpoch, capability) { discovery.curatedLocked(appSettings, capability) }
+    val unsupported = remember(capability) { discovery.curatedUnsupported(capability) }
     val options = remember(usable, discovered) {
         (usable + discovered).distinctBy { it.id }
     }
@@ -815,6 +818,8 @@ private fun CloudCapabilityDropdown(
         ?: options.firstOrNull()
     val selectedNeedsToken = selected != null && locked.any { it.id == selected.id }
     val lockedOthers = locked.filter { it.id != selected?.id }
+    val selectedContractNote = selected?.let { CloudModelContracts.settingsSupportingText(it) }
+    val selectedSupport = selected?.let { CloudModelContracts.forProvider(it).support }
 
     // Edge case: prefs still point at a locked model while usable options exist (e.g. HF
     // discovery unlocked models but Groq selection lacks a Groq key). Auto-switch.
@@ -851,9 +856,17 @@ private fun CloudCapabilityDropdown(
                         when {
                             selectedNeedsToken ->
                                 "Save a ${selected?.platform.toTokenLabel()} key above to use this model"
-                            else -> selected?.usageNote?.ifBlank { selected.description } ?: ""
+                            selectedSupport == ModelSupportLevel.DEGRADED ->
+                                selectedContractNote ?: (selected?.usageNote ?: "")
+                            else -> selectedContractNote
+                                ?: selected?.usageNote?.ifBlank { selected.description }
+                                ?: ""
                         },
-                        color = if (selectedNeedsToken) MaterialTheme.colorScheme.error else VestraColors.InkMuted,
+                        color = when {
+                            selectedNeedsToken -> MaterialTheme.colorScheme.error
+                            selectedSupport == ModelSupportLevel.DEGRADED -> MaterialTheme.colorScheme.tertiary
+                            else -> VestraColors.InkMuted
+                        },
                     )
                 },
                 colors = GlassFormDefaults.outlinedFieldColors(),
@@ -869,14 +882,22 @@ private fun CloudCapabilityDropdown(
                 shadowElevation = GlassFormDefaults.MenuShadow,
             ) {
                 options.forEach { provider ->
+                    val support = CloudModelContracts.forProvider(provider).support
                     DropdownMenuItem(
                         text = {
                             Column {
-                                Text(provider.displayName, color = VestraColors.Ink)
                                 Text(
-                                    "${provider.platform.name} · ${provider.license}",
+                                    "${provider.displayName} · ${CloudModelContracts.statusLabel(provider)}",
+                                    color = VestraColors.Ink,
+                                )
+                                Text(
+                                    "${provider.platform.name} · ${CloudModelContracts.forProvider(provider).schemaNote}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = VestraColors.InkMuted,
+                                    color = if (support == ModelSupportLevel.DEGRADED) {
+                                        MaterialTheme.colorScheme.tertiary
+                                    } else {
+                                        VestraColors.InkMuted
+                                    },
                                 )
                             }
                         },
@@ -895,6 +916,17 @@ private fun CloudCapabilityDropdown(
                 "Also needs a token: " + lockedOthers.take(3).joinToString { it.displayName },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (unsupported.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Not selectable (schema gap): " +
+                    unsupported.joinToString { it.displayName } +
+                    " — " +
+                    (unsupported.firstOrNull()?.let { CloudModelContracts.forProvider(it).failureHint } ?: ""),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
             )
         }
         Spacer(Modifier.height(4.dp))

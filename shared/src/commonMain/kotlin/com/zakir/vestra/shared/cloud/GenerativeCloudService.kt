@@ -39,6 +39,7 @@ class GenerativeCloudService(
         val provider = settings.selectedProvider(capability)
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
+            CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
             requireKeyIfNeeded(provider)
             require(settings.networkLikelyAvailable()) { "No internet connection" }
             require(provider.platform == CloudPlatform.HF_SPACE) {
@@ -61,11 +62,20 @@ class GenerativeCloudService(
                     } else {
                         SpacePayloads.forImageGen(provider.id, variant)
                     }
-                    val result = hf.predict(provider.endpoint, provider.apiName, data, settings.hfToken.value)
+                    val result = hf.predict(
+                        provider.endpoint,
+                        CloudModelContracts.effectiveApiName(provider),
+                        data,
+                        settings.hfToken.value,
+                    )
                     val url = extractRef(result)
                     emit(GenerativeState.Running(0.85f, "Downloading…"))
                     val path = io.downloadResult(url, spaceHost = provider.endpoint)
-                    usage.record(provider, success = true, note = "Image · ${prompt.take(80)}")
+                    usage.record(
+                        provider,
+                        success = true,
+                        note = "Image · ${CloudModelContracts.statusLabel(provider)} · ${prompt.take(80)}",
+                    )
                     emit(GenerativeState.ImageReady(path, provider.id))
                     return@flow
                 } catch (e: CancellationException) {
@@ -78,8 +88,12 @@ class GenerativeCloudService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            usage.record(provider, success = false, note = e.message.orEmpty())
-            emit(GenerativeState.Failed(friendlyError(e, "Image generation")))
+            usage.record(
+                provider,
+                success = false,
+                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+            )
+            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Image generation")))
         }
     }
 
@@ -90,6 +104,7 @@ class GenerativeCloudService(
         val provider = settings.selectedProvider(AiCapability.CODE)
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
+            CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
             requireKeyIfNeeded(provider)
             require(settings.networkLikelyAvailable()) { "No internet connection" }
             emit(GenerativeState.Running(0.3f, "Thinking…"))
@@ -125,14 +140,18 @@ class GenerativeCloudService(
                 tokensIn = done.tokensIn,
                 tokensOut = done.tokensOut,
                 success = true,
-                note = "Code · ${prompt.take(80)}",
+                note = "Code · ${CloudModelContracts.statusLabel(provider)} · ${prompt.take(80)}",
             )
             emit(GenerativeState.CodeReady(done.text, done.tokensIn, done.tokensOut, provider.id))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            usage.record(provider, success = false, note = e.message.orEmpty())
-            emit(GenerativeState.Failed(friendlyError(e, "Code generation")))
+            usage.record(
+                provider,
+                success = false,
+                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+            )
+            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Code generation")))
         }
     }
 
@@ -143,6 +162,7 @@ class GenerativeCloudService(
         val provider = settings.selectedProvider(AiCapability.VIDEO)
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
+            CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
             requireKeyIfNeeded(provider)
             require(settings.networkLikelyAvailable()) { "No internet connection" }
             require(provider.platform == CloudPlatform.HF_SPACE) {
@@ -164,7 +184,7 @@ class GenerativeCloudService(
                 try {
                     val result = hf.predict(
                         spaceHost = provider.endpoint,
-                        apiName = provider.apiName,
+                        apiName = CloudModelContracts.effectiveApiName(provider),
                         data = SpacePayloads.forVideo(provider.id, variant),
                         hfToken = settings.hfToken.value,
                         maxPolls = 180,
@@ -173,7 +193,11 @@ class GenerativeCloudService(
                     val url = extractRef(result)
                     emit(GenerativeState.Running(0.9f, "Downloading video…"))
                     val path = io.downloadResult(url, spaceHost = provider.endpoint)
-                    usage.record(provider, success = true, note = "Video · ${prompt.take(80)}")
+                    usage.record(
+                        provider,
+                        success = true,
+                        note = "Video · ${CloudModelContracts.statusLabel(provider)} · ${prompt.take(80)}",
+                    )
                     emit(GenerativeState.VideoReady(path, provider.id))
                     return@flow
                 } catch (e: CancellationException) {
@@ -186,8 +210,12 @@ class GenerativeCloudService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            usage.record(provider, success = false, note = e.message.orEmpty())
-            emit(GenerativeState.Failed(friendlyError(e, "Video generation")))
+            usage.record(
+                provider,
+                success = false,
+                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+            )
+            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Video generation")))
         }
     }
 
@@ -244,37 +272,6 @@ class GenerativeCloudService(
     private fun requireKeyIfNeeded(provider: CloudModelProvider) {
         if (provider.requiresApiKey && settings.apiKeyFor(provider).isNullOrBlank()) {
             error("Add the free ${provider.platform.name} API key in Settings before using ${provider.displayName}")
-        }
-    }
-
-    private fun friendlyError(e: Exception, label: String): String {
-        val raw = e.message.orEmpty()
-        return when {
-            raw.contains("LinkedHashMap", ignoreCase = true) ||
-                raw.contains("Kotlin reflection", ignoreCase = true) ->
-                "$label failed to encode the request. Update the app and retry."
-            raw.contains("timeout", ignoreCase = true) || raw.contains("timed out", ignoreCase = true) ->
-                "$label timed out on the free tier. Tap Retry off-peak, or Force stop and try a faster model."
-            raw.contains("401") || raw.contains("Unauthorized", ignoreCase = true) ->
-                "API key rejected. Re-save your free token in Settings."
-            raw.contains("429") || raw.contains("rate", ignoreCase = true) ->
-                "Free-tier rate limit hit. Wait a minute or switch model in Settings."
-            raw.contains("sufficient permissions", ignoreCase = true) ||
-                raw.contains("Inference Providers", ignoreCase = true) ->
-                "Your HF token cannot call Inference Providers. Create a new token at huggingface.co/settings/tokens with Inference permission (or use a classic Read token), then Save in Settings. For Code, switch to Groq."
-            raw.contains("Queue is full", ignoreCase = true) ->
-                "Free Space queue is full. Wait a minute and Retry, or pick another model."
-            raw.contains("404") && raw.contains("Space", ignoreCase = true) ->
-                "That free Space is offline. Switch model in Settings (FLUX Schnell for images)."
-            raw.contains("NSFW", ignoreCase = true) ||
-                raw.contains("safety", ignoreCase = true) ||
-                raw.contains("content policy", ignoreCase = true) ||
-                raw.contains("blocked", ignoreCase = true) ->
-                "$label was blocked by the free model filter. Enable Bypass filter assist, rephrase as fashion/editorial, or switch model in Settings."
-            raw.contains("No internet", ignoreCase = true) ->
-                "No internet connection. Reconnect and retry."
-            raw.isBlank() -> "$label failed. Tap Retry — assists will soften the next attempt."
-            else -> raw.take(280)
         }
     }
 

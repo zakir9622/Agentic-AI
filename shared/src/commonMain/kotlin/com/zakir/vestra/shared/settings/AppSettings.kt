@@ -3,8 +3,10 @@ package com.zakir.vestra.shared.settings
 import com.russhwolf.settings.Settings
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
+import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
+import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.domain.EngineTier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -103,7 +105,12 @@ class AppSettings(private val settings: Settings) {
     }
 
     fun resolveProvider(id: String, capability: AiCapability): CloudModelProvider =
-        CloudModelCatalog.byId(id)?.takeIf { it.capability == capability && it.freeTier }
+        CloudModelCatalog.byId(id)
+            ?.takeIf {
+                it.capability == capability &&
+                    it.freeTier &&
+                    CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED
+            }
             ?: _discoveredProviders.value.firstOrNull { it.id == id && it.capability == capability && it.freeTier }
             ?: CloudModelCatalog.defaultFor(capability)
 
@@ -152,6 +159,9 @@ class AppSettings(private val settings: Settings) {
                 "Add a free ${provider.platform.name} API key in Settings to use ${provider.displayName}.",
             )
         }
+        CloudModelContracts.preflightOrNull(provider)?.let { hint ->
+            return PreflightResult.Blocked(hint)
+        }
         return PreflightResult.Ok(provider)
     }
 
@@ -169,7 +179,12 @@ class AppSettings(private val settings: Settings) {
     private fun migrateProviderId(key: String, capability: AiCapability): String {
         val stored = settings.getStringOrNull(key)
         val resolved = stored?.let { CloudModelCatalog.byId(it) }
-            ?.takeIf { it.capability == capability && it.freeTier && it.estCostUsd <= 0.0 }
+            ?.takeIf {
+                it.capability == capability &&
+                    it.freeTier &&
+                    it.estCostUsd <= 0.0 &&
+                    CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED
+            }
             ?: CloudModelCatalog.defaultFor(capability)
         if (stored != resolved.id) settings.putString(key, resolved.id)
         // Drop legacy paid keys if present

@@ -24,6 +24,7 @@ class FreeCloudDiscovery(
         CloudModelCatalog.forCapability(capability).filter { provider ->
             when {
                 !provider.freeTier -> false
+                CloudModelContracts.forProvider(provider).support == ModelSupportLevel.UNSUPPORTED -> false
                 !provider.requiresApiKey -> true
                 else -> !settings.apiKeyFor(provider).isNullOrBlank()
             }
@@ -31,7 +32,16 @@ class FreeCloudDiscovery(
 
     fun curatedLocked(settings: AppSettings, capability: AiCapability): List<CloudModelProvider> =
         CloudModelCatalog.forCapability(capability).filter { provider ->
-            provider.freeTier && provider.requiresApiKey && settings.apiKeyFor(provider).isNullOrBlank()
+            provider.freeTier &&
+                CloudModelContracts.forProvider(provider).support != ModelSupportLevel.UNSUPPORTED &&
+                provider.requiresApiKey &&
+                settings.apiKeyFor(provider).isNullOrBlank()
+        }
+
+    /** Models kept in catalog but blocked in-app (wrong schema / missing mask UI). */
+    fun curatedUnsupported(capability: AiCapability): List<CloudModelProvider> =
+        CloudModelCatalog.forCapability(capability).filter {
+            CloudModelContracts.forProvider(it).support == ModelSupportLevel.UNSUPPORTED
         }
 
     /**

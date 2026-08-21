@@ -1,0 +1,261 @@
+package com.zakir.vestra.shared.cloud
+
+/**
+ * Live Gradio / chat contracts audited against Space `/info` (Aug 2026).
+ * Used for Settings readiness, payload builders, preflight, and model-specific errors.
+ */
+enum class ModelSupportLevel {
+    /** Payload matches live schema; expected to work when Space is up. */
+    READY,
+    /** Schema known but host often queued/503 or quality varies. */
+    DEGRADED,
+    /** App cannot satisfy required inputs (mask/pose editors, etc.). */
+    UNSUPPORTED,
+}
+
+data class CloudModelContract(
+    val providerId: String,
+    val support: ModelSupportLevel,
+    /** Gradio api_name override when catalog drifts; null = use catalog. */
+    val apiNameOverride: String? = null,
+    val requiredInputs: List<String>,
+    val schemaNote: String,
+    val failureHint: String,
+)
+
+object CloudModelContracts {
+
+    private val byId: Map<String, CloudModelContract> = listOf(
+        // ── Try-on ──────────────────────────────────────────────────────
+        CloudModelContract(
+            providerId = "idm-vton-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf(
+                "ImageEditor(person+auto-mask)",
+                "Image(garment)",
+                "Textbox(garment desc)",
+                "Checkbox(auto-mask)",
+                "Checkbox(auto-crop)",
+                "Number(steps)",
+                "Number(seed)",
+            ),
+            schemaNote = "tryon · 7 args (ImageEditor + garment + auto-mask)",
+            failureHint = "IDM-VTON needs a reachable ZeroGPU Space. Retry off-peak or switch to OOTDiffusion.",
+        ),
+        CloudModelContract(
+            providerId = "ootd-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf(
+                "Image(model)",
+                "Image(garment)",
+                "Slider(images)",
+                "Slider(steps)",
+                "Slider(guidance)",
+                "Slider(seed)",
+            ),
+            schemaNote = "process_hd · model + garment + images/steps/guidance/seed",
+            failureHint = "OOTDiffusion queue is often full. Retry later or use IDM-VTON.",
+        ),
+        CloudModelContract(
+            providerId = "catvton-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf(
+                "ImageEditor(person)",
+                "Image(garment)",
+                "Radio(cloth type)",
+                "Slider(steps)",
+                "Slider(cfg)",
+                "Slider(seed)",
+                "Radio(show type)",
+            ),
+            schemaNote = "submit_function · ImageEditor person + cloth type",
+            failureHint = "CatVTON failed — try IDM-VTON (more reliable auto-mask path).",
+        ),
+        CloudModelContract(
+            providerId = "fitdit-hf",
+            support = ModelSupportLevel.UNSUPPORTED,
+            requiredInputs = listOf(
+                "Image(model)",
+                "Image(garment)",
+                "ImageEditor(mask)",
+                "Image(pose)",
+                "steps/guidance/seed/num_images/resolution",
+            ),
+            schemaNote = "process · requires mask editor + pose image (not in app)",
+            failureHint = "FitDiT needs a mask and pose map the app cannot build yet. Switch to IDM-VTON or OOTDiffusion in Settings.",
+        ),
+        CloudModelContract(
+            providerId = "leffa-hf",
+            support = ModelSupportLevel.DEGRADED,
+            requiredInputs = listOf("Person", "Garment", "mode", "scale"),
+            schemaNote = "Host often 503; schema may change when Space wakes",
+            failureHint = "Leffa Space is offline or waking up (503). Prefer IDM-VTON.",
+        ),
+        CloudModelContract(
+            providerId = "catvton-flux-hf",
+            support = ModelSupportLevel.DEGRADED,
+            requiredInputs = listOf("Person", "Garment", "FLUX fill args"),
+            schemaNote = "Host often 503 / queued ZeroGPU",
+            failureHint = "CatVTON-FLUX Space is busy or offline. Prefer IDM-VTON or CatVTON.",
+        ),
+
+        // ── Image gen / edit ────────────────────────────────────────────
+        CloudModelContract(
+            providerId = "flux-schnell-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("prompt", "seed", "randomize", "width", "height", "steps"),
+            schemaNote = "infer · prompt + seed/randomize/size/steps",
+            failureHint = "FLUX Schnell failed — check HF Space status or retry off-peak.",
+        ),
+        CloudModelContract(
+            providerId = "sdxl-lightning-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("prompt", "steps dropdown"),
+            schemaNote = "generate_image · prompt + 1/2/4/8-Step",
+            failureHint = "SDXL Lightning failed — retry or switch to FLUX Schnell.",
+        ),
+        CloudModelContract(
+            providerId = "qwen-image-edit-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf(
+                "image", "prompt", "seed", "randomize", "guidance", "steps", "rewrite",
+            ),
+            schemaNote = "infer · reference image + prompt + seed/guidance/steps",
+            failureHint = "Qwen Image Edit failed — ensure a reference image is attached.",
+        ),
+        CloudModelContract(
+            providerId = "instruct-pix2pix-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf(
+                "image", "instruction", "steps", "seed mode", "seed", "cfg mode", "text cfg", "image cfg",
+            ),
+            schemaNote = "generate · image + edit instruction + CFG/seed controls",
+            failureHint = "InstructPix2Pix failed — rephrase the edit instruction or attach a clearer photo.",
+        ),
+
+        // ── Code LLMs ───────────────────────────────────────────────────
+        CloudModelContract(
+            providerId = "qwen25-coder-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "chat messages"),
+            schemaNote = "HF Inference chat · Qwen/Qwen2.5-Coder-32B-Instruct",
+            failureHint = "HF Inference rejected the token or model. Use a classic Write/Read token with Inference Providers, or switch to Groq.",
+        ),
+        CloudModelContract(
+            providerId = "llama33-70b-groq",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("Groq API key", "chat messages"),
+            schemaNote = "Groq chat · llama-3.3-70b-versatile",
+            failureHint = "Groq free-tier limit or bad key. Wait a minute or re-save the Groq key in Settings.",
+        ),
+        CloudModelContract(
+            providerId = "openrouter-free",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("OpenRouter API key", "openrouter/free"),
+            schemaNote = "OpenRouter · openrouter/free",
+            failureHint = "OpenRouter free router failed. Re-save the OpenRouter key or switch to Groq.",
+        ),
+        CloudModelContract(
+            providerId = "deepseek-r1-free-or",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("OpenRouter API key", "openrouter/free"),
+            schemaNote = "Legacy id → openrouter/free",
+            failureHint = "OpenRouter free router failed (legacy DeepSeek :free retired). Use openrouter/free or Groq.",
+        ),
+
+        // ── Video ───────────────────────────────────────────────────────
+        CloudModelContract(
+            providerId = "wan2-video-hf",
+            support = ModelSupportLevel.DEGRADED,
+            requiredInputs = listOf(
+                "prompt", "optional image", "width", "height", "frames", "steps", "guidance", "seed",
+            ),
+            schemaNote = "generate_video · 8 args; queues fill often",
+            failureHint = "Wan2 queue is full or timed out. Retry off-peak or try LTX-Video.",
+        ),
+        CloudModelContract(
+            providerId = "ltx-zerogpu-hf",
+            support = ModelSupportLevel.READY,
+            apiNameOverride = "text_to_video",
+            requiredInputs = listOf(
+                "prompt", "negative", "image_n", "video_n", "h", "w", "task", "duration",
+                "frames", "seed", "randomize", "cfg", "texture", "slow-mo",
+            ),
+            schemaNote = "text_to_video · 14 args (not apply_smart_config)",
+            failureHint = "LTX text_to_video failed — retry off-peak or use Wan2.",
+        ),
+    ).associateBy { it.providerId }
+
+    fun forProvider(provider: CloudModelProvider): CloudModelContract =
+        byId[provider.id] ?: CloudModelContract(
+            providerId = provider.id,
+            support = if (provider.id.startsWith("hf-disc-")) {
+                ModelSupportLevel.DEGRADED
+            } else {
+                ModelSupportLevel.READY
+            },
+            requiredInputs = listOf(provider.apiName),
+            schemaNote = provider.usageNote.ifBlank { provider.description },
+            failureHint = "${provider.displayName} failed. Switch model in Settings if this keeps happening.",
+        )
+
+    fun effectiveApiName(provider: CloudModelProvider): String =
+        forProvider(provider).apiNameOverride ?: provider.apiName
+
+    fun statusLabel(provider: CloudModelProvider): String = when (forProvider(provider).support) {
+        ModelSupportLevel.READY -> "Ready"
+        ModelSupportLevel.DEGRADED -> "Degraded"
+        ModelSupportLevel.UNSUPPORTED -> "Unsupported"
+    }
+
+    fun settingsSupportingText(provider: CloudModelProvider): String {
+        val c = forProvider(provider)
+        val status = statusLabel(provider)
+        return "$status · ${c.schemaNote}"
+    }
+
+    fun preflightOrNull(provider: CloudModelProvider): String? {
+        val c = forProvider(provider)
+        return if (c.support == ModelSupportLevel.UNSUPPORTED) c.failureHint else null
+    }
+
+    fun friendlyFailure(provider: CloudModelProvider, raw: String, label: String): String {
+        val c = forProvider(provider)
+        val msg = raw.trim()
+        return when {
+            c.support == ModelSupportLevel.UNSUPPORTED -> c.failureHint
+            msg.contains("sufficient permissions", ignoreCase = true) ||
+                msg.contains("Inference Providers", ignoreCase = true) ->
+                "Your HF token cannot call Inference Providers. Create a token with Inference permission (classic Read/Write), Save in Settings, or switch Code to Groq."
+            msg.contains("401") || msg.contains("Unauthorized", ignoreCase = true) ->
+                "API key rejected for ${provider.displayName}. Re-save the free token in Settings."
+            msg.contains("429") || msg.contains("rate", ignoreCase = true) ->
+                "Free-tier rate limit on ${provider.displayName}. Wait a minute or switch model."
+            msg.contains("Queue is full", ignoreCase = true) ||
+                msg.contains("503") ||
+                msg.contains("Service Unavailable", ignoreCase = true) ->
+                c.failureHint
+            msg.contains("404") ->
+                "${provider.displayName} Space looks offline (404). Switch model in Settings."
+            msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true) ->
+                "$label timed out on ${provider.displayName}. Retry off-peak or pick a faster free model."
+            msg.contains("NSFW", ignoreCase = true) ||
+                msg.contains("safety", ignoreCase = true) ||
+                msg.contains("content policy", ignoreCase = true) ||
+                msg.contains("blocked", ignoreCase = true) ->
+                "$label was blocked by ${provider.displayName}. Enable Bypass filter assist or rephrase as fashion/editorial."
+            msg.contains("No internet", ignoreCase = true) ->
+                "No internet connection. Reconnect and retry."
+            msg.contains("LinkedHashMap", ignoreCase = true) ||
+                msg.contains("Kotlin reflection", ignoreCase = true) ->
+                "$label failed to encode the request for ${provider.displayName}. Update the app and retry."
+            msg.isBlank() -> "${c.failureHint} (${c.schemaNote})"
+            else -> "${provider.displayName}: ${msg.take(220)}"
+        }
+    }
+
+    fun usageFailureNote(provider: CloudModelProvider, raw: String): String {
+        val hint = friendlyFailure(provider, raw, provider.capability.name)
+        return "${statusLabel(provider)} · $hint"
+    }
+}
