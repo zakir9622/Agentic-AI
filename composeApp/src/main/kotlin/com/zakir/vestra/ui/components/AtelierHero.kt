@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -30,9 +32,8 @@ import com.zakir.vestra.ui.theme.VestraColors
 import kotlin.math.abs
 
 /**
- * Full-bleed atelier hero — brand as the dominant signal, one headline,
- * one support line, one CTA. Scanning edge nods to spatial fashion UIs
- * without neon purple / dashboard clutter.
+ * Full-bleed atelier hero — brand dominates; silk-panel collage is the visual plane.
+ * One headline, one support, one CTA. No dashboard clutter in the first viewport.
  */
 @Composable
 fun AtelierHero(
@@ -49,23 +50,32 @@ fun AtelierHero(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4200, easing = LinearEasing),
+            animation = tween(4800, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "scan",
     )
-    val shape = RoundedCornerShape(28.dp)
+    val drift by infinite.animateFloat(
+        initialValue = -6f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(7000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "panelDrift",
+    )
+    val shape = RoundedCornerShape(32.dp)
     Box(
         modifier
             .fillMaxWidth()
-            .height(430.dp)
+            .height(460.dp)
             .clip(shape)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
                         VestraColors.AtelierContainer,
                         VestraColors.AtelierCanvas,
-                        Color(0xFF070C11),
+                        Color(0xFF050408),
                     ),
                 ),
             )
@@ -81,26 +91,52 @@ fun AtelierHero(
                 shape = shape,
             ),
     ) {
+        // Silk panel collage — fashion atmosphere without stock photography.
+        SilkPanel(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = (28 + drift).dp, y = (-12).dp)
+                .rotate(12f)
+                .size(160.dp, 210.dp),
+            colors = listOf(Color(0xFF3D2A18), VestraColors.SaffronDeep.copy(alpha = 0.85f), Color(0xFF1A120C)),
+        )
+        SilkPanel(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(x = (-40 + drift * 0.4f).dp, y = 36.dp)
+                .rotate(-8f)
+                .size(130.dp, 180.dp),
+            colors = listOf(Color(0xFF1E2430), Color(0xFF2A3344), VestraColors.SilkMist.copy(alpha = 0.35f)),
+        )
+        SilkPanel(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .offset(x = 18.dp, y = (40 - drift).dp)
+                .rotate(6f)
+                .size(110.dp, 150.dp),
+            colors = listOf(Color(0xFF2C1810), Color(0xFF5C3A22), VestraColors.Accent.copy(alpha = 0.55f)),
+        )
+
         Box(
             Modifier
                 .matchParentSize()
                 .background(
-                    Brush.radialGradient(
+                    Brush.verticalGradient(
                         colors = listOf(
-                            VestraColors.Accent.copy(alpha = 0.22f),
                             Color.Transparent,
+                            VestraColors.AtelierCanvas.copy(alpha = 0.15f),
+                            VestraColors.AtelierCanvas.copy(alpha = 0.92f),
                         ),
-                        radius = 900f,
                     ),
                 ),
         )
         Box(
             Modifier
                 .align(Alignment.TopStart)
-                .fillMaxWidth(0.62f)
+                .fillMaxWidth(0.55f)
                 .height(2.dp)
-                .offset(y = (28 + scan * 350).dp)
-                .graphicsLayer { alpha = 0.25f + (1f - abs(scan - 0.5f)) * 0.45f }
+                .offset(y = (36 + scan * 280).dp)
+                .graphicsLayer { alpha = 0.2f + (1f - abs(scan - 0.5f)) * 0.4f }
                 .background(
                     Brush.horizontalGradient(
                         listOf(Color.Transparent, VestraColors.AccentSoft, Color.Transparent),
@@ -127,7 +163,7 @@ fun AtelierHero(
                 support,
                 style = MaterialTheme.typography.bodyMedium,
                 color = VestraColors.IvoryMuted,
-                modifier = Modifier.padding(top = 10.dp, end = 4.dp),
+                modifier = Modifier.padding(top = 10.dp, end = 8.dp),
             )
             if (statusLine != null) {
                 Text(
@@ -144,4 +180,21 @@ fun AtelierHero(
             )
         }
     }
+}
+
+@Composable
+private fun SilkPanel(
+    modifier: Modifier,
+    colors: List<Color>,
+) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(22.dp))
+            .background(Brush.linearGradient(colors))
+            .border(
+                1.dp,
+                VestraColors.AccentSoft.copy(alpha = 0.25f),
+                RoundedCornerShape(22.dp),
+            ),
+    )
 }
