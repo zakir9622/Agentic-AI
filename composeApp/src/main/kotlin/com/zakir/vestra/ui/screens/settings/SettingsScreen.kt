@@ -51,6 +51,7 @@ import com.zakir.vestra.BuildConfig
 import com.zakir.vestra.media.CacheCleanup
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelProvider
+import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.PackStatus
@@ -738,6 +739,16 @@ private fun CloudCapabilityDropdown(
     val selectedNeedsToken = selected != null && locked.any { it.id == selected.id }
     val lockedOthers = locked.filter { it.id != selected?.id }
 
+    // Edge case: prefs still point at a locked model while usable options exist (e.g. HF
+    // discovery unlocked models but Groq selection lacks a Groq key). Auto-switch.
+    LaunchedEffect(tokenEpoch, selectedId, options.map { it.id }) {
+        if (options.isEmpty()) return@LaunchedEffect
+        val selectedUsable = options.any { it.id == selectedId }
+        if (!selectedUsable) {
+            onSelect(options.first().id)
+        }
+    }
+
     Spacer(Modifier.height(14.dp))
     GlassCard {
         GlassSectionLabel(title)
@@ -762,7 +773,7 @@ private fun CloudCapabilityDropdown(
                     Text(
                         when {
                             selectedNeedsToken ->
-                                "Save a ${selected?.platform?.name?.replace('_', ' ') ?: "API"} key above to use this model"
+                                "Save a ${selected?.platform.toTokenLabel()} key above to use this model"
                             else -> selected?.usageNote?.ifBlank { selected.description } ?: ""
                         },
                         color = if (selectedNeedsToken) MaterialTheme.colorScheme.error else VestraColors.InkMuted,
@@ -869,6 +880,13 @@ private fun KeyField(label: String, value: String, onChange: (String) -> Unit) {
         singleLine = true,
         colors = GlassFormDefaults.outlinedFieldColors(),
     )
+}
+
+private fun CloudPlatform?.toTokenLabel(): String = when (this) {
+    CloudPlatform.GROQ -> "Groq"
+    CloudPlatform.OPENROUTER -> "OpenRouter"
+    CloudPlatform.HF_INFERENCE, CloudPlatform.HF_SPACE -> "Hugging Face"
+    null -> "API"
 }
 
 private fun AppearanceMode.label(): String = when (this) {

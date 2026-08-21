@@ -14,9 +14,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * Minimal Gradio 4 HTTP client for Hugging Face Spaces.
@@ -34,11 +36,23 @@ class HfGradioClient(
         maxPolls: Int = 90,
         pollDelayMs: Long = 2_000,
     ): JsonElement {
+        require(spaceHost.isNotBlank()) { "Space host is empty" }
+        require(apiName.isNotBlank()) { "Gradio api name is empty" }
+        require(data.isNotEmpty()) { "Gradio payload is empty" }
+
         val base = "https://$spaceHost"
+        val payload = buildJsonObject {
+            put(
+                "data",
+                kotlinx.serialization.json.buildJsonArray {
+                    data.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+                },
+            )
+        }
         val eventId = http.post("$base/gradio_api/call/$apiName") {
             contentType(ContentType.Application.Json)
             hfToken?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }
-            setBody(mapOf("data" to data))
+            setBody(payload)
         }.body<JsonObject>()["event_id"]?.jsonPrimitive?.content
             ?: error("Gradio did not return an event_id")
 
