@@ -9,9 +9,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 data class LlmResult(
     val text: String,
@@ -31,6 +34,10 @@ class LlmClient(
         apiKey: String,
         system: String = "You are a helpful coding assistant. Return clear, working code with brief explanations.",
     ): LlmResult {
+        require(apiKey.isNotBlank()) { "API key required for $platform" }
+        require(model.isNotBlank()) { "Model id required" }
+        require(prompt.isNotBlank()) { "Prompt is empty" }
+
         val (url, authHeader) = when (platform) {
             CloudPlatform.GROQ ->
                 "https://api.groq.com/openai/v1/chat/completions" to "Bearer $apiKey"
@@ -38,17 +45,33 @@ class LlmClient(
                 "https://openrouter.ai/api/v1/chat/completions" to "Bearer $apiKey"
             CloudPlatform.HF_INFERENCE ->
                 "https://router.huggingface.co/v1/chat/completions" to "Bearer $apiKey"
-            else -> error("LLM not supported on $platform")
+            else -> error("LLM not supported on $platform — pick Groq, OpenRouter, or HF Inference in Settings")
         }
-        val body = mapOf(
-            "model" to model,
-            "messages" to listOf(
-                mapOf("role" to "system", "content" to system),
-                mapOf("role" to "user", "content" to prompt),
-            ),
-            "temperature" to 0.2,
-            "max_tokens" to 2048,
-        )
+
+        // JsonObject (not Map) — serializes without kotlin-reflect on Android.
+        val body = buildJsonObject {
+            put("model", model)
+            put(
+                "messages",
+                buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put("role", "system")
+                            put("content", system)
+                        },
+                    )
+                    add(
+                        buildJsonObject {
+                            put("role", "user")
+                            put("content", prompt)
+                        },
+                    )
+                },
+            )
+            put("temperature", 0.2)
+            put("max_tokens", 2048)
+        }
+
         val response = http.post(url) {
             header("Authorization", authHeader)
             if (platform == CloudPlatform.OPENROUTER) {
@@ -68,7 +91,8 @@ class LlmClient(
             ?.get("content")
             ?.jsonPrimitive
             ?.content
-            ?: error("Empty LLM response")
+            ?.takeIf { it.isNotBlank() }
+            ?: error("Empty LLM response from $platform")
 
         val usage = response["usage"]?.jsonObject
         val tokensIn = usage?.get("prompt_tokens")?.jsonPrimitive?.content?.toIntOrNull() ?: 0

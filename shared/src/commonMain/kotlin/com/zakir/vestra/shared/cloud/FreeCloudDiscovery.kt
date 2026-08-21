@@ -36,10 +36,12 @@ class FreeCloudDiscovery(
 
     /**
      * Best-effort discovery of free HF Inference endpoints matching [capability].
+     * Try-on / video use curated Spaces only — discovery always returns empty for those.
      * Failures return empty — curated catalog remains the source of truth.
      */
     suspend fun discoverHf(token: String?, capability: AiCapability): List<CloudModelProvider> {
         if (token.isNullOrBlank()) return emptyList()
+        if (capability == AiCapability.TRY_ON || capability == AiCapability.VIDEO) return emptyList()
         val pipeline = when (capability) {
             AiCapability.IMAGE_GEN -> "text-to-image"
             AiCapability.IMAGE_EDIT -> "image-to-image"
