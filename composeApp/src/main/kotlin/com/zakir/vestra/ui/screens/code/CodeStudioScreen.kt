@@ -87,6 +87,11 @@ fun CodeStudioScreen(
                     onToggle = { viewModel.setCreativeMode(!creative) },
                 )
             }
+            Text(
+                "Pragmatic reduces soft refusals. Creative raises temperature. Failed calls auto-retry with a clearer prompt.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(12.dp))
             Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(6.dp))

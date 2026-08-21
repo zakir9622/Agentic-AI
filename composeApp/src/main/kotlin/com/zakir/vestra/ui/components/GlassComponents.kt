@@ -231,7 +231,11 @@ fun GlassScreen(
                 navigation = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back",
+                                tint = VestraColors.Ink,
+                            )
                         }
                     }
                 },

@@ -36,6 +36,8 @@ fun VideoStudioScreen(
     val preflight by viewModel.preflightMessage.collectAsState()
     val detailBoost by viewModel.detailBoost.collectAsState()
     val fashionContext by viewModel.fashionContext.collectAsState()
+    val bypassFilter by viewModel.bypassFilter.collectAsState()
+    val qualityGuard by viewModel.qualityGuard.collectAsState()
     val provider = viewModel.appSettings.selectedProvider(AiCapability.VIDEO)
     val estimate = viewModel.usage.estimateNext(provider)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
@@ -70,6 +72,12 @@ fun VideoStudioScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 GlassOptionToggle(
+                    text = "Bypass filter assist",
+                    active = bypassFilter,
+                    enabled = !busy,
+                    onToggle = { viewModel.setBypassFilter(!bypassFilter) },
+                )
+                GlassOptionToggle(
                     text = "Fashion context",
                     active = fashionContext,
                     enabled = !busy,
@@ -81,7 +89,18 @@ fun VideoStudioScreen(
                     enabled = !busy,
                     onToggle = { viewModel.setDetailBoost(!detailBoost) },
                 )
+                GlassOptionToggle(
+                    text = "Quality guard",
+                    active = qualityGuard,
+                    enabled = !busy,
+                    onToggle = { viewModel.setQualityGuard(!qualityGuard) },
+                )
             }
+            Text(
+                "Assists rewrite the free-model prompt. Failed runs auto-retry with a softer variant.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(12.dp))
             Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(6.dp))

@@ -3,6 +3,7 @@ package com.zakir.vestra.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.GenerativeAssists
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.domain.EngineTier
@@ -39,21 +40,23 @@ class GenerativeViewModel(
     private val _preflightMessage = MutableStateFlow<String?>(null)
     val preflightMessage: StateFlow<String?> = _preflightMessage
 
-    /** Higher creativity / temperature for coding models. */
     private val _creativeMode = MutableStateFlow(false)
     val creativeMode: StateFlow<Boolean> = _creativeMode
 
-    /** Softer refusals — complete lawful coding tasks instead of declining. */
     private val _pragmaticMode = MutableStateFlow(true)
     val pragmaticMode: StateFlow<Boolean> = _pragmaticMode
 
-    /** Extra sharpness / coherence clauses for image & video prompts. */
     private val _detailBoost = MutableStateFlow(true)
     val detailBoost: StateFlow<Boolean> = _detailBoost
 
-    /** Fashion/lookbook framing so garment prompts are less often blocked. */
     private val _fashionContext = MutableStateFlow(true)
     val fashionContext: StateFlow<Boolean> = _fashionContext
+
+    private val _bypassFilter = MutableStateFlow(true)
+    val bypassFilter: StateFlow<Boolean> = _bypassFilter
+
+    private val _qualityGuard = MutableStateFlow(true)
+    val qualityGuard: StateFlow<Boolean> = _qualityGuard
 
     private var job: Job? = null
     private var generationEpoch = 0
@@ -90,9 +93,23 @@ class GenerativeViewModel(
         _fashionContext.value = enabled
     }
 
-    /**
-     * Open a studio without killing an in-flight job. Only resets prompt/result when idle.
-     */
+    fun setBypassFilter(enabled: Boolean) {
+        _bypassFilter.value = enabled
+    }
+
+    fun setQualityGuard(enabled: Boolean) {
+        _qualityGuard.value = enabled
+    }
+
+    fun currentAssists(): GenerativeAssists = GenerativeAssists(
+        pragmatic = _pragmaticMode.value,
+        creative = _creativeMode.value,
+        fashionContext = _fashionContext.value,
+        detailBoost = _detailBoost.value,
+        bypassFilter = _bypassFilter.value,
+        qualityGuard = _qualityGuard.value,
+    )
+
     fun prepareStudio(resetIfIdle: Boolean = true) {
         if (!resetIfIdle || isBusy) return
         _state.value = null
@@ -117,12 +134,7 @@ class GenerativeViewModel(
             is PreflightResult.Ok -> Unit
         }
         startGeneration {
-            generative.generateImage(
-                p,
-                _referenceUri.value,
-                detailBoost = _detailBoost.value,
-                fashionContext = _fashionContext.value,
-            )
+            generative.generateImage(p, _referenceUri.value, currentAssists())
         }
     }
 
@@ -141,11 +153,7 @@ class GenerativeViewModel(
             is PreflightResult.Ok -> Unit
         }
         startGeneration {
-            generative.generateCode(
-                p,
-                creative = _creativeMode.value,
-                pragmatic = _pragmaticMode.value,
-            )
+            generative.generateCode(p, currentAssists())
         }
     }
 
@@ -164,20 +172,14 @@ class GenerativeViewModel(
             is PreflightResult.Ok -> Unit
         }
         startGeneration {
-            generative.generateVideo(
-                p,
-                detailBoost = _detailBoost.value,
-                fashionContext = _fashionContext.value,
-            )
+            generative.generateVideo(p, currentAssists())
         }
     }
 
-    /** Soft cancel — clears UI; in-flight HTTP may finish but result is ignored. */
     fun cancel() {
         forceStop(showStopped = false)
     }
 
-    /** Force-stop: cancel job and show a recoverable Stopped state. */
     fun forceStop(showStopped: Boolean = true) {
         job?.cancel(CancellationException("force_stop"))
         job = null
@@ -209,7 +211,13 @@ class GenerativeViewModel(
                     }
                 }
             } catch (_: CancellationException) {
-                // Expected on force stop / clear — state already set by forceStop when needed
+                // Expected on force stop / clear
+            } catch (e: Exception) {
+                if (epoch == generationEpoch) {
+                    _state.value = GenerativeState.Failed(
+                        e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry.",
+                    )
+                }
             }
         }
     }
