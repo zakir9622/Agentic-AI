@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.GenerativeState
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassErrorBanner
@@ -34,7 +35,7 @@ fun CodeStudioScreen(
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     val assistCount = listOf(pragmatic, creative).count { it }
 
-    GlassScreen(title = "Code", subtitle = "Free open models", onBack = onBack) {
+    GlassScreen(title = LookbookCopy.STUDIO_CODE, subtitle = "Free open models", onBack = onBack) {
         Text(
             estimate,
             style = MaterialTheme.typography.bodySmall,
@@ -54,13 +55,13 @@ fun CodeStudioScreen(
             placeholder = "Ask for code… Kotlin Compose glass card with frosted border",
             assistToggles = {
                 GlassOptionToggle(
-                    text = "Pragmatic",
+                    text = LookbookCopy.ASSIST_PRAGMATIC,
                     active = pragmatic,
                     enabled = !busy,
                     onToggle = { viewModel.setPragmaticMode(!pragmatic) },
                 )
                 GlassOptionToggle(
-                    text = "Creative",
+                    text = LookbookCopy.ASSIST_CREATIVE,
                     active = creative,
                     enabled = !busy,
                     onToggle = { viewModel.setCreativeMode(!creative) },

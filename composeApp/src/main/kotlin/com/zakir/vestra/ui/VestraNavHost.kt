@@ -32,6 +32,7 @@ import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.studio.StudioScreen
 import com.zakir.vestra.ui.screens.usage.UsageScreen
 import com.zakir.vestra.ui.screens.video.VideoStudioScreen
+import com.zakir.vestra.ui.screens.help.HelpScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
 object Routes {
@@ -49,6 +50,7 @@ object Routes {
     const val CODE = "code"
     const val VIDEO = "video"
     const val USAGE = "usage"
+    const val HELP = "help"
 }
 
 @Composable
@@ -127,6 +129,7 @@ fun VestraNavHost(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
             )
         }
         composable(Routes.GARMENT) {
@@ -201,6 +204,16 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
+        composable(Routes.HELP) {
+            HelpScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
         composable(Routes.WARDROBE) {
             WardrobeScreen(
                 wardrobe = wardrobe,
@@ -216,6 +229,7 @@ fun VestraNavHost(
                 usageLedger = usageLedger,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
                 onBack = { navController.popBackStack() },
             )
         }

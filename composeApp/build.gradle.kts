@@ -12,8 +12,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 16
-        versionName = "2.6.0"
+        versionCode = 17
+        versionName = "2.6.1"
     }
 
     flavorDimensions += "distribution"

@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.GenerativeState
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassErrorBanner
@@ -36,7 +37,7 @@ fun VideoStudioScreen(
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     val assistCount = listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
 
-    GlassScreen(title = "Video", subtitle = "Creators · free HF", onBack = onBack) {
+    GlassScreen(title = LookbookCopy.STUDIO_VIDEO, subtitle = "Free cloud clips", onBack = onBack) {
         Text(
             estimate,
             style = MaterialTheme.typography.bodySmall,
@@ -56,25 +57,25 @@ fun VideoStudioScreen(
             placeholder = "Describe the clip… abaya walking through a Karachi night bazaar",
             assistToggles = {
                 GlassOptionToggle(
-                    text = "Bypass filter",
+                    text = LookbookCopy.ASSIST_EDITORIAL,
                     active = bypassFilter,
                     enabled = !busy,
                     onToggle = { viewModel.setBypassFilter(!bypassFilter) },
                 )
                 GlassOptionToggle(
-                    text = "Fashion",
+                    text = LookbookCopy.ASSIST_FASHION,
                     active = fashionContext,
                     enabled = !busy,
                     onToggle = { viewModel.setFashionContext(!fashionContext) },
                 )
                 GlassOptionToggle(
-                    text = "Detail",
+                    text = LookbookCopy.ASSIST_DETAIL,
                     active = detailBoost,
                     enabled = !busy,
                     onToggle = { viewModel.setDetailBoost(!detailBoost) },
                 )
                 GlassOptionToggle(
-                    text = "Quality",
+                    text = LookbookCopy.ASSIST_QUALITY,
                     active = qualityGuard,
                     enabled = !busy,
                     onToggle = { viewModel.setQualityGuard(!qualityGuard) },

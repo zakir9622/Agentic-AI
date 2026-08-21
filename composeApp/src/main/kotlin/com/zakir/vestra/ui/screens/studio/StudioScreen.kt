@@ -29,10 +29,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Icon
@@ -60,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
@@ -88,6 +91,7 @@ fun StudioScreen(
     onOpenSettings: () -> Unit,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
+    onOpenHelp: () -> Unit,
 ) {
     val context = LocalContext.current
     val recent by wardrobe.entries.collectAsState()
@@ -120,9 +124,9 @@ fun StudioScreen(
 
     val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
     val statusLine = buildString {
-        append(if (proReady) "Pro on-device" else "Lite · cloud ready")
+        append(if (proReady) "Pro on-device" else "Lite pack · cloud available")
         append("  ·  ")
-        append(if (online) "Signal live" else "Offline")
+        append(if (online) "Online" else "Offline")
         append("  ·  ")
         append(tryOnModel)
     }
@@ -145,12 +149,12 @@ fun StudioScreen(
                     ) {
                         Column {
                             Text(
-                                "The Lookbook",
+                                LookbookCopy.PRODUCT_NAME,
                                 style = MaterialTheme.typography.titleLarge,
                                 color = VestraColors.Ink,
                             )
                             Text(
-                                "Atelier",
+                                LookbookCopy.STUDIO_HOME,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = VestraColors.Accent,
                             )
@@ -173,10 +177,17 @@ fun StudioScreen(
                                     color = Color.White,
                                 )
                             }
+                            IconButton(onClick = onOpenHelp) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.HelpOutline,
+                                    contentDescription = LookbookCopy.STUDIO_HELP,
+                                    tint = VestraColors.Ink,
+                                )
+                            }
                             IconButton(onClick = onOpenWardrobe) {
                                 Icon(
                                     Icons.Outlined.Checkroom,
-                                    contentDescription = "Wardrobe",
+                                    contentDescription = LookbookCopy.STUDIO_WARDROBE,
                                     tint = VestraColors.Ink,
                                 )
                             }
@@ -191,7 +202,7 @@ fun StudioScreen(
                                 ) {
                                     Icon(
                                         Icons.Outlined.Settings,
-                                        contentDescription = "Settings",
+                                        contentDescription = LookbookCopy.STUDIO_SETTINGS,
                                         tint = VestraColors.Accent,
                                         modifier = Modifier.size(20.dp),
                                     )
@@ -205,10 +216,10 @@ fun StudioScreen(
                 item(key = "hero") {
                     Box(Modifier.padding(bottom = heroLift.dp)) {
                         AtelierHero(
-                            brand = "The Lookbook",
+                            brand = LookbookCopy.PRODUCT_NAME,
                             headline = "Creativity for modest wear",
                             support = "Cast abaya, hijab, and shalwar looks on-device — or open free cloud studios for stills, video, and code.",
-                            cta = "Start a garment shoot",
+                            cta = LookbookCopy.ACTION_START_TRY_ON,
                             onCta = onNewLook,
                             statusLine = statusLine,
                         )
@@ -237,7 +248,7 @@ fun StudioScreen(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Outlined.Videocam,
                             title = "Video",
-                            body = "Free HF clips",
+                            body = "Free cloud clips",
                             accent = VestraColors.SaffronDeep,
                             onClick = onOpenVideo,
                         )
@@ -247,9 +258,29 @@ fun StudioScreen(
                         modifier = Modifier.fillMaxWidth(),
                         icon = Icons.Outlined.Code,
                         title = "Code",
-                        body = "Groq · HF · OpenRouter free",
+                        body = "Groq · Hugging Face · OpenRouter",
                         accent = VestraColors.AccentSoft,
                         onClick = onOpenCode,
+                        compact = true,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    CapabilityTile(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Outlined.Insights,
+                        title = LookbookCopy.STUDIO_USAGE,
+                        body = "Requests · tokens · failure notes",
+                        accent = VestraColors.Accent,
+                        onClick = onOpenUsage,
+                        compact = true,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    CapabilityTile(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                        title = LookbookCopy.STUDIO_HELP,
+                        body = "Guides · permissions · recovery",
+                        accent = VestraColors.SaffronDeep,
+                        onClick = onOpenHelp,
                         compact = true,
                     )
                 }
@@ -281,10 +312,10 @@ fun StudioScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        GlassSectionLabel("RECENT LOOKS")
+                GlassSectionLabel("RECENT LOOKS")
                         if (recent.isNotEmpty()) {
                             Text(
-                                "See all",
+                                "Open gallery",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = VestraColors.Accent,
                                 modifier = Modifier

@@ -28,7 +28,7 @@ fun UsageScreen(
     val events by usage.events.collectAsState()
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
 
-    GlassScreen(title = "Token & usage", subtitle = "Cloud AI ledger", onBack = onBack) {
+    GlassScreen(title = "Cloud usage", subtitle = "Free-tier request ledger", onBack = onBack) {
         GlassCard {
             GlassSectionLabel("SUMMARY")
             Text("${summary.totalRequests} requests · ${summary.successCount} ok", style = MaterialTheme.typography.titleMedium)

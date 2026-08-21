@@ -255,7 +255,7 @@ private fun SendOrb(
     ) {
         Icon(
             if (busy) Icons.Outlined.Stop else Icons.AutoMirrored.Filled.Send,
-            contentDescription = if (busy) "Force stop" else "Generate",
+            contentDescription = if (busy) "Cancel generation" else "Generate",
             tint = VestraColors.Ivory,
             modifier = Modifier.size(22.dp),
         )

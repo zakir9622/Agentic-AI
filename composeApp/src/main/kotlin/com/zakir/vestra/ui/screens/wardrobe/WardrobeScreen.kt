@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
@@ -49,13 +50,13 @@ fun WardrobeScreen(
     }
 
     GlassScreen(
-        title = "Wardrobe",
+        title = LookbookCopy.STUDIO_WARDROBE,
         subtitle = "Looks · listings · assets",
         onBack = onBack,
         scrollable = false,
     ) {
         if (entries.isEmpty()) {
-            GlassEmptyState(message = "Your try-on and Create Studio looks live here.")
+            GlassEmptyState(message = "Your try-on and Image studio looks appear here.")
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),

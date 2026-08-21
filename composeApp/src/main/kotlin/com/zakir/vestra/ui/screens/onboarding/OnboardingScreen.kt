@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
@@ -80,13 +81,13 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
         ) {
             Spacer(Modifier.height(12.dp))
             Text(
-                "The Lookbook",
+                LookbookCopy.PRODUCT_NAME,
                 style = MaterialTheme.typography.displaySmall,
                 color = VestraColors.Ink,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "Modest wear · local AI",
+                LookbookCopy.PRODUCT_TAGLINE,
                 style = MaterialTheme.typography.labelLarge,
                 color = VestraColors.Accent,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),

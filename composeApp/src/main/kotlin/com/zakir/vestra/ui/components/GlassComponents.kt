@@ -368,7 +368,7 @@ fun GlassGenerateActions(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    statusText: String = "Working… you can leave — tap Force stop to cancel",
+    statusText: String = "Working… you can leave this screen — tap Cancel generation to stop",
 ) {
     Column(modifier.fillMaxWidth()) {
         if (busy) {
@@ -391,7 +391,7 @@ fun GlassGenerateActions(
                     modifier = Modifier.weight(1f),
                 )
             }
-            GlassSecondaryButton(text = "Force stop", onClick = onStop)
+            GlassSecondaryButton(text = "Cancel generation", onClick = onStop)
         } else {
             GlassPrimaryButton(text = generateLabel, onClick = onGenerate, enabled = enabled)
         }
