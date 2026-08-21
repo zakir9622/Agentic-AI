@@ -4,11 +4,13 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,9 +30,10 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
+import com.zakir.vestra.ui.components.GlassGenerateActions
 import com.zakir.vestra.ui.components.GlassLoadingCard
+import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassPill
-import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -45,6 +48,10 @@ fun CreateStudioScreen(
     val reference by viewModel.referenceUri.collectAsState()
     val state by viewModel.state.collectAsState()
     val preflight by viewModel.preflightMessage.collectAsState()
+    val detailBoost by viewModel.detailBoost.collectAsState()
+    val fashionContext by viewModel.fashionContext.collectAsState()
+    val bypassFilter by viewModel.bypassFilter.collectAsState()
+    val qualityGuard by viewModel.qualityGuard.collectAsState()
     val provider = viewModel.appSettings.selectedProvider(
         if (reference == null) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT,
     )
@@ -83,6 +90,44 @@ fun CreateStudioScreen(
                 },
             )
             Spacer(Modifier.height(10.dp))
+            GlassSectionLabel("MODEL OPTIONS")
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                GlassOptionToggle(
+                    text = "Bypass filter assist",
+                    active = bypassFilter,
+                    enabled = !busy,
+                    onToggle = { viewModel.setBypassFilter(!bypassFilter) },
+                )
+                GlassOptionToggle(
+                    text = "Fashion context",
+                    active = fashionContext,
+                    enabled = !busy,
+                    onToggle = { viewModel.setFashionContext(!fashionContext) },
+                )
+                GlassOptionToggle(
+                    text = "Detail boost",
+                    active = detailBoost,
+                    enabled = !busy,
+                    onToggle = { viewModel.setDetailBoost(!detailBoost) },
+                )
+                GlassOptionToggle(
+                    text = "Quality guard",
+                    active = qualityGuard,
+                    enabled = !busy,
+                    onToggle = { viewModel.setQualityGuard(!qualityGuard) },
+                )
+            }
+            Text(
+                "Assists rewrite the free-model prompt. Failed runs auto-retry with a softer variant.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
             Text("EXAMPLES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(6.dp))
             com.zakir.vestra.ui.components.ExamplePromptRow(
@@ -113,15 +158,13 @@ fun CreateStudioScreen(
                 GlassSecondaryButton(text = "Clear reference", onClick = { viewModel.setReference(null) }, enabled = !busy)
             }
             Spacer(Modifier.height(12.dp))
-            if (busy) {
-                GlassSecondaryButton(text = "Cancel", onClick = viewModel::cancel)
-            } else {
-                GlassPrimaryButton(
-                    text = if (reference == null) "Generate image (free)" else "Recreate from prompt (free)",
-                    onClick = viewModel::generateImage,
-                    enabled = prompt.isNotBlank(),
-                )
-            }
+            GlassGenerateActions(
+                busy = busy,
+                generateLabel = if (reference == null) "Generate image (free)" else "Recreate from prompt (free)",
+                onGenerate = viewModel::generateImage,
+                onStop = { viewModel.forceStop() },
+                enabled = prompt.isNotBlank(),
+            )
         }
 
         if (preflight != null) {

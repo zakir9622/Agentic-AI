@@ -119,7 +119,7 @@ fun PacksScreen(
                 onCancel = {
                     PackDownloadWorker.cancel(context, state.pack.id)
                     packManager.markCancelled(state.pack.id)
-                    Toast.makeText(context, "Download paused — tap Download to resume", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Download force-stopped — tap Download to resume", Toast.LENGTH_SHORT).show()
                 },
                 onUninstall = {
                     scope.launch {
@@ -200,7 +200,7 @@ private fun PackCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    OutlinedButton(onClick = onCancel) { Text("Cancel") }
+                    OutlinedButton(onClick = onCancel) { Text("Force stop") }
                 }
             }
             PackStatus.INSTALLED -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

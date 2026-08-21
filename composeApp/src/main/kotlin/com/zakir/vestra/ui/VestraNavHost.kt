@@ -112,19 +112,15 @@ fun VestraNavHost(
                     navController.navigate(Routes.GARMENT)
                 },
                 onOpenCreate = {
-                    generativeViewModel.clearResult()
-                    generativeViewModel.setPrompt("")
-                    generativeViewModel.setReference(null)
+                    generativeViewModel.prepareStudio(resetIfIdle = true)
                     navController.navigate(Routes.CREATE)
                 },
                 onOpenCode = {
-                    generativeViewModel.clearResult()
-                    generativeViewModel.setPrompt("")
+                    generativeViewModel.prepareStudio(resetIfIdle = true)
                     navController.navigate(Routes.CODE)
                 },
                 onOpenVideo = {
-                    generativeViewModel.clearResult()
-                    generativeViewModel.setPrompt("")
+                    generativeViewModel.prepareStudio(resetIfIdle = true)
                     navController.navigate(Routes.VIDEO)
                 },
                 onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
@@ -184,28 +180,19 @@ fun VestraNavHost(
         composable(Routes.CREATE) {
             CreateStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = {
-                    generativeViewModel.cancel()
-                    navController.popBackStack()
-                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.CODE) {
             CodeStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = {
-                    generativeViewModel.cancel()
-                    navController.popBackStack()
-                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.VIDEO) {
             VideoStudioScreen(
                 viewModel = generativeViewModel,
-                onBack = {
-                    generativeViewModel.cancel()
-                    navController.popBackStack()
-                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.USAGE) {

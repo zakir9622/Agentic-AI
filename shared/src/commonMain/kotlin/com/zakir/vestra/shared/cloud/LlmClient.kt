@@ -33,6 +33,7 @@ class LlmClient(
         prompt: String,
         apiKey: String,
         system: String = "You are a helpful coding assistant. Return clear, working code with brief explanations.",
+        temperature: Double = 0.2,
     ): LlmResult {
         require(apiKey.isNotBlank()) { "API key required for $platform" }
         require(model.isNotBlank()) { "Model id required" }
@@ -68,7 +69,7 @@ class LlmClient(
                     )
                 },
             )
-            put("temperature", 0.2)
+            put("temperature", temperature.coerceIn(0.0, 1.5))
             put("max_tokens", 2048)
         }
 
