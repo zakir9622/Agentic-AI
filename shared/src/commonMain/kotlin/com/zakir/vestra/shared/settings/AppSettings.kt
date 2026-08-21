@@ -118,6 +118,19 @@ class AppSettings(private val settings: Settings) {
             AiCapability.CODE -> _codeProviderId.value
             AiCapability.VIDEO -> _videoProviderId.value
         }
+        // Legacy auto-listed HF "warm" text models are not Inference Providers chat routes.
+        if (capability == AiCapability.CODE && id.startsWith("hf-disc-")) {
+            val curated = if (!_hfToken.value.isNullOrBlank()) {
+                CloudModelCatalog.byId("qwen25-coder-hf") ?: CloudModelCatalog.defaultFor(capability)
+            } else {
+                CloudModelCatalog.defaultFor(capability)
+            }
+            if (_codeProviderId.value != curated.id) {
+                settings.putString(KEY_CODE, curated.id)
+                _codeProviderId.value = curated.id
+            }
+            return curated
+        }
         return resolveProvider(id, capability)
     }
 

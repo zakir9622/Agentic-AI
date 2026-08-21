@@ -46,7 +46,7 @@ class HfGradioClientTest {
         val result = HfGradioClient(http).predict(
             spaceHost = "example.hf.space",
             apiName = "predict",
-            data = listOf("hello"),
+            data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
             hfToken = null,
             maxPolls = 2,
             pollDelayMs = 1,

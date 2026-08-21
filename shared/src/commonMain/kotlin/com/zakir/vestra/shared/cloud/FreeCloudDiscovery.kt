@@ -41,12 +41,18 @@ class FreeCloudDiscovery(
      */
     suspend fun discoverHf(token: String?, capability: AiCapability): List<CloudModelProvider> {
         if (token.isNullOrBlank()) return emptyList()
-        if (capability == AiCapability.TRY_ON || capability == AiCapability.VIDEO) return emptyList()
+        // CODE uses curated Groq/HF/OpenRouter chat models only — HF "warm text-generation"
+        // listings are not Inference Providers chat routes and cause empty/400 failures.
+        if (capability == AiCapability.TRY_ON ||
+            capability == AiCapability.VIDEO ||
+            capability == AiCapability.CODE
+        ) {
+            return emptyList()
+        }
         val pipeline = when (capability) {
             AiCapability.IMAGE_GEN -> "text-to-image"
             AiCapability.IMAGE_EDIT -> "image-to-image"
-            AiCapability.CODE -> "text-generation"
-            AiCapability.TRY_ON, AiCapability.VIDEO -> return emptyList()
+            AiCapability.CODE, AiCapability.TRY_ON, AiCapability.VIDEO -> return emptyList()
         }
         val url =
             "https://huggingface.co/api/models?pipeline_tag=$pipeline&inference=warm&sort=downloads&direction=-1&limit=12"

@@ -66,6 +66,11 @@ class VestraApp : Application() {
         freeCloudDiscovery = FreeCloudDiscovery(http)
         // Restore tokens from Documents/TheLookbook/tokens.json after reinstall.
         TokenSidecar.restoreIntoPrefsIfEmpty(this, appSettings)
+        // Optional sideload seed from local.properties / LOOKBOOK_HF_TOKEN (gitignored).
+        TokenSidecar.applyDefaultHfIfBlank(appSettings, BuildConfig.DEFAULT_HF_TOKEN)
+        if (DurableStorage.hasAllFilesAccess()) {
+            TokenSidecar.autoFetchFromDocuments(appSettings, overwriteExisting = false)
+        }
         packManager = ModelPackManager(
             fs = AndroidPackFileSystem(this) { DurableStorage.resolvePacksRoot(this) },
             device = AndroidDeviceProbe(this),

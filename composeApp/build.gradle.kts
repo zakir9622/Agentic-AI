@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+import java.util.Properties
+
 android {
     namespace = "com.zakir.vestra"
     compileSdk = 36
@@ -12,8 +14,10 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 13
-        versionName = "2.5.0"
+        versionCode = 14
+        versionName = "2.5.1"
+        // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
+        buildConfigField("String", "DEFAULT_HF_TOKEN", "\"\"")
     }
 
     flavorDimensions += "distribution"
@@ -42,6 +46,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            val localProps = Properties().apply {
+                val f = rootProject.file("local.properties")
+                if (f.exists()) f.inputStream().use { load(it) }
+            }
+            val hfDefault = (localProps.getProperty("lookbook.hf.token")
+                ?: System.getenv("LOOKBOOK_HF_TOKEN")
+                ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
+            buildConfigField("String", "DEFAULT_HF_TOKEN", "\"$hfDefault\"")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -52,6 +66,7 @@ android {
             signingConfig = signingConfigs.getByName("release").takeIf {
                 it.storeFile?.exists() == true
             } ?: signingConfigs.getByName("debug")
+            buildConfigField("String", "DEFAULT_HF_TOKEN", "\"\"")
         }
     }
 

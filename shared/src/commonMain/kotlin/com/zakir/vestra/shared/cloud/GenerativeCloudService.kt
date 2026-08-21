@@ -54,13 +54,12 @@ class GenerativeCloudService(
                     ),
                 )
                 try {
-                    val data = buildList {
-                        if (!referenceUri.isNullOrBlank()) {
-                            val bytes = io.loadImageBytes(referenceUri)
-                                ?: error("Couldn't read the reference image")
-                            add(io.toDataUrl(bytes))
-                        }
-                        add(variant)
+                    val data = if (!referenceUri.isNullOrBlank()) {
+                        val bytes = io.loadImageBytes(referenceUri)
+                            ?: error("Couldn't read the reference image")
+                        SpacePayloads.forImageEdit(provider.id, variant, io.toDataUrl(bytes))
+                    } else {
+                        SpacePayloads.forImageGen(provider.id, variant)
                     }
                     val result = hf.predict(provider.endpoint, provider.apiName, data, settings.hfToken.value)
                     val url = extractRef(result)
@@ -166,7 +165,7 @@ class GenerativeCloudService(
                     val result = hf.predict(
                         spaceHost = provider.endpoint,
                         apiName = provider.apiName,
-                        data = listOf(variant),
+                        data = SpacePayloads.forVideo(provider.id, variant),
                         hfToken = settings.hfToken.value,
                         maxPolls = 180,
                         pollDelayMs = 3_000,
@@ -260,6 +259,13 @@ class GenerativeCloudService(
                 "API key rejected. Re-save your free token in Settings."
             raw.contains("429") || raw.contains("rate", ignoreCase = true) ->
                 "Free-tier rate limit hit. Wait a minute or switch model in Settings."
+            raw.contains("sufficient permissions", ignoreCase = true) ||
+                raw.contains("Inference Providers", ignoreCase = true) ->
+                "Your HF token cannot call Inference Providers. Create a new token at huggingface.co/settings/tokens with Inference permission (or use a classic Read token), then Save in Settings. For Code, switch to Groq."
+            raw.contains("Queue is full", ignoreCase = true) ->
+                "Free Space queue is full. Wait a minute and Retry, or pick another model."
+            raw.contains("404") && raw.contains("Space", ignoreCase = true) ->
+                "That free Space is offline. Switch model in Settings (FLUX Schnell for images)."
             raw.contains("NSFW", ignoreCase = true) ||
                 raw.contains("safety", ignoreCase = true) ||
                 raw.contains("content policy", ignoreCase = true) ||

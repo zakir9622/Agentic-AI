@@ -4,6 +4,8 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -117,6 +119,26 @@ fun SettingsScreen(
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
     var clipboardHint by remember { mutableStateOf<String?>(null) }
 
+    val importTokensLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val count = withContext(Dispatchers.IO) {
+                TokenSidecar.importFromUri(context, uri, appSettings)
+            }
+            hfInput = appSettings.hfToken.value.orEmpty()
+            groqInput = appSettings.groqApiKey.value.orEmpty()
+            openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
+            keysSavedFlash = count > 0
+            Toast.makeText(
+                context,
+                if (count > 0) "Imported $count key(s) from file" else "No HF/Groq/OpenRouter keys found in file",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
     fun applyClipboardToken() {
         val cm = context.getSystemService(ClipboardManager::class.java) ?: return
         val raw = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
@@ -227,7 +249,7 @@ fun SettingsScreen(
                 GlassCard {
                     GlassSectionLabel("API TOKENS")
                     Text(
-                        "Create a free key in your browser, copy it, then return here — we auto-detect clipboard tokens. Local Lite/Pro never need a token.",
+                        "Create a free Write/Read HF token (classic, not fine-grained without Inference), copy it, then Save. Or import tokens.json / tokens.txt. Local Lite/Pro never need a token.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -262,6 +284,53 @@ fun SettingsScreen(
                     ) {
                         Text("Paste token from clipboard")
                     }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            importTokensLauncher.launch(
+                                arrayOf(
+                                    "application/json",
+                                    "text/plain",
+                                    "text/*",
+                                    "*/*",
+                                ),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Import tokens from JSON / TXT file")
+                    }
+                    if (durableReady) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    val count = withContext(Dispatchers.IO) {
+                                        TokenSidecar.autoFetchFromDocuments(
+                                            appSettings,
+                                            overwriteExisting = true,
+                                        )
+                                    }
+                                    hfInput = appSettings.hfToken.value.orEmpty()
+                                    groqInput = appSettings.groqApiKey.value.orEmpty()
+                                    openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
+                                    keysSavedFlash = count > 0
+                                    Toast.makeText(
+                                        context,
+                                        if (count > 0) {
+                                            "Loaded $count key(s) from Documents/TheLookbook"
+                                        } else {
+                                            "No tokens.json / tokens.txt found in Documents/TheLookbook"
+                                        },
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Auto-fetch from Documents/TheLookbook")
+                        }
+                    }
                     clipboardHint?.let {
                         Spacer(Modifier.height(6.dp))
                         Text(it, style = MaterialTheme.typography.labelMedium, color = VestraColors.Accent)
@@ -276,6 +345,14 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(if (keysSavedFlash) "Saved" else "Save tokens")
+                    }
+                    if (!hfToken.isNullOrBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "HF token saved · for Code use curated Qwen2.5-Coder / Groq (not random auto-listed models).",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = VestraColors.Accent,
+                        )
                     }
                 }
                 Spacer(Modifier.height(14.dp))

@@ -105,7 +105,7 @@ class CloudEngine(
         garment: String,
         category: GarmentCategory,
     ): String {
-        val result = hf.predict(
+        val result = hf.predictStrings(
             spaceHost = provider.endpoint,
             apiName = provider.apiName,
             data = hfPayload(provider.id, person, garment, category),
