@@ -37,7 +37,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.theme.VestraColors
 
 /**
