@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -250,6 +252,38 @@ fun GlassPill(
             color = if (active) VestraColors.Ink else VestraColors.InkMuted,
         )
     }
+}
+
+/** Saffron FilterChip — avoids Material3 purple secondaryContainer defaults. */
+@Composable
+fun AtelierFilterChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = label,
+        enabled = enabled,
+        modifier = modifier,
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            containerColor = VestraColors.GlassFill,
+            labelColor = VestraColors.Ink,
+            iconColor = VestraColors.InkMuted,
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = enabled,
+            selected = selected,
+            borderColor = VestraColors.GlassBorder,
+            selectedBorderColor = VestraColors.Accent.copy(alpha = 0.65f),
+        ),
+    )
 }
 
 /** Standard spatial screen shell: gradient canvas, glass top bar, scrollable body. */

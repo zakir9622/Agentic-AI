@@ -32,7 +32,6 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Rotate90DegreesCw
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +59,7 @@ import coil3.compose.AsyncImage
 import com.zakir.vestra.shared.domain.Backdrop
 import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.ui.TryOnViewModel
+import com.zakir.vestra.ui.components.AtelierFilterChip
 import com.zakir.vestra.ui.components.GlassImageFrame
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
@@ -237,14 +237,14 @@ fun GarmentScreen(
                 Spacer(Modifier.height(10.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
-                        FilterChip(
+                        AtelierFilterChip(
                             selected = active.category == null,
                             onClick = { viewModel.setGarmentCategory(selectedPiece, null) },
                             label = { Text("Auto") },
                         )
                     }
                     items(categoryChips) { (category, label) ->
-                        FilterChip(
+                        AtelierFilterChip(
                             selected = active.category == category,
                             onClick = { viewModel.setGarmentCategory(selectedPiece, category) },
                             label = { Text(label) },
@@ -260,7 +260,7 @@ fun GarmentScreen(
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(Backdrop.entries.size) { index ->
                     val backdrop = Backdrop.entries[index]
-                    FilterChip(
+                    AtelierFilterChip(
                         selected = selectedBackdrop == backdrop,
                         onClick = { viewModel.setBackdrop(backdrop) },
                         label = { Text(backdrop.displayName) },

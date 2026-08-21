@@ -44,6 +44,7 @@ import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.PromptComposer
+import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
 
 @Composable
@@ -218,7 +219,7 @@ internal fun ResultPane(
             GlassSectionLabel("RESULT")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI-generated", active = true)
-                GlassPill(text = "In looks gallery", active = true, accent = MaterialTheme.colorScheme.secondary)
+                GlassPill(text = "In looks gallery", active = true, accent = VestraColors.Accent)
             }
             Spacer(Modifier.height(8.dp))
             AsyncImage(

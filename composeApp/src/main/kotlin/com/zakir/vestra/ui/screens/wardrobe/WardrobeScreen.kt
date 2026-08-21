@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +30,7 @@ import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
+import com.zakir.vestra.ui.components.AtelierFilterChip
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassScreen
@@ -67,12 +67,12 @@ fun WardrobeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(
+                AtelierFilterChip(
                     selected = !favoritesOnly,
                     onClick = { favoritesOnly = false },
                     label = { Text("All (${entries.size})") },
                 )
-                FilterChip(
+                AtelierFilterChip(
                     selected = favoritesOnly,
                     onClick = { favoritesOnly = true },
                     label = { Text("Favorites (${entries.count { it.favorited }})") },

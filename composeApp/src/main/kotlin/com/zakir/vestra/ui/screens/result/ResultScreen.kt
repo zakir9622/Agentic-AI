@@ -60,6 +60,7 @@ import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
 
 @Composable
@@ -186,7 +187,7 @@ fun ResultScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GlassPill(text = "AI-generated", active = true)
-                    GlassPill(text = "Provenance stamped", active = true, accent = MaterialTheme.colorScheme.secondary)
+                    GlassPill(text = "Provenance stamped", active = true, accent = VestraColors.Accent)
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

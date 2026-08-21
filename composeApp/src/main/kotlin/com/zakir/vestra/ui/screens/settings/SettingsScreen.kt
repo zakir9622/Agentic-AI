@@ -267,6 +267,42 @@ fun SettingsScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
+            item(key = "about") {
+                GlassCard {
+                    GlassSectionLabel("ABOUT")
+                    Text(LookbookCopy.PRODUCT_NAME, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        LookbookCopy.PRODUCT_BLURB,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(onClick = onOpenHelp, modifier = Modifier.fillMaxWidth()) {
+                        Text(LookbookCopy.ACTION_OPEN_HELP)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(LookbookCopy.PRIVACY_URL),
+                            )
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(LookbookCopy.ACTION_OPEN_PRIVACY)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+
             // —— Keys first (this is where HF / Groq / OpenRouter go) ——
             item(key = "keys") {
                 GlassCard {
@@ -692,41 +728,6 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-            }
-
-            item(key = "about") {
-                GlassCard {
-                    GlassSectionLabel("ABOUT")
-                    Text(LookbookCopy.PRODUCT_NAME, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        LookbookCopy.PRODUCT_BLURB,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(onClick = onOpenHelp, modifier = Modifier.fillMaxWidth()) {
-                        Text(LookbookCopy.ACTION_OPEN_HELP)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(LookbookCopy.PRIVACY_URL),
-                            )
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(LookbookCopy.ACTION_OPEN_PRIVACY)
-                    }
-                }
             }
         }
     }

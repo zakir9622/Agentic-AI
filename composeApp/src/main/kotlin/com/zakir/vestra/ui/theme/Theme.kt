@@ -143,6 +143,12 @@ private fun VestraPalette.toScheme() = if (isDark) {
         onPrimaryContainer = ivory,
         secondary = Color(0xFFC4A484),
         onSecondary = Color(0xFF1A1208),
+        secondaryContainer = accentSoft.copy(alpha = 0.28f),
+        onSecondaryContainer = ivory,
+        tertiary = saffronDeep,
+        onTertiary = Color(0xFF1A1208),
+        tertiaryContainer = saffronDeep.copy(alpha = 0.35f),
+        onTertiaryContainer = ivory,
         background = canvas,
         onBackground = ink,
         surface = surface,
@@ -155,16 +161,22 @@ private fun VestraPalette.toScheme() = if (isDark) {
         surfaceContainerHighest = Color(0xFF2A241E),
         outline = glassBorder,
         error = danger,
-        tertiary = saffronDeep,
     )
 } else {
     lightColorScheme(
         primary = accent,
         onPrimary = Color.White,
-        primaryContainer = accentSoft,
+        primaryContainer = Color(0xFFF3E2C4),
         onPrimaryContainer = Color(0xFF1A1208),
         secondary = Color(0xFF8B6B4A),
         onSecondary = Color.White,
+        // FilterChip selected fill — must be saffron, not M3 purple defaults.
+        secondaryContainer = Color(0xFFEFD9B0),
+        onSecondaryContainer = Color(0xFF4A3214),
+        tertiary = saffronDeep,
+        onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFF0E0C8),
+        onTertiaryContainer = Color(0xFF4A3214),
         background = canvas,
         onBackground = ink,
         surface = surface,
@@ -177,7 +189,6 @@ private fun VestraPalette.toScheme() = if (isDark) {
         surfaceContainerHighest = Color.White,
         outline = glassBorder,
         error = danger,
-        tertiary = saffronDeep,
     )
 }
 

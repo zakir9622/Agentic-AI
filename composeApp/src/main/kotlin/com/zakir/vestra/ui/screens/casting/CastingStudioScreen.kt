@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import com.zakir.vestra.shared.domain.HairCoverage
 import com.zakir.vestra.shared.domain.Scenario
 import com.zakir.vestra.shared.domain.SkinTone
 import com.zakir.vestra.ui.TryOnViewModel
+import com.zakir.vestra.ui.components.AtelierFilterChip
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -54,7 +54,7 @@ fun CastingStudioScreen(
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(CastingPresets.all) { (name, preset) ->
                     val selected = casting == preset
-                    FilterChip(
+                    AtelierFilterChip(
                         selected = selected,
                         onClick = { viewModel.applyPreset(preset) },
                         label = { Text(name) },
@@ -97,14 +97,14 @@ fun CastingStudioScreen(
             GlassSectionLabel("GARMENT COLOR")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    FilterChip(
+                    AtelierFilterChip(
                         selected = casting.garmentColor == null,
                         onClick = { viewModel.setGarmentColor(null) },
                         label = { Text("From photo") },
                     )
                 }
                 items(GarmentColor.entries) { color ->
-                    FilterChip(
+                    AtelierFilterChip(
                         selected = casting.garmentColor == color,
                         onClick = { viewModel.setGarmentColor(color) },
                         label = { Text(color.displayName) },
@@ -151,7 +151,7 @@ private inline fun <T> ChipRow(
 ) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(items) { item ->
-            FilterChip(
+            AtelierFilterChip(
                 selected = item == selected,
                 onClick = { onSelect(item) },
                 label = { Text(label(item)) },
