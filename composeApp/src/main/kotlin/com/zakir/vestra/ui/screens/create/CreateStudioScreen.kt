@@ -64,8 +64,8 @@ fun CreateStudioScreen(
 
     GlassScreen(title = "Create Studio", subtitle = "Shop · sell · create — free models", onBack = onBack) {
         GlassCard {
-            GlassSectionLabel("FREE MODEL")
-            Text(provider.displayName, style = MaterialTheme.typography.titleMedium)
+            GlassSectionLabel("ATELIER")
+            Text(provider.displayName, style = MaterialTheme.typography.titleLarge)
             Text(estimate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 

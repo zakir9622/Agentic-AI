@@ -1,6 +1,8 @@
 package com.zakir.vestra.ui.screens.studio
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,7 +34,6 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Videocam
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +49,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -58,10 +61,9 @@ import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
+import com.zakir.vestra.ui.components.AtelierHero
 import com.zakir.vestra.ui.components.GlassCard
-import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
-import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
@@ -102,87 +104,87 @@ fun StudioScreen(
     LaunchedEffect(Unit) { appeared = true }
     val fade by animateFloatAsState(
         targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(520),
+        animationSpec = tween(640),
         label = "studioFade",
     )
+    val heroLift by animateFloatAsState(
+        targetValue = if (appeared) 0f else 18f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "heroLift",
+    )
+
+    val statusLine = buildString {
+        append(if (proReady) "Pro on-device" else "Lite · cloud ready")
+        append("  ·  ")
+        append(if (online) "Signal live" else "Offline")
+    }
 
     SpatialBackground {
         LazyColumn(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 18.dp)
                 .alpha(fade),
-            contentPadding = PaddingValues(bottom = 36.dp),
+            contentPadding = PaddingValues(bottom = 40.dp),
         ) {
-            item(key = "top") {
-                GlassTopBar(
-                    title = "The Lookbook",
-                    subtitle = "Shop · sell · create",
-                    actions = {
-                        IconButton(onClick = onOpenWardrobe) {
+            item(key = "chrome") {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onOpenWardrobe) {
+                        Icon(
+                            Icons.Outlined.Checkroom,
+                            contentDescription = "Wardrobe",
+                            tint = VestraColors.Ink,
+                        )
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Box(
+                            Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(VestraColors.GlassFillStrong)
+                                .border(1.5.dp, VestraColors.Accent.copy(alpha = 0.7f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Icon(
-                                Icons.Outlined.Checkroom,
-                                contentDescription = "Wardrobe",
-                                tint = VestraColors.Ink,
+                                Icons.Filled.Settings,
+                                contentDescription = "Settings",
+                                tint = VestraColors.Accent,
+                                modifier = Modifier.size(22.dp),
                             )
                         }
-                        IconButton(onClick = onOpenSettings) {
-                            Box(
-                                Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(VestraColors.GlassFillStrong)
-                                    .border(1.5.dp, VestraColors.Accent.copy(alpha = 0.7f), CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Settings,
-                                    contentDescription = "Settings",
-                                    tint = VestraColors.Accent,
-                                    modifier = Modifier.size(22.dp),
-                                )
-                            }
-                        }
-                    },
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GlassPill(text = if (proReady) "Pro ready" else "Pro pack needed", active = proReady)
-                    GlassPill(text = "On-device", active = true)
-                    GlassPill(
-                        text = if (online) "Online" else "Offline",
-                        active = online,
-                        accent = MaterialTheme.colorScheme.secondary,
-                    )
+                    }
                 }
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(4.dp))
             }
 
             item(key = "hero") {
-                GlassCard {
-                    GlassSectionLabel("ESSENTIAL · ALL PERSONAS")
-                    Text("Virtual try-on", style = MaterialTheme.typography.headlineMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Shoppers preview modest wear. Sellers batch listing shots. Creators cast looks — on-device Lite/Pro or free cloud try-on.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Box(Modifier.padding(bottom = heroLift.dp)) {
+                    AtelierHero(
+                        brand = "The Lookbook",
+                        headline = "Modest wear · local AI",
+                        support = "Cast abaya, hijab, and shalwar looks on-device — or spin free cloud studios for stills, video, and code.",
+                        cta = "Start a garment shoot",
+                        onCta = onNewLook,
+                        statusLine = statusLine,
                     )
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = onNewLook, modifier = Modifier.fillMaxWidth()) {
-                        Text("Start a garment shoot")
-                    }
                 }
-                Spacer(Modifier.height(14.dp))
-                GlassSectionLabel("MEDIA LOOP")
+                Spacer(Modifier.height(22.dp))
+            }
+
+            item(key = "studios-label") {
+                GlassSectionLabel("STUDIOS")
             }
 
             item(key = "create") {
                 StudioTile(
                     icon = Icons.Outlined.Image,
-                    title = "Create Studio",
-                    body = "Prompt or recreate product / lookbook stills. Save to Photos (DCIM) · share · wardrobe.",
+                    title = "Create",
+                    body = "Prompt stills · recreate · Photos",
                     onClick = onOpenCreate,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -190,8 +192,8 @@ fun StudioScreen(
             item(key = "video") {
                 StudioTile(
                     icon = Icons.Outlined.Videocam,
-                    title = "Video Studio",
-                    body = "Free HF clips (LTX, CogVideoX). Save to Movies/The Lookbook.",
+                    title = "Video",
+                    body = "Free HF clips · Movies gallery",
                     onClick = onOpenVideo,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -199,23 +201,23 @@ fun StudioScreen(
             item(key = "code") {
                 StudioTile(
                     icon = Icons.Outlined.Code,
-                    title = "Code Studio",
-                    body = "Free coding models — Qwen, DeepSeek, Llama on Groq. Tokens in Usage.",
+                    title = "Code",
+                    body = "Groq · HF · OpenRouter free",
                     onClick = onOpenCode,
                 )
             }
 
             if (!proReady) {
                 item(key = "pro-cta") {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(14.dp))
                     GlassCard(onClick = onOpenPacks) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(12.dp))
+                            IconWell(Icons.Outlined.Cloud)
+                            Spacer(Modifier.width(14.dp))
                             Column {
-                                Text("Download Pro AI model", style = MaterialTheme.typography.titleMedium)
+                                Text("Install Pro pack", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    "One-time ~2–4 GB. Fully offline after. Or use free cloud try-on in Settings.",
+                                    "One download. Fully offline after. Free cloud try-on stays in Settings.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -230,14 +232,13 @@ fun StudioScreen(
                 GlassCard(onClick = onOpenUsage) {
                     Text("Token & usage", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "See requests, tokens, and estimated cost per model and service.",
+                        "Requests, tokens, and free-tier spend per model.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Spacer(Modifier.height(20.dp))
-                Text("RECENT LOOKS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(22.dp))
+                GlassSectionLabel("RECENT LOOKS")
             }
 
             item(key = "recent") {
@@ -245,13 +246,21 @@ fun StudioScreen(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(recent.take(10), key = { it.id }) { entry ->
                             val file = File(entry.imagePath)
-                            AsyncImage(
-                                model = file,
-                                contentDescription = "Recent look",
-                                modifier = Modifier
-                                    .width(130.dp)
-                                    .aspectRatio(0.75f)
-                                    .clip(RoundedCornerShape(20.dp))
+                            Box(
+                                Modifier
+                                    .width(138.dp)
+                                    .aspectRatio(0.72f)
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .border(
+                                        1.dp,
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                VestraColors.GlassHighlight,
+                                                VestraColors.Accent.copy(alpha = 0.35f),
+                                            ),
+                                        ),
+                                        RoundedCornerShape(22.dp),
+                                    )
                                     .combinedClickable(
                                         onClick = onOpenWardrobe,
                                         onLongClick = {
@@ -260,16 +269,38 @@ fun StudioScreen(
                                             }
                                         },
                                     ),
-                                contentScale = ContentScale.Crop,
-                            )
+                            ) {
+                                AsyncImage(
+                                    model = file,
+                                    contentDescription = "Recent look",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                Box(
+                                    Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(
+                                                    androidx.compose.ui.graphics.Color.Transparent,
+                                                    VestraColors.AtelierCanvas.copy(alpha = 0.75f),
+                                                ),
+                                            ),
+                                        ),
+                                )
+                            }
                         }
                     }
                 } else {
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
-                            .clip(RoundedCornerShape(24.dp)),
+                            .height(148.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(VestraColors.GlassFill)
+                            .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(24.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -285,18 +316,44 @@ fun StudioScreen(
 }
 
 @Composable
+private fun IconWell(icon: ImageVector) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(VestraColors.GlassFillStrong)
+            .border(1.dp, VestraColors.Accent.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = VestraColors.Accent, modifier = Modifier.size(22.dp))
+    }
+}
+
+@Composable
 private fun StudioTile(
     icon: ImageVector,
     title: String,
     body: String,
     onClick: () -> Unit,
 ) {
-    GlassCard(onClick = onClick) {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.98f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "tileScale",
+    )
+    GlassCard(
+        onClick = {
+            pressed = true
+            onClick()
+        },
+        modifier = Modifier.scale(scale),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.titleMedium)
+            IconWell(icon)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
                 Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

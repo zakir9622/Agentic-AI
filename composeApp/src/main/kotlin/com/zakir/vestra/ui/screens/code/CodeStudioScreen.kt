@@ -42,8 +42,8 @@ fun CodeStudioScreen(
 
     GlassScreen(title = "Code Studio", subtitle = "Free open coding models", onBack = onBack) {
         GlassCard {
-            GlassSectionLabel("FREE MODEL & USAGE")
-            Text(provider.displayName, style = MaterialTheme.typography.titleMedium)
+            GlassSectionLabel("ATELIER · USAGE")
+            Text(provider.displayName, style = MaterialTheme.typography.titleLarge)
             Text(estimate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 "Groq / HF Inference / OpenRouter :free only. Token counts appear after each run. No paid APIs.",

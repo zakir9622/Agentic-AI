@@ -1,6 +1,12 @@
 package com.zakir.vestra.ui.components
 
 import android.os.Build
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +19,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -28,23 +35,46 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.ui.theme.SpatialElevation
 import com.zakir.vestra.ui.theme.VestraColors
 
-/** Full-screen spatial canvas with soft gradient orbs behind content. */
+/** Full-screen spatial canvas with breathing teal orbs behind content. */
 @Composable
 fun SpatialBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val infinite = rememberInfiniteTransition(label = "spatial")
+    val breathe by infinite.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(5600, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "orbBreathe",
+    )
+    val drift by infinite.animateFloat(
+        initialValue = -18f,
+        targetValue = 18f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "orbDrift",
+    )
+    val density = LocalDensity.current
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -52,29 +82,41 @@ fun SpatialBackground(
     ) {
         Box(
             Modifier
-                .matchParentSize()
+                .align(Alignment.TopEnd)
+                .offset(
+                    x = with(density) { (36f + drift).toDp() },
+                    y = (-48).dp,
+                )
+                .size((300 * breathe).dp)
+                .graphicsLayer { alpha = 0.5f }
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            VestraColors.Accent.copy(alpha = if (VestraColors.Accent.alpha > 0f) 0.18f else 0.18f),
+                            VestraColors.AccentSoft.copy(alpha = 0.32f),
+                            VestraColors.Accent.copy(alpha = 0.06f),
                             Color.Transparent,
                         ),
-                        radius = 1100f,
                     ),
+                    shape = CircleShape,
                 ),
         )
         Box(
             Modifier
-                .matchParentSize()
+                .align(Alignment.BottomStart)
+                .offset(
+                    x = (-72).dp,
+                    y = with(density) { (64f - drift * 0.5f).toDp() },
+                )
+                .size((340 * (2f - breathe).coerceIn(0.92f, 1.15f)).dp)
+                .graphicsLayer { alpha = 0.42f }
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            VestraColors.AccentSoft.copy(alpha = 0.12f),
+                            VestraColors.Accent.copy(alpha = 0.2f),
                             Color.Transparent,
                         ),
-                        center = androidx.compose.ui.geometry.Offset(0.92f, 0.08f),
-                        radius = 800f,
                     ),
+                    shape = CircleShape,
                 ),
         )
         Box(
@@ -84,7 +126,7 @@ fun SpatialBackground(
                     Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            VestraColors.Canvas.copy(alpha = 0.35f),
+                            VestraColors.Canvas.copy(alpha = 0.38f),
                         ),
                     ),
                 ),
@@ -103,7 +145,7 @@ fun GlassCard(
 ) {
     val shape = RoundedCornerShape(24.dp)
     val glassFill = VestraColors.GlassFill
-    val base = Modifier
+    val base = modifier
         .fillMaxWidth()
         .then(
             if (elevation > 0.dp) {
