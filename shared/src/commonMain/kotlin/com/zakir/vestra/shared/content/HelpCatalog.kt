@@ -29,6 +29,7 @@ object LookbookCopy {
     const val ACTION_SAVE_TOKENS = "Save API keys"
     const val ACTION_OPEN_HELP = "Open Help & FAQ"
     const val ACTION_OPEN_PRIVACY = "Privacy policy"
+    const val ACTION_OPEN_SETTINGS = "Open Settings"
     const val ACTION_REPORT = "Report content"
     const val ACTION_SHARE = "Share"
     const val ACTION_OPEN_VIDEO = "Open"

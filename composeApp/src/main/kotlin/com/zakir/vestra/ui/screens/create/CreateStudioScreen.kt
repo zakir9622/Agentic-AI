@@ -50,6 +50,7 @@ import java.io.File
 fun CreateStudioScreen(
     viewModel: GenerativeViewModel,
     onBack: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val prompt by viewModel.prompt.collectAsState()
     val reference by viewModel.referenceUri.collectAsState()
@@ -91,6 +92,7 @@ fun CreateStudioScreen(
             assistCount = assistCount,
             busy = busy,
             enabled = true,
+            onModelClick = onOpenSettings,
             onSend = viewModel::generateImage,
             onStop = { viewModel.forceStop() },
             placeholder = if (reference == null) {
@@ -146,7 +148,12 @@ fun CreateStudioScreen(
 
         if (preflight != null) {
             Spacer(Modifier.height(12.dp))
-            GlassErrorBanner(message = preflight!!, onDismiss = { viewModel.clearResult() })
+            GlassErrorBanner(
+                message = preflight!!,
+                onRetry = onOpenSettings,
+                retryLabel = LookbookCopy.ACTION_OPEN_SETTINGS,
+                onDismiss = { viewModel.clearResult() },
+            )
         }
 
         Spacer(Modifier.height(12.dp))

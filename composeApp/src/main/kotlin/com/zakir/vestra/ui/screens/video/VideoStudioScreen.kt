@@ -25,6 +25,7 @@ import com.zakir.vestra.ui.screens.create.ResultPane
 fun VideoStudioScreen(
     viewModel: GenerativeViewModel,
     onBack: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val prompt by viewModel.prompt.collectAsState()
     val state by viewModel.state.collectAsState()
@@ -59,6 +60,7 @@ fun VideoStudioScreen(
             assistCount = assistCount,
             busy = busy,
             enabled = true,
+            onModelClick = onOpenSettings,
             onSend = viewModel::generateVideo,
             onStop = { viewModel.forceStop() },
             placeholder = "Describe the clip… abaya walking through a Karachi night bazaar",
@@ -105,7 +107,12 @@ fun VideoStudioScreen(
 
         if (preflight != null) {
             Spacer(Modifier.height(12.dp))
-            GlassErrorBanner(message = preflight!!, onDismiss = { viewModel.clearResult() })
+            GlassErrorBanner(
+                message = preflight!!,
+                onRetry = onOpenSettings,
+                retryLabel = LookbookCopy.ACTION_OPEN_SETTINGS,
+                onDismiss = { viewModel.clearResult() },
+            )
         }
 
         Spacer(Modifier.height(12.dp))

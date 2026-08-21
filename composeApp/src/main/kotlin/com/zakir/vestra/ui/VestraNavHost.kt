@@ -184,18 +184,27 @@ fun VestraNavHost(
             CreateStudioScreen(
                 viewModel = generativeViewModel,
                 onBack = { navController.popBackStack() },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
+                },
             )
         }
         composable(Routes.CODE) {
             CodeStudioScreen(
                 viewModel = generativeViewModel,
                 onBack = { navController.popBackStack() },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
+                },
             )
         }
         composable(Routes.VIDEO) {
             VideoStudioScreen(
                 viewModel = generativeViewModel,
                 onBack = { navController.popBackStack() },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
+                },
             )
         }
         composable(Routes.USAGE) {

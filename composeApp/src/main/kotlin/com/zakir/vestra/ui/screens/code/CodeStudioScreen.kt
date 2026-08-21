@@ -25,6 +25,7 @@ import com.zakir.vestra.ui.screens.create.ResultPane
 fun CodeStudioScreen(
     viewModel: GenerativeViewModel,
     onBack: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val prompt by viewModel.prompt.collectAsState()
     val state by viewModel.state.collectAsState()
@@ -57,6 +58,7 @@ fun CodeStudioScreen(
             assistCount = assistCount,
             busy = busy,
             enabled = true,
+            onModelClick = onOpenSettings,
             onSend = viewModel::generateCode,
             onStop = { viewModel.forceStop() },
             placeholder = "Ask for code… Kotlin Compose glass card with frosted border",
@@ -91,7 +93,12 @@ fun CodeStudioScreen(
 
         if (preflight != null) {
             Spacer(Modifier.height(12.dp))
-            GlassErrorBanner(message = preflight!!, onDismiss = { viewModel.clearResult() })
+            GlassErrorBanner(
+                message = preflight!!,
+                onRetry = onOpenSettings,
+                retryLabel = LookbookCopy.ACTION_OPEN_SETTINGS,
+                onDismiss = { viewModel.clearResult() },
+            )
         }
 
         Spacer(Modifier.height(12.dp))

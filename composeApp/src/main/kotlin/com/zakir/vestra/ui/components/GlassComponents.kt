@@ -478,13 +478,18 @@ fun GlassEmptyState(message: String, modifier: Modifier = Modifier, actionLabel:
 }
 
 @Composable
-fun GlassErrorBanner(message: String, onRetry: (() -> Unit)? = null, onDismiss: (() -> Unit)? = null) {
+fun GlassErrorBanner(
+    message: String,
+    onRetry: (() -> Unit)? = null,
+    onDismiss: (() -> Unit)? = null,
+    retryLabel: String = LookbookCopy.ACTION_RETRY,
+) {
     GlassCard {
         Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
         Spacer(Modifier.padding(top = 8.dp))
         Row {
             if (onRetry != null) {
-                GlassSecondaryButton(text = LookbookCopy.ACTION_RETRY, onClick = onRetry, modifier = Modifier.weight(1f))
+                GlassSecondaryButton(text = retryLabel, onClick = onRetry, modifier = Modifier.weight(1f))
             }
             if (onDismiss != null) {
                 if (onRetry != null) Spacer(Modifier.padding(horizontal = 6.dp))
