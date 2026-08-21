@@ -3,6 +3,7 @@ package com.zakir.vestra.ui
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
@@ -12,6 +13,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
+import android.content.Intent
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.engine.EngineRouter
@@ -51,6 +54,8 @@ object Routes {
     const val VIDEO = "video"
     const val USAGE = "usage"
     const val HELP = "help"
+
+    fun deepLink(route: String) = "lookbook://screen/$route"
 }
 
 @Composable
@@ -64,9 +69,18 @@ fun VestraNavHost(
     usageLedger: UsageLedger,
     freeCloudDiscovery: FreeCloudDiscovery,
     navController: NavHostController = rememberNavController(),
+    pendingDeepLinkIntent: Intent? = null,
+    onDeepLinkHandled: () -> Unit = {},
 ) {
     val onboardingComplete by appSettings.onboardingComplete.collectAsState()
     val start = if (onboardingComplete) Routes.STUDIO else Routes.ONBOARDING
+
+    LaunchedEffect(pendingDeepLinkIntent, onboardingComplete) {
+        val intent = pendingDeepLinkIntent ?: return@LaunchedEffect
+        if (!onboardingComplete) return@LaunchedEffect
+        val handled = navController.handleDeepLink(intent)
+        if (handled) onDeepLinkHandled()
+    }
 
     val tryOnViewModel: TryOnViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
@@ -104,7 +118,10 @@ fun VestraNavHost(
                 },
             )
         }
-        composable(Routes.STUDIO) {
+        composable(
+            route = Routes.STUDIO,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.STUDIO) }),
+        ) {
             StudioScreen(
                 appSettings = appSettings,
                 wardrobe = wardrobe,
@@ -132,7 +149,10 @@ fun VestraNavHost(
                 onOpenHelp = { navController.navigate(Routes.HELP) },
             )
         }
-        composable(Routes.GARMENT) {
+        composable(
+            route = Routes.GARMENT,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.GARMENT) }),
+        ) {
             GarmentScreen(
                 viewModel = tryOnViewModel,
                 onBack = { navController.popBackStack() },
@@ -180,7 +200,10 @@ fun VestraNavHost(
                 },
             )
         }
-        composable(Routes.CREATE) {
+        composable(
+            route = Routes.CREATE,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CREATE) }),
+        ) {
             CreateStudioScreen(
                 viewModel = generativeViewModel,
                 onBack = { navController.popBackStack() },
@@ -189,7 +212,10 @@ fun VestraNavHost(
                 },
             )
         }
-        composable(Routes.CODE) {
+        composable(
+            route = Routes.CODE,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CODE) }),
+        ) {
             CodeStudioScreen(
                 viewModel = generativeViewModel,
                 onBack = { navController.popBackStack() },
@@ -198,7 +224,10 @@ fun VestraNavHost(
                 },
             )
         }
-        composable(Routes.VIDEO) {
+        composable(
+            route = Routes.VIDEO,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.VIDEO) }),
+        ) {
             VideoStudioScreen(
                 viewModel = generativeViewModel,
                 onBack = { navController.popBackStack() },
@@ -207,13 +236,19 @@ fun VestraNavHost(
                 },
             )
         }
-        composable(Routes.USAGE) {
+        composable(
+            route = Routes.USAGE,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.USAGE) }),
+        ) {
             UsageScreen(
                 usage = usageLedger,
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(Routes.HELP) {
+        composable(
+            route = Routes.HELP,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.HELP) }),
+        ) {
             HelpScreen(
                 onBack = { navController.popBackStack() },
                 onOpenSettings = {
@@ -223,7 +258,10 @@ fun VestraNavHost(
                 },
             )
         }
-        composable(Routes.WARDROBE) {
+        composable(
+            route = Routes.WARDROBE,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.WARDROBE) }),
+        ) {
             WardrobeScreen(
                 wardrobe = wardrobe,
                 onBack = { navController.popBackStack() },
@@ -234,7 +272,10 @@ fun VestraNavHost(
                 },
             )
         }
-        composable(Routes.SETTINGS) {
+        composable(
+            route = Routes.SETTINGS,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.SETTINGS) }),
+        ) {
             SettingsScreen(
                 appSettings = appSettings,
                 engineRouter = engineRouter,
@@ -247,7 +288,10 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(Routes.PACKS) {
+        composable(
+            route = Routes.PACKS,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.PACKS) }),
+        ) {
             PacksScreen(
                 packManager = packManager,
                 onBack = { navController.popBackStack() },
