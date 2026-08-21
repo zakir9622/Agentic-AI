@@ -310,7 +310,7 @@ object CloudModelCatalog {
 
     val defaultTryOnId: String = "idm-vton-hf"
     val defaultImageGenId: String = "flux-schnell-hf"
-    val defaultImageEditId: String = "instruct-pix2pix-hf"
+    val defaultImageEditId: String = "qwen-image-edit-hf"
     val defaultCodeId: String = "llama33-70b-groq"
     val defaultVideoId: String = "ltx-zerogpu-hf"
     val defaultId: String = defaultTryOnId

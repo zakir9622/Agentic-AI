@@ -1,5 +1,12 @@
 # Changelog — The Lookbook
 
+## 2.9.0
+- Home: “What would you like to do” action list first; Core Try-on centered below
+- Image / Video / Code studios: searchable in-composer model picker (name search)
+- Local Lite/Pro always selectable; selecting a pack sets the matching engine tier
+- HF: clearer Gradio empty-error messages; default image edit → Qwen; InstructPix2Pix marked degraded
+- Stop listing warm HF Inference image models that cannot run via Spaces
+
 ## 2.8.0
 - Looks gallery: tap opens look detail; delete confirmation; favorite a11y labels
 - Video studio results ingest into Looks gallery

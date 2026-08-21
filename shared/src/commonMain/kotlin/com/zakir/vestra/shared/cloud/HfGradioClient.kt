@@ -71,7 +71,7 @@ class HfGradioClient(
                 error("Hugging Face Space poll HTTP ${poll.status.value}: ${body.take(240)}")
             }
             if (body.contains("event: error") || body.contains("\"event\":\"error\"")) {
-                error("Hugging Face Space error: ${body.take(500)}")
+                error(formatGradioError(body, spaceHost, apiName))
             }
             if (body.contains("event: complete") || body.contains("\"event\":\"complete\"")) {
                 return parseCompletePayload(body)
@@ -110,6 +110,39 @@ class HfGradioClient(
                 ?: element["output"]?.let { if (it is JsonArray) it.firstOrNull() else it }
                 ?: element
             else -> element
+        }
+    }
+
+    private fun formatGradioError(body: String, spaceHost: String, apiName: String): String {
+        val dataLine = body.lines()
+            .map { it.trim() }
+            .lastOrNull { it.startsWith("data:") }
+            ?.removePrefix("data:")
+            ?.trim()
+            .orEmpty()
+        val parsedMsg = runCatching {
+            when (val el = json.parseToJsonElement(dataLine)) {
+                is JsonObject -> {
+                    val err = el["error"]
+                    when {
+                        err == null || err.toString() == "null" ||
+                            (err is JsonPrimitive && err.content.equals("null", ignoreCase = true)) ->
+                            null
+                        err is JsonPrimitive -> err.content.takeIf { it.isNotBlank() && it != "null" }
+                        else -> err.toString().take(200)
+                    }
+                }
+                is JsonPrimitive -> el.content.takeIf { it.isNotBlank() && it != "null" }
+                else -> null
+            }
+        }.getOrNull()
+        return when {
+            !parsedMsg.isNullOrBlank() ->
+                "Hugging Face Space $spaceHost/$apiName failed: $parsedMsg"
+            dataLine.contains("null", ignoreCase = true) || dataLine.isBlank() ->
+                "Hugging Face Space $spaceHost is waking or returned an empty error. Wait ~30s, retry, or switch model in the composer."
+            else ->
+                "Hugging Face Space $spaceHost/$apiName error: ${body.take(280)}"
         }
     }
 }

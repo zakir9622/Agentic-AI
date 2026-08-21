@@ -111,7 +111,16 @@ class AppSettings(private val settings: Settings) {
                     it.freeTier &&
                     CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED
             }
-            ?: _discoveredProviders.value.firstOrNull { it.id == id && it.capability == capability && it.freeTier }
+            ?: _discoveredProviders.value.firstOrNull {
+                it.id == id &&
+                    it.capability == capability &&
+                    it.freeTier &&
+                    // Image/video generation requires HF Spaces — skip Inference stubs.
+                    !(
+                        (capability == AiCapability.IMAGE_GEN || capability == AiCapability.IMAGE_EDIT) &&
+                            it.platform == CloudPlatform.HF_INFERENCE
+                    )
+            }
             ?: CloudModelCatalog.defaultFor(capability)
 
     fun selectedCloudProvider(): CloudModelProvider =
@@ -135,6 +144,19 @@ class AppSettings(private val settings: Settings) {
             if (_codeProviderId.value != curated.id) {
                 settings.putString(KEY_CODE, curated.id)
                 _codeProviderId.value = curated.id
+            }
+            return curated
+        }
+        // Discovered HF Inference image ids cannot run via Gradio Space predict.
+        if ((capability == AiCapability.IMAGE_GEN || capability == AiCapability.IMAGE_EDIT) &&
+            id.startsWith("hf-disc-")
+        ) {
+            val curated = CloudModelCatalog.defaultFor(capability)
+            val flow = if (capability == AiCapability.IMAGE_GEN) _imageGenProviderId else _imageEditProviderId
+            val key = if (capability == AiCapability.IMAGE_GEN) KEY_IMAGE_GEN else KEY_IMAGE_EDIT
+            if (flow.value != curated.id) {
+                settings.putString(key, curated.id)
+                flow.value = curated.id
             }
             return curated
         }
@@ -178,6 +200,13 @@ class AppSettings(private val settings: Settings) {
 
     private fun migrateProviderId(key: String, capability: AiCapability): String {
         val stored = settings.getStringOrNull(key)
+        // One-time: InstructPix2Pix was the default edit model but its Space often returns
+        // empty Gradio errors — prefer Qwen Image Edit unless the user re-selects it later.
+        if (capability == AiCapability.IMAGE_EDIT && stored == "instruct-pix2pix-hf") {
+            val curated = CloudModelCatalog.defaultFor(capability)
+            settings.putString(key, curated.id)
+            return curated.id
+        }
         val resolved = stored?.let { CloudModelCatalog.byId(it) }
             ?.takeIf {
                 it.capability == capability &&

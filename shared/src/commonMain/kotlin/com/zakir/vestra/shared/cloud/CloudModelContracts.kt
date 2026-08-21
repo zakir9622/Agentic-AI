@@ -125,12 +125,12 @@ object CloudModelContracts {
         ),
         CloudModelContract(
             providerId = "instruct-pix2pix-hf",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf(
                 "image", "instruction", "steps", "seed mode", "seed", "cfg mode", "text cfg", "image cfg",
             ),
-            schemaNote = "generate · image + edit instruction + CFG/seed controls",
-            failureHint = "InstructPix2Pix failed — rephrase the edit instruction or attach a clearer photo.",
+            schemaNote = "generate · image + edit instruction + CFG/seed — Space often returns empty Gradio errors",
+            failureHint = "InstructPix2Pix Space is unstable (empty Gradio errors). Prefer Qwen Image Edit, wait ~30s and retry, or switch model in the composer.",
         ),
 
         // ── Code LLMs ───────────────────────────────────────────────────
@@ -239,6 +239,12 @@ object CloudModelContracts {
                 "${provider.displayName} Space looks offline (404). Switch model in Settings."
             msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true) ->
                 "$label timed out on ${provider.displayName}. Retry off-peak or pick a faster free model."
+            msg.contains("waking", ignoreCase = true) ||
+                msg.contains("empty error", ignoreCase = true) ||
+                (msg.contains("event: error", ignoreCase = true) && msg.contains("null", ignoreCase = true)) ->
+                c.failureHint.ifBlank {
+                    "${provider.displayName} Space is busy or waking. Wait and retry, or switch model in the composer."
+                }
             msg.contains("NSFW", ignoreCase = true) ||
                 msg.contains("safety", ignoreCase = true) ||
                 msg.contains("content policy", ignoreCase = true) ||

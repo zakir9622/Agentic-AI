@@ -176,7 +176,7 @@ private fun ModelChip(
 ) {
     val shape = RoundedCornerShape(50)
     val a11y = if (onClick != null) {
-        "Selected model $label. Opens model settings."
+        "Selected model $label. Opens model picker."
     } else {
         "Selected model $label"
     }

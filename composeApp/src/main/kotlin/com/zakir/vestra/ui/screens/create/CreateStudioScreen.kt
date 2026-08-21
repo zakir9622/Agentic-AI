@@ -31,6 +31,7 @@ import com.zakir.vestra.data.LocalReportStore
 import com.zakir.vestra.data.ReportReason
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.GenerativeViewModel
@@ -43,6 +44,7 @@ import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
@@ -61,12 +63,16 @@ fun CreateStudioScreen(
     val fashionContext by viewModel.fashionContext.collectAsState()
     val bypassFilter by viewModel.bypassFilter.collectAsState()
     val qualityGuard by viewModel.qualityGuard.collectAsState()
-    val provider = viewModel.appSettings.selectedProvider(
-        if (reference == null) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT,
-    )
+    val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
+    val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
+    val capability = if (reference == null) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
+    val selectedId = if (capability == AiCapability.IMAGE_EDIT) imageEditId else imageGenId
+    val provider = viewModel.appSettings.selectedProvider(capability)
     val estimate = viewModel.usage.estimateNext(provider)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     val assistCount = listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
+    var showModelPicker by remember { mutableStateOf(false) }
+    val pickerModels = remember(capability) { CloudModelCatalog.forCapability(capability) }
 
     fun leave() {
         if (busy) viewModel.forceStop(showStopped = false)
@@ -93,7 +99,7 @@ fun CreateStudioScreen(
             assistCount = assistCount,
             busy = busy,
             enabled = true,
-            onModelClick = onOpenSettings,
+            onModelClick = { showModelPicker = true },
             onSend = viewModel::generateImage,
             onStop = { viewModel.forceStop() },
             placeholder = if (reference == null) {
@@ -151,8 +157,8 @@ fun CreateStudioScreen(
             Spacer(Modifier.height(12.dp))
             GlassErrorBanner(
                 message = preflight!!,
-                onRetry = onOpenSettings,
-                retryLabel = LookbookCopy.ACTION_OPEN_SETTINGS,
+                onRetry = { showModelPicker = true },
+                retryLabel = "Choose model",
                 onDismiss = { viewModel.clearResult() },
             )
         }
@@ -168,6 +174,22 @@ fun CreateStudioScreen(
             onDismiss = viewModel::clearResult,
         )
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (showModelPicker) {
+        ModelPickerSheet(
+            title = if (capability == AiCapability.IMAGE_EDIT) "Image edit models" else "Image models",
+            models = pickerModels,
+            selectedId = selectedId,
+            onSelect = { chosen ->
+                if (capability == AiCapability.IMAGE_EDIT) {
+                    viewModel.appSettings.setImageEditProvider(chosen.id)
+                } else {
+                    viewModel.appSettings.setImageGenProvider(chosen.id)
+                }
+            },
+            onDismiss = { showModelPicker = false },
+        )
     }
 }
 

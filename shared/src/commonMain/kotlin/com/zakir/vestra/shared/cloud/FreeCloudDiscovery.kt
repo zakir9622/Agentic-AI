@@ -51,11 +51,14 @@ class FreeCloudDiscovery(
      */
     suspend fun discoverHf(token: String?, capability: AiCapability): List<CloudModelProvider> {
         if (token.isNullOrBlank()) return emptyList()
-        // CODE uses curated Groq/HF/OpenRouter chat models only — HF "warm text-generation"
-        // listings are not Inference Providers chat routes and cause empty/400 failures.
+        // Image/video/try-on run curated HF Spaces only — warm HF Inference listings are not
+        // Gradio Space routes and fail in GenerativeCloudService (requires HF_SPACE).
+        // CODE uses curated Groq/HF/OpenRouter chat models only.
         if (capability == AiCapability.TRY_ON ||
             capability == AiCapability.VIDEO ||
-            capability == AiCapability.CODE
+            capability == AiCapability.CODE ||
+            capability == AiCapability.IMAGE_GEN ||
+            capability == AiCapability.IMAGE_EDIT
         ) {
             return emptyList()
         }

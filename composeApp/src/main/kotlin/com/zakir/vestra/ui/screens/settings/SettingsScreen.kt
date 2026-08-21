@@ -206,7 +206,23 @@ fun SettingsScreen(
 
     val localPackChoices = remember { LocalModelCatalog.entries.filter { it.packId != null && it.runnable } }
     var selectedPackId by remember {
-        mutableStateOf(localPackChoices.firstOrNull()?.packId.orEmpty())
+        val preferred = when (appSettings.engineTier.value) {
+            EngineTier.LITE -> localPackChoices.firstOrNull { it.engineTier == EngineTier.LITE }?.packId
+            EngineTier.PRO -> localPackChoices.firstOrNull { it.engineTier == EngineTier.PRO }?.packId
+            EngineTier.AUTO, EngineTier.CLOUD -> null
+        }
+        mutableStateOf(preferred ?: localPackChoices.firstOrNull()?.packId.orEmpty())
+    }
+    // Keep pack dropdown aligned when engine tier changes elsewhere.
+    LaunchedEffect(selectedTier) {
+        val match = when (selectedTier) {
+            EngineTier.LITE -> localPackChoices.firstOrNull { it.engineTier == EngineTier.LITE }?.packId
+            EngineTier.PRO -> localPackChoices.firstOrNull { it.engineTier == EngineTier.PRO }?.packId
+            else -> null
+        }
+        if (match != null && selectedPackId != match) {
+            selectedPackId = match
+        }
     }
 
     if (confirmClearTokens) {
@@ -516,7 +532,13 @@ fun SettingsScreen(
                     PackDropdown(
                         choices = localPackChoices.map { it.packId!! to "${it.displayName} · ${it.approxSizeLabel}" },
                         selectedId = selectedPackId,
-                        onSelect = { selectedPackId = it },
+                        onSelect = { id ->
+                            selectedPackId = id
+                            LocalModelCatalog.entries
+                                .firstOrNull { it.packId == id }
+                                ?.engineTier
+                                ?.let { appSettings.setEngineTier(it) }
+                        },
                     )
                     val status = packStates[selectedPackId]?.status
                     val progress = packStates[selectedPackId]?.progress ?: 0f
@@ -824,7 +846,7 @@ private fun EngineDropdown(
         ) {
             options.forEach { tier ->
                 val avail = availability(tier)
-                val enabled = avail == Availability.Ready || tier == EngineTier.CLOUD || tier == EngineTier.AUTO
+                val enabled = true // Always selectable; pack download is the recovery path for Lite/Pro.
                 DropdownMenuItem(
                     text = {
                         Column {
@@ -907,18 +929,10 @@ private fun CloudCapabilityDropdown(
     // Recompute when any token changes
     val tokenEpoch = "${hfToken.orEmpty()}|${groqKey.orEmpty()}|${openRouterKey.orEmpty()}"
 
-    var discovered by remember(capability) { mutableStateOf<List<CloudModelProvider>>(emptyList()) }
-    var discovering by remember { mutableStateOf(false) }
-    var discoverError by remember { mutableStateOf<String?>(null) }
-    var discoverInfo by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-
     val usable = remember(tokenEpoch, capability) { discovery.curatedUsable(appSettings, capability) }
     val locked = remember(tokenEpoch, capability) { discovery.curatedLocked(appSettings, capability) }
     val unsupported = remember(capability) { discovery.curatedUnsupported(capability) }
-    val options = remember(usable, discovered) {
-        (usable + discovered).distinctBy { it.id }
-    }
+    val options = usable
 
     var expanded by remember { mutableStateOf(false) }
     val selected = options.firstOrNull { it.id == selectedId }
@@ -1038,51 +1052,13 @@ private fun CloudCapabilityDropdown(
             )
         }
         Spacer(Modifier.height(4.dp))
-        // HF Inference discovery only applies to gen/edit/code — try-on & video use curated Spaces.
-        val discoverySupported = capability == AiCapability.IMAGE_GEN ||
-            capability == AiCapability.IMAGE_EDIT ||
-            capability == AiCapability.CODE
-        if (discoverySupported) {
-            TextButton(
-                onClick = {
-                    discovering = true
-                    discoverError = null
-                    discoverInfo = null
-                    scope.launch {
-                        val token = appSettings.hfToken.value
-                        if (token.isNullOrBlank()) {
-                            discoverError = "Save an HF token above, then refresh"
-                            discovering = false
-                            return@launch
-                        }
-                        discovered = discovery.discoverHf(token, capability)
-                        appSettings.rememberDiscovered(discovered)
-                        discovering = false
-                        if (discovered.isEmpty()) {
-                            // Curated catalog is the source of truth — empty discovery is not a failure.
-                            discoverInfo = "No extra warm HF Inference models right now. Curated free models above still work."
-                        } else {
-                            discoverInfo = "Added ${discovered.size} warm HF Inference model(s)"
-                        }
-                    }
-                },
-                enabled = !discovering,
-            ) {
-                Text(if (discovering) "Refreshing HF free models…" else "Refresh free HF models from token")
-            }
-        } else {
-            Text(
-                "Uses curated free HF Spaces / APIs — live Inference discovery isn’t needed here.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        discoverError?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-        }
-        discoverInfo?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        // Warm HF Inference auto-listing is disabled: image/video need Gradio Spaces, and
+        // CODE uses curated Groq/HF/OpenRouter chat routes only.
+        Text(
+            "Uses curated free HF Spaces / APIs — live Inference discovery isn’t needed here.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
