@@ -1,7 +1,7 @@
 # Stable release plan — The Lookbook
 
-**Status:** Track **R0 shipped** as **v3.0.4** · Track **R1 partial** tagged **v3.0.5** (health UI + blank-frame + local scaffold; weights/device still open for v3.1.0)  
-**Baseline:** tagged **v3.0.5** from `cursor/stable-r1-plans-367c` (PR #49)  
+**Status:** Track **R0 shipped** as **v3.0.4** · Track **R1** through **v3.0.6** (health UI + blank-frame @ 3.0.5; Settings C4 split @ 3.0.6; weights/device still open for v3.1.0)  
+**Baseline:** tagged tip of `cursor/stable-r1-plans-367c` (PR #49)  
 **Goal:** one installable, trustworthy sideload APK that matches the shipped plans, then a short path to “perfect” offline + cloud fluency.
 
 ---
@@ -24,7 +24,7 @@
 |-------|---------|----------|
 | cycle1 discovery | **DONE** | HF router discovery, inference edit, probes |
 | cycle2 quality packs | **DONE @ 3.0.4 RC** | birefnet/realesrgan on HF; runners + integrity on PR #48. **pro-v2-int8 HF still open** |
-| cycle3 UI/settings | **PARTIAL** | Hub/wizard/preflight done; live health badges not in picker UI |
+| cycle3 UI/settings | **DONE @ 3.0.5–3.0.6** | Hub/wizard/preflight; live health badges; SettingsScreen split |
 | cycle4 speed/compliance | **PARTIAL** | QNN/LCM/safety hooks present; not fully productized |
 
 ### v3 follow-up (`lookbook-v3-followup` A1–E4)
@@ -32,7 +32,8 @@
 | Band | Verdict |
 |------|---------|
 | A1–A5, B3–B6, C1, C5–C6, D3, E1–E2 | **DONE** |
-| A6, B1, C2–C4, D1–D2, D4 | **PARTIAL** (docs/upload/device/a11y remain) |
+| A6, B1, D1–D2 | **PARTIAL** (HF upload / device / a11y remain) |
+| C2–C4 | **DONE** @ 3.0.6 (SettingsScreen file split + durable CTA on download) |
 | B2 quality packs | **DONE on HF**; **runners fixed in 3.0.4 RC** |
 | E3 Gemma / E4 SD-Turbo weights | **OPEN / deferred** |
 
@@ -41,7 +42,7 @@
 | Milestone | Verdict |
 |-----------|---------|
 | M1 typed failures + fallback | **DONE** (minor hostname-string residue) |
-| M2 health + budget + validator | **PARTIAL** — tracker/budget live; UI still static Ready; no blank-frame reject |
+| M2 health + budget + validator | **DONE** @ 3.0.5 — live labels + blank-frame + 2 KB floor |
 | M3 Gradio schemas | **MOSTLY DONE** |
 | M4 local image gen | **DEFERRED** — scaffold only |
 | M5 visual harness | **PARTIAL** — scripts exist; baselines/device evidence thin |
@@ -103,7 +104,7 @@ Close the remaining plan gates so offline + cloud feel “perfect,” not just �
 | P1 | Commit `docs/screenshots/baseline/` + `visual-verify.sh --compare` green on Pixel | M5, D2 | Open (needs device) |
 | P1 | accesslint full sweep on `accesslint.config.json` routes | D1 | Open |
 | P2 | Optional `lite-v2` on manifest | B1 | Open |
-| P2 | Finish SettingsScreen split; durable-storage CTA clarity | C4 | Open |
+| P2 | Finish SettingsScreen split; durable-storage CTA clarity | C4 | **DONE @ 3.0.6** |
 | P2 | Doc matrix: minSdk 35 (Android 15) everywhere | M6 / N | Partial @ 3.0.4 |
 | Stretch | Gemma LiteRT-LM prototype | E3 | Open |
 | Stretch | GFPGAN pack | expansion | Open |

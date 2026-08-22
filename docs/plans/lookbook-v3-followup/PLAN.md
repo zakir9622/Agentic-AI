@@ -47,7 +47,7 @@ What remains is **quality depth** (model packs, composer controls), **CI/review 
 ### Phase 5 — Settings (~80%)
 - Hub + filtered Cloud / Engines / Appearance / Diagnostics subsections; permission chips read-only
 
-**Gaps:** “Enable durable storage” button still in Appearance; monolithic `SettingsScreen.kt` (~1,180 lines).
+**Gaps:** (closed @ 3.0.6) SettingsScreen split into section files; durable CTA on pack download.
 
 ### Phase 6 — News & Chat (~85%)
 - `NewsRepository`, `ChatRepository`, `NewsChatScreen`, headline context in system prompt
@@ -199,7 +199,7 @@ Use these as the canonical follow-up todo list:
 - [x] **C1** On-device group in ModelPickerSheet
 - [x] **C2** Dynamic advanced panel (CFG/steps/seed)
 - [x] **C3** Wire advanced params to engines (GenerativeAssists + HF Inference path)
-- [x] **C4** Settings hub sections (SettingsScreen split partial — hub/cloud/engines/appearance shipped)
+- [x] **C4** SettingsScreen split into widgets + section files; durable CTA on pack download only
 - [x] **C5** Chat unified model picker
 - [x] **C6** RSS feeds from assets
 - [x] **D1** accesslint.config.json targets added (full sweep deferred)

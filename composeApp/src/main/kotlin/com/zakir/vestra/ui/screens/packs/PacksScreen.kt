@@ -73,20 +73,20 @@ fun PacksScreen(
                 if (durableReady) {
                     "Durable: Documents/TheLookbook/packs — survives uninstall. Reinstall detects packs automatically."
                 } else {
-                    "Enable durable storage before downloading so packs remain after uninstall/reinstall."
+                    "Tap Download on a pack to enable durable storage (all-files access) so multi-GB packs survive uninstall/reinstall."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (!durableReady) {
                 Spacer(Modifier.height(8.dp))
-                Button(
+                OutlinedButton(
                     onClick = {
                         runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Enable durable storage")
+                    Text("Enable durable storage now")
                 }
             }
         }

@@ -1,5 +1,9 @@
 # Changelog — The Lookbook
 
+## 3.0.6
+- **C4 SettingsScreen split:** widgets + general/cloud/engines/appearance section files; orchestrator ~380 lines (was ~1,180)
+- Durable-storage **primary CTA** moved off Appearance — pack download (`rememberPackDownloadStarter`) + Packs screen own enable flow; Settings shows status/tip only
+
 ## 3.0.5
 - **Live model health UI:** picker, Usage, Settings, and preflight show cooldown / verified labels from `ModelHealthTracker` (not static Ready)
 - Health records success/failure for **code + video** as well as image
