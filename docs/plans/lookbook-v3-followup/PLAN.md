@@ -191,7 +191,7 @@ Use these as the canonical follow-up todo list:
 - [x] **A5** Fix generative RunLog stage timings + UsageLedger in export
 - [x] **A6** pro-v2-int8 de-prefer pro-v1 + docs sync (HF upload still pending)
 - [x] **B1** lite-v2 export flag in export_lite_pack.py (manifest publish blocked)
-- [~] **B2** Quality packs catalog runnable=true; HF publish still blocked
+- [x] **B2** Ship birefnet-v1 + realesrgan-v1 packs to HF manifest
 - [x] **B3** Pack smoke tests in integration-local-models.py
 - [x] **B4** Pro lazy UNet load + progress UI
 - [x] **B5** Pack in-use gate during uninstall/update

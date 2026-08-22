@@ -1,5 +1,10 @@
 # Changelog — The Lookbook
 
+## 3.0.3
+- Published **birefnet-v1** (~224 MB) and **realesrgan-v1** (~5 MB) to `Iamzakirzr/vestra-packs` manifest
+- Download from **Settings → Model packs**; matte refine + upscale activate when installed
+- `scripts/build-and-publish-quality-packs.py` for future quality-pack releases
+
 ## 3.0.2
 - **Generation stability M2–M6 (remaining):** global image deadline (120s) with remaining-time stage text; Gradio wakeRetries=1 + budget-derived maxPolls
 - **M3:** `GradioSchemaClient` live `/info` payloads; removed guessing 1-arg Space fallbacks; HF discovery only for known Inference routes

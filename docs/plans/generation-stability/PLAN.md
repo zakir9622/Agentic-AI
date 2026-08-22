@@ -2,7 +2,7 @@
 
 > **Baseline:** v2.9.16 (versionCode 41). Source audited at `06a24f1`; re-checked against
 > `5ad009b` — the commits in between are documentation only, so every finding still stands.
-> **Status:** M1–M6 substantially complete @ v3.0.2 (deadline, schema client, harness scripts, EpochClock, DiagnosticsHook handles). HF pack publish + full local image weights still blocked.
+> **Status:** M1–M6 substantially complete @ v3.0.2 (deadline, schema client, harness scripts, EpochClock, DiagnosticsHook handles). Quality packs birefnet-v1 + realesrgan-v1 published; local-sdturbo weights still pending.
 > Read-only review — no source file was changed by this document.
 >
 > **Overlaps** [`../lookbook-v3-followup/`](../lookbook-v3-followup/) on model health, quality
