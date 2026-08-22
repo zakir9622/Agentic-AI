@@ -280,7 +280,7 @@ object CloudModelContracts {
                     "Add a Groq or OpenRouter key in Settings, or wait for the allowance to refill."
             msg.contains("quota exceeded", ignoreCase = true) || msg.contains("ZeroGPU quota", ignoreCase = true) ->
                 "Your Hugging Face account is out of free ZeroGPU minutes. The allowance refills " +
-                    "daily — retry later, use a different HF token, or run try-on locally with Lite/Pro."
+                    "daily — tap Choose model for an Inference route, use a different HF token, or run try-on locally with Lite/Pro."
             msg.contains("401") || msg.contains("Unauthorized", ignoreCase = true) ->
                 "API key rejected for ${provider.displayName}. Re-save the free token in Settings."
             msg.contains("429") || msg.contains("rate", ignoreCase = true) ->

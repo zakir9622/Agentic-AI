@@ -1,5 +1,9 @@
 # Changelog — The Lookbook
 
+## 3.0.10
+- **ZeroGPU UX:** account quota no longer shows misleading “Cooling down · 1m” — chip says **ZeroGPU empty · refills daily**
+- After account ZeroGPU fail, skip other HF Spaces and try Inference fallbacks; error CTA becomes **Choose model**
+
 ## 3.0.9
 - **Auto-troubleshooting:** uncaught crashes append to `diagnostics/crash_log.txt` (never auto-cleared) with classified `likelyCause`
 - Continuous `app_trace.log` breadcrumbs (screen route) + rotating size cap

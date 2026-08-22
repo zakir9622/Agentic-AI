@@ -55,8 +55,23 @@ class ModelHealthTrackerTest {
     }
 
     @Test
-    fun observedLabelNullWhenNoHistory() {
-        val tracker = ModelHealthTracker(TestMemorySettings())
-        assertNull(tracker.observedLabel("unknown-model"))
+    fun quotaAccountShowsZeroGpuLabelNotCoolingDown() {
+        val previous = EpochClock.System
+        EpochClock.System = EpochClock { 2_000_000L }
+        try {
+            val tracker = ModelHealthTracker(TestMemorySettings())
+            tracker.recordFailure("qwen-edit", ModelHealthTracker.FailureKind.QUOTA_ACCOUNT)
+            assertTrue(tracker.isInCooldown("qwen-edit"))
+            val label = tracker.observedLabel("qwen-edit")
+            assertNotNull(label)
+            assertTrue(label!!.contains("ZeroGPU", ignoreCase = true))
+            assertFalse(label.contains("Cooling", ignoreCase = true))
+            assertEquals(
+                ModelHealthTracker.FailureKind.QUOTA_ACCOUNT,
+                tracker.failureKind("qwen-edit"),
+            )
+        } finally {
+            EpochClock.System = previous
+        }
     }
 }

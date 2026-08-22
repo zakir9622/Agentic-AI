@@ -296,13 +296,22 @@ fun UnifiedStudioPane(
         }
 
         Spacer(Modifier.height(12.dp))
+        val failedMsg = (state as? GenerativeState.Failed)?.message.orEmpty()
+        val quotaOrCredits = failedMsg.contains("ZeroGPU", ignoreCase = true) ||
+            failedMsg.contains("monthly credits", ignoreCase = true) ||
+            failedMsg.contains("Inference Providers", ignoreCase = true)
         ResultPane(
             state = state,
             onCancel = { viewModel.forceStop() },
             onRetry = {
                 viewModel.clearResult()
-                onGenerate()
+                if (quotaOrCredits) {
+                    showModelPicker = true
+                } else {
+                    onGenerate()
+                }
             },
+            retryLabel = if (quotaOrCredits) "Choose model" else LookbookCopy.ACTION_RETRY,
             onDismiss = viewModel::clearResult,
         )
         Spacer(Modifier.height(24.dp))

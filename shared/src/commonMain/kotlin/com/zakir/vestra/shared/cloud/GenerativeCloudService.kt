@@ -87,6 +87,7 @@ class GenerativeCloudService(
             val variants = visualPromptVariants(prompt, assists)
             var lastFailure: CloudFailure = CloudFailure.Unknown("Image generation failed")
             var skipInference = false
+            var skipSpaces = false
             var offline = false
             val budget = GenerationBudget.forImage()
             emit(GenerativeState.Running(0.05f, "Budget ${GenerationBudget.IMAGE_DEADLINE_MS / 1000}s…"))
@@ -96,13 +97,17 @@ class GenerativeCloudService(
                 if (offline) break
                 attempted = candidate
                 if (skipInference && candidate.platform == CloudPlatform.HF_INFERENCE) continue
+                if (skipSpaces && candidate.platform == CloudPlatform.HF_SPACE) continue
                 if (CloudModelContracts.preflightOrNull(candidate) != null) continue
                 if (candidate.requiresApiKey && settings.apiKeyFor(candidate).isNullOrBlank()) continue
                 if (modelIndex > 0) {
                     emit(
                         GenerativeState.Running(
                             0.3f,
-                            "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                            when {
+                                skipSpaces -> "ZeroGPU empty — trying ${candidate.displayName}…"
+                                else -> "${provider.displayName} is busy — trying ${candidate.displayName}…"
+                            },
                         ),
                     )
                 }
@@ -183,11 +188,26 @@ class GenerativeCloudService(
                     } catch (e: Exception) {
                         val failure = CloudFailureClassifier.from(e)
                         lastFailure = failure
-                        health.recordFailure(candidate.id)
+                        val kind = when (failure) {
+                            is CloudFailure.QuotaExhausted ->
+                                if (failure.scope == CloudFailure.QuotaExhausted.Scope.ACCOUNT) {
+                                    ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
+                                } else {
+                                    ModelHealthTracker.FailureKind.GENERIC
+                                }
+                            CloudFailure.CreditsExhausted -> ModelHealthTracker.FailureKind.CREDITS
+                            else -> ModelHealthTracker.FailureKind.GENERIC
+                        }
+                        health.recordFailure(candidate.id, kind)
                         when {
                             failure is CloudFailure.Offline -> {
                                 offline = true
                                 break
+                            }
+                            failure is CloudFailure.QuotaExhausted &&
+                                failure.scope == CloudFailure.QuotaExhausted.Scope.ACCOUNT -> {
+                                skipSpaces = true
+                                advanceModel = true
                             }
                             failure is CloudFailure.CreditsExhausted -> {
                                 skipInference = true
@@ -356,7 +376,7 @@ class GenerativeCloudService(
                     }
                 }
                 if (quotaExhausted && modelIndex < candidates.lastIndex) {
-                    health.recordFailure(candidate.id)
+                    health.recordFailure(candidate.id, ModelHealthTracker.FailureKind.CREDITS)
                     continue
                 }
                 if (result != null) {
@@ -459,7 +479,12 @@ class GenerativeCloudService(
                         throw e
                     } catch (e: Exception) {
                         lastError = e
-                        health.recordFailure(candidate.id)
+                        val kind = if (e.isAccountQuotaExhausted()) {
+                            ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
+                        } else {
+                            ModelHealthTracker.FailureKind.GENERIC
+                        }
+                        health.recordFailure(candidate.id, kind)
                         if (e.isAccountQuotaExhausted()) throw e
                     }
                 }
@@ -473,7 +498,14 @@ class GenerativeCloudService(
                 success = false,
                 note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
-            health.recordFailure(attempted.id)
+            health.recordFailure(
+                attempted.id,
+                if (e.isAccountQuotaExhausted()) {
+                    ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
+                } else {
+                    ModelHealthTracker.FailureKind.GENERIC
+                },
+            )
             emit(GenerativeState.Failed(
                 CloudModelContracts.friendlyFailure(
                     attempted,

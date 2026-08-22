@@ -18,7 +18,8 @@ sealed interface CloudFailure {
         enum class Scope { ACCOUNT, MODEL }
 
         override val retryable = false
-        override val advanceModel = scope == Scope.ACCOUNT
+        /** Always try another route — ACCOUNT skips Spaces in GenerativeCloudService. */
+        override val advanceModel = true
         override val retryVariants = false
     }
 

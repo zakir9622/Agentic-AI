@@ -37,6 +37,7 @@ fun ResultPane(
     onRetry: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
+    retryLabel: String = LookbookCopy.ACTION_RETRY,
 ) {
     val context = LocalContext.current
     val reportStore = remember { LocalReportStore(context) }
@@ -169,6 +170,7 @@ fun ResultPane(
         is GenerativeState.Failed -> GlassErrorBanner(
             message = state.message,
             onRetry = onRetry,
+            retryLabel = retryLabel,
             onDismiss = onDismiss,
         )
     }
