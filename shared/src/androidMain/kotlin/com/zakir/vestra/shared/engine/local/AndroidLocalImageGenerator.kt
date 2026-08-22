@@ -57,14 +57,12 @@ class AndroidLocalImageGenerator(
         val dirPath = packs.installedDir(packId) ?: return false
         val dir = File(dirPath)
         val config = loadConfig(dir) ?: return false
-        return missingOrTinyGraphs(dir, config).isEmpty() &&
-            File(dir, "vocab.json").isFile &&
-            File(dir, "merges.txt").isFile
+        return packComplete(dir, config)
     }
 
     companion object {
-        const val PACK_ID = "local-sdturbo-v1"
-        const val MIN_GRAPH_BYTES = 1_000_000L
+        const val PACK_ID = LocalSdturboPackValidator.PACK_ID
+        const val MIN_GRAPH_BYTES = LocalSdturboPackValidator.MIN_GRAPH_BYTES
 
         private val json = Json { ignoreUnknownKeys = true }
 
@@ -74,17 +72,20 @@ class AndroidLocalImageGenerator(
             return runCatching { json.decodeFromString<LocalImagePackConfig>(file.readText()) }.getOrNull()
         }
 
-        internal fun missingOrTinyGraphs(dir: File, config: LocalImagePackConfig): List<String> {
-            val names = listOfNotNull(
-                config.graphs?.textEncoder,
-                config.graphs?.unet,
-                config.graphs?.vaeDecoder,
-            )
-            if (names.isEmpty()) return listOf("graphs")
-            return names.filter { name ->
+        internal fun missingOrTinyGraphs(dir: File, config: LocalImagePackConfig): List<String> =
+            LocalSdturboPackValidator.missingGraphs(config) { name ->
                 val f = File(dir, name)
-                !f.isFile || f.length() < MIN_GRAPH_BYTES
+                if (!f.isFile) null else f.length()
             }
-        }
+
+        internal fun packComplete(dir: File, config: LocalImagePackConfig): Boolean =
+            LocalSdturboPackValidator.isComplete(
+                config,
+                fileBytes = { name ->
+                    val f = File(dir, name)
+                    if (!f.isFile) null else f.length()
+                },
+                fileExists = { name -> File(dir, name).isFile },
+            )
     }
 }

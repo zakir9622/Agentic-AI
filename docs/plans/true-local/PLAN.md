@@ -17,10 +17,11 @@
 
 ## Unlock Create Studio offline
 
-1. Export ONNX on GPU/Colab: `ml/export_image_gen_pack.py` documents required files  
-2. Publish pack `local-sdturbo-v1` to HF packs manifest  
-3. User: Settings → Model packs → download  
-4. Airplane mode Image Studio should produce a PNG
+1. Export ONNX on GPU/Colab: `ml/export_image_gen_pack.py --copy-tokenizer` documents required files
+2. Validate layout: `python scripts/verify-local-sdturbo-pack.py exports/local-sdturbo-v1`
+3. Publish pack `local-sdturbo-v1` to HF packs manifest (or sideload via adb / debug bootstrap)
+4. User: Settings → Model packs → download
+5. Airplane mode Image Studio should produce a PNG
 
 ## Honesty rules
 

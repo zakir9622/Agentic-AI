@@ -3,6 +3,9 @@
 ## 3.1.0-rc5
 - **True local Audio:** Android system TTS offline (personas → device voices) + DSP knobs
 - **True local Image engine:** `AndroidTxt2ImgEngine` ORT denoise loop wired (`SAMPLER_WIRED=true`); needs `local-sdturbo-v1` pack weights to run
+- **Airplane-safe studios:** Image/Audio skip cloud API-key preflight when local engines are ready
+- **Honesty:** system TTS reports `local-tts-system`; SD-Turbo picker shows green when pack graphs installed
+- **Pack tooling:** `export_image_gen_pack.py` writes `pack.json` + optional tokenizer copy; `verify-local-sdturbo-pack.py`
 - Catalog: `local-tts-system` Ready offline; SD-Turbo status “Engine ready · pack weights not on device”
 - Plan: `docs/plans/true-local/PLAN.md`
 

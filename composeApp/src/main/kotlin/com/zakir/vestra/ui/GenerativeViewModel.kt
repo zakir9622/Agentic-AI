@@ -162,11 +162,21 @@ class GenerativeViewModel(
     }
 
     fun preflightLabel(capability: AiCapability): String? {
+        if (capability == AiCapability.IMAGE_GEN && generative.localImageReady()) {
+            return "Local SD-Turbo · Ready offline"
+        }
+        if (capability == AiCapability.AUDIO && generative.localAudioReady()) {
+            return "Device TTS · Ready offline"
+        }
         return when (val check = appSettings.preflight(capability)) {
             is PreflightResult.Blocked -> check.reason
             is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.liveStatusLabel(check.provider, appSettings.modelHealth)}"
         }
     }
+
+    fun localImageOfflineReady(): Boolean = generative.localImageReady()
+
+    fun localAudioOfflineReady(): Boolean = generative.localAudioReady()
 
     fun generateImage() {
         val p = sanitizePrompt(_prompt.value)
@@ -176,16 +186,19 @@ class GenerativeViewModel(
         }
         _prompt.value = p
         val capability = if (_referenceUri.value == null) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
-        when (val check = appSettings.preflight(capability)) {
-            is PreflightResult.Blocked -> {
-                _preflightMessage.value = check.reason
-                return
+        val bypassPreflight = _referenceUri.value == null && generative.localImageReady()
+        if (!bypassPreflight) {
+            when (val check = appSettings.preflight(capability)) {
+                is PreflightResult.Blocked -> {
+                    _preflightMessage.value = check.reason
+                    return
+                }
+                is PreflightResult.Ok -> Unit
             }
-            is PreflightResult.Ok -> Unit
         }
         startGeneration(
             capability = if (_referenceUri.value == null) RunCapability.IMAGE_GEN else RunCapability.IMAGE_EDIT,
-            modelLabel = appSettings.selectedProvider(capability).displayName,
+            modelLabel = if (bypassPreflight) "Local SD-Turbo (offline)" else appSettings.selectedProvider(capability).displayName,
         ) {
             generative.generateImage(p, _referenceUri.value, currentAssists())
         }
@@ -225,18 +238,24 @@ class GenerativeViewModel(
             return
         }
         _prompt.value = p
-        when (val check = appSettings.preflight(AiCapability.AUDIO)) {
-            is PreflightResult.Blocked -> {
-                // Allow offline voice-changer when reference audio is set.
-                if (_referenceUri.value == null || !p.equals("voice-change", ignoreCase = true)) {
+        val voiceChange = _referenceUri.value != null && p.equals("voice-change", ignoreCase = true)
+        val bypassPreflight = voiceChange || generative.localAudioReady()
+        if (!bypassPreflight) {
+            when (val check = appSettings.preflight(AiCapability.AUDIO)) {
+                is PreflightResult.Blocked -> {
                     _preflightMessage.value = check.reason
                     return
                 }
+                is PreflightResult.Ok -> Unit
             }
-            is PreflightResult.Ok -> Unit
         }
         val persona = com.zakir.vestra.shared.audio.VoiceCatalog.byId(_voicePersonaId.value)
-        startGeneration(RunCapability.AUDIO, appSettings.selectedProvider(AiCapability.AUDIO).displayName) {
+        val modelLabel = when {
+            voiceChange -> "Local voice changer"
+            generative.localAudioReady() -> "Device TTS (offline)"
+            else -> appSettings.selectedProvider(AiCapability.AUDIO).displayName
+        }
+        startGeneration(RunCapability.AUDIO, modelLabel) {
             generative.generateAudio(
                 prompt = p,
                 persona = persona,

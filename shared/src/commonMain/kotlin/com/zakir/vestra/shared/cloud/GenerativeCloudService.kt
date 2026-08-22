@@ -58,6 +58,10 @@ class GenerativeCloudService(
     private val localAudio: LocalAudioGenerator = UnimplementedLocalAudioGenerator,
     private val localVoiceChanger: LocalVoiceChanger = UnimplementedLocalVoiceChanger,
 ) {
+    fun localImageReady(): Boolean = localImage.isReady()
+
+    fun localAudioReady(): Boolean = localAudio.isReady()
+
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
     private val llm = LlmClient(http)
@@ -695,7 +699,7 @@ class GenerativeCloudService(
                 emit(GenerativeState.Running(0.08f, "Generating speech on-device…"))
                 when (val local = localAudio.generate(prompt.trim(), persona, safeKnobs)) {
                     is LocalAudioResult.Ok -> {
-                        emit(GenerativeState.AudioReady(local.audioPath, "local-tts-v1"))
+                        emit(GenerativeState.AudioReady(local.audioPath, "local-tts-system"))
                         return@flow
                     }
                     is LocalAudioResult.Unavailable -> {

@@ -54,6 +54,14 @@ class LocalModelCatalogTest {
             LocalModelCatalog.studioStatusLabel(entry, packReady = false)
                 .contains("Engine ready", ignoreCase = true),
         )
+        assertFalse(LocalModelCatalog.studioEntryReady(entry, packReady = false))
+    }
+
+    @Test
+    fun sdturboShowsReadyOfflineWhenPackGraphsInstalled() {
+        val entry = LocalModelCatalog.entries.first { it.id == "local-sdturbo-v1" }
+        assertEquals("Ready offline", LocalModelCatalog.studioStatusLabel(entry, packReady = true))
+        assertTrue(LocalModelCatalog.studioEntryReady(entry, packReady = true))
     }
 
     @Test

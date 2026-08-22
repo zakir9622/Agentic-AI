@@ -4,6 +4,7 @@ import com.zakir.vestra.shared.domain.ModelPack
 import com.zakir.vestra.shared.domain.PackKind
 import com.zakir.vestra.shared.engine.lite.LiteEngine
 import com.zakir.vestra.shared.engine.lite.OrtModel
+import com.zakir.vestra.shared.engine.local.LocalSdturboPackValidator
 import com.zakir.vestra.shared.quality.AndroidQualityPostProcessor
 import java.io.File
 
@@ -43,6 +44,8 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
             pack.id.contains("realesrgan", ignoreCase = true) -> verifyRealesrganPack(dir)
         pack.id == AndroidQualityPostProcessor.BIREFNET_PACK ||
             pack.id.contains("birefnet", ignoreCase = true) -> verifyBirefnetPack(dir)
+        pack.id == LocalSdturboPackValidator.PACK_ID ||
+            pack.id.contains("sdturbo", ignoreCase = true) -> verifySdturboPack(dir)
         else -> verifyManifestOnnxFiles(pack, dir)
     }
 
@@ -80,6 +83,25 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
         val onnx = File(dir).listFiles()?.firstOrNull { it.name.endsWith(".onnx") }
             ?: return "No ONNX file found"
         return loadOnnxSessionCpu(onnx.absolutePath)
+    }
+
+    /**
+     * SD-Turbo graphs are large — file-size checks in [verifyFiles] are the gate.
+     * Open only the text encoder on CPU during verify (same safety as Pro pack).
+     */
+    private fun verifySdturboPack(dir: String): String? {
+        val configFile = File(dir, "config.json")
+        if (!configFile.exists()) return "SD-Turbo config.json missing"
+        if (!File(dir, "vocab.json").isFile || !File(dir, "merges.txt").isFile) {
+            return "SD-Turbo tokenizer files missing (vocab.json / merges.txt)"
+        }
+        val unet = File(dir, "unet.onnx")
+        if (!unet.isFile || unet.length() < LocalSdturboPackValidator.MIN_GRAPH_BYTES) {
+            return "SD-Turbo UNet missing or placeholder-sized"
+        }
+        val textEncoder = File(dir, "text_encoder.onnx")
+        if (!textEncoder.isFile) return "SD-Turbo text_encoder.onnx missing"
+        return loadOnnxSessionCpu(textEncoder.absolutePath)
     }
 
     private fun verifyManifestOnnxFiles(pack: ModelPack, dir: String): String? {

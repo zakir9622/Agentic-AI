@@ -108,6 +108,7 @@ fun UnifiedStudioPane(
     val estimate = viewModel.usage.estimateNext(provider)
     val preflightChip = viewModel.preflightLabel(effectiveCapability)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
+    val localImageReady = viewModel.localImageOfflineReady()
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
@@ -120,15 +121,17 @@ fun UnifiedStudioPane(
         freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
             ?: CloudModelCatalog.forCapability(effectiveCapability)
     }
-    val onDeviceEntries = remember(packStates, effectiveCapability) {
+    val onDeviceEntries = remember(packStates, effectiveCapability, localImageReady) {
         LocalModelCatalog.forStudioPicker(effectiveCapability).map { entry ->
-            val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
-            val ready = entry.runnable && (entry.packId == null || packReady)
+            val packReady = when (entry.id) {
+                "local-sdturbo-v1" -> localImageReady
+                else -> entry.packId?.let { packStates[it]?.isReady() == true } == true
+            }
             OnDevicePickerEntry(
                 id = entry.id,
                 displayName = entry.displayName,
                 detail = entry.testingNote,
-                ready = ready,
+                ready = LocalModelCatalog.studioEntryReady(entry, packReady),
                 statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
             )
         }
@@ -193,7 +196,11 @@ fun UnifiedStudioPane(
         Text(
             when (capability) {
                 AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
-                    "Cloud by default. Local SD-Turbo engine is wired — install local-sdturbo-v1 when published."
+                    if (localImageReady) {
+                        "Local SD-Turbo ready offline — Create Studio runs on-device."
+                    } else {
+                        "Cloud by default. Local SD-Turbo engine is wired — install local-sdturbo-v1 when published."
+                    }
                 AiCapability.VIDEO ->
                     "Cloud HF Spaces only — on-device video is out of scope for v3.1."
                 AiCapability.AUDIO ->
@@ -229,7 +236,11 @@ fun UnifiedStudioPane(
         PromptComposer(
             prompt = prompt,
             onPromptChange = viewModel::setPrompt,
-            modelLabel = provider.displayName,
+            modelLabel = when {
+                effectiveCapability == AiCapability.IMAGE_GEN && localImageReady && reference == null ->
+                    "Local SD-Turbo (offline)"
+                else -> provider.displayName
+            },
             assistCount = assistCount,
             busy = busy,
             enabled = true,

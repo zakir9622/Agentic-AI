@@ -145,15 +145,15 @@ fun AudioStudioPane(
         freeCloudDiscovery?.selectable(viewModel.appSettings, AiCapability.AUDIO)
             ?: CloudModelCatalog.forCapability(AiCapability.AUDIO)
     }
-    val onDeviceEntries = remember(packStates) {
+    val localAudioReady = viewModel.localAudioOfflineReady()
+    val onDeviceEntries = remember(packStates, localAudioReady) {
         LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { entry ->
             val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
-            val ready = entry.runnable && (entry.packId == null || packReady)
             OnDevicePickerEntry(
                 id = entry.id,
                 displayName = entry.displayName,
                 detail = entry.testingNote,
-                ready = ready,
+                ready = LocalModelCatalog.studioEntryReady(entry, packReady),
                 statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
             )
         }
@@ -289,7 +289,7 @@ fun AudioStudioPane(
         PromptComposer(
             prompt = prompt,
             onPromptChange = viewModel::setPrompt,
-            modelLabel = provider.displayName,
+            modelLabel = if (localAudioReady) "Device TTS (offline)" else provider.displayName,
             onModelClick = { showModelPicker = true },
             busy = busy,
             enabled = prompt.isNotBlank() || reference != null,

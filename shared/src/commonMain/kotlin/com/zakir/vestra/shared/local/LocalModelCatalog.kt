@@ -224,11 +224,19 @@ object LocalModelCatalog {
 
     /** Honest short status for picker rows. */
     fun studioStatusLabel(entry: LocalModelEntry, packReady: Boolean): String = when {
+        entry.id == "local-sdturbo-v1" && packReady -> "Ready offline"
         entry.id == "local-sdturbo-v1" && !packReady ->
             "Engine ready · pack weights not on device"
         entry.runnable && (entry.packId == null || packReady) -> "Ready offline"
         !entry.runnable && entry.packId != null -> "Scaffold · weights not published"
         !entry.runnable -> "Coming soon · no on-device weights yet"
         else -> "Download in Settings"
+    }
+
+    /** Green-dot readiness for studio ON-DEVICE rows (may differ from catalog [LocalModelEntry.runnable]). */
+    fun studioEntryReady(entry: LocalModelEntry, packReady: Boolean): Boolean = when {
+        entry.id == "local-sdturbo-v1" -> packReady
+        entry.runnable && (entry.packId == null || packReady) -> true
+        else -> false
     }
 }
