@@ -10,7 +10,10 @@ object OrtSessionCache {
     private val cache = ConcurrentHashMap<String, OrtModel>()
 
     fun open(modelPath: String): OrtModel =
-        cache.getOrPut(modelPath) { OrtModel(modelPath) }
+        cache.getOrPut(modelPath) {
+            // Construction may throw IllegalStateException on bad graphs / native link errors.
+            OrtModel(modelPath)
+        }
 
     fun invalidateContaining(packRoot: String) {
         cache.keys.filter { it.startsWith(packRoot) }.forEach { key ->

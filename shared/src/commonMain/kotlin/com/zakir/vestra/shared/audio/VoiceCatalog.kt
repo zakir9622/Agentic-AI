@@ -2,15 +2,17 @@ package com.zakir.vestra.shared.audio
 
 /**
  * Named voice personas for Audio Studio — different persons / varieties.
- * Cloud TTS maps [cloudVoiceId]; local packs map [localSpeakerId] when wired.
+ * Cloud TTS maps [cloudVoiceId] / [edgeVoiceLabel]; local packs map [localSpeakerId] when wired.
  */
 data class VoicePersona(
     val id: String,
     val displayName: String,
     val description: String,
     val variety: VoiceVariety,
-    /** Hint passed to Spaces / Inference when the model accepts a speaker id. */
+    /** Kokoro-style speaker id (e.g. af_heart). */
     val cloudVoiceId: String,
+    /** Edge-TTS dropdown label as served by innoai Edge-TTS Space. */
+    val edgeVoiceLabel: String,
     val localSpeakerId: String = id,
 )
 
@@ -33,6 +35,7 @@ object VoiceCatalog {
             description = "Warm mezzo — modest fashion narration",
             variety = VoiceVariety.FEMALE_WARM,
             cloudVoiceId = "af_heart",
+            edgeVoiceLabel = "en-US-AvaNeural - en-US (Female)",
         ),
         VoicePersona(
             id = "noor",
@@ -40,6 +43,7 @@ object VoiceCatalog {
             description = "Bright clear voice — product listings",
             variety = VoiceVariety.FEMALE_BRIGHT,
             cloudVoiceId = "af_bella",
+            edgeVoiceLabel = "en-US-JennyNeural - en-US (Female)",
         ),
         VoicePersona(
             id = "layla",
@@ -47,6 +51,7 @@ object VoiceCatalog {
             description = "Soft alto — calm studio reads",
             variety = VoiceVariety.FEMALE_SOFT,
             cloudVoiceId = "af_sarah",
+            edgeVoiceLabel = "en-GB-SoniaNeural - en-GB (Female)",
         ),
         VoicePersona(
             id = "yasir",
@@ -54,6 +59,7 @@ object VoiceCatalog {
             description = "Warm baritone — brand films",
             variety = VoiceVariety.MALE_BARITONE,
             cloudVoiceId = "am_adam",
+            edgeVoiceLabel = "en-US-GuyNeural - en-US (Male)",
         ),
         VoicePersona(
             id = "omar",
@@ -61,6 +67,7 @@ object VoiceCatalog {
             description = "Light tenor — short social clips",
             variety = VoiceVariety.MALE_TENOR,
             cloudVoiceId = "am_michael",
+            edgeVoiceLabel = "en-US-BrianNeural - en-US (Male)",
         ),
         VoicePersona(
             id = "sam",
@@ -68,6 +75,7 @@ object VoiceCatalog {
             description = "Neutral mid — captions and demos",
             variety = VoiceVariety.NEUTRAL,
             cloudVoiceId = "af_nicole",
+            edgeVoiceLabel = "en-US-AndrewNeural - en-US (Male)",
         ),
         VoicePersona(
             id = "rana",
@@ -75,6 +83,7 @@ object VoiceCatalog {
             description = "Storyteller — lookbook scripts",
             variety = VoiceVariety.STORYTELLER,
             cloudVoiceId = "bf_emma",
+            edgeVoiceLabel = "en-GB-LibbyNeural - en-GB (Female)",
         ),
         VoicePersona(
             id = "kai",
@@ -82,6 +91,7 @@ object VoiceCatalog {
             description = "Announcer — launch and promo",
             variety = VoiceVariety.ANNOUNCER,
             cloudVoiceId = "am_fenrir",
+            edgeVoiceLabel = "en-US-ChristopherNeural - en-US (Male)",
         ),
     )
 

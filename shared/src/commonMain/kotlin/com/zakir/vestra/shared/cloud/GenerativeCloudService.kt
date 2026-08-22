@@ -572,20 +572,26 @@ class GenerativeCloudService(
                         ),
                     )
                     try {
+                        val maxPolls = when (candidate.id) {
+                            // Wan2 queues hard — fail fast so LTX can run within the budget.
+                            "wan2-video-hf" -> budget.maxPolls(pollDelayMs = 2_500, floor = 3, ceiling = 24)
+                            else -> budget.maxPolls(pollDelayMs = 3_000, floor = 5, ceiling = 90)
+                        }
+                        val pollDelay = if (candidate.id == "wan2-video-hf") 2_500L else 3_000L
                         val result = hf.predict(
                             spaceHost = candidate.endpoint,
                             apiName = CloudModelContracts.effectiveApiName(candidate),
                             data = SpacePayloads.forVideo(candidate.id, variant),
                             hfToken = settings.hfToken.value,
-                            maxPolls = 180,
-                            pollDelayMs = 3_000,
-                            onPoll = { pollIndex, maxPolls ->
+                            maxPolls = maxPolls,
+                            pollDelayMs = pollDelay,
+                            onPoll = { pollIndex, polls ->
                                 val frac =
-                                    0.2f + 0.65f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
+                                    0.2f + 0.65f * (pollIndex + 1).toFloat() / polls.coerceAtLeast(1)
                                 emit(
                                     GenerativeState.Running(
                                         frac.coerceIn(0.2f, 0.9f),
-                                        "Video poll ${pollIndex + 1}/$maxPolls · ${candidate.displayName}",
+                                        "Video poll ${pollIndex + 1}/$polls · ${candidate.displayName}",
                                         deadlineEpochMs = deadline,
                                     ),
                                 )
@@ -616,11 +622,17 @@ class GenerativeCloudService(
                         val kind = when {
                             e.isAccountQuotaExhausted() -> ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
                             failure is CloudFailure.Offline -> ModelHealthTracker.FailureKind.OFFLINE
+                            e.message.orEmpty().contains("429") ||
+                                e.message.orEmpty().contains("rate limit", ignoreCase = true) ||
+                                e.message.orEmpty().contains("Queue is full", ignoreCase = true) ->
+                                ModelHealthTracker.FailureKind.RATE_LIMIT
                             else -> ModelHealthTracker.FailureKind.GENERIC
                         }
                         health.recordFailure(candidate.id, kind)
                         if (e.isAccountQuotaExhausted()) throw e
                         if (failure is CloudFailure.Offline) throw e
+                        // Rate-limited / full queue: skip remaining prompt variants for this host.
+                        if (kind == ModelHealthTracker.FailureKind.RATE_LIMIT) break
                     }
                 }
             }
@@ -754,6 +766,7 @@ class GenerativeCloudService(
                                 prompt.trim(),
                                 persona.cloudVoiceId,
                                 safeKnobs,
+                                edgeVoiceLabel = persona.edgeVoiceLabel,
                             )
                             emit(
                                 GenerativeState.Running(
@@ -803,7 +816,13 @@ class GenerativeCloudService(
                     throw e
                 } catch (e: Exception) {
                     lastError = e
-                    health.recordFailure(candidate.id)
+                    val kind = when {
+                        e.message.orEmpty().contains("429") ||
+                            e.message.orEmpty().contains("rate limit", ignoreCase = true) ->
+                            ModelHealthTracker.FailureKind.RATE_LIMIT
+                        else -> ModelHealthTracker.FailureKind.GENERIC
+                    }
+                    health.recordFailure(candidate.id, kind)
                     if (e is CloudFailureException && e.failure is CloudFailure.Offline) throw e
                 }
             }

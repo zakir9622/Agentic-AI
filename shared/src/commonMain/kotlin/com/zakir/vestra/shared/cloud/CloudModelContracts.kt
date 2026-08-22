@@ -199,8 +199,8 @@ object CloudModelContracts {
             requiredInputs = listOf(
                 "prompt", "optional image", "width", "height", "frames", "steps", "guidance", "seed",
             ),
-            schemaNote = "generate_video · 8 args; queues fill often",
-            failureHint = "Wan2 queue is full or timed out. Retry off-peak or try LTX-Video.",
+            schemaNote = "generate_video · 8 args; queues fill often — short poll then LTX",
+            failureHint = "Wan2 queue is full or timed out. Switching to LTX-Video when available.",
         ),
         CloudModelContract(
             providerId = "ltx-zerogpu-hf",
@@ -210,33 +210,33 @@ object CloudModelContracts {
                 "prompt", "negative", "image_n", "video_n", "h", "w", "task", "duration",
                 "frames", "seed", "randomize", "cfg", "texture", "slow-mo",
             ),
-            schemaNote = "text_to_video · 14 args (not apply_smart_config)",
-            failureHint = "LTX text_to_video failed — retry off-peak or use Wan2.",
+            schemaNote = "text_to_video · 14 args (DeepRat ZeroGPU)",
+            failureHint = "LTX text_to_video failed — retry off-peak or try Wan2 later.",
         ),
 
         // ── Audio / TTS ─────────────────────────────────────────────────
         CloudModelContract(
-            providerId = "mms-tts-eng-hf",
-            support = ModelSupportLevel.READY,
-            requiredInputs = listOf("HF token", "text"),
-            schemaNote = "HF Inference TTS · facebook/mms-tts-eng",
-            failureHint = "MMS-TTS failed — check HF token / Inference Providers, or try Kokoro Space.",
-        ),
-        CloudModelContract(
             providerId = "kokoro-tts-hf",
             support = ModelSupportLevel.READY,
-            apiNameOverride = "generate",
-            requiredInputs = listOf("text", "voice", "speed"),
-            schemaNote = "Gradio generate · Kokoro multi-voice",
-            failureHint = "Kokoro Space queued or waking — retry or fall back to MMS-TTS.",
+            apiNameOverride = "generate_speech_from_ui",
+            requiredInputs = listOf("text", "voice list", "speed"),
+            schemaNote = "Remsky Kokoro ZeroGPU · generate_speech_from_ui",
+            failureHint = "Kokoro is rate-limited or queued — wait a minute or switch to Edge-TTS.",
         ),
         CloudModelContract(
             providerId = "edge-tts-hf",
+            support = ModelSupportLevel.READY,
+            apiNameOverride = "tts_interface",
+            requiredInputs = listOf("text", "voice", "rate", "pitch"),
+            schemaNote = "innoai Edge-TTS · tts_interface",
+            failureHint = "Edge-TTS failed — switch to Kokoro or retry.",
+        ),
+        CloudModelContract(
+            providerId = "mms-tts-eng-hf",
             support = ModelSupportLevel.DEGRADED,
-            apiNameOverride = "tts_fn",
-            requiredInputs = listOf("text", "voice"),
-            schemaNote = "tts_fn · schema drifts; live /info preferred",
-            failureHint = "Edge/OpenVoice Space failed — switch to Kokoro or MMS-TTS.",
+            requiredInputs = listOf("HF token", "text"),
+            schemaNote = "HF Inference TTS · facebook/mms-tts-eng (often rejected)",
+            failureHint = "MMS-TTS was rejected by HF Inference Providers. Use Kokoro or Edge-TTS Spaces (no Inference route).",
         ),
     ).associateBy { it.providerId }
 
@@ -308,14 +308,29 @@ object CloudModelContracts {
                     "daily — tap Choose model for an Inference route, use a different HF token, or run try-on locally with Lite/Pro."
             msg.contains("401") || msg.contains("Unauthorized", ignoreCase = true) ->
                 "API key rejected for ${provider.displayName}. Re-save the free token in Settings."
-            msg.contains("429") || msg.contains("rate", ignoreCase = true) ->
-                "Free-tier rate limit on ${provider.displayName}. Wait a minute or switch model."
+            msg.contains("429") ||
+                msg.contains("rate limit", ignoreCase = true) ||
+                msg.contains("Rate limit", ignoreCase = true) ||
+                msg.contains("too many requests", ignoreCase = true) ->
+                "Free-tier rate limit on ${provider.displayName}. Cooling down — try another model or wait a minute."
             msg.contains("Queue is full", ignoreCase = true) ||
                 msg.contains("503") ||
                 msg.contains("Service Unavailable", ignoreCase = true) ->
                 c.failureHint
-            msg.contains("404") ->
-                "${provider.displayName} Space looks offline (404). Switch model in Settings."
+            msg.contains("404") -> {
+                val hostLabel = if (provider.displayName.endsWith("Space", ignoreCase = true)) {
+                    provider.displayName
+                } else {
+                    "${provider.displayName} Space"
+                }
+                "$hostLabel looks offline (404). Switch model in Settings."
+            }
+            msg.contains("Model not supported by provider", ignoreCase = true) ||
+                (
+                    msg.contains("does not exist", ignoreCase = true) &&
+                        provider.platform == CloudPlatform.HF_INFERENCE
+                    ) ->
+                "HF Inference rejected ${provider.displayName}. Prefer a Space model (Kokoro / Edge-TTS) in Settings."
             msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true) ->
                 "$label timed out on ${provider.displayName}. Retry off-peak or pick a faster free model."
             msg.contains("waking", ignoreCase = true) ||
@@ -346,8 +361,6 @@ object CloudModelContracts {
                 msg.contains("ConnectException", ignoreCase = true) ->
                 "$label could not reach the model host. Retry, switch model, or check VPN — " +
                     "this is usually not a phone offline issue."
-            msg.contains("Model not supported by provider", ignoreCase = true) ->
-                "HF Inference Providers rejected ${provider.displayName}. Switch to a Space model in Settings."
             msg.contains("LinkedHashMap", ignoreCase = true) ||
                 msg.contains("Kotlin reflection", ignoreCase = true) ->
                 "$label failed to encode the request for ${provider.displayName}. Update the app and retry."

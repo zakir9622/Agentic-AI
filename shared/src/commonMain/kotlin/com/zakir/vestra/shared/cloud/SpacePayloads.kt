@@ -4,6 +4,7 @@ import com.zakir.vestra.shared.domain.GarmentCategory
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -102,17 +103,22 @@ object SpacePayloads {
         text: String,
         voiceId: String,
         knobs: com.zakir.vestra.shared.audio.VoiceKnobs,
+        edgeVoiceLabel: String = voiceId,
     ): List<JsonElement> = when (providerId) {
+        // Remsky Kokoro expects a multi-select voice list (not a bare string).
         "kokoro-tts-hf" -> listOf(
             JsonPrimitive(text),
-            JsonPrimitive(voiceId),
+            kotlinx.serialization.json.buildJsonArray {
+                add(JsonPrimitive(voiceId.ifBlank { "af_heart" }))
+            },
             JsonPrimitive(knobs.speed.coerceIn(0.5f, 2f).toDouble()),
         )
+        // innoai Edge-TTS: text, voice dropdown label, rate, pitch.
         "edge-tts-hf" -> listOf(
             JsonPrimitive(text),
-            JsonPrimitive(voiceId),
-            JsonPrimitive(""), // optional ref style
-            JsonPrimitive(knobs.speed.coerceIn(0.5f, 2f).toDouble()),
+            JsonPrimitive(edgeVoiceLabel.ifBlank { "en-US-JennyNeural - en-US (Female)" }),
+            JsonPrimitive(((knobs.speed - 1f) * 50f).coerceIn(-50f, 50f).toDouble()),
+            JsonPrimitive((knobs.pitchSemitones * 2f).coerceIn(-50f, 50f).toDouble()),
         )
         else -> error("No hand-tuned audio payload for $providerId — use GradioSchemaClient")
     }
