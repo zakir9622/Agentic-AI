@@ -1,7 +1,9 @@
 # Big release R2 — True limits (v3.1.0)
 
-**Status:** In progress → **v3.1.0-rc1**  
+**Status:** **v3.1.0-rc1 shipped** (APK on GitHub Releases) · tip may include post-tag harness hardening  
 **Baseline:** v3.0.16 (`041ab40`)  
+**APK:** https://github.com/zakir9622/Agentic-AI/releases/download/v3.1.0-rc1/the-lookbook-v3.1.0-rc1.apk  
+**PR:** https://github.com/zakir9622/Agentic-AI/pull/50  
 **Goal:** Ship the largest honest release yet — full ATR Auto on Try-on, real-input classification harness, atelier UI overhaul, and on-device Create Studio **scaffolding that is ready the day HF weights land**.
 
 ---
