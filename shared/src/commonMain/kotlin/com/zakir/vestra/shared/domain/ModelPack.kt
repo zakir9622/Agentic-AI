@@ -57,7 +57,7 @@ data class DeviceSpec(
     val minRamMb: Long = 0,
     /** Requires an NNAPI/QNN-capable accelerator (Pro tier). */
     val requiresNpu: Boolean = false,
-    val minSdk: Int = 26,
+    val minSdk: Int = 35,
 )
 
 @Serializable

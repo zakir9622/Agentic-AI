@@ -19,29 +19,28 @@ What remains is **quality depth** (model packs, composer controls), **CI/review 
 
 ---
 
-## What shipped (baseline @ v2.9.16)
+## What shipped (baseline @ v2.9.16 → v3.0.6)
 
-### Phase 1 — Diagnostics (~85%)
-- `RunDiagnostics`, `DiagnosticsHook`, engine stage timings (Lite / Pro / Cloud try-on)
-- Settings → Diagnostics: export JSON, “What happened?” on failures
-- `docs/BACKEND_PIPELINE.md`, `scripts/benchmark-local.py`, `scripts/benchmark-cloud.py`
-
-**Gaps (historical — closed):** diagnostics stages/ledger, BiRefNet/ESRGAN on HF, on-device picker + advanced panel, Settings C4 split, RSS assets, CI integration scripts. **Still open:** `pro-v2-int8` / `lite-v2` / `local-sdturbo-v1` HF weights; Gemma (E3); device a11y/visual baselines.
+### Phase 1 — Diagnostics
+- `RunDiagnostics`, `DiagnosticsHook`, engine stage timings; Settings → Diagnostics export
+- **Open:** logcat snippet in export bundle (nice-to-have)
 
 ### Phase 2 — Local models
 - Quality packs on HF + runners @ 3.0.4; pro prefers `pro-v1` until int8 uploaded
+- **Open:** `lite-v2` publish; `pro-v2-int8` HF; SD-Turbo weights (E4)
 
-**Gaps:** `lite-v2` publish; `pro-v2-int8` HF upload; SD-Turbo weights (E4).
+### Phase 3–4 — Home + unified composer
+- Pager, dead-studio cleanup, on-device picker group, CFG/steps/seed — **done**
 
 ### Phase 5 — Settings
-- Hub + Cloud / Engines / Appearance section files @ 3.0.6
+- Hub + Cloud / Engines / Appearance section files @ 3.0.6; durable CTA on pack download
 
-**Gaps:** none for C4; durable CTA on pack download.
+### Phase 6 — News & Chat
+- Unified picker + RSS from assets — **done**
 
 ### Phase 7 — Test & release
-- Unit tests + integration/benchmarks in CI; accesslint config routes expanded @ 3.0.6
-
-**Gaps:** live accesslint sweep + Pixel visual baseline PNGs (need device).
+- Unit tests + integration/benchmarks in CI; accesslint routes expanded @ 3.0.6
+- **Open:** live accesslint sweep + Pixel visual baseline PNGs (need device)
 
 ---
 

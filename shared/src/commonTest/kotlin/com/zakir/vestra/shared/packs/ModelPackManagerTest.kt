@@ -73,7 +73,7 @@ private const val MANIFEST = """
         {"path": "a.onnx", "url": "https://packs/a.onnx", "sha256": "hash-a", "bytes": 60},
         {"path": "b.onnx", "url": "https://packs/b.onnx", "sha256": "hash-b", "bytes": 40}
       ],
-      "minSpec": {"minRamMb": 0, "requiresNpu": false, "minSdk": 26}
+      "minSpec": {"minRamMb": 0, "requiresNpu": false, "minSdk": 35}
     },
     {
       "id": "pro-v1",
@@ -85,7 +85,7 @@ private const val MANIFEST = """
       "files": [
         {"path": "unet.onnx", "url": "https://packs/unet.onnx", "sha256": "hash-u", "bytes": 1000}
       ],
-      "minSpec": {"minRamMb": 16000, "requiresNpu": true, "minSdk": 31}
+      "minSpec": {"minRamMb": 16000, "requiresNpu": true, "minSdk": 35}
     }
   ]
 }
@@ -127,7 +127,7 @@ class ModelPackManagerTest {
               {"id":"lite-bundled","version":1,"tier":"LITE","displayName":"Bundled Lite",
                "description":"d","totalBytes":10,
                "files":[{"path":"a.onnx","url":"bundled","sha256":"bundled","bytes":10}],
-               "minSpec":{"minRamMb":0,"requiresNpu":false,"minSdk":26}}
+               "minSpec":{"minRamMb":0,"requiresNpu":false,"minSdk":35}}
             ]}
         """.trimIndent()
         fs.files["/packs/lite-bundled/1/a.onnx"] = "X".repeat(10)
