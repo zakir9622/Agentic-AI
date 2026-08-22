@@ -81,7 +81,7 @@ class LiteEngine(
         try {
             emit(GenerationState.Running(0.15f, "Extracting garment"))
             val garmentCut = runCatching {
-                OrtModel("$packDir/garment_seg.onnx").use { model ->
+                OrtSessionCache.open("$packDir/garment_seg.onnx").let { model ->
                     extractGarment(model, garment)
                 }
             }.getOrElse { error ->

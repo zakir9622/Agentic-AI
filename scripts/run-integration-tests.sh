@@ -35,6 +35,9 @@ run_step "Edge-case integration (truncation, input geometry, pro weights)" pytho
 run_step "Cloud probe (quick)" python3 scripts/probe-models.py --quick --json /tmp/lookbook-probe-quick.json
 run_step "Cloud probe (full spaces)" python3 scripts/probe-models.py --json /tmp/lookbook-probe-full.json
 
+run_step "Local ONNX benchmark" python3 scripts/benchmark-local.py
+run_step "Cloud benchmark (quick)" python3 scripts/benchmark-cloud.py --quick
+
 if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | rg -q 'device$'; then
   run_step "Connected Android instrumentation" ./gradlew :composeApp:connectedSideloadDebugAndroidTest --quiet
 else

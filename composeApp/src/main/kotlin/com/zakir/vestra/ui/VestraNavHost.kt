@@ -32,6 +32,9 @@ import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
 import com.zakir.vestra.ui.screens.person.PersonSourceScreen
 import com.zakir.vestra.ui.screens.result.ResultScreen
+import com.zakir.vestra.shared.chat.ChatRepository
+import com.zakir.vestra.shared.diagnostics.RunDiagnostics
+import com.zakir.vestra.ui.screens.settings.DiagnosticsScreen
 import com.zakir.vestra.ui.screens.settings.SettingsSection
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.home.HomeScreen
@@ -56,6 +59,7 @@ object Routes {
     const val SETTINGS_CLOUD = "settings/cloud"
     const val SETTINGS_ENGINES = "settings/engines"
     const val SETTINGS_APPEARANCE = "settings/appearance"
+    const val SETTINGS_DIAGNOSTICS = "settings/diagnostics"
     const val PACKS = "packs"
     const val CREATE = "create"
     const val CODE = "code"
@@ -76,6 +80,9 @@ fun VestraNavHost(
     studioModels: com.zakir.vestra.data.StudioModelRepository,
     generative: GenerativeCloudService,
     usageLedger: UsageLedger,
+    runDiagnostics: RunDiagnostics,
+    chatRepository: ChatRepository,
+    deviceRamMb: Long,
     freeCloudDiscovery: FreeCloudDiscovery,
     humanParsing: com.zakir.vestra.shared.engine.lite.HumanParsing,
     liteEngineIo: com.zakir.vestra.shared.engine.lite.LiteEngineIo,
@@ -109,7 +116,7 @@ fun VestraNavHost(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                TryOnViewModel(engineRouter, appSettings, wardrobe) as T
+                TryOnViewModel(engineRouter, appSettings, wardrobe, runDiagnostics, deviceRamMb) as T
         },
     )
 
@@ -117,7 +124,7 @@ fun VestraNavHost(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                GenerativeViewModel(generative, appSettings, usageLedger, wardrobe) as T
+                GenerativeViewModel(generative, appSettings, usageLedger, wardrobe, runDiagnostics, deviceRamMb) as T
         },
     )
 
@@ -146,12 +153,27 @@ fun VestraNavHost(
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.STUDIO) }),
         ) {
             val newsRepository = remember { NewsRepository(platformHttpClient()) }
+            val chatViewModel: ChatViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                        ChatViewModel(
+                            chatRepository,
+                            newsRepository,
+                            generative,
+                            appSettings,
+                            runDiagnostics,
+                            deviceRamMb,
+                        ) as T
+                },
+            )
             HomeScreen(
                 appSettings = appSettings,
                 wardrobe = wardrobe,
                 packManager = packManager,
                 generativeViewModel = generativeViewModel,
                 newsRepository = newsRepository,
+                chatViewModel = chatViewModel,
                 onNewLook = {
                     tryOnViewModel.resetSession()
                     navController.navigate(Routes.GARMENT)
@@ -160,6 +182,9 @@ fun VestraNavHost(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
+                onOpenNewsChat = { headline ->
+                    headline?.let { generativeViewModel.setPrompt("Discuss: $it") }
+                },
             )
         }
         composable(
@@ -317,6 +342,7 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.HUB,
                 onNavigateSection = { target ->
@@ -342,8 +368,9 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
-                section = SettingsSection.ALL,
+                section = SettingsSection.CLOUD,
             )
         }
         composable(Routes.SETTINGS_ENGINES) {
@@ -357,8 +384,9 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
-                section = SettingsSection.ALL,
+                section = SettingsSection.ENGINES,
             )
         }
         composable(Routes.SETTINGS_APPEARANCE) {
@@ -372,8 +400,15 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
-                section = SettingsSection.ALL,
+                section = SettingsSection.APPEARANCE,
+            )
+        }
+        composable(Routes.SETTINGS_DIAGNOSTICS) {
+            DiagnosticsScreen(
+                diagnostics = runDiagnostics,
+                onBack = { navController.popBackStack() },
             )
         }
         composable(

@@ -29,6 +29,7 @@ fun SettingsHubScreen(
     onOpenUsage: () -> Unit,
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenDiagnostics: (() -> Unit)? = null,
 ) {
     SpatialBackground {
         androidx.compose.foundation.lazy.LazyColumn(
@@ -67,6 +68,17 @@ fun SettingsHubScreen(
                 GlassCard(onClick = onOpenAppearance) {
                     GlassSectionLabel("APPEARANCE & PRIVACY")
                     Text("Theme, permissions, cache, durable storage", style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+            item {
+                GlassCard(onClick = { onOpenDiagnostics?.invoke() }) {
+                    GlassSectionLabel("DIAGNOSTICS")
+                    Text("Run history & export", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Share JSON logs of try-on and cloud generations",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
             }

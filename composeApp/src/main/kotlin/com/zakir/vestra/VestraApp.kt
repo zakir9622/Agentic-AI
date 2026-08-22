@@ -23,6 +23,8 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.shared.quality.createQualityPostProcessor
+import com.zakir.vestra.shared.chat.ChatRepository
+import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.AndroidTextFileStore
@@ -57,6 +59,15 @@ class VestraApp : Application() {
     lateinit var usageLedger: UsageLedger
         private set
 
+    lateinit var runDiagnostics: RunDiagnostics
+        private set
+
+    lateinit var chatRepository: ChatRepository
+        private set
+
+    lateinit var deviceProbe: AndroidDeviceProbe
+        private set
+
     lateinit var generative: GenerativeCloudService
         private set
 
@@ -75,6 +86,9 @@ class VestraApp : Application() {
         appSettings = AppSettings(prefs)
         appSettings.networkProbe = { isNetworkAvailable(this) }
         usageLedger = UsageLedger(prefs)
+        runDiagnostics = RunDiagnostics(prefs)
+        chatRepository = ChatRepository(prefs)
+        deviceProbe = AndroidDeviceProbe(this)
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 
         val http = platformHttpClient()
@@ -90,7 +104,7 @@ class VestraApp : Application() {
         }
         packManager = ModelPackManager(
             fs = AndroidPackFileSystem(this) { DurableStorage.resolvePacksRoot(this) },
-            device = AndroidDeviceProbe(this),
+            device = deviceProbe,
             http = http,
             manifestUrl = PACKS_MANIFEST_URL,
             integrityChecker = AndroidPackIntegrityChecker(),
@@ -128,7 +142,7 @@ class VestraApp : Application() {
                 LiteEngine(packManager, liteEngineIo, humanParsing, quality),
                 DiffusionEngine(
                     packs = packManager,
-                    device = AndroidDeviceProbe(this),
+                    device = deviceProbe,
                     io = liteEngineIo,
                     masker = { person, category -> humanParsing.analyze(person, category.effectiveCategory())?.mask },
                     applyWatermark = BuildConfig.APPLY_WATERMARK,

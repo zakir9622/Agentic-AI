@@ -7,6 +7,8 @@ import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.GenerativeAssists
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.cloud.GenerativeState
+import com.zakir.vestra.shared.diagnostics.RunCapability
+import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
@@ -27,6 +29,8 @@ class GenerativeViewModel(
     val appSettings: AppSettings,
     val usage: UsageLedger,
     private val wardrobe: WardrobeRepository,
+    private val runDiagnostics: RunDiagnostics? = null,
+    private val deviceRamMb: Long? = null,
 ) : ViewModel() {
 
     private val _prompt = MutableStateFlow("")
@@ -144,7 +148,10 @@ class GenerativeViewModel(
             }
             is PreflightResult.Ok -> Unit
         }
-        startGeneration {
+        startGeneration(
+            capability = if (_referenceUri.value == null) RunCapability.IMAGE_GEN else RunCapability.IMAGE_EDIT,
+            modelLabel = appSettings.selectedProvider(capability).displayName,
+        ) {
             generative.generateImage(p, _referenceUri.value, currentAssists())
         }
     }
@@ -163,7 +170,7 @@ class GenerativeViewModel(
             }
             is PreflightResult.Ok -> Unit
         }
-        startGeneration {
+        startGeneration(RunCapability.CODE, appSettings.selectedProvider(AiCapability.CODE).displayName) {
             generative.generateCode(p, currentAssists())
         }
     }
@@ -182,7 +189,7 @@ class GenerativeViewModel(
             }
             is PreflightResult.Ok -> Unit
         }
-        startGeneration {
+        startGeneration(RunCapability.VIDEO, appSettings.selectedProvider(AiCapability.VIDEO).displayName) {
             generative.generateVideo(p, currentAssists())
         }
     }
@@ -207,26 +214,47 @@ class GenerativeViewModel(
         _preflightMessage.value = null
     }
 
-    private fun startGeneration(block: () -> kotlinx.coroutines.flow.Flow<GenerativeState>) {
+    private fun startGeneration(
+        capability: RunCapability,
+        modelLabel: String?,
+        block: () -> kotlinx.coroutines.flow.Flow<GenerativeState>,
+    ) {
         job?.cancel()
         val epoch = ++generationEpoch
         _preflightMessage.value = null
         _state.value = GenerativeState.Preparing("Starting…")
+        val builder = runDiagnostics?.startRun(
+            capability = capability,
+            tier = EngineTier.CLOUD,
+            modelId = null,
+            modelLabel = modelLabel,
+            deviceRamMb = deviceRamMb,
+        )
         job = viewModelScope.launch {
             try {
                 block().collect { next ->
                     if (epoch != generationEpoch) return@collect
                     _state.value = next
                     when (next) {
+                        is GenerativeState.Running -> builder?.stage(next.stage, 0)
                         is GenerativeState.ImageReady -> {
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Create")
+                            builder?.complete(success = true, note = next.providerId)
                         }
                         is GenerativeState.VideoReady -> {
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Video")
+                            builder?.complete(success = true, note = next.providerId)
                         }
-                        is GenerativeState.CodeReady -> _lastUsedProviderId.value = next.providerId
+                        is GenerativeState.CodeReady -> {
+                            _lastUsedProviderId.value = next.providerId
+                            builder?.complete(
+                                success = true,
+                                note = "${next.providerId} · ${next.tokensIn}+${next.tokensOut} tokens",
+                            )
+                        }
+                        is GenerativeState.Failed -> builder?.complete(success = false, error = next.message)
                         else -> Unit
                     }
                 }
@@ -234,9 +262,9 @@ class GenerativeViewModel(
                 // Expected on force stop / clear
             } catch (e: Exception) {
                 if (epoch == generationEpoch) {
-                    _state.value = GenerativeState.Failed(
-                        e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry.",
-                    )
+                    val msg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
+                    _state.value = GenerativeState.Failed(msg)
+                    builder?.complete(success = false, error = msg)
                 }
             }
         }

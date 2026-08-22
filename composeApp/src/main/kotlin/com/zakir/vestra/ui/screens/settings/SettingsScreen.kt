@@ -79,8 +79,6 @@ import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.hasCameraPermission
 import com.zakir.vestra.ui.util.hasPostNotificationsPermission
-import com.zakir.vestra.ui.util.openAppSystemSettings
-import com.zakir.vestra.ui.util.openNotificationSettings
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -106,6 +104,7 @@ fun SettingsScreen(
     onOpenUsage: () -> Unit,
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenDiagnostics: (() -> Unit)? = null,
     onBack: () -> Unit,
     section: SettingsSection = SettingsSection.ALL,
     onNavigateSection: ((SettingsSection) -> Unit)? = null,
@@ -119,8 +118,26 @@ fun SettingsScreen(
             onOpenUsage = onOpenUsage,
             onOpenHelp = onOpenHelp,
             onOpenPrivacy = onOpenPrivacy,
+            onOpenDiagnostics = onOpenDiagnostics,
         )
         return
+    }
+
+    val showCloud = section == SettingsSection.ALL || section == SettingsSection.CLOUD
+    val showEngines = section == SettingsSection.ALL || section == SettingsSection.ENGINES
+    val showAppearance = section == SettingsSection.ALL || section == SettingsSection.APPEARANCE
+    val showGeneral = section == SettingsSection.ALL
+    val sectionTitle = when (section) {
+        SettingsSection.CLOUD -> "Cloud models & keys"
+        SettingsSection.ENGINES -> "Engines & packs"
+        SettingsSection.APPEARANCE -> "Appearance & privacy"
+        else -> LookbookCopy.STUDIO_SETTINGS
+    }
+    val sectionSubtitle = when (section) {
+        SettingsSection.CLOUD -> "HF · Groq · OpenRouter"
+        SettingsSection.ENGINES -> "Lite · Pro · Cloud tier"
+        SettingsSection.APPEARANCE -> "Theme · storage · permissions"
+        else -> "API keys · engines · models · help"
     }
     val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
@@ -297,8 +314,8 @@ fun SettingsScreen(
         ) {
             item(key = "top") {
                 GlassTopBar(
-                    title = LookbookCopy.STUDIO_SETTINGS,
-                    subtitle = "API keys · engines · models · help",
+                    title = sectionTitle,
+                    subtitle = sectionSubtitle,
                     navigation = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
@@ -308,6 +325,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
+            if (showGeneral) {
             item(key = "help") {
                 GlassCard(onClick = onOpenHelp) {
                     GlassSectionLabel("HELP")
@@ -321,6 +339,21 @@ fun SettingsScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
+            item(key = "diagnostics") {
+                GlassCard(onClick = { onOpenDiagnostics?.invoke() }) {
+                    GlassSectionLabel("DIAGNOSTICS")
+                    Text("Run history", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Export JSON of local + cloud generations when reporting issues.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+            }
+
+            if (showGeneral) {
             item(key = "about") {
                 GlassCard {
                     GlassSectionLabel("ABOUT")
@@ -350,7 +383,9 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(14.dp))
             }
+            }
 
+            if (showCloud) {
             // —— Keys first (this is where HF / Groq / OpenRouter go) ——
             item(key = "keys") {
                 GlassCard {
@@ -464,7 +499,9 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(14.dp))
             }
+            }
 
+            if (showCloud || showAppearance) {
             item(key = "durable") {
                 GlassCard {
                     GlassSectionLabel("SURVIVES REINSTALL")
@@ -519,7 +556,9 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(14.dp))
             }
+            }
 
+            if (showAppearance) {
             item(key = "appearance") {
                 GlassCard {
                     GlassSectionLabel("APPEARANCE")
@@ -536,7 +575,9 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(14.dp))
             }
+            }
 
+            if (showEngines) {
             item(key = "engine") {
                 GlassCard {
                     GlassSectionLabel("LOCAL TRY-ON ENGINE")
@@ -632,7 +673,9 @@ fun SettingsScreen(
                     )
                 }
             }
+            }
 
+            if (showCloud) {
             item(key = "cap-tryon") {
                 CloudCapabilityDropdown(
                     title = "CLOUD TRY-ON",
@@ -683,7 +726,9 @@ fun SettingsScreen(
                     onSelect = appSettings::setVideoProvider,
                 )
             }
+            }
 
+            if (showAppearance) {
             item(key = "storage") {
                 Spacer(Modifier.height(14.dp))
                 GlassCard {
@@ -781,33 +826,13 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Photos use the system picker (no media-library permission). Pack downloads may request notifications and durable storage.",
+                        "Permissions are requested in context — when you use the camera, download packs, or enable durable storage.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { context.openAppSystemSettings() },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Open app permission settings") }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { context.openNotificationSettings() },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Open notification settings") }
-                    if (!DurableStorage.hasAllFilesAccess()) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                runCatching {
-                                    context.startActivity(DurableStorage.manageAllFilesIntent(context))
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Enable durable storage") }
-                    }
                 }
                 Spacer(Modifier.height(14.dp))
+            }
             }
         }
     }

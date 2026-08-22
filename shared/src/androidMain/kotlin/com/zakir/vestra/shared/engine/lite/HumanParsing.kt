@@ -72,7 +72,7 @@ class HumanParsing(private val packs: ModelPackManager) {
         if (!packs.isReady(LiteEngine.PACK_ID)) return null
         val packDir = packs.installedDir(LiteEngine.PACK_ID) ?: return null
         return runCatching {
-            OrtModel("$packDir/human_parse.onnx").use { block(it) }
+            OrtSessionCache.open("$packDir/human_parse.onnx").let { block(it) }
         }.getOrNull()
     }
 }

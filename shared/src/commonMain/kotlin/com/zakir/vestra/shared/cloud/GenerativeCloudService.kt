@@ -423,6 +423,28 @@ class GenerativeCloudService(
         }
     }
 
+    /** OpenAI-compatible chat for News tab and assistants. */
+    suspend fun chat(
+        prompt: String,
+        system: String,
+        capability: AiCapability = AiCapability.CODE,
+        temperature: Double = 0.4,
+    ): LlmResult {
+        val provider = settings.selectedProvider(capability)
+        requireKeyIfNeeded(provider)
+        require(settings.networkLikelyAvailable()) { "No internet connection" }
+        CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
+        val key = settings.apiKeyFor(provider) ?: error("API key required for ${provider.displayName}")
+        return llm.chat(
+            platform = provider.platform,
+            model = provider.endpoint,
+            prompt = prompt,
+            apiKey = key,
+            system = system,
+            temperature = temperature,
+        )
+    }
+
     private fun extractRef(element: kotlinx.serialization.json.JsonElement): String =
         GradioOutput.extractMediaRef(element)
 }

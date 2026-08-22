@@ -76,7 +76,10 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.GenerativeViewModel
+import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.AtelierHero
+import com.zakir.vestra.ui.components.GlassErrorBanner
+import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.SpatialBackground
@@ -102,6 +105,7 @@ fun HomeScreen(
     packManager: ModelPackManager,
     generativeViewModel: GenerativeViewModel,
     newsRepository: NewsRepository? = null,
+    chatViewModel: ChatViewModel? = null,
     onNewLook: () -> Unit,
     onOpenWardrobe: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -315,6 +319,7 @@ fun HomeScreen(
                     )
                     HomeTab.NEWS -> NewsPage(
                         newsRepository = newsRepository,
+                        chatViewModel = chatViewModel,
                         onOpenNewsChat = ::openNewsChat,
                     )
                 }
@@ -514,12 +519,19 @@ private fun TryOnPage(
 @Composable
 private fun NewsPage(
     newsRepository: NewsRepository?,
+    chatViewModel: ChatViewModel?,
     onOpenNewsChat: (String?) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val newsItems by newsRepository?.items?.collectAsState() ?: remember { mutableStateOf(emptyList<NewsItem>()) }
     val newsError by newsRepository?.error?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
+
+    val chatMessages by chatViewModel?.messages?.collectAsState()
+        ?: remember { mutableStateOf(emptyList<com.zakir.vestra.shared.chat.ChatMessage>()) }
+    val chatBusy by chatViewModel?.busy?.collectAsState() ?: remember { mutableStateOf(false) }
+    val chatError by chatViewModel?.error?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
+    var chatInput by remember { mutableStateOf("") }
 
     LaunchedEffect(newsRepository) {
         if (newsRepository != null) {
@@ -561,7 +573,7 @@ private fun NewsPage(
             }
         }
         Text(
-            "Fashion and AI headlines — discuss any story in Code chat.",
+            "Fashion and AI headlines — discuss any story below.",
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,
             modifier = Modifier.padding(bottom = 12.dp),
@@ -569,23 +581,11 @@ private fun NewsPage(
 
         if (newsRepository == null) {
             GlassCard(onClick = { onOpenNewsChat(null) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.Article,
-                        contentDescription = null,
-                        tint = VestraColors.Accent,
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("News chat coming soon", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Tap to open Code chat with headline context.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = VestraColors.InkMuted,
-                        )
-                    }
-                }
+                Text(
+                    "News feed unavailable — open Code tab to chat.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VestraColors.InkMuted,
+                )
             }
             return@Column
         }
@@ -604,15 +604,18 @@ private fun NewsPage(
         if (newsItems.isEmpty() && !refreshing) {
             GlassCard(onClick = { onOpenNewsChat(null) }) {
                 Text(
-                    "No headlines yet — tap to open chat or refresh.",
+                    "No headlines yet — refresh or start a chat below.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = VestraColors.InkMuted,
                 )
             }
         } else {
-            newsItems.take(12).forEach { item ->
+            newsItems.take(8).forEach { item ->
                 Spacer(Modifier.height(8.dp))
-                GlassCard(onClick = { onOpenNewsChat(item.title) }) {
+                GlassCard(onClick = {
+                    chatInput = "Discuss this headline for modest fashion and on-device AI: ${item.title}"
+                    onOpenNewsChat(item.title)
+                }) {
                     Text(
                         item.source,
                         style = MaterialTheme.typography.labelSmall,
@@ -628,18 +631,60 @@ private fun NewsPage(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-        GlassCard(onClick = { onOpenNewsChat(null) }) {
-            Text(
-                "Open news chat",
-                style = MaterialTheme.typography.titleMedium,
-                color = VestraColors.Accent,
+        if (chatViewModel != null) {
+            Spacer(Modifier.height(20.dp))
+            GlassSectionLabel("CHAT")
+            chatMessages.takeLast(6).forEach { msg ->
+                Spacer(Modifier.height(8.dp))
+                GlassCard {
+                    Text(
+                        msg.role.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = VestraColors.Accent,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        msg.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VestraColors.Ink,
+                    )
+                }
+            }
+            if (chatError != null) {
+                Spacer(Modifier.height(8.dp))
+                GlassErrorBanner(
+                    message = chatError!!,
+                    onRetry = { chatViewModel.clearError() },
+                    retryLabel = "Dismiss",
+                    onDismiss = { chatViewModel.clearError() },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            PromptComposer(
+                prompt = chatInput,
+                onPromptChange = { chatInput = it },
+                modelLabel = "News chat",
+                assistCount = 0,
+                busy = chatBusy,
+                enabled = true,
+                onModelClick = {},
+                onSend = {
+                    val text = chatInput
+                    chatInput = ""
+                    chatViewModel.send(text)
+                },
+                onStop = { chatViewModel.cancel() },
+                placeholder = "Ask about headlines, local packs, or cloud models…",
             )
-            Text(
-                "Switch to Code tab with a prompt seeded from headlines.",
-                style = MaterialTheme.typography.bodySmall,
-                color = VestraColors.InkMuted,
-            )
+        } else {
+            Spacer(Modifier.height(16.dp))
+            GlassCard(onClick = { onOpenNewsChat(null) }) {
+                Text(
+                    "Open news chat",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = VestraColors.Accent,
+                )
+            }
         }
         Spacer(Modifier.height(24.dp))
     }
