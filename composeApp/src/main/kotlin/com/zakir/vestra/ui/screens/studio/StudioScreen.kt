@@ -128,7 +128,8 @@ fun StudioScreen(
     )
 
     val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
-    val hfReady = !appSettings.hfToken.value.isNullOrBlank()
+    val hfToken by appSettings.hfToken.collectAsState()
+    val hfReady = !hfToken.isNullOrBlank()
     val liteReady = packStates["lite-v1"]?.status == PackStatus.INSTALLED
     val statusLine = buildString {
         append(
