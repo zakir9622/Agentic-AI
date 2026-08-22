@@ -2,7 +2,6 @@ package com.zakir.vestra
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.zakir.vestra.shared.domain.EngineTier
-import com.zakir.vestra.shared.domain.HomeTabRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,6 +22,10 @@ class SettingsTierSmokeTest {
     @Test
     fun studioTabRoutesMatchHomePager() {
         assertEquals("tryon", HomeTabRoute.TRY_ON)
+        assertEquals("image", HomeTabRoute.IMAGE)
+        assertEquals("video", HomeTabRoute.VIDEO)
+        assertEquals("audio", HomeTabRoute.AUDIO)
+        assertEquals("code", HomeTabRoute.CODE)
         assertEquals("news", HomeTabRoute.NEWS)
     }
 }
