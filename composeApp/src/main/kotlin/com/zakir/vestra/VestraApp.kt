@@ -151,9 +151,9 @@ class VestraApp : Application() {
             cloudIo,
             appSettings,
             usageLedger,
-            localImage = com.zakir.vestra.shared.engine.local.PackAwareLocalImageGenerator {
-                packManager.isReady("local-sdturbo-v1")
-            },
+            localImage = com.zakir.vestra.shared.engine.local.PackAwareLocalImageGenerator(
+                packReady = { packManager.isReady("local-sdturbo-v1") },
+            ),
         )
 
         engineRouter = EngineRouter(

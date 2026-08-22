@@ -36,4 +36,23 @@ class CloudFailureTest {
         assertEquals(CloudFailure.CreditsExhausted, failure)
         assertTrue(failure.advanceModel)
     }
+
+    @Test
+    fun unknownSanitizesHostnamesInHint() {
+        val failure = CloudFailureClassifier.fromMessage(
+            "Gradio error from https://someone-tryon.hf.space/call/predict: boom",
+        )
+        assertTrue(failure is CloudFailure.Unknown)
+        val hint = failure.toUserHint()
+        assertFalse(hint.contains("hf.space", ignoreCase = true))
+        assertFalse(hint.contains("https://", ignoreCase = true))
+        assertTrue(hint.contains("[host]"))
+    }
+
+    @Test
+    fun sanitizeHostnamesStripsBareSpaceHost() {
+        val cleaned = sanitizeHostnames("failed at ootdiffusion.hf.space with 500")
+        assertFalse(cleaned.contains("ootdiffusion"))
+        assertTrue(cleaned.contains("[host]"))
+    }
 }

@@ -51,6 +51,8 @@ data class OnDevicePickerEntry(
     val displayName: String,
     val detail: String,
     val ready: Boolean,
+    /** Short status when not ready — e.g. download vs coming soon. */
+    val statusLabel: String = if (ready) "Ready offline" else "Download in Settings",
 )
 
 /**
@@ -228,7 +230,7 @@ private fun OnDevicePickerRow(entry: OnDevicePickerEntry) {
         Column(Modifier.weight(1f)) {
             Text(entry.displayName, style = MaterialTheme.typography.titleSmall, color = VestraColors.Ink)
             Text(
-                "${if (entry.ready) "Ready offline" else "Download in Settings"} · ${entry.detail}",
+                "${entry.statusLabel} · ${entry.detail}",
                 style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.InkMuted,
                 maxLines = 2,

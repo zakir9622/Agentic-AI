@@ -122,12 +122,19 @@ fun UnifiedStudioPane(
         LocalModelCatalog.forCapability(effectiveCapability)
             .filter { it.packId != null }
             .map { entry ->
-                val ready = entry.packId?.let { packStates[it]?.isReady() == true } == true
+                val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
+                val ready = packReady && entry.runnable
+                val statusLabel = when {
+                    ready -> "Ready offline"
+                    !entry.runnable -> "Coming soon · weights not published"
+                    else -> "Download in Settings"
+                }
                 OnDevicePickerEntry(
                     id = entry.id,
                     displayName = entry.displayName,
                     detail = entry.approxSizeLabel,
-                    ready = ready && entry.runnable,
+                    ready = ready,
+                    statusLabel = statusLabel,
                 )
             }
     }

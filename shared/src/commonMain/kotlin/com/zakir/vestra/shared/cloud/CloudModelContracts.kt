@@ -317,7 +317,7 @@ object CloudModelContracts {
                 msg.contains("Kotlin reflection", ignoreCase = true) ->
                 "$label failed to encode the request for ${provider.displayName}. Update the app and retry."
             msg.isBlank() -> "${c.failureHint} (${c.schemaNote})"
-            else -> "${provider.displayName}: ${msg.take(220)}"
+            else -> "${provider.displayName}: ${sanitizeHostnames(msg).take(220)}"
         }
         return prefix + body
     }

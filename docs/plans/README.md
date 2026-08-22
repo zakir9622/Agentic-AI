@@ -6,8 +6,8 @@ Active roadmaps live in separate directories so parallel workstreams do not coll
 |-----------|--------|----------|-------|--------|
 | [`stable-release/`](stable-release/) | Cursor plan audit (post v3.0.3) | **v3.0.4 RC** | Honest stable cut + path to “perfect” v3.1.0 | **Active — use this to ship** |
 | [`lookbook-v3-followup/`](lookbook-v3-followup/) | Cursor Cloud Agent review (post v3 ship) | v2.9.16 → **v3.0.x** | Finish v3 gaps: diagnostics, CI gates, dead-code cleanup, composer depth | Mostly done; E3/E4 open |
-| [`claude-code-expansion/`](claude-code-expansion/) | Claude Code improvement plan | v2.9.5 → **v3.0.x** | Models, tools, UI — HF discovery, quality packs, QNN/LCM, model health | cycle1 done; 2 done@3.0.4; 3–4 partial |
-| [`generation-stability/`](generation-stability/) | Claude Code read-only audit | v2.9.16 → **v3.0.2+** | Typed cloud failures, live model health, Gradio schemas, local image gen, harness | M1–M3/M6 core done; M4 deferred; M2 UI / M5 baselines partial |
+| [`claude-code-expansion/`](claude-code-expansion/) | Claude Code improvement plan | v2.9.5 → **v3.0.x** | Models, tools, UI — HF discovery, quality packs, QNN/LCM, model health | cycle1–3 done; cycle4 partial (QNN/LCM honesty) |
+| [`generation-stability/`](generation-stability/) | Claude Code read-only audit | v2.9.16 → **v3.0.2+** | Typed cloud failures, live model health, Gradio schemas, local image gen, harness | M1–M3/M6 done; M2 UI @3.0.5; M4 weights deferred; M5 harness dry-run |
 
 ## How to use
 

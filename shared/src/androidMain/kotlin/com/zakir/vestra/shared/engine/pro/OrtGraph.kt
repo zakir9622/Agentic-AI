@@ -10,6 +10,11 @@ import java.nio.LongBuffer
  * Thin multi-input/multi-output ONNX Runtime wrapper for the SD1.5 +
  * ControlNet + IP-Adapter graphs. Prefers NNAPI (Tensor G4 on Pixel 9) with
  * XNNPACK CPU threads as fallback.
+ *
+ * Note: [OrtSession.SessionOptions.addQnn] is attempted opportunistically, but the
+ * stock `onnxruntime-android` AAR does **not** ship Qualcomm QNN `.so` libraries —
+ * the call fails silently and NNAPI/XNNPACK win. Real NPU acceleration needs a
+ * separate ORT-QNN / Qualcomm AI Hub build (cycle4 stretch).
  */
 class OrtGraph(modelPath: String) : AutoCloseable {
 
@@ -19,7 +24,7 @@ class OrtGraph(modelPath: String) : AutoCloseable {
         OrtSession.SessionOptions().apply {
             setIntraOpNumThreads(4)
             setInterOpNumThreads(2)
-            // Prefer Qualcomm QNN on Snapdragon NPUs, then NNAPI (Tensor G4), then XNNPACK.
+            // Best-effort QNN (usually no-op without QNN EP package), then NNAPI, then XNNPACK.
             runCatching {
                 val qnnOptions = mutableMapOf<String, String>()
                 addQnn(qnnOptions)

@@ -3,8 +3,9 @@ package com.zakir.vestra.shared.engine.local
 /**
  * Offline Create Studio contract (generation-stability M4 / follow-up E4).
  *
- * Pack id: `local-sdturbo-v1`. Until ONNX weights are published, [isReady] is false
- * and [generate] returns a typed failure — cloud image gen remains the default path.
+ * Pack id: `local-sdturbo-v1`. Until ONNX weights **and** a wired runner exist,
+ * [isReady] is false and [generate] returns a typed failure — cloud image gen
+ * remains the default path.
  */
 interface LocalImageGenerator {
     fun isReady(): Boolean
@@ -21,23 +22,29 @@ object UnimplementedLocalImageGenerator : LocalImageGenerator {
     override fun isReady(): Boolean = false
     override fun generate(prompt: String, seed: Long?): LocalImageResult =
         LocalImageResult.Unavailable(
-            "Local image pack not installed — download local-sdturbo-v1 when published, " +
-                "or use cloud Create Studio.",
+            "Local image pack not published yet — use cloud Create Studio, " +
+                "or wait for local-sdturbo-v1 weights on Model packs.",
         )
 }
 
 /**
- * Ready when the pack is installed + verified. Generation still returns
- * [LocalImageResult.Unavailable] until the ONNX runner is implemented — callers
- * fall through to cloud without claiming a false success.
+ * Tracks pack install state for future use. [isReady] stays false until the
+ * ONNX runner is implemented — otherwise Create Studio would skip cloud and
+ * always fail with “runner not wired.”
  */
 class PackAwareLocalImageGenerator(
     private val packReady: () -> Boolean,
+    private val runnerImplemented: Boolean = false,
 ) : LocalImageGenerator {
-    override fun isReady(): Boolean = packReady()
+    override fun isReady(): Boolean = runnerImplemented && packReady()
 
     override fun generate(prompt: String, seed: Long?): LocalImageResult {
-        if (!isReady()) {
+        if (!runnerImplemented) {
+            return LocalImageResult.Unavailable(
+                "Local SD-Turbo runner not wired yet — using cloud Create Studio.",
+            )
+        }
+        if (!packReady()) {
             return LocalImageResult.Unavailable(
                 "Local image pack not ready — install local-sdturbo-v1 from Model packs.",
             )

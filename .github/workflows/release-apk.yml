@@ -92,7 +92,7 @@ jobs:
           NOTES="$(cat <<EOF
           Sideload release APK from \`${GITHUB_REF_NAME}\` (\`${GITHUB_SHA}\`).
 
-          **Install:** Pixel 9 / Android 8.0+. Allow unknown sources, then open the APK.
+          **Install:** Pixel 9 / Android 15+ (API 35). Allow unknown sources, then open the APK.
 
           **Engines:**
           - On-device Lite (bundled for debug) / Pro pack (~2–4 GB, Model packs)

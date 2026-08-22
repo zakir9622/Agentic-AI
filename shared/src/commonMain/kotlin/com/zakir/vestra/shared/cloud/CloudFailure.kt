@@ -85,6 +85,28 @@ sealed interface CloudFailure {
 
 class CloudFailureException(val failure: CloudFailure) : Exception(failure.toUserHint())
 
+/** Strip hostnames / URLs from user-facing error fragments. */
+fun sanitizeHostnames(raw: String): String {
+    var s = raw
+    // https://host/... or http://host
+    s = HOST_URL_REGEX.replace(s, "[host]")
+    // bare foo.hf.space / api.example.com (keep short tokens like 404)
+    s = BARE_HOST_REGEX.replace(s) { m ->
+        val host = m.value
+        if (host.contains('.') && host.any { it.isLetter() }) "[host]" else host
+    }
+    return s
+}
+
+private val HOST_URL_REGEX = Regex(
+    """https?://[^\s"'<>]+""",
+    RegexOption.IGNORE_CASE,
+)
+private val BARE_HOST_REGEX = Regex(
+    """\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:hf\.space|huggingface\.co|groq\.com|openrouter\.ai|[a-z]{2,})\b""",
+    RegexOption.IGNORE_CASE,
+)
+
 fun CloudFailure.toUserHint(): String = when (this) {
     CloudFailure.Offline -> "No internet connection"
     is CloudFailure.QuotaExhausted -> when (scope) {
@@ -100,7 +122,7 @@ fun CloudFailure.toUserHint(): String = when (this) {
     CloudFailure.Timeout -> "Request timed out"
     CloudFailure.SafetyBlocked -> "Content blocked by safety filter"
     CloudFailure.BadOutput -> "Invalid output received"
-    is CloudFailure.Unknown -> raw.take(220)
+    is CloudFailure.Unknown -> sanitizeHostnames(raw).take(220)
 }
 
 object CloudFailureClassifier {
@@ -158,7 +180,7 @@ object CloudFailureClassifier {
 
             msg.isBlank() -> CloudFailure.Unknown("Generation failed")
 
-            else -> CloudFailure.Unknown(msg.take(220))
+            else -> CloudFailure.Unknown(sanitizeHostnames(msg).take(220))
         }
     }
 }

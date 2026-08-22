@@ -46,7 +46,7 @@
 | M3 Gradio schemas | **MOSTLY DONE** |
 | M4 local image gen | **DEFERRED** — scaffold only |
 | M5 visual harness | **PARTIAL** — scripts exist; baselines/device evidence thin |
-| M6 cleanup/portability | **PARTIAL** — EpochClock/hooks done; minSdk docs + iOS open |
+| M6 cleanup/portability | **MOSTLY DONE** — EpochClock/hooks + minSdk 35 docs; iOS stretch open |
 
 ---
 
@@ -98,14 +98,14 @@ Close the remaining plan gates so offline + cloud feel “perfect,” not just �
 | Priority | Item | Closes | Status |
 |----------|------|--------|--------|
 | P0 | Ship `local-sdturbo-v1` weights + `LocalImageEngine` + airplane Create Studio proof | M4, E4 | Scaffold + pack-aware hook in `GenerativeCloudService` @ 3.0.5; weights TBD |
-| P0 | Publish `pro-v2-int8` to HF (or remove contradictory download copy) | A6, cycle2 | Copy prefers pro-v1 @ 3.0.4; HF upload TBD |
+| P0 | Publish `pro-v2-int8` to HF (or remove contradictory download copy) | A6, cycle2 | Catalog `runnable=false` @ 3.0.6 until HF; copy prefers pro-v1 |
 | P1 | Model picker / Usage show `ModelHealthTracker.observedLabel` + cooldown | M2 UI | **DONE @ 3.0.5** |
 | P1 | Blank-frame / low-variance reject in download path | M2 | **DONE @ 3.0.5** |
-| P1 | Commit `docs/screenshots/baseline/` + `visual-verify.sh --compare` green on Pixel | M5, D2 | Open (needs device) |
-| P1 | accesslint full sweep on `accesslint.config.json` routes | D1 | Open |
+| P1 | Commit `docs/screenshots/baseline/` + `visual-verify.sh --compare` green on Pixel | M5, D2 | README + `--dry-run` @ 3.0.6; PNG baselines need device |
+| P1 | accesslint full sweep on `accesslint.config.json` routes | D1 | Routes expanded @ 3.0.6; live sweep needs device |
 | P2 | Optional `lite-v2` on manifest | B1 | Open |
 | P2 | Finish SettingsScreen split; durable-storage CTA clarity | C4 | **DONE @ 3.0.6** |
-| P2 | Doc matrix: minSdk 35 (Android 15) everywhere | M6 / N | Partial @ 3.0.4 |
+| P2 | Doc matrix: minSdk 35 (Android 15) everywhere | M6 / N | **DONE @ 3.0.6** (release notes + plans) |
 | Stretch | Gemma LiteRT-LM prototype | E3 | Open |
 | Stretch | GFPGAN pack | expansion | Open |
 

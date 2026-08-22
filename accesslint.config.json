@@ -2,7 +2,7 @@
   "targets": {
     "dev": {
       "url": "http://localhost:8080",
-      "description": "Local sideload debug — start app then adb reverse"
+      "description": "Optional web mirror only — Compose Android a11y sweeps need a device/emulator + CDP (see .claude/skills/accesslint-scan). Config completeness ≠ sweep done."
     }
   },
   "defaultTarget": "dev",
@@ -13,8 +13,19 @@
     "studio/code",
     "studio/news",
     "settings",
+    "settings/cloud",
+    "settings/engines",
+    "settings/appearance",
     "settings/diagnostics",
     "usage",
-    "garment"
+    "packs",
+    "wardrobe",
+    "help",
+    "privacy",
+    "garment",
+    "casting",
+    "person",
+    "generate",
+    "result"
   ]
 }

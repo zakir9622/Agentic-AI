@@ -61,8 +61,8 @@ object LocalModelCatalog {
             engineTier = EngineTier.PRO,
             license = "CreativeML OpenRAIL-M (SD1.5)",
             approxSizeLabel = "~2 GB",
-            runnable = true,
-            testingNote = "Export ready; HF manifest upload pending — pro-v1 is the default download until hosted.",
+            runnable = false,
+            testingNote = "Export ready; HF manifest upload pending — not selectable for download until hosted. Prefer pro-v1.",
         ),
         LocalModelEntry(
             id = "local-studio-models",

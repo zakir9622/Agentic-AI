@@ -163,7 +163,7 @@ flowchart TB
 |------|------------|--------------|
 | Pro masks depend on lite-v1 | Ship lite-v2 as upgrade, not delete lite-v1 until verified | B1 |
 | ZeroGPU / HF 402 | Local fallback + clear UX (already partial) | — |
-| minSdk 35 vs plan “Android 8+” for Lite | Document device matrix; consider flavor split if Lite-only sideload needed | E |
+| minSdk 35 (Android 15+) | Documented everywhere; Lite requires Android 15+ | E / M6 |
 | Settings monolith regressions | Split files in C4 before adding features | C4 |
 | CI without integration | Stream A4 before next major feature merge | A4 |
 
