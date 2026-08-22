@@ -1,5 +1,10 @@
 # Changelog — The Lookbook
 
+## 3.0.7
+- **M4 LocalImageEngine:** `AndroidLocalImageGenerator` validates installed `local-sdturbo-v1` graphs (rejects scaffold placeholders); Create Studio stays on cloud until real weights + sampler
+- **cycle4:** `DiffusionSteps` LCM clamp (4–8) extracted + unit-tested; export scaffold sets `lcmDistilled`
+- **M5:** `scripts/catalog-matrix.py` + `verify-all-models.sh` fold local `runnable` flags into the report
+
 ## 3.0.6
 - **C4 SettingsScreen split:** widgets + general/cloud/engines/appearance section files; orchestrator ~380 lines (was ~1,180)
 - Durable-storage **primary CTA** moved off Appearance — pack download (`rememberPackDownloadStarter`) + Packs screen own enable flow; Settings shows status/tip only

@@ -97,11 +97,11 @@ Close the remaining plan gates so offline + cloud feel “perfect,” not just �
 
 | Priority | Item | Closes | Status |
 |----------|------|--------|--------|
-| P0 | Ship `local-sdturbo-v1` weights + `LocalImageEngine` + airplane Create Studio proof | M4, E4 | Scaffold + pack-aware hook in `GenerativeCloudService` @ 3.0.5; weights TBD |
+| P0 | Ship `local-sdturbo-v1` weights + `LocalImageEngine` + airplane Create Studio proof | M4, E4 | `AndroidLocalImageGenerator` @ 3.0.7; weights + sampler TBD |
 | P0 | Publish `pro-v2-int8` to HF (or remove contradictory download copy) | A6, cycle2 | Catalog `runnable=false` @ 3.0.6 until HF; copy prefers pro-v1 |
 | P1 | Model picker / Usage show `ModelHealthTracker.observedLabel` + cooldown | M2 UI | **DONE @ 3.0.5** |
 | P1 | Blank-frame / low-variance reject in download path | M2 | **DONE @ 3.0.5** |
-| P1 | Commit `docs/screenshots/baseline/` + `visual-verify.sh --compare` green on Pixel | M5, D2 | README + `--dry-run` @ 3.0.6; PNG baselines need device |
+| P1 | Commit `docs/screenshots/baseline/` + `visual-verify.sh --compare` green on Pixel | M5, D2 | README + `--dry-run` + catalog-matrix @ 3.0.7; PNG baselines need device |
 | P1 | accesslint full sweep on `accesslint.config.json` routes | D1 | Routes expanded @ 3.0.6; live sweep needs device |
 | P2 | Optional `lite-v2` on manifest | B1 | Open |
 | P2 | Finish SettingsScreen split; durable-storage CTA clarity | C4 | **DONE @ 3.0.6** |

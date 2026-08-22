@@ -1,8 +1,10 @@
 # Generation Stability — audit + iterative execution plan
 
-> **Baseline:** v2.9.16 (versionCode 41). Source audited at `06a24f1`; re-checked against
-> `5ad009b` — the commits in between are documentation only, so every finding still stands.
-> **Status:** M1–M6 substantially complete @ v3.0.2 (deadline, schema client, harness scripts, EpochClock, DiagnosticsHook handles). Quality packs birefnet-v1 + realesrgan-v1 published; local-sdturbo weights still pending.
+> **Baseline:** v2.9.16 (versionCode 41). Source audited at `06a24f1`.
+> **Status (2026-08-22):** M1–M3 + M2 UI + blank-frame **done** through v3.0.5–3.0.7.
+> M4 code path (`AndroidLocalImageGenerator`) **shipped**; **weights still pending**.
+> M5 harness scripts + catalog matrix **done**; Pixel baseline PNGs still need a device.
+> Findings A–O below are the original audit — many are **superseded** by later releases; use the Status header + `../stable-release/` as the live checklist.
 > Read-only review — no source file was changed by this document.
 >
 > **Overlaps** [`../lookbook-v3-followup/`](../lookbook-v3-followup/) on model health, quality

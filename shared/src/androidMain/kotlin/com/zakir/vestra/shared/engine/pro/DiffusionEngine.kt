@@ -208,11 +208,7 @@ class DiffusionEngine(
                 // ── Stage 3: SYNTHESIS — diffuse under structure + texture +
                 // PromptStyle guidance (CFG 7.0, 20–25 steps, mobile-safe).
                 val scheduler = DdimScheduler()
-                val steps = if (config.lcmDistilled) {
-                    minOf(8, maxOf(4, config.inferenceSteps / 4))
-                } else {
-                    config.inferenceSteps
-                }
+                val steps = DiffusionSteps.resolve(config.inferenceSteps, config.lcmDistilled)
                 val cfg = config.guidanceScale
                 val timesteps = scheduler.timesteps(steps)
                 val random = request.seed?.let { Random(it) } ?: Random(System.nanoTime())
