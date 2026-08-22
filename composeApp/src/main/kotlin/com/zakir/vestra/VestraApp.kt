@@ -75,6 +75,7 @@ class VestraApp : Application() {
         // Optional sideload seed from local.properties / LOOKBOOK_HF_TOKEN (gitignored).
         TokenSidecar.applyDefaultHfIfBlank(appSettings, BuildConfig.DEFAULT_HF_TOKEN)
         TokenSidecar.applyDefaultOpenRouterIfBlank(appSettings, BuildConfig.DEFAULT_OPENROUTER_TOKEN)
+        TokenSidecar.applyDefaultGroqIfBlank(appSettings, BuildConfig.DEFAULT_GROQ_TOKEN)
         if (DurableStorage.hasAllFilesAccess()) {
             TokenSidecar.autoFetchFromDocuments(appSettings, overwriteExisting = false)
         }

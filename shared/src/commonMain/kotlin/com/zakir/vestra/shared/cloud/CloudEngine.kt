@@ -115,7 +115,9 @@ class CloudEngine(
                     lastError = e
                     if (
                         e.message.orEmpty().contains("quota exceeded", ignoreCase = true) ||
-                        e.message.orEmpty().contains("ZeroGPU quota", ignoreCase = true)
+                        e.message.orEmpty().contains("ZeroGPU quota", ignoreCase = true) ||
+                        e.message.orEmpty().contains("exceeded your free ZeroGPU", ignoreCase = true) ||
+                        e.message.orEmpty().contains("0s left", ignoreCase = true)
                     ) {
                         throw e
                     }

@@ -122,6 +122,13 @@ object TokenSidecar {
         return true
     }
 
+    fun applyDefaultGroqIfBlank(settings: AppSettings, defaultKey: String?): Boolean {
+        val key = defaultKey?.trim()?.takeIf { it.isNotBlank() && it != "null" } ?: return false
+        if (!settings.groqApiKey.value.isNullOrBlank()) return false
+        settings.setGroqApiKey(key)
+        return true
+    }
+
     private fun applyParsed(
         parsed: TokenFileParser.Tokens,
         settings: AppSettings,

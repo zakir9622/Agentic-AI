@@ -127,7 +127,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 86,
             speedScore = 80,
-            usageNote = "Ready · ImageEditor person + cloth type. Prefer IDM if busy.",
+            usageNote = "Degraded · host often rejects queued runs. Prefer OOTDiffusion.",
         ),
         CloudModelProvider(
             id = "catvton-flux-hf",
@@ -172,7 +172,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 92,
-            usageNote = "Ready · generate_image prompt + 4-Step dropdown.",
+            usageNote = "Degraded · Space errors on every run. Prefer FLUX Schnell.",
         ),
         CloudModelProvider(
             id = "qwen-image-edit-hf",

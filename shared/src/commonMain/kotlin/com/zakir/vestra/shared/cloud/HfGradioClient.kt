@@ -58,16 +58,20 @@ class HfGradioClient(
         val credentials = if (token == null) listOf(null) else listOf(token, null)
 
         var lastEmptyError: String? = null
+        var quotaExhausted = false
         repeat(wakeRetries + 1) { attempt ->
             if (attempt > 0) delay(wakeDelayMs)
             for (credential in credentials) {
+                if (quotaExhausted && credential == null) continue
                 when (
                     val outcome =
                         attemptPredict(spaceHost, apiName, data, credential, maxPolls, pollDelayMs)
                 ) {
                     is PredictOutcome.Success -> return outcome.value
-                    // An empty error also covers a cold Space or ZeroGPU reclaiming the worker;
-                    // the same payload frequently succeeds once it has woken up.
+                    is PredictOutcome.QuotaExhausted -> {
+                        quotaExhausted = true
+                        lastEmptyError = outcome.message
+                    }
                     is PredictOutcome.EmptyError -> lastEmptyError = outcome.message
                 }
             }
@@ -95,6 +99,7 @@ class HfGradioClient(
     private sealed interface PredictOutcome {
         data class Success(val value: JsonElement) : PredictOutcome
         data class EmptyError(val message: String) : PredictOutcome
+        data class QuotaExhausted(val message: String) : PredictOutcome
     }
 
     private suspend fun attemptPredict(
@@ -155,10 +160,12 @@ class HfGradioClient(
             if (body.contains("event: error") || body.contains("\"event\":\"error\"")) {
                 val detail = gradioErrorDetail(body)
                 val message = formatGradioError(detail, spaceHost, apiName, body)
-                return if (detail.isNullOrBlank() || detail.isTransient()) {
-                    PredictOutcome.EmptyError(message)
-                } else {
-                    error(message)
+                return when {
+                    !detail.isNullOrBlank() && detail.isQuotaExhausted() ->
+                        PredictOutcome.QuotaExhausted(message)
+                    detail.isNullOrBlank() || detail.isTransient() ->
+                        PredictOutcome.EmptyError(message)
+                    else -> error(message)
                 }
             }
             if (body.contains("event: complete") || body.contains("\"event\":\"complete\"")) {
@@ -243,6 +250,12 @@ class HfGradioClient(
             contains("no gpu is currently available", ignoreCase = true) ||
             contains("No GPU was available", ignoreCase = true) ||
             contains("queue timeout", ignoreCase = true)
+
+    private fun String.isQuotaExhausted(): Boolean =
+        contains("exceeded your free ZeroGPU", ignoreCase = true) ||
+            contains("ZeroGPU quota", ignoreCase = true) ||
+            contains("quota exceeded", ignoreCase = true) ||
+            contains("0s left", ignoreCase = true)
 
     private fun formatGradioError(
         detail: String?,

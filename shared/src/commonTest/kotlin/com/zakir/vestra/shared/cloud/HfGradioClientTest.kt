@@ -132,6 +132,49 @@ class HfGradioClientTest {
     }
 
     @Test
+    fun predictSkipsAnonymousRetryWhenQuotaIsExplicit() = runTest {
+        val seenAuth = mutableListOf<String?>()
+        val engine = MockEngine { request ->
+            val auth = request.headers[HttpHeaders.Authorization]
+            if (request.method.value == "POST") {
+                seenAuth += auth
+                respond(
+                    """{"event_id":"evt-1"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            } else {
+                seenAuth += auth
+                val body = if (auth != null) {
+                    """event: error
+data: {"error": "You have exceeded your free ZeroGPU quota (60s requested vs. 0s left)."}
+
+"""
+                } else {
+                    "event: complete\ndata: [\"https://example.com/out.png\"]\n\n"
+                }
+                respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/event-stream"))
+            }
+        }
+        val http = HttpClient(engine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val failure = assertFailsWith<IllegalStateException> {
+            HfGradioClient(http).predict(
+                spaceHost = "example.hf.space",
+                apiName = "predict",
+                data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
+                hfToken = "hf_spent",
+                maxPolls = 2,
+                pollDelayMs = 1,
+                wakeRetries = 0,
+            )
+        }
+        assertTrue(failure.message.orEmpty().contains("ZeroGPU", ignoreCase = true))
+        assertEquals(listOf("Bearer hf_spent"), seenAuth.filter { it != null }.distinct())
+    }
+
+    @Test
     fun predictRejectsEmptyPayload() = runTest {
         val http = HttpClient(MockEngine { respond("", HttpStatusCode.OK) }) {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }

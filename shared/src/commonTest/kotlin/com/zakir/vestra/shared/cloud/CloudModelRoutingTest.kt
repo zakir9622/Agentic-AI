@@ -40,7 +40,15 @@ class CloudModelRoutingTest {
         val selected = CloudModelCatalog.byId("flux-schnell-hf")!!
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_GEN)
         assertEquals("flux-schnell-hf", chain.first().id)
-        assertTrue(chain.any { it.id == "sdxl-lightning-hf" })
+        assertTrue(chain.none { it.id == "sdxl-lightning-hf" })
+    }
+
+    @Test
+    fun imageFallbackIncludesReadyWhenUserSelectedDegraded() {
+        val selected = CloudModelCatalog.byId("sdxl-lightning-hf")!!
+        val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_GEN)
+        assertEquals("sdxl-lightning-hf", chain.first().id)
+        assertTrue(chain.any { it.id == "flux-schnell-hf" })
     }
 
     @Test
@@ -77,6 +85,13 @@ class CloudModelRoutingTest {
         val selected = CloudModelCatalog.byId("ootd-hf")!!
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.TRY_ON)
         assertTrue(chain.none { it.id == "fitdit-hf" })
-        assertTrue(chain.size >= 2)
+        assertEquals("ootd-hf", chain.first().id)
+    }
+
+    @Test
+    fun tryOnFallbackIncludesReadyAlternatesWhenUserSelectedDegraded() {
+        val selected = CloudModelCatalog.byId("catvton-hf")!!
+        val chain = CloudModelRouting.fallbackChain(selected, AiCapability.TRY_ON)
+        assertTrue(chain.any { it.id == "ootd-hf" })
     }
 }

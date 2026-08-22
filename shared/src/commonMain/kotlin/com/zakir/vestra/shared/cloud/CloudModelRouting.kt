@@ -13,11 +13,17 @@ object CloudModelRouting {
         capability: AiCapability,
         settings: AppSettings? = null,
     ): List<CloudModelProvider> {
+        // Degraded Spaces (503, broken upstream) waste quota seconds when chained
+        // automatically — only include them when the user explicitly picked one.
+        val allowDegradedAlternates =
+            CloudModelContracts.forProvider(selected).support == ModelSupportLevel.DEGRADED
         val alternates = CloudModelCatalog.forCapability(capability)
             .filter { candidate ->
                 candidate.id != selected.id &&
                     candidate.platform == CloudPlatform.HF_SPACE &&
                     CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED &&
+                    (allowDegradedAlternates ||
+                        CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.DEGRADED) &&
                     (settings == null || isUsable(candidate, settings))
             }
             .sortedWith(modelPriority())

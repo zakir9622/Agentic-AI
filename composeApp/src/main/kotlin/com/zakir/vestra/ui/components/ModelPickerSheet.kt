@@ -56,12 +56,15 @@ fun ModelPickerSheet(
     onDismiss: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    val filtered = remember(models, query) {
+    val selectable = remember(models) {
+        models.filter { CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED }
+    }
+    val filtered = remember(selectable, query) {
         val q = query.trim().lowercase()
         val list = if (q.isEmpty()) {
-            models
+            selectable
         } else {
-            models.filter {
+            selectable.filter {
                 it.displayName.lowercase().contains(q) ||
                     it.id.lowercase().contains(q) ||
                     it.platform.name.lowercase().contains(q) ||

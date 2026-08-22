@@ -216,6 +216,20 @@ class AppSettings(private val settings: Settings) {
             settings.putString(key, curated.id)
             return curated.id
         }
+        // Groq is the default code model but sideload builds often only seed HF/OpenRouter keys.
+        if (capability == AiCapability.CODE && stored == "llama33-70b-groq" &&
+            settings.getStringOrNull(KEY_GROQ_KEY).isNullOrBlank()
+        ) {
+            val fallback = when {
+                !settings.getStringOrNull(KEY_HF_TOKEN).isNullOrBlank() -> "qwen25-coder-hf"
+                !settings.getStringOrNull(KEY_OPENROUTER_KEY).isNullOrBlank() -> "openrouter-free"
+                else -> stored
+            }
+            if (fallback != null && fallback != stored) {
+                settings.putString(key, fallback)
+                return fallback
+            }
+        }
         val resolved = stored?.let { CloudModelCatalog.byId(it) }
             ?.takeIf { it.usableFor(capability) }
             ?: CloudModelCatalog.defaultFor(capability)

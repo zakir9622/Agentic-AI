@@ -126,7 +126,8 @@ class GenerativeCloudService(
         val msg = message.orEmpty()
         return msg.contains("quota exceeded", ignoreCase = true) ||
             msg.contains("ZeroGPU quota", ignoreCase = true) ||
-            msg.contains("exceeded your free ZeroGPU", ignoreCase = true)
+            msg.contains("exceeded your free ZeroGPU", ignoreCase = true) ||
+            msg.contains("0s left", ignoreCase = true)
     }
 
     fun generateCode(
