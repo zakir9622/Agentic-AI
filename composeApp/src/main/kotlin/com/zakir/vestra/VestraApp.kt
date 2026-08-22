@@ -96,6 +96,9 @@ class VestraApp : Application() {
             }
         }
         appSettings.networkProbe = { isNetworkAvailable(this) }
+        registerNetworkCallback(this) {
+            // Probe is re-read on each call; callback keeps Home status from going sticky-offline.
+        }
         usageLedger = UsageLedger(prefs)
         deviceProbe = AndroidDeviceProbe(this)
         runDiagnostics = RunDiagnostics(prefs) { encoded ->
@@ -189,13 +192,35 @@ class VestraApp : Application() {
             val cm = context.getSystemService(ConnectivityManager::class.java) ?: return true
             fun capable(network: android.net.Network): Boolean {
                 val caps = cm.getNetworkCapabilities(network) ?: return false
-                if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
-                // VALIDATED is ideal but often false during captive-portal / VPN handoff
-                // while 5G/Wi‑Fi is already usable — treat INTERNET as enough.
-                return true
+                if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return true
+                // Some carriers/VPN handoffs leave INTERNET unset briefly while transport is up.
+                return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
             }
             cm.activeNetwork?.let { if (capable(it)) return true }
             return cm.allNetworks.any { capable(it) }
+        }
+
+        /** Keep AppSettings probe fresh when connectivity changes (avoids sticky Offline). */
+        fun registerNetworkCallback(app: Application, onChange: () -> Unit) {
+            val cm = app.getSystemService(ConnectivityManager::class.java) ?: return
+            val request = android.net.NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            runCatching {
+                cm.registerNetworkCallback(
+                    request,
+                    object : ConnectivityManager.NetworkCallback() {
+                        override fun onAvailable(network: android.net.Network) = onChange()
+                        override fun onLost(network: android.net.Network) = onChange()
+                        override fun onCapabilitiesChanged(
+                            network: android.net.Network,
+                            networkCapabilities: NetworkCapabilities,
+                        ) = onChange()
+                    },
+                )
+            }
         }
     }
 }

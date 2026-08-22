@@ -1,6 +1,6 @@
 # The Lookbook — Project Status
 
-> Modest-wear AI studio for Android. Last updated: 2026-08-22 (**v3.0.15**).
+> Modest-wear AI studio for Android. Last updated: 2026-08-22 (**v3.0.16**).
 
 ## What this app is
 
@@ -34,6 +34,7 @@
 | Settings C4 split + durable CTA on download | ✅ **v3.0.6** |
 | Auto crash troubleshooting (append-only + abrupt-exit watchdog) | ✅ **v3.0.11** |
 | ORT CPU-default + soft startup verify (Pixel NNAPI kill fix) | ✅ **v3.0.12** |
+| Stable sideload signing (in-place APK updates) | ✅ **v3.0.16** |
 
 ## Build
 

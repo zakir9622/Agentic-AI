@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 57
-        versionName = "3.0.15"
+        versionCode = 58
+        versionName = "3.0.16"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
@@ -38,13 +38,14 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "release.keystore"
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+                ?: rootProject.file("signing/lookbook-sideload.keystore").absolutePath
             val keystoreFile = file(keystorePath)
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "lookbook"
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "lookbook-sideload"
                 keyAlias = System.getenv("KEY_ALIAS") ?: "lookbook"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "lookbook"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "lookbook-sideload"
             }
         }
     }

@@ -39,6 +39,13 @@ class CloudFailureTest {
     }
 
     @Test
+    fun failedToConnectIsTimeoutNotOffline() {
+        val failure = CloudFailureClassifier.fromMessage("failed to connect to /142.250.0.0")
+        assertEquals(CloudFailure.Timeout, failure)
+        assertTrue(failure.retryable)
+    }
+
+    @Test
     fun creditsExhaustedSkipsInferenceChain() {
         val failure = CloudFailureClassifier.fromMessage("HTTP 402: depleted your monthly Inference Providers credits")
         assertEquals(CloudFailure.CreditsExhausted, failure)

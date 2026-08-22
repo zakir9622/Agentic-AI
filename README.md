@@ -27,18 +27,15 @@ Requires JDK 17+, Android SDK (platform 36), and a device/emulator on **Android 
 
 
 ```bash
-# Generate a signing keystore (once)
-keytool -genkey -v -keystore release.keystore -alias lookbook \
-  -keyalg RSA -keysize 2048 -validity 10000
-
-# Build sideload APK
-export KEYSTORE_PATH=release.keystore KEYSTORE_PASSWORD=lookbook \
-       KEY_ALIAS=lookbook KEY_PASSWORD=lookbook
+# Sideload release uses the committed stable key (in-place updates across versions):
 ./gradlew :composeApp:assembleSideloadRelease
 
-# Install on Pixel 9
-adb install composeApp/build/outputs/apk/sideload/release/composeApp-sideload-release.apk
+# Install / update on Pixel 9 (after v3.0.16, no uninstall needed between builds)
+adb install -r composeApp/build/outputs/apk/sideload/release/*.apk
 ```
+
+> **Note:** APKs before v3.0.16 used a random CI keystore each build. Uninstall once,
+> then install v3.0.16+ — later updates install over the existing app.
 
 After install: open app → **Model packs** → download Pro pack over Wi-Fi → create a look.
 

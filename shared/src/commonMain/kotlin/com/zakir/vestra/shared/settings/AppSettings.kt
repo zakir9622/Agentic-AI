@@ -204,9 +204,9 @@ class AppSettings(private val settings: Settings) {
 
     fun preflight(capability: AiCapability): PreflightResult {
         val provider = selectedProvider(capability)
-        if (!networkLikelyAvailable()) {
-            return PreflightResult.Blocked("No internet connection. Local try-on still works offline with Lite/Pro packs.")
-        }
+        // Do not hard-block on ConnectivityManager — it often lags 5G/Wi‑Fi and caused
+        // false "No internet" while the status bar showed signal. Generation attempts
+        // the HTTP call; CloudFailureClassifier maps real DNS failures.
         if (provider.requiresApiKey && apiKeyFor(provider).isNullOrBlank()) {
             return PreflightResult.Blocked(
                 "Add a free ${provider.platform.name} API key in Settings to use ${provider.displayName}.",

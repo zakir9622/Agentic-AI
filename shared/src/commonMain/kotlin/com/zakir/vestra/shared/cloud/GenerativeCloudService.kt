@@ -85,8 +85,14 @@ class GenerativeCloudService(
                     }
                 }
             }
-            require(settings.networkLikelyAvailable()) {
-                throw CloudFailureException(CloudFailure.Offline)
+            // Probe can lag behind real 5G/Wi‑Fi — prefer attempting the request.
+            if (!settings.networkLikelyAvailable()) {
+                emit(
+                    GenerativeState.Running(
+                        0.05f,
+                        "Network probe uncertain — trying cloud anyway…",
+                    ),
+                )
             }
             val candidates = CloudModelRouting.fallbackChain(provider, capability, settings, health)
             val referenceDataUrl = referenceUri?.takeIf { it.isNotBlank() }?.let {
@@ -376,7 +382,14 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            require(settings.networkLikelyAvailable()) { "No internet connection" }
+            if (!settings.networkLikelyAvailable()) {
+                emit(
+                    GenerativeState.Running(
+                        0.05f,
+                        "Network probe uncertain — trying cloud anyway…",
+                    ),
+                )
+            }
             val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
             val system = buildCodeSystem(assists)
             val temperature = when {
@@ -482,8 +495,13 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            require(settings.networkLikelyAvailable()) {
-                throw CloudFailureException(CloudFailure.Offline)
+            if (!settings.networkLikelyAvailable()) {
+                emit(
+                    GenerativeState.Running(
+                        0.05f,
+                        "Network probe uncertain — trying cloud anyway…",
+                    ),
+                )
             }
             val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health)
             val variants = visualPromptVariants(prompt, assists)
@@ -681,7 +699,10 @@ class GenerativeCloudService(
         assists: GenerativeAssists = GenerativeAssists(),
     ): Pair<LlmResult, CloudModelProvider> {
         val provider = settings.selectedProvider(capability)
-        require(settings.networkLikelyAvailable()) { "No internet connection" }
+        // Soft gate — ConnectivityManager can briefly report offline on 5G.
+        if (!settings.networkLikelyAvailable()) {
+            // Fall through: first HTTP attempt still runs; classifier handles real Offline.
+        }
         val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
         val effectiveSystem = buildCodeSystem(assists).let { base ->
             if (system.isBlank()) base else "$base\n\n$system"

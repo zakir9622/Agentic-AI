@@ -140,15 +140,16 @@ object CloudFailureClassifier {
                 lower.contains("unknownhostexception") ||
                 lower.contains("network is unreachable") -> CloudFailure.Offline
 
-            // Mid-transfer socket drops — Space still reachable; not "no internet".
+            // Mid-transfer / peer refused — Space or DNS blip, not "phone has no internet".
             lower.contains("connection abort") ||
                 lower.contains("connection reset") ||
                 lower.contains("broken pipe") ||
                 lower.contains("econnreset") ||
                 lower.contains("econnaborted") ||
-                lower.contains("software caused connection") -> CloudFailure.Timeout
-
-            lower.contains("failed to connect") -> CloudFailure.Offline
+                lower.contains("software caused connection") ||
+                lower.contains("failed to connect") ||
+                lower.contains("connection refused") ||
+                lower.contains("connectexception") -> CloudFailure.Timeout
 
             lower.contains("402") ||
                 lower.contains("depleted your monthly") ||

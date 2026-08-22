@@ -316,8 +316,11 @@ object CloudModelContracts {
                 msg.contains("Broken pipe", ignoreCase = true) ->
                 "$label lost the connection mid-request. Retry, or pick another free model — " +
                     "or use Lite/Pro try-on offline."
-            msg.contains("failed to connect", ignoreCase = true) ->
-                "No internet connection. Reconnect and retry — or use Lite/Pro try-on offline."
+            msg.contains("failed to connect", ignoreCase = true) ||
+                msg.contains("connection refused", ignoreCase = true) ||
+                msg.contains("ConnectException", ignoreCase = true) ->
+                "$label could not reach the model host. Retry, switch model, or check VPN — " +
+                    "this is usually not a phone offline issue."
             msg.contains("Model not supported by provider", ignoreCase = true) ->
                 "HF Inference Providers rejected ${provider.displayName}. Switch to a Space model in Settings."
             msg.contains("LinkedHashMap", ignoreCase = true) ||
