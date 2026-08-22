@@ -42,10 +42,11 @@ ml/             export_lite_pack.py, export_birefnet_pack.py, manifest_gen.py
 
 ## Model packs
 
-Hosted at `Iamzakirzr/vestra-packs`:
-- `lite-v1` — Lite ONNX (~68 MB, bundled in debug)
-- `pro-v2-int8` — INT8 UNet/ControlNet (~2 GB)
-- `pro-v1` — FP16 fallback (~4.3 GB)
+Hosted at `Iamzakirzr/vestra-packs` (manifest published 2026-08-22):
+- `lite-v1` — Lite ONNX (~68 MB) — **on HF manifest** ✅
+- `pro-v1` — FP16 SD1.5 pack (~4.3 GB) — **on HF manifest** ✅
+- `pro-v2-int8` — INT8 UNet/ControlNet (~2 GB) — export pending upload
 - `birefnet-v1`, `realesrgan-v1` — optional quality packs (export via ml/)
 
-Rebuild: see [README.md](../README.md).
+Verify live manifest: `python3 scripts/verify-manifest.py`  
+Publish updates: `python3 scripts/publish-packs.py`
