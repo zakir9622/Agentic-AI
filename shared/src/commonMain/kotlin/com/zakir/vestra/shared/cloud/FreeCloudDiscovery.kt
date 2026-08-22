@@ -149,6 +149,10 @@ class FreeCloudDiscovery(
     private fun RouterModelHit.toDiscoveredProvider(capability: AiCapability): CloudModelProvider? {
         if (!matchesCapability(id, capability)) return null
         if (CloudModelCatalog.providers.any { it.endpoint == id }) return null
+        // Only surface models we have an explicit Inference route for (finding F).
+        if (capability == AiCapability.IMAGE_GEN || capability == AiCapability.IMAGE_EDIT) {
+            if (!KNOWN_INFERENCE_IMAGE_MODELS.contains(id)) return null
+        }
         return discoveredProvider(id, capability, license = "Check model card")
     }
 
@@ -210,4 +214,12 @@ private data class HfCardData(
 private data class RouterModelHit(
     val id: String,
     val ownedBy: String? = null,
+)
+
+/** Models with an explicit HfInferenceClient route — never mint blind nscale discoveries. */
+private val KNOWN_INFERENCE_IMAGE_MODELS = setOf(
+    "black-forest-labs/FLUX.1-schnell",
+    "stabilityai/sdxl-turbo",
+    "Tongyi-MAI/Z-Image-Turbo",
+    "timbrooks/instruct-pix2pix",
 )

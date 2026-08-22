@@ -96,13 +96,8 @@ class AppSettings(private val settings: Settings) {
     fun setVideoProvider(id: String) = setProvider(KEY_VIDEO, id, AiCapability.VIDEO, _videoProviderId)
 
     fun setHfToken(token: String?) {
+        // Never silently rewrite the user's model selection (finding H).
         putSecret(KEY_HF_TOKEN, token, _hfToken)
-        if (!token.isNullOrBlank()) {
-            val imageGen = _imageGenProviderId.value
-            if (imageGen == "flux-schnell-hf" || imageGen == "sdxl-lightning-hf") {
-                setImageGenProvider("flux-schnell-inference")
-            }
-        }
     }
     fun setGroqApiKey(key: String?) = putSecret(KEY_GROQ_KEY, key, _groqApiKey)
     fun setOpenRouterApiKey(key: String?) = putSecret(KEY_OPENROUTER_KEY, key, _openRouterApiKey)
@@ -233,12 +228,12 @@ class AppSettings(private val settings: Settings) {
             settings.putString(key, curated.id)
             return curated.id
         }
-        // When HF token is configured, prefer Inference Providers for image gen (OpenCode-style).
+        // Prefer Inference only when no explicit Space selection was stored.
         if (capability == AiCapability.IMAGE_GEN &&
             !settings.getStringOrNull(KEY_HF_TOKEN).isNullOrBlank()
         ) {
             val stored = settings.getStringOrNull(key)
-            if (stored == null || stored == "flux-schnell-hf" || stored == "sdxl-lightning-hf") {
+            if (stored == null) {
                 settings.putString(key, "flux-schnell-inference")
                 return "flux-schnell-inference"
             }

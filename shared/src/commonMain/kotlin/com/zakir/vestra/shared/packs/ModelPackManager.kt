@@ -15,6 +15,7 @@ import io.ktor.http.isSuccess
 import com.zakir.vestra.shared.domain.PackManifest
 import com.zakir.vestra.shared.domain.PackState
 import com.zakir.vestra.shared.domain.PackStatus
+import com.zakir.vestra.shared.time.EpochClock
 
 /**
  * Tracks which model packs exist, which are installed, and where their files
@@ -210,7 +211,7 @@ class ModelPackManager(
                 progress = 1f,
                 verifyStatus = PackVerifyStatus.VERIFIED,
                 verifyError = null,
-                verifiedAtMs = System.currentTimeMillis(),
+                verifiedAtMs = EpochClock.System.nowMs(),
             )
         }
         return true
@@ -240,7 +241,7 @@ class ModelPackManager(
                 progress = 1f,
                 verifyStatus = PackVerifyStatus.VERIFIED,
                 verifyError = null,
-                verifiedAtMs = System.currentTimeMillis(),
+                verifiedAtMs = EpochClock.System.nowMs(),
             )
         }
         return true
@@ -284,7 +285,7 @@ class ModelPackManager(
             it.copy(
                 verifyStatus = PackVerifyStatus.VERIFIED,
                 verifyError = null,
-                verifiedAtMs = System.currentTimeMillis(),
+                verifiedAtMs = EpochClock.System.nowMs(),
             )
         }
     }

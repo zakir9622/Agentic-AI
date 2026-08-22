@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.zakir.vestra.shared.time.EpochClock
 
 @Serializable
 data class UsageEvent(
@@ -69,8 +70,8 @@ class UsageLedger(private val settings: Settings) {
         val inTok = tokensIn.coerceAtLeast(0)
         val outTok = tokensOut.coerceAtLeast(0)
         val event = UsageEvent(
-            id = "${System.currentTimeMillis()}-${provider.id}",
-            timestampMs = System.currentTimeMillis(),
+            id = "${EpochClock.System.nowMs()}-${provider.id}",
+            timestampMs = EpochClock.System.nowMs(),
             providerId = provider.id,
             providerName = provider.displayName,
             platform = provider.platform.name,

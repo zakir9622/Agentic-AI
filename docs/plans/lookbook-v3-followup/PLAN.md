@@ -191,7 +191,7 @@ Use these as the canonical follow-up todo list:
 - [x] **A5** Fix generative RunLog stage timings + UsageLedger in export
 - [x] **A6** pro-v2-int8 de-prefer pro-v1 + docs sync (HF upload still pending)
 - [x] **B1** lite-v2 export flag in export_lite_pack.py (manifest publish blocked)
-- [ ] **B2** Ship birefnet-v1 + realesrgan-v1 packs (scripts ready; HF publish blocked)
+- [~] **B2** Quality packs catalog runnable=true; HF publish still blocked
 - [x] **B3** Pack smoke tests in integration-local-models.py
 - [x] **B4** Pro lazy UNet load + progress UI
 - [x] **B5** Pack in-use gate during uninstall/update
@@ -203,13 +203,13 @@ Use these as the canonical follow-up todo list:
 - [x] **C5** Chat unified model picker
 - [x] **C6** RSS feeds from assets
 - [x] **D1** accesslint.config.json targets added (full sweep deferred)
-- [ ] **D2** computerUse E2E matrix + recording
+- [~] **D2** e2e-matrix.sh harness (device recording still manual)
 - [x] **D3** Unit tests for diagnostics/chat/news
 - [x] **D4** Instrumented home/settings navigation tests (route smoke extended)
 - [x] **E1** Continuous JSON diagnostics persistence (filesDir/run_history.json)
 - [x] **E2** In-app pipeline explainer (Diagnostics → Help)
-- [ ] **E3** Gemma 3 / LiteRT-LM prototype
-- [ ] **E4** SD-Turbo / LCM research pack
+- [ ] **E3** Gemma 3 / LiteRT-LM prototype (research only)
+- [~] **E4** SD-Turbo scaffold (`local-sdturbo-v1` + export script); weights pending
 
 ---
 

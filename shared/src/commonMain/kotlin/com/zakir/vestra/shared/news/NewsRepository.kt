@@ -7,6 +7,7 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
+import com.zakir.vestra.shared.time.EpochClock
 
 @Serializable
 data class NewsItem(
@@ -58,7 +59,7 @@ class NewsRepository(
                 id = "$source-$index-${link.hashCode()}",
                 title = decodeXml(title),
                 link = link.trim(),
-                publishedMs = System.currentTimeMillis() - index * 3_600_000L,
+                publishedMs = EpochClock.System.nowMs() - index * 3_600_000L,
                 source = source,
             )
         }

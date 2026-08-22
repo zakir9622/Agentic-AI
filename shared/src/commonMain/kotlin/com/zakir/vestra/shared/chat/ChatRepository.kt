@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.zakir.vestra.shared.time.EpochClock
 
 @Serializable
 data class ChatMessage(
@@ -28,10 +29,10 @@ class ChatRepository(private val settings: Settings) {
 
     fun append(role: String, text: String, providerId: String? = null) {
         val msg = ChatMessage(
-            id = "${System.currentTimeMillis()}-$role",
+            id = "${EpochClock.System.nowMs()}-$role",
             role = role,
             text = text.trim(),
-            timestampMs = System.currentTimeMillis(),
+            timestampMs = EpochClock.System.nowMs(),
             providerId = providerId,
         )
         val updated = (_messages.value + msg).takeLast(MAX_MESSAGES)

@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.engine.lite
 
 import android.graphics.Bitmap
 import com.zakir.vestra.shared.diagnostics.DiagnosticsHook
+import com.zakir.vestra.shared.time.EpochClock
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.shared.domain.GenerationState
@@ -70,29 +71,29 @@ class LiteEngine(
             return@flow
         }
         packs.markPackInUse(PACK_ID)
-        val startedAt = System.currentTimeMillis()
+        val startedAt = EpochClock.System.nowMs()
         val diag = DiagnosticsHook.startTryOn(EngineTier.LITE)
 
         emit(GenerationState.Preparing("Reading images"))
-        var t0 = System.currentTimeMillis()
+        var t0 = EpochClock.System.nowMs()
         val garment = io.loadBitmap(request.garment.uri)
         val person = io.loadPerson(request.person)
         DiagnosticsHook.stage(diag, "read_images", t0)
         if (garment == null || person == null) {
-            DiagnosticsHook.completeTryOn(false, "Couldn't read the selected images")
+            DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
             emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
             return@flow
         }
 
         try {
             emit(GenerationState.Running(0.15f, "Extracting garment"))
-            t0 = System.currentTimeMillis()
+            t0 = EpochClock.System.nowMs()
             val garmentCut = runCatching {
                 OrtSessionCache.open("$packDir/garment_seg.onnx").let { model ->
                     extractGarment(model, garment)
                 }
             }.getOrElse { error ->
-                DiagnosticsHook.completeTryOn(false, error.message?.take(120))
+                DiagnosticsHook.completeTryOn(diag, false, error.message?.take(120))
                 emit(
                     GenerationState.Failed(
                         TryOnError.Internal(
@@ -110,11 +111,11 @@ class LiteEngine(
             val category = request.garment.category ?: GarmentClassifier.classify(garmentCut)
 
             emit(GenerationState.Running(0.45f, "Reading the body"))
-            t0 = System.currentTimeMillis()
+            t0 = EpochClock.System.nowMs()
             val region = parsing.analyze(person, category)
             DiagnosticsHook.stage(diag, "human_parse", t0, category.name)
             if (region == null) {
-                DiagnosticsHook.completeTryOn(false, "No person detected")
+                DiagnosticsHook.completeTryOn(diag, false, "No person detected")
                 emit(
                     GenerationState.Failed(
                         TryOnError.Internal("No person detected — try a clearer full-body photo"),
@@ -124,12 +125,12 @@ class LiteEngine(
             }
 
             emit(GenerationState.Running(0.7f, "Fitting the garment"))
-            t0 = System.currentTimeMillis()
+            t0 = EpochClock.System.nowMs()
             val fitted = ContourWarp.fit(garmentCut, region)
             DiagnosticsHook.stage(diag, "contour_warp", t0)
 
             emit(GenerationState.Running(0.82f, "Harmonizing light"))
-            t0 = System.currentTimeMillis()
+            t0 = EpochClock.System.nowMs()
             val composed = Harmonizer.compose(person, fitted, region)
             DiagnosticsHook.stage(diag, "harmonize", t0)
 
@@ -138,7 +139,7 @@ class LiteEngine(
                 composed
             } else {
                 emit(GenerationState.Running(0.9f, "Setting the backdrop"))
-                t0 = System.currentTimeMillis()
+                t0 = EpochClock.System.nowMs()
                 runCatching {
                     BackdropCompositor("$packDir/garment_seg.onnx").apply(composed, request.backdrop)
                 }.getOrElse { composed }.also {
@@ -147,24 +148,24 @@ class LiteEngine(
             }
 
             emit(GenerationState.Running(0.95f, "Developing"))
-            t0 = System.currentTimeMillis()
+            t0 = EpochClock.System.nowMs()
             val finalImage = QualityEnhancer.upscaleIfInstalled(quality, staged)
             val outPath = io.saveResult(Watermark.apply(finalImage))
             DiagnosticsHook.stage(diag, "finalize", t0)
 
-            DiagnosticsHook.completeTryOn(success = true, note = "${System.currentTimeMillis() - startedAt}ms total")
+            DiagnosticsHook.completeTryOn(diag, success = true, note = "${EpochClock.System.nowMs() - startedAt}ms total")
             emit(
                 GenerationState.Complete(
                     TryOnResult(
                         imagePath = outPath,
                         executedTier = EngineTier.LITE,
-                        durationMillis = System.currentTimeMillis() - startedAt,
+                        durationMillis = EpochClock.System.nowMs() - startedAt,
                         watermarked = true,
                     ),
                 ),
             )
         } catch (error: Exception) {
-            DiagnosticsHook.completeTryOn(false, error.message)
+            DiagnosticsHook.completeTryOn(diag, false, error.message)
             emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
         } finally {
             packs.markPackIdle(PACK_ID)

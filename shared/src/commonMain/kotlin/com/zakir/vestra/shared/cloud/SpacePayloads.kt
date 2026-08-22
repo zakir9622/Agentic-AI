@@ -31,8 +31,11 @@ object SpacePayloads {
             JsonPrimitive(prompt),
             JsonPrimitive("4-Step"),
         )
-        else -> listOf(JsonPrimitive(prompt))
+        else -> error("No hand-tuned image-gen payload for $providerId — use GradioSchemaClient")
     }
+
+    fun hasImageGen(providerId: String): Boolean =
+        providerId == "flux-schnell-hf" || providerId == "sdxl-lightning-hf"
 
     fun forImageEdit(providerId: String, prompt: String, imageDataUrl: String): List<JsonElement> =
         when (providerId) {
@@ -55,8 +58,11 @@ object SpacePayloads {
                 JsonPrimitive(8), // steps
                 JsonPrimitive(false), // enhance prompt — off avoids extra HF Inference call
             )
-            else -> listOf(fileData(imageDataUrl), JsonPrimitive(prompt))
+            else -> error("No hand-tuned image-edit payload for $providerId — use GradioSchemaClient")
         }
+
+    fun hasImageEdit(providerId: String): Boolean =
+        providerId == "instruct-pix2pix-hf" || providerId == "qwen-image-edit-hf"
 
     fun forVideo(providerId: String, prompt: String): List<JsonElement> = when (providerId) {
         "wan2-video-hf" -> listOf(
@@ -85,8 +91,11 @@ object SpacePayloads {
             JsonPrimitive(true), // improve texture
             JsonPrimitive(false), // slow motion
         )
-        else -> listOf(JsonPrimitive(prompt))
+        else -> error("No hand-tuned video payload for $providerId — use GradioSchemaClient")
     }
+
+    fun hasVideo(providerId: String): Boolean =
+        providerId == "wan2-video-hf" || providerId == "ltx-zerogpu-hf"
 
     /**
      * Virtual try-on payloads. Throws with a model-specific message when the

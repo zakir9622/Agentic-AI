@@ -99,12 +99,13 @@ class DiffusionEngine(
         packId.let { packs.markPackInUse(it) }
         packs.markPackInUse(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
         val startedAt = System.currentTimeMillis()
-        DiagnosticsHook.startTryOn(EngineTier.PRO, modelLabel = packId)
+        val diag = DiagnosticsHook.startTryOn(EngineTier.PRO, modelLabel = packId)
 
         emit(GenerationState.Preparing("Reading images"))
         val person = io.loadPerson(request.person)
         val garment = io.loadBitmap(request.garment.uri)
         if (person == null || garment == null) {
+            DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
             emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
             return@flow
         }
@@ -154,7 +155,7 @@ class DiffusionEngine(
                             ),
                         ),
                     )
-                    DiagnosticsHook.completeTryOn(success = true, note = "SD-ControlNet · $packId")
+                    DiagnosticsHook.completeTryOn(diag, success = true, note = "SD-ControlNet · $packId")
                     return@flow
                 } catch (error: Exception) {
                     Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
@@ -182,7 +183,7 @@ class DiffusionEngine(
                 )
                 return@flow
             }
-            log("structure_mask", t0)
+            log(diag, "structure_mask", t0)
 
             LatentCodec(packDir, config).use { codec ->
                 // ── Stage 2: TEXTURE — inject garment features (IP-Adapter). The
@@ -199,7 +200,7 @@ class DiffusionEngine(
                 val conditionLatent = codec.conditionLatent(maskedPersonLatent, garmentLatent)
                 val unconditionalLatent = codec.unconditionalLatent(maskedPersonLatent)
                 val maskConcat = codec.maskConcat(maskCanvas)
-                log("ipadapter_encode", t0)
+                log(diag, "ipadapter_encode", t0)
 
                 // ── Stage 3: SYNTHESIS — diffuse under structure + texture +
                 // PromptStyle guidance (CFG 7.0, 20–25 steps, mobile-safe).
@@ -235,14 +236,14 @@ class DiffusionEngine(
                         )
                     }
                 }
-                log("synthesis_${steps}steps_cfg${cfg}", t0)
+                log(diag, "synthesis_${steps}steps_cfg${cfg}", t0)
 
                 emit(GenerationState.Running(0.88f, "Developing"))
                 t0 = System.currentTimeMillis()
                 val decoded = codec.decodePersonHalf(sample)
                 // Keep untouched person pixels outside the inpaint mask.
                 val composed = codec.pasteBack(person, decoded, maskCanvas)
-                log("vae_decode", t0)
+                log(diag, "vae_decode", t0)
 
                 // Studio backdrop via the Lite pack's segmenter (installed as a Pro dependency).
                 val liteDir = packs.installedDir(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
@@ -267,11 +268,11 @@ class DiffusionEngine(
                         ),
                     ),
                 )
-                DiagnosticsHook.completeTryOn(success = true, note = "legacy Pro · $packId")
+                DiagnosticsHook.completeTryOn(diag, success = true, note = "legacy Pro · $packId")
             }
         } catch (error: Exception) {
             Log.e(TAG, "Pro generation failed", error)
-            DiagnosticsHook.completeTryOn(false, error.message)
+            DiagnosticsHook.completeTryOn(diag, false, error.message)
             emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
         } finally {
             packId?.let { packs.markPackIdle(it) }
@@ -279,10 +280,10 @@ class DiffusionEngine(
         }
     }.flowOn(Dispatchers.Default)
 
-    private fun log(stage: String, since: Long) {
+    private fun log(diag: DiagnosticsHook.RunHandle?, stage: String, since: Long) {
         val ms = System.currentTimeMillis() - since
         Log.i(TAG, "$stage: $ms ms (ram=${device.totalRamMb()} MB)")
-        DiagnosticsHook.stage(stage, since)
+        DiagnosticsHook.stage(diag, stage, since)
     }
 
     companion object {

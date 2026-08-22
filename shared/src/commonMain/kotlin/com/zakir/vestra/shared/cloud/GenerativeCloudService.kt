@@ -36,6 +36,7 @@ class GenerativeCloudService(
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
     private val llm = LlmClient(http)
+    private val schema = GradioSchemaClient(http)
 
     @OptIn(ExperimentalEncodingApi::class)
     fun generateImage(
@@ -64,8 +65,11 @@ class GenerativeCloudService(
             var lastFailure: CloudFailure = CloudFailure.Unknown("Image generation failed")
             var skipInference = false
             var offline = false
+            val budget = GenerationBudget.forImage()
+            emit(GenerativeState.Running(0.05f, "Budget ${GenerationBudget.IMAGE_DEADLINE_MS / 1000}s…"))
 
             for ((modelIndex, candidate) in candidates.withIndex()) {
+                budget.throwIfExpired()
                 if (offline) break
                 attempted = candidate
                 if (skipInference && candidate.platform == CloudPlatform.HF_INFERENCE) continue
@@ -83,10 +87,13 @@ class GenerativeCloudService(
                 var advanceModel = false
                 for ((index, variant) in variants.withIndex()) {
                     if (advanceModel) break
+                    budget.throwIfExpired()
+                    val remSec = budget.remainingMs() / 1000
                     emit(
                         GenerativeState.Running(
                             0.2f + index * 0.15f,
-                            if (index == 0) "Generating image…" else "Retrying with softer prompt…",
+                            if (index == 0) "Generating image… (${remSec}s left)"
+                            else "Retrying with softer prompt… (${remSec}s left)",
                         ),
                     )
                     try {
@@ -119,16 +126,18 @@ class GenerativeCloudService(
                                 )
                             }
                             CloudPlatform.HF_SPACE -> {
-                                val data = if (referenceDataUrl != null) {
-                                    SpacePayloads.forImageEdit(candidate.id, variant, referenceDataUrl)
-                                } else {
-                                    SpacePayloads.forImageGen(candidate.id, variant)
-                                }
+                                val data = resolveImageSpacePayload(
+                                    candidate,
+                                    variant,
+                                    referenceDataUrl,
+                                )
                                 val result = hf.predict(
                                     candidate.endpoint,
                                     CloudModelContracts.effectiveApiName(candidate),
                                     data,
                                     settings.hfToken.value,
+                                    maxPolls = budget.maxPolls(),
+                                    wakeRetries = 1,
                                 )
                                 val url = GradioOutput.extractMediaRef(result)
                                 emit(GenerativeState.Running(0.85f, "Downloading…"))
@@ -178,6 +187,7 @@ class GenerativeCloudService(
                 CloudFailure.CreditsExhausted -> "HTTP 402: depleted your monthly Inference Providers credits"
                 CloudFailure.Offline -> "No internet connection"
                 is CloudFailure.QuotaExhausted -> "ZeroGPU quota exceeded"
+                CloudFailure.Timeout -> "Request timed out"
                 is CloudFailure.Unknown -> failure.raw
                 else -> failure.toUserHint()
             }
@@ -197,6 +207,34 @@ class GenerativeCloudService(
                 ),
             )
         }
+    }
+
+    private suspend fun resolveImageSpacePayload(
+        candidate: CloudModelProvider,
+        variant: String,
+        referenceDataUrl: String?,
+    ): List<kotlinx.serialization.json.JsonElement> {
+        val handTuned = runCatching {
+            if (referenceDataUrl != null) {
+                if (!SpacePayloads.hasImageEdit(candidate.id)) null
+                else SpacePayloads.forImageEdit(candidate.id, variant, referenceDataUrl)
+            } else {
+                if (!SpacePayloads.hasImageGen(candidate.id)) null
+                else SpacePayloads.forImageGen(candidate.id, variant)
+            }
+        }.getOrNull()
+        if (handTuned != null) return handTuned
+        val roles = GradioSchemaClient.promptRoles(
+            prompt = variant,
+            image = referenceDataUrl?.let { SpacePayloads.fileData(it) },
+        )
+        val schemaPayload = schema.buildPayload(
+            spaceHost = candidate.endpoint,
+            apiName = CloudModelContracts.effectiveApiName(candidate),
+            roles = roles,
+        )
+        if (schemaPayload != null) return schemaPayload
+        throw CloudFailureException(CloudFailure.SchemaRejected)
     }
 
     private fun Exception.isMonthlyCreditsExhausted(): Boolean {

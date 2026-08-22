@@ -4,6 +4,7 @@ import com.russhwolf.settings.Settings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.zakir.vestra.shared.time.EpochClock
 
 /**
  * Runtime model health with exponential cooldown after failures.
@@ -96,5 +97,5 @@ class ModelHealthTracker(
         settings.putString("$KEY:$providerId", json.encodeToString(entry))
     }
 
-    private fun nowMs(): Long = System.currentTimeMillis()
+    private fun nowMs(): Long = EpochClock.System.nowMs()
 }

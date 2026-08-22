@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Deep-link visual verification — warm process + lookbook://screen/{route}.
-# Usage: scripts/visual-verify.sh [serial] [outdir]
-# Tip: adb shell cmd package compile -m speed -f com.zakir.vestra
+# Compare visual-verify screenshots against docs/screenshots/baseline/
+# Usage: scripts/visual-verify.sh [serial] [outdir] [--compare]
 set -euo pipefail
 SERIAL="${1:-emulator-5554}"
 OUT="${2:-/opt/cursor/artifacts/screenshots/visual-verify}"
+COMPARE=0
+for arg in "$@"; do
+  [[ "$arg" == "--compare" ]] && COMPARE=1
+done
 PKG=com.zakir.vestra
 POST_NAV_SLEEP="${POST_NAV_SLEEP:-3.5}"
+BASELINE_DIR="${BASELINE_DIR:-docs/screenshots/baseline}"
 mkdir -p "$OUT"
 
 shot() {
@@ -66,5 +70,14 @@ adb -s "$SERIAL" exec-out screencap -p > "$OUT/11-settings-about.png"
 echo "✓ 11-settings-about ($(wc -c < "$OUT/11-settings-about.png") bytes)"
 
 rm -f "$OUT/_probe.png"
+
+if [[ "$COMPARE" -eq 1 ]]; then
+  echo "Comparing against $BASELINE_DIR …"
+  python3 "$(dirname "$0")/compare-screenshots.py" "$BASELINE_DIR" "$OUT" || {
+    echo "visual regression detected" >&2
+    exit 2
+  }
+fi
+
 echo "Artifacts in $OUT"
 ls -lh "$OUT"
