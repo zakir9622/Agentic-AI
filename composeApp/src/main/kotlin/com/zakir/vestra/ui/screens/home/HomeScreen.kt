@@ -34,7 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Refresh
@@ -571,7 +571,7 @@ private fun NewsPage(
             GlassCard(onClick = { onOpenNewsChat(null) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Outlined.Article,
+                        Icons.AutoMirrored.Outlined.Article,
                         contentDescription = null,
                         tint = VestraColors.Accent,
                         modifier = Modifier.size(28.dp),
