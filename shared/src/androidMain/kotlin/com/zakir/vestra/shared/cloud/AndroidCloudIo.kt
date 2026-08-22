@@ -10,6 +10,7 @@ import com.zakir.vestra.shared.engine.lite.Watermark
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
+import io.ktor.http.isSuccess
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -42,7 +43,7 @@ class AndroidCloudIo(
                 val b64 = resolved.substringAfter("base64,")
                 Base64.getDecoder().decode(b64)
             }
-            resolved.startsWith("http") -> http.get(resolved).readRawBytes()
+            resolved.startsWith("http") -> fetchWithLegacyFallback(resolved)
             else -> {
                 val file = File(resolved)
                 if (file.exists()) file.readBytes()
@@ -64,6 +65,18 @@ class AndroidCloudIo(
         return out.absolutePath
     }
 
+    /** Gradio 5 serves files under `/gradio_api/file=`; Gradio 4 serves them under `/file=`. */
+    private suspend fun fetchWithLegacyFallback(url: String): ByteArray {
+        val response = http.get(url)
+        if (response.status.isSuccess()) return response.readRawBytes()
+        if (response.status.value == 404 && url.contains("/gradio_api/file=")) {
+            val legacy = url.replace("/gradio_api/file=", "/file=")
+            val retry = http.get(legacy)
+            if (retry.status.isSuccess()) return retry.readRawBytes()
+        }
+        error("Cannot fetch result (HTTP ${response.status.value}): $url")
+    }
+
     private fun stampProvenance(file: File, ext: String) {
         runCatching {
             val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
@@ -82,15 +95,18 @@ class AndroidCloudIo(
         }
     }
 
+    /**
+     * Gradio returns either a full `url` or a server-side `path`. A bare path must be fetched
+     * through the Space's `file=` route — requesting the path directly 404s.
+     */
     private fun resolveUrl(urlOrPath: String, spaceHost: String?): String {
         val trimmed = urlOrPath.trim()
         return when {
             trimmed.startsWith("http") || trimmed.startsWith("data:") -> trimmed
-            trimmed.startsWith("/") && !spaceHost.isNullOrBlank() ->
-                "https://$spaceHost$trimmed"
-            trimmed.startsWith("file=") && !spaceHost.isNullOrBlank() ->
+            spaceHost.isNullOrBlank() -> trimmed
+            trimmed.startsWith("file=") ->
                 "https://$spaceHost/gradio_api/file=${trimmed.removePrefix("file=")}"
-            !spaceHost.isNullOrBlank() && trimmed.contains("/") ->
+            trimmed.startsWith("/") || trimmed.contains("/") ->
                 "https://$spaceHost/gradio_api/file=$trimmed"
             else -> trimmed
         }

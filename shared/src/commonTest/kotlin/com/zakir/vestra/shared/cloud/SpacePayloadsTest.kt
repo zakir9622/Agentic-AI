@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.cloud
 
 import com.zakir.vestra.shared.domain.GarmentCategory
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -49,10 +50,39 @@ class SpacePayloadsTest {
         )
         assertEquals(7, data.size)
         val editor = data[0] as JsonObject
-        assertTrue(editor["background"] is JsonPrimitive)
+        assertTrue(editor["background"].isGradioFileData(), "background must be a Gradio FileData object")
         assertTrue(editor["layers"] is JsonArray)
         assertEquals(JsonNull, editor["composite"])
+        assertTrue(data[1].isGradioFileData(), "garment must be a Gradio FileData object")
         assertEquals(true, (data[3] as JsonPrimitive).content.toBoolean())
+    }
+
+    @Test
+    fun imageEditSendsFileDataNotBareDataUrl() {
+        // A bare data-URL string fails Gradio's image validation and streams back an empty
+        // error (`event: error` / `data: null`) instead of a usable message.
+        listOf("qwen-image-edit-hf", "instruct-pix2pix-hf").forEach { id ->
+            val data = SpacePayloads.forImageEdit(id, "make it emerald", "data:image/jpeg;base64,xx")
+            assertTrue(data[0].isGradioFileData(), "$id must send the reference image as FileData")
+            assertEquals("data:image/jpeg;base64,xx", (data[0] as JsonObject)["url"].primitiveContent())
+        }
+    }
+
+    @Test
+    fun ootdSendsBothImagesAsFileData() {
+        val data = SpacePayloads.forTryOn(
+            "ootd-hf",
+            "data:image/jpeg;base64,person",
+            "data:image/jpeg;base64,garment",
+            GarmentCategory.ABAYA,
+        )
+        assertTrue(data[0].isGradioFileData())
+        assertTrue(data[1].isGradioFileData())
+    }
+
+    @Test
+    fun fileDataRejectsNonImageReference() {
+        assertFailsWith<IllegalArgumentException> { SpacePayloads.fileData("/local/path.jpg") }
     }
 
     @Test
@@ -100,4 +130,33 @@ class SpacePayloadsTest {
         val msg = CloudModelContracts.friendlyFailure(provider, "HTTP 503 Service Unavailable", "Image")
         assertTrue(msg.contains("FLUX") || msg.contains("503") || msg.contains("off-peak") || msg.contains("IDM") || msg.isNotBlank())
     }
+
+    @Test
+    fun onlySpaceProvidersServeVisualCapabilities() {
+        listOf(AiCapability.TRY_ON, AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO)
+            .forEach { capability ->
+                assertTrue(capability.requiresSpace(), "$capability must require a Space")
+                CloudModelCatalog.forCapability(capability).forEach { provider ->
+                    assertEquals(CloudPlatform.HF_SPACE, provider.platform, provider.id)
+                }
+            }
+    }
+
+    @Test
+    fun defaultsPointAtModelsVerifiedAgainstLiveSpaces() {
+        assertEquals("flux-schnell-hf", CloudModelCatalog.defaultImageGenId)
+        assertEquals("ootd-hf", CloudModelCatalog.defaultTryOnId)
+        listOf(CloudModelCatalog.defaultImageGenId, CloudModelCatalog.defaultTryOnId).forEach { id ->
+            val provider = CloudModelCatalog.byId(id)!!
+            assertEquals(ModelSupportLevel.READY, CloudModelContracts.forProvider(provider).support, id)
+        }
+    }
 }
+
+private fun JsonElement?.isGradioFileData(): Boolean {
+    val obj = this as? JsonObject ?: return false
+    return obj.containsKey("url") && (obj["meta"] as? JsonObject)?.get("_type").primitiveContent() ==
+        "gradio.FileData"
+}
+
+private fun JsonElement?.primitiveContent(): String? = (this as? JsonPrimitive)?.content

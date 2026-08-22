@@ -25,6 +25,15 @@ enum class AiCapability {
 }
 
 /**
+ * Visual capabilities are executed by the Gradio Space client, so only [CloudPlatform.HF_SPACE]
+ * providers can serve them. Text capabilities use the chat clients and accept any free platform.
+ */
+fun AiCapability.requiresSpace(): Boolean = when (this) {
+    AiCapability.TRY_ON, AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> true
+    AiCapability.CODE -> false
+}
+
+/**
  * Curated **free** open-source cloud models. Every entry must be usable without payment.
  * Cost estimates are always 0; token estimates help Usage tracking for LLMs.
  */
@@ -62,7 +71,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 95,
             speedScore = 60,
-            usageNote = "Ready · tryon ImageEditor+garment+auto-mask. Free ZeroGPU.",
+            usageNote = "Degraded · host returns session errors (Aug 2026). Prefer OOTDiffusion.",
         ),
         CloudModelProvider(
             id = "leffa-hf",
@@ -90,7 +99,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 50,
-            usageNote = "Ready · process_hd model+garment+steps/guidance/seed. Queues at peak.",
+            usageNote = "Ready · process_hd verified end-to-end. Best free try-on right now.",
         ),
         CloudModelProvider(
             id = "fitdit-hf",
@@ -308,7 +317,7 @@ object CloudModelCatalog {
         return byId(preferredId) ?: forCapability(capability).first()
     }
 
-    val defaultTryOnId: String = "idm-vton-hf"
+    val defaultTryOnId: String = "ootd-hf"
     val defaultImageGenId: String = "flux-schnell-hf"
     val defaultImageEditId: String = "qwen-image-edit-hf"
     val defaultCodeId: String = "llama33-70b-groq"

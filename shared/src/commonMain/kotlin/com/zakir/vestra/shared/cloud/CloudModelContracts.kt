@@ -29,7 +29,7 @@ object CloudModelContracts {
         // ── Try-on ──────────────────────────────────────────────────────
         CloudModelContract(
             providerId = "idm-vton-hf",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf(
                 "ImageEditor(person+auto-mask)",
                 "Image(garment)",
@@ -39,8 +39,8 @@ object CloudModelContracts {
                 "Number(steps)",
                 "Number(seed)",
             ),
-            schemaNote = "tryon · 7 args (ImageEditor + garment + auto-mask)",
-            failureHint = "IDM-VTON needs a reachable ZeroGPU Space. Retry off-peak or switch to OOTDiffusion.",
+            schemaNote = "tryon · 7 args (ImageEditor + garment FileData); host returns session errors",
+            failureHint = "IDM-VTON's Space is returning session errors. Switch to OOTDiffusion in Settings.",
         ),
         CloudModelContract(
             providerId = "ootd-hf",
@@ -53,12 +53,12 @@ object CloudModelContracts {
                 "Slider(guidance)",
                 "Slider(seed)",
             ),
-            schemaNote = "process_hd · model + garment + images/steps/guidance/seed",
-            failureHint = "OOTDiffusion queue is often full. Retry later or use IDM-VTON.",
+            schemaNote = "process_hd · FileData model + garment + images/steps/guidance/seed",
+            failureHint = "OOTDiffusion needs a clear full-body photo. Retry off-peak or use CatVTON.",
         ),
         CloudModelContract(
             providerId = "catvton-hf",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf(
                 "ImageEditor(person)",
                 "Image(garment)",
@@ -68,8 +68,8 @@ object CloudModelContracts {
                 "Slider(seed)",
                 "Radio(show type)",
             ),
-            schemaNote = "submit_function · ImageEditor person + cloth type",
-            failureHint = "CatVTON failed — try IDM-VTON (more reliable auto-mask path).",
+            schemaNote = "submit_function · ImageEditor person + cloth type; host rejects queued runs",
+            failureHint = "CatVTON is rejecting runs right now. Use OOTDiffusion.",
         ),
         CloudModelContract(
             providerId = "fitdit-hf",
@@ -109,10 +109,10 @@ object CloudModelContracts {
         ),
         CloudModelContract(
             providerId = "sdxl-lightning-hf",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf("prompt", "steps dropdown"),
-            schemaNote = "generate_image · prompt + 1/2/4/8-Step",
-            failureHint = "SDXL Lightning failed — retry or switch to FLUX Schnell.",
+            schemaNote = "generate_image · Gradio 4 /call route; Space currently errors on every run",
+            failureHint = "SDXL Lightning's Space is failing upstream. Use FLUX Schnell.",
         ),
         CloudModelContract(
             providerId = "qwen-image-edit-hf",
@@ -120,17 +120,18 @@ object CloudModelContracts {
             requiredInputs = listOf(
                 "image", "prompt", "seed", "randomize", "guidance", "steps", "rewrite",
             ),
-            schemaNote = "infer · reference image + prompt + seed/guidance/steps",
-            failureHint = "Qwen Image Edit failed — ensure a reference image is attached.",
+            schemaNote = "infer · FileData image + prompt + seed/guidance/steps",
+            failureHint = "Qwen Image Edit is out of free ZeroGPU quota or waking. " +
+                "The app retries and falls back to InstructPix2Pix automatically.",
         ),
         CloudModelContract(
             providerId = "instruct-pix2pix-hf",
-            support = ModelSupportLevel.DEGRADED,
+            support = ModelSupportLevel.READY,
             requiredInputs = listOf(
                 "image", "instruction", "steps", "seed mode", "seed", "cfg mode", "text cfg", "image cfg",
             ),
-            schemaNote = "generate · image + edit instruction + CFG/seed — Space often returns empty Gradio errors",
-            failureHint = "InstructPix2Pix Space is unstable (empty Gradio errors). Prefer Qwen Image Edit, wait ~30s and retry, or switch model in the composer.",
+            schemaNote = "generate · FileData image + instruction + CFG/seed (image is output 4)",
+            failureHint = "InstructPix2Pix failed — wait ~30s and retry, or switch model in the composer.",
         ),
 
         // ── Code LLMs ───────────────────────────────────────────────────
@@ -240,11 +241,12 @@ object CloudModelContracts {
             msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true) ->
                 "$label timed out on ${provider.displayName}. Retry off-peak or pick a faster free model."
             msg.contains("waking", ignoreCase = true) ||
+                msg.contains("restarting", ignoreCase = true) ||
                 msg.contains("empty error", ignoreCase = true) ||
                 (msg.contains("event: error", ignoreCase = true) && msg.contains("null", ignoreCase = true)) ->
-                c.failureHint.ifBlank {
-                    "${provider.displayName} Space is busy or waking. Wait and retry, or switch model in the composer."
-                }
+                "${provider.displayName} is out of free GPU quota or waking up. " +
+                    "Free ZeroGPU quota refills after a while — retry later or pick another model. " +
+                    "(${c.failureHint})"
             msg.contains("NSFW", ignoreCase = true) ||
                 msg.contains("safety", ignoreCase = true) ||
                 msg.contains("content policy", ignoreCase = true) ||

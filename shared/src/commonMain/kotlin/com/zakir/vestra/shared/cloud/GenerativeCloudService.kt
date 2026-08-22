@@ -45,43 +45,58 @@ class GenerativeCloudService(
             require(provider.platform == CloudPlatform.HF_SPACE) {
                 "Only free Hugging Face Spaces are supported for images"
             }
+            // Free ZeroGPU Spaces run out of quota without warning, so a healthy sibling Space
+            // finishes the job instead of handing the user a dead end.
+            val candidates = fallbackChain(provider, capability)
+            val referenceDataUrl = referenceUri?.takeIf { it.isNotBlank() }?.let {
+                val bytes = io.loadImageBytes(it) ?: error("Couldn't read the reference image")
+                io.toDataUrl(bytes)
+            }
             val variants = visualPromptVariants(prompt, assists)
             var lastError: Exception? = null
-            for ((index, variant) in variants.withIndex()) {
-                emit(
-                    GenerativeState.Running(
-                        0.2f + index * 0.15f,
-                        if (index == 0) "Generating image…" else "Retrying with softer prompt…",
-                    ),
-                )
-                try {
-                    val data = if (!referenceUri.isNullOrBlank()) {
-                        val bytes = io.loadImageBytes(referenceUri)
-                            ?: error("Couldn't read the reference image")
-                        SpacePayloads.forImageEdit(provider.id, variant, io.toDataUrl(bytes))
-                    } else {
-                        SpacePayloads.forImageGen(provider.id, variant)
+            for ((modelIndex, candidate) in candidates.withIndex()) {
+                if (modelIndex > 0) {
+                    emit(
+                        GenerativeState.Running(
+                            0.3f,
+                            "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                        ),
+                    )
+                }
+                for ((index, variant) in variants.withIndex()) {
+                    emit(
+                        GenerativeState.Running(
+                            0.2f + index * 0.15f,
+                            if (index == 0) "Generating image…" else "Retrying with softer prompt…",
+                        ),
+                    )
+                    try {
+                        val data = if (referenceDataUrl != null) {
+                            SpacePayloads.forImageEdit(candidate.id, variant, referenceDataUrl)
+                        } else {
+                            SpacePayloads.forImageGen(candidate.id, variant)
+                        }
+                        val result = hf.predict(
+                            candidate.endpoint,
+                            CloudModelContracts.effectiveApiName(candidate),
+                            data,
+                            settings.hfToken.value,
+                        )
+                        val url = extractRef(result)
+                        emit(GenerativeState.Running(0.85f, "Downloading…"))
+                        val path = io.downloadResult(url, spaceHost = candidate.endpoint)
+                        usage.record(
+                            candidate,
+                            success = true,
+                            note = "Image · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
+                        )
+                        emit(GenerativeState.ImageReady(path, candidate.id))
+                        return@flow
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        lastError = e
                     }
-                    val result = hf.predict(
-                        provider.endpoint,
-                        CloudModelContracts.effectiveApiName(provider),
-                        data,
-                        settings.hfToken.value,
-                    )
-                    val url = extractRef(result)
-                    emit(GenerativeState.Running(0.85f, "Downloading…"))
-                    val path = io.downloadResult(url, spaceHost = provider.endpoint)
-                    usage.record(
-                        provider,
-                        success = true,
-                        note = "Image · ${CloudModelContracts.statusLabel(provider)} · ${prompt.take(80)}",
-                    )
-                    emit(GenerativeState.ImageReady(path, provider.id))
-                    return@flow
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    lastError = e
                 }
             }
             throw lastError ?: IllegalStateException("Image generation failed")
@@ -95,6 +110,21 @@ class GenerativeCloudService(
             )
             emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Image generation")))
         }
+    }
+
+    /** Selected model first, then the other healthy free Spaces for the same capability. */
+    private fun fallbackChain(
+        selected: CloudModelProvider,
+        capability: AiCapability,
+    ): List<CloudModelProvider> {
+        val alternates = CloudModelCatalog.forCapability(capability)
+            .filter {
+                it.id != selected.id &&
+                    it.platform == CloudPlatform.HF_SPACE &&
+                    CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED
+            }
+            .sortedByDescending { it.qualityScore }
+        return listOf(selected) + alternates
     }
 
     fun generateCode(
