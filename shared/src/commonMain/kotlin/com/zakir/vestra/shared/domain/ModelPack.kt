@@ -68,9 +68,28 @@ data class PackManifest(
 
 enum class PackStatus { NOT_INSTALLED, DOWNLOADING, INSTALLED, UPDATE_AVAILABLE, INCOMPATIBLE }
 
+/** ONNX / file integrity result for an installed pack. */
+enum class PackVerifyStatus { UNKNOWN, VERIFYING, VERIFIED, FAILED }
+
 data class PackState(
     val pack: ModelPack,
     val status: PackStatus,
     /** 0..1 while DOWNLOADING. */
     val progress: Float = 0f,
-)
+    val verifyStatus: PackVerifyStatus = PackVerifyStatus.UNKNOWN,
+    /** Set when [verifyStatus] is [PackVerifyStatus.FAILED]. */
+    val verifyError: String? = null,
+    val verifiedAtMs: Long? = null,
+) {
+    /** Installed **and** passed file + ONNX verification — safe to run locally. */
+    fun isReady(): Boolean =
+        status == PackStatus.INSTALLED && verifyStatus == PackVerifyStatus.VERIFIED
+
+    fun verifyLabel(): String = when (verifyStatus) {
+        PackVerifyStatus.VERIFIED -> "Verified — ready offline"
+        PackVerifyStatus.VERIFYING -> "Verifying models…"
+        PackVerifyStatus.FAILED -> verifyError ?: "Verification failed — re-download"
+        PackVerifyStatus.UNKNOWN ->
+            if (status == PackStatus.INSTALLED) "Installed — verification pending" else ""
+    }
+}

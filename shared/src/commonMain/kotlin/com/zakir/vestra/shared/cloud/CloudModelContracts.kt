@@ -109,10 +109,10 @@ object CloudModelContracts {
         ),
         CloudModelContract(
             providerId = "instruct-pix2pix-inference",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf("HF token with Inference Providers", "reference image", "prompt"),
-            schemaNote = "nscale/fal image-to-image · timbrooks/instruct-pix2pix",
-            failureHint = "HF Inference edit failed. Check HF token or pick Qwen/InstructPix2Pix Space.",
+            schemaNote = "fal/nscale image-to-image · timbrooks/instruct-pix2pix (falls back to Space edit)",
+            failureHint = "HF Inference edit failed. Switch to Qwen Image Edit or InstructPix2Pix Space in Settings.",
         ),
         CloudModelContract(
             providerId = "flux-schnell-inference",

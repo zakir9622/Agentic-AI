@@ -18,6 +18,9 @@ import com.zakir.vestra.shared.engine.lite.Watermark
 import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
 import com.zakir.vestra.shared.packs.DeviceProbe
 import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
+import com.zakir.vestra.shared.quality.QualityEnhancer
+import com.zakir.vestra.shared.quality.QualityPostProcessor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -41,6 +44,7 @@ class DiffusionEngine(
     private val io: LiteEngineIo,
     private val masker: PersonMasker,
     private val applyWatermark: Boolean = false,
+    private val quality: QualityPostProcessor = NoOpQualityPostProcessor,
 ) : TryOnEngine {
 
     override val tier: EngineTier = EngineTier.PRO
@@ -56,9 +60,12 @@ class DiffusionEngine(
                 Availability.Unavailable(UnavailableReason.DEVICE_NOT_CAPABLE)
             !packs.isInstalled(packId) ->
                 Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
-            // Pro masks the person with the Lite pack's parser, so Lite must be installed too.
+            !packs.isReady(packId) ->
+                Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED)
             !packs.isInstalled(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID) ->
                 Availability.Unavailable(UnavailableReason.COMPANION_PACK_MISSING)
+            !packs.isReady(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID) ->
+                Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED)
             else -> Availability.Ready
         }
     }
@@ -87,7 +94,8 @@ class DiffusionEngine(
                 negative = CastingPromptBuilder.buildNegative(),
             )
             val finish: (Bitmap) -> String = { bmp ->
-                io.saveResult(if (applyWatermark) Watermark.apply(bmp) else bmp)
+                val enhanced = QualityEnhancer.upscaleIfInstalled(quality, bmp)
+                io.saveResult(if (applyWatermark) Watermark.apply(enhanced) else enhanced)
             }
 
             val config = Json { ignoreUnknownKeys = true }
@@ -126,6 +134,12 @@ class DiffusionEngine(
                     return@flow
                 } catch (error: Exception) {
                     Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
+                    emit(
+                        GenerationState.Running(
+                            0.08f,
+                            "SD pack unavailable — using legacy Pro compositor…",
+                        ),
+                    )
                 }
             }
 

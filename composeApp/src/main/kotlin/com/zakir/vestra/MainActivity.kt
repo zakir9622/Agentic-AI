@@ -53,6 +53,8 @@ class MainActivity : ComponentActivity() {
                     generative = app.generative,
                     usageLedger = app.usageLedger,
                     freeCloudDiscovery = app.freeCloudDiscovery,
+                    humanParsing = app.humanParsing,
+                    liteEngineIo = app.liteEngineIo,
                     navController = navController,
                     pendingDeepLinkIntent = pendingIntent,
                     onDeepLinkHandled = { pendingIntent = null },

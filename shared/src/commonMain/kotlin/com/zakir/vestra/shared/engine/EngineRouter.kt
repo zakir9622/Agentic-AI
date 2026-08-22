@@ -28,7 +28,7 @@ class EngineRouter(private val engines: List<TryOnEngine>) {
         when (val availability = engine.isAvailable()) {
             is Availability.Ready -> Unit
             is Availability.Unavailable ->
-                return flowOf(GenerationState.Failed(availability.reason.toError()))
+                return flowOf(GenerationState.Failed(availability.reason.toError(engine.tier)))
         }
         return engine.generate(request)
     }
@@ -39,10 +39,34 @@ class EngineRouter(private val engines: List<TryOnEngine>) {
     private fun engineFor(tier: EngineTier): TryOnEngine? = engines.firstOrNull { it.tier == tier }
 }
 
-private fun UnavailableReason.toError(): TryOnError = when (this) {
-    UnavailableReason.PACK_NOT_INSTALLED -> TryOnError.ModelPackMissing
+private fun UnavailableReason.toError(tier: EngineTier): TryOnError = when (this) {
+    UnavailableReason.PACK_VERIFY_FAILED ->
+        TryOnError.Internal(
+            when (tier) {
+                EngineTier.PRO ->
+                    "Pro pack failed verification — open Settings → Model packs and re-download " +
+                        "pro-v2-int8 and lite-v1."
+                EngineTier.LITE ->
+                    "Lite pack failed verification — open Settings → Model packs and re-download lite-v1."
+                else ->
+                    "Model pack failed verification — re-download from Settings → Model packs."
+            },
+        )
+    UnavailableReason.PACK_NOT_INSTALLED ->
+        TryOnError.Internal(
+            when (tier) {
+                EngineTier.PRO ->
+                    "Pro model pack not installed. Open Settings → Model packs to download pro-v2-int8 " +
+                        "(~2 GB), and lite-v1 for human parsing."
+                EngineTier.LITE ->
+                    "Lite model pack not installed. Open Settings → Engines & packs to download lite-v1 " +
+                        "(bundled in debug builds), or switch to Cloud try-on with an HF token."
+                else ->
+                    "Model pack not installed — open Settings → Model packs."
+            },
+        )
     UnavailableReason.COMPANION_PACK_MISSING ->
-        TryOnError.Internal("Pro needs the Lite pack too — install Lite in Settings.")
+        TryOnError.Internal("Pro needs the Lite pack too — download lite-v1 in Settings → Model packs.")
     UnavailableReason.DEVICE_NOT_CAPABLE -> TryOnError.DeviceNotCapable
     UnavailableReason.OFFLINE -> TryOnError.NetworkUnavailable
     UnavailableReason.NOT_CONFIGURED -> TryOnError.Internal("Engine not configured — check Settings")

@@ -14,6 +14,10 @@ import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.CloudModelContracts
+import com.zakir.vestra.shared.domain.PackStatus
+import com.zakir.vestra.shared.domain.PackVerifyStatus
+import com.zakir.vestra.shared.local.LocalModelCatalog
+import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.usage.displayLabel
@@ -28,11 +32,13 @@ import java.util.Locale
 fun UsageScreen(
     usage: UsageLedger,
     appSettings: AppSettings? = null,
+    packManager: ModelPackManager? = null,
     onBack: () -> Unit,
     onOpenCreate: (() -> Unit)? = null,
 ) {
     val summary by usage.summary.collectAsState()
     val events by usage.events.collectAsState()
+    val packStates = packManager?.states?.collectAsState()?.value.orEmpty()
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
     val failCount = summary.totalRequests - summary.successCount
 
@@ -100,6 +106,48 @@ fun UsageScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+        if (packManager != null) {
+            GlassCard {
+                GlassSectionLabel("LOCAL PACK HEALTH")
+                val enginePacks = listOf("lite-v1", "pro-v2-int8", "pro-v1", "studio-models-v1")
+                enginePacks.forEach { id ->
+                    val state = packStates[id] ?: return@forEach
+                    Spacer(Modifier.height(6.dp))
+                    val label = when {
+                        state.isReady() -> "Verified · ready offline"
+                        state.verifyStatus == PackVerifyStatus.VERIFYING -> "Verifying ONNX…"
+                        state.verifyStatus == PackVerifyStatus.FAILED ->
+                            state.verifyError ?: "Verification failed"
+                        state.status == PackStatus.INSTALLED -> "Installed · verification pending"
+                        state.status == PackStatus.DOWNLOADING ->
+                            "Downloading ${(state.progress * 100).toInt()}%"
+                        else -> "Not installed"
+                    }
+                    Text(
+                        "${state.pack.displayName} · $label",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when {
+                            state.isReady() -> MaterialTheme.colorScheme.primary
+                            state.verifyStatus == PackVerifyStatus.FAILED ->
+                                MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+                LocalModelCatalog.runnable().filter { it.packId != null }.forEach { entry ->
+                    val id = entry.packId ?: return@forEach
+                    if (id in enginePacks) return@forEach
+                    val state = packStates[id] ?: return@forEach
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "${entry.displayName} · ${state.verifyLabel().ifBlank { state.status.name }}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
         if (appSettings != null) {
             GlassCard {
                 GlassSectionLabel("MODEL HEALTH")

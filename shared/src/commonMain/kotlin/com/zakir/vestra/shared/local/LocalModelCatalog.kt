@@ -38,7 +38,7 @@ object LocalModelCatalog {
             license = "Apache-2.0 / open ONNX graphs",
             approxSizeLabel = "~15–40 MB",
             runnable = true,
-            testingNote = "Best for fast local testing. Set Try-on engine → Lite.",
+            testingNote = "Best for fast local testing. Set Try-on engine → Lite. Debug builds bundle lite-v1.",
         ),
         LocalModelEntry(
             id = "local-pro-int8",
@@ -50,7 +50,7 @@ object LocalModelCatalog {
             license = "CreativeML OpenRAIL-M (SD1.5)",
             approxSizeLabel = "~2 GB",
             runnable = true,
-            testingNote = "Flagship phones (8 GB+ RAM). Set Try-on engine → Pro or Auto.",
+            testingNote = "Requires lite-v1 installed first (human parsing). Flagship phones 8 GB+ RAM.",
         ),
         LocalModelEntry(
             id = "local-pro-fp16",
@@ -117,8 +117,8 @@ object LocalModelCatalog {
             packId = "birefnet-v1",
             license = "MIT",
             approxSizeLabel = "~50–200 MB",
-            runnable = true,
-            testingNote = "Optional quality pack. Improves Lite/Pro edges when installed.",
+            runnable = false,
+            testingNote = "Optional · ONNX export pending on HF — post-step wired but inactive until pack ships.",
         ),
         LocalModelEntry(
             id = "local-quality-realesrgan",
@@ -128,8 +128,8 @@ object LocalModelCatalog {
             packId = "realesrgan-v1",
             license = "BSD-3-Clause",
             approxSizeLabel = "~20–70 MB",
-            runnable = true,
-            testingNote = "Optional quality pack. Seller listing polish path.",
+            runnable = false,
+            testingNote = "Optional · ONNX export pending on HF — auto-upscale when pack is installed and valid.",
         ),
         LocalModelEntry(
             id = "local-quality-gfpgan",

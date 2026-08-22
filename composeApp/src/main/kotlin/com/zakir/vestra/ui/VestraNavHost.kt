@@ -74,6 +74,8 @@ fun VestraNavHost(
     generative: GenerativeCloudService,
     usageLedger: UsageLedger,
     freeCloudDiscovery: FreeCloudDiscovery,
+    humanParsing: com.zakir.vestra.shared.engine.lite.HumanParsing,
+    liteEngineIo: com.zakir.vestra.shared.engine.lite.LiteEngineIo,
     navController: NavHostController = rememberNavController(),
     pendingDeepLinkIntent: Intent? = null,
     onDeepLinkHandled: () -> Unit = {},
@@ -173,6 +175,8 @@ fun VestraNavHost(
         ) {
             GarmentScreen(
                 viewModel = tryOnViewModel,
+                humanParsing = humanParsing,
+                liteEngineIo = liteEngineIo,
                 onBack = { navController.popBackStack() },
                 onNext = { navController.navigate(Routes.CASTING) },
             )
@@ -263,6 +267,7 @@ fun VestraNavHost(
             UsageScreen(
                 usage = usageLedger,
                 appSettings = appSettings,
+                packManager = packManager,
                 onBack = { navController.popBackStack() },
                 onOpenCreate = {
                     generativeViewModel.prepareStudio(resetIfIdle = true)

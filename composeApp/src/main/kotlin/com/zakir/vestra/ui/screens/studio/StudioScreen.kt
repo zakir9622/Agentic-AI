@@ -100,9 +100,12 @@ fun StudioScreen(
     val context = LocalContext.current
     val recent by wardrobe.entries.collectAsState()
     val packStates by packManager.states.collectAsState()
-    LaunchedEffect(Unit) { packManager.refresh() }
+    LaunchedEffect(Unit) {
+        packManager.refresh()
+        packManager.verifyAllInstalled()
+    }
     val proReady = listOf("pro-v2-int8", "pro-v1").any { id ->
-        packStates[id]?.status == PackStatus.INSTALLED
+        packStates[id]?.isReady() == true
     }
 
     var online by remember { mutableStateOf(appSettings.networkLikelyAvailable()) }
@@ -130,12 +133,14 @@ fun StudioScreen(
     val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
     val hfToken by appSettings.hfToken.collectAsState()
     val hfReady = !hfToken.isNullOrBlank()
-    val liteReady = packStates["lite-v1"]?.status == PackStatus.INSTALLED
+    val liteReady = packStates["lite-v1"]?.isReady() == true
+    val liteState = packStates["lite-v1"]
     val statusLine = buildString {
         append(
             when {
-                proReady -> "Pro ready"
-                liteReady -> "Lite ready"
+                proReady -> "Pro verified"
+                liteReady -> "Lite verified"
+                liteState?.status == PackStatus.INSTALLED -> "Lite verifying…"
                 else -> "Lite needs download"
             },
         )

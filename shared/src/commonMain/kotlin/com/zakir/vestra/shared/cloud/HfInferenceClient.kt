@@ -198,7 +198,7 @@ class HfInferenceClient(
             put("prompt", prompt)
             put("model", providerModelId)
             put("size", "${width}x$height")
-            put("image", imageB64)
+            put("image", "data:image/png;base64,$imageB64")
         }
         val response = http.post("https://router.huggingface.co/nscale/v1/images/edits") {
             header("Authorization", "Bearer $hfToken")
@@ -275,10 +275,13 @@ class HfInferenceClient(
 
     private fun editRoutesFor(modelId: String): List<ProviderRoute> = when (modelId) {
         "timbrooks/instruct-pix2pix" -> listOf(
-            ProviderRoute(RouteKind.NSCALE_EDIT, "timbrooks/instruct-pix2pix"),
             ProviderRoute(RouteKind.FAL_QUEUE_EDIT, "fal-ai/instruct-pix2pix"),
+            ProviderRoute(RouteKind.NSCALE_EDIT, "timbrooks/instruct-pix2pix"),
         )
-        else -> listOf(ProviderRoute(RouteKind.NSCALE_EDIT, modelId))
+        else -> listOf(
+            ProviderRoute(RouteKind.FAL_QUEUE_EDIT, modelId),
+            ProviderRoute(RouteKind.NSCALE_EDIT, modelId),
+        )
     }
 
     private fun routesFor(modelId: String): List<ProviderRoute> = when (modelId) {
