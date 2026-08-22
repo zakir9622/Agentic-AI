@@ -13,10 +13,10 @@ for the owner; ☑ are implemented in the codebase.
   (`Watermark`, `LiteEngineIo.saveResult`) across all three engines.
 - ☑ **Likeness consent**: first use of a personal photo requires an explicit
   acknowledgement (`PersonSourceScreen` consent dialog, persisted in settings).
-- ☐ **Input safety classifier**: v1 mitigations are the consent gate, the
-  report loop, prompt-level [InputSafetyGate] (blocks explicit NSFW prompts),
-  and (cloud tier) provider content moderation. Before wide launch, add an
-  on-device NSFW/minor-detection classifier as a small model in the Lite pack.
+- ☑ **Input safety (prompt gate)**: [InputSafetyGate] blocks explicit NSFW / prohibited
+  prompts on the generative cloud path before network calls. Consent gate + report loop
+  remain. ☐ On-device NSFW/minor-detection **classifier model** (ONNX in Lite pack) still
+  open before wide Play launch.
 - ☐ Complete the Play Console "AI-Generated Content" declaration form.
 
 ## Data safety form (answers as implemented)

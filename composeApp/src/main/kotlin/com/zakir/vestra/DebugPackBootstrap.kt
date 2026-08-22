@@ -56,7 +56,11 @@ object DebugPackBootstrap {
 
             if (completeMarker.exists()) {
                 // Re-verify on every launch — wipe corrupt installs from interrupted copies.
-                if (verifyDir(versionDir.absolutePath) == null) return
+                if (verifyDir(versionDir.absolutePath) == null) {
+                    File(versionDir, ModelPackManager.ONNX_OK_MARKER).writeText("ok")
+                    return
+                }
+                com.zakir.vestra.shared.engine.lite.OrtSessionCache.invalidateContaining(versionDir.absolutePath)
                 versionDir.deleteRecursively()
             }
 
@@ -68,6 +72,9 @@ object DebugPackBootstrap {
                     File(staging, name).outputStream().use { input.copyTo(it) }
                 }
             }
+            versionDir.parentFile?.let {
+                com.zakir.vestra.shared.engine.lite.OrtSessionCache.invalidateContaining(it.absolutePath)
+            }
             versionDir.deleteRecursively()
             versionDir.parentFile?.mkdirs()
             if (!staging.renameTo(versionDir)) {
@@ -77,10 +84,12 @@ object DebugPackBootstrap {
 
             val verifyError = verifyDir(versionDir.absolutePath)
             if (verifyError != null) {
+                com.zakir.vestra.shared.engine.lite.OrtSessionCache.invalidateContaining(versionDir.absolutePath)
                 versionDir.deleteRecursively()
                 return
             }
             completeMarker.writeText(VERSION.toString())
+            File(versionDir, ModelPackManager.ONNX_OK_MARKER).writeText("ok")
         }
     }
 

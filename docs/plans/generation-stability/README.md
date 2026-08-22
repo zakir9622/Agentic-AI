@@ -1,34 +1,16 @@
 # Generation stability — image / video / code
 
-**Status:** audit complete, execution not started
-**Baseline:** v2.9.16 (source audited @ `06a24f1`, re-checked @ `5ad009b`)
+**Status:** M1–M3 + M6 core **shipped**; M2 live-health UI + blank-frame **done @ v3.0.5**; M4 local image-gen weights **deferred** (scaffold only); M5 screenshot baselines **partial**. See [`../stable-release/`](../stable-release/).  
+**Baseline:** v2.9.16 → execution through **v3.0.5**  
 **Canonical plan:** [`PLAN.md`](PLAN.md)
 
-Read-only audit of the generation stack, triggered by repeated image-generation failures on
-device: unresolvable Space hostnames, `HTTP 400 Model not supported by provider nscale`, empty
-Gradio `event: error / data: null`, and a Model Health card reporting `Ready` for models that
-had just failed.
-
-17 findings (**A–Q**) with `file:line` evidence. Root cause of the reported failures is **A** —
-in `GenerativeCloudService.generateImage` the fallback `continue` statements target the
-prompt-variant loop instead of the model-candidate loop, so a dead model is retried three times
-with softer prompts rather than advancing to the next model.
-
-Six milestones, each with a hard gate:
-
-| # | Theme | Closes |
+| # | Theme | Status |
 |---|-------|--------|
-| M1 | Typed failures + correct fallback | A, B, E, G, J, K |
-| M2 | Live model health + generation budget | C, D, I |
-| M3 | Self-healing Gradio schema contracts | F |
-| M4 | Local on-device image generation (offline Create Studio) | L |
-| M5 | Test + visual verification harness | O |
-| M6 | Cleanup, changelog, KMP portability | H, M, N, P, Q |
+| M1 | Typed failures + correct fallback | **DONE** @ v3.0.1 |
+| M2 | Live model health + generation budget | **DONE** @ v3.0.5 (UI + blank-frame + 2 KB floor) |
+| M3 | Self-healing Gradio schema contracts | **DONE** @ v3.0.2 |
+| M4 | Local on-device image generation | **DEFERRED** — `LocalImageGenerator` scaffold @ 3.0.5 |
+| M5 | Test + visual verification harness | **PARTIAL** — scripts in CI; device baselines thin |
+| M6 | Cleanup, changelog, KMP portability | **PARTIAL** — EpochClock/hooks done; iOS open |
 
-`PLAN.md` ends with a self-contained, copy-pasteable execution prompt: findings table,
-milestones, gates, an eight-step iteration loop, and the invariants that must not be weakened
-(AUTO never selects cloud; free-tier only; watermark + EXIF provenance always; no secrets in
-release builds; Pro try-on depends on `lite-v1`).
-
-**Related:** [`../lookbook-v3-followup/`](../lookbook-v3-followup/) — overlaps on model health,
-quality packs, and CI gates. Implement once, mark done in both.
+**Related:** [`../lookbook-v3-followup/`](../lookbook-v3-followup/), [`../stable-release/`](../stable-release/).

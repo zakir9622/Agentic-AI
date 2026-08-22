@@ -1,6 +1,7 @@
 package com.zakir.vestra.ui.screens.settings
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
@@ -13,13 +14,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.BuildConfig
 import com.zakir.vestra.data.DiagnosticsExport
+import com.zakir.vestra.diagnostics.CrashReporter
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.diagnostics.RunRecord
@@ -31,6 +34,9 @@ import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DiagnosticsScreen(
@@ -42,18 +48,53 @@ fun DiagnosticsScreen(
     val records by diagnostics.records.collectAsState()
     val usageSummary by usage?.summary?.collectAsState() ?: remember { mutableStateOf(null) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
+    var crashTick by remember { mutableStateOf(0) }
+    var exporting by remember { mutableStateOf(false) }
+    val pendingCrash = remember(crashTick) { CrashReporter.hasPendingCrash() }
+    val crashSummary = remember(crashTick) { CrashReporter.lastCrashSummary() }
 
     GlassScreen(
         title = "Run diagnostics",
-        subtitle = "Local + cloud generation history",
+        subtitle = "Crashes · runs · auto-troubleshooting",
         onBack = onBack,
     ) {
+        GlassCard {
+            GlassSectionLabel("AUTO TROUBLESHOOTING")
+            Text(
+                "Crashes, abrupt process deaths (native/ORT/LMK), and app traces append and are never " +
+                    "cleared automatically. After a death, reopen → Diagnostics to see the likely cause and share the bundle.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+
+        if (pendingCrash && crashSummary != null) {
+            GlassCard {
+                GlassSectionLabel("LAST CRASH")
+                Text(
+                    crashSummary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VestraColors.Accent,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    CrashReporter.lastCrashLikelyCause().orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
         GlassCard {
             GlassSectionLabel("HOW IT WORKS")
             Text(
                 "Lite segments and warps on-device; Pro runs diffusion; cloud uses HF Spaces. " +
-                    "Each run records stage timings you can export when reporting issues.",
+                    "Each run records stage timings. Java fatals and unclean exits (session watchdog) " +
+                    "write to crash_log.txt with a classified cause.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -82,26 +123,63 @@ fun DiagnosticsScreen(
         GlassCard {
             GlassSectionLabel("EXPORT")
             Text(
-                "Share the last ${records.size.coerceAtMost(100)} runs as JSON when reporting issues.",
+                "Share runs + crash log + app trace + logcat. Crash history is append-only until you clear it here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
+            if (exporting) {
+                Text(
+                    "Preparing bundle (logcat + crash files)… keep the app open.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VestraColors.Accent,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             OutlinedButton(
                 onClick = {
-                    DiagnosticsExport.writeToFilesDir(context, diagnostics, usage)
-                    val bundle = diagnostics.exportBundle(usageSummary)
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/json"
-                        putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
-                        putExtra(Intent.EXTRA_TEXT, bundle)
+                    if (exporting) return@OutlinedButton
+                    exporting = true
+                    scope.launch {
+                        val prepared = withContext(Dispatchers.IO) {
+                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                        }
+                        exporting = false
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
+                            putExtra(Intent.EXTRA_TEXT, prepared.troubleshootingText)
+                        }
+                        context.startActivity(Intent.createChooser(send, "Share troubleshooting bundle"))
                     }
-                    context.startActivity(Intent.createChooser(send, "Export diagnostics"))
                 },
-                enabled = records.isNotEmpty(),
+                enabled = !exporting,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Share diagnostics JSON")
+                Text(if (exporting) "Preparing…" else "Share troubleshooting bundle")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    if (exporting) return@OutlinedButton
+                    exporting = true
+                    scope.launch {
+                        val prepared = withContext(Dispatchers.IO) {
+                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                        }
+                        exporting = false
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
+                            putExtra(Intent.EXTRA_TEXT, prepared.runHistoryJson)
+                        }
+                        context.startActivity(Intent.createChooser(send, "Export diagnostics"))
+                    }
+                },
+                enabled = records.isNotEmpty() && !exporting,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Share run history JSON only")
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
@@ -109,7 +187,29 @@ fun DiagnosticsScreen(
                 enabled = records.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Clear history")
+                Text("Clear run history")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    CrashReporter.clearCrashHistory()
+                    crashTick++
+                    Toast.makeText(context, "Crash log cleared", Toast.LENGTH_SHORT).show()
+                },
+                enabled = pendingCrash || CrashReporter.readCrashLog(64).isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Clear crash log (manual)")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    CrashReporter.clearAppTrace()
+                    Toast.makeText(context, "App trace cleared", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Clear app trace (manual)")
             }
         }
         Spacer(Modifier.height(24.dp))

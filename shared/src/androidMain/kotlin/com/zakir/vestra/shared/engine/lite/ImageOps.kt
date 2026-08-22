@@ -22,6 +22,22 @@ object ImageOps {
         return chw
     }
 
+    /** Unit-interval NCHW float tensor in [0,1] (Real-ESRGAN / SR models). */
+    fun toUnitChw(bitmap: Bitmap, height: Int, width: Int): FloatArray {
+        val scaled = bitmap.scale(width, height)
+        val pixels = IntArray(width * height)
+        scaled.getPixels(pixels, 0, width, 0, 0, width, height)
+        val chw = FloatArray(3 * height * width)
+        val plane = height * width
+        for (i in pixels.indices) {
+            val p = pixels[i]
+            chw[i] = (p shr 16 and 0xFF) / 255f
+            chw[plane + i] = (p shr 8 and 0xFF) / 255f
+            chw[2 * plane + i] = (p and 0xFF) / 255f
+        }
+        return chw
+    }
+
     /**
      * Min–max normalizes a single-channel map to 0..1 and resizes it (bilinear)
      * to [outWidth]×[outHeight], returned row-major.
@@ -40,6 +56,20 @@ object ImageOps {
             if (v > max) max = v
         }
         val range = (max - min).takeIf { it > 1e-6f } ?: 1f
+        return resizeMask(mask, maskWidth, maskHeight, outWidth, outHeight) { v ->
+            (v - min) / range
+        }
+    }
+
+    /** Bilinear resize of a single-channel map (optional per-value map). */
+    fun resizeMask(
+        mask: FloatArray,
+        maskWidth: Int,
+        maskHeight: Int,
+        outWidth: Int,
+        outHeight: Int,
+        map: (Float) -> Float = { it },
+    ): FloatArray {
         val out = FloatArray(outWidth * outHeight)
         for (y in 0 until outHeight) {
             val srcY = y.toFloat() * (maskHeight - 1) / (outHeight - 1).coerceAtLeast(1)
@@ -51,9 +81,9 @@ object ImageOps {
                 val x0 = srcX.toInt().coerceIn(0, maskWidth - 1)
                 val x1 = (x0 + 1).coerceAtMost(maskWidth - 1)
                 val fx = srcX - x0
-                val top = mask[y0 * maskWidth + x0] * (1 - fx) + mask[y0 * maskWidth + x1] * fx
-                val bottom = mask[y1 * maskWidth + x0] * (1 - fx) + mask[y1 * maskWidth + x1] * fx
-                out[y * outWidth + x] = ((top * (1 - fy) + bottom * fy) - min) / range
+                val top = map(mask[y0 * maskWidth + x0]) * (1 - fx) + map(mask[y0 * maskWidth + x1]) * fx
+                val bottom = map(mask[y1 * maskWidth + x0]) * (1 - fx) + map(mask[y1 * maskWidth + x1]) * fx
+                out[y * outWidth + x] = top * (1 - fy) + bottom * fy
             }
         }
         return out

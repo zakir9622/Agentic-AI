@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.domain.PackState
 import com.zakir.vestra.shared.domain.PackStatus
+import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.content.LookbookCopy
@@ -57,6 +58,20 @@ fun PacksScreen(
         packManager.refresh()
     }
 
+    // Finish packs left on "verification pending" (e.g. pre-.onnx_ok installs).
+    LaunchedEffect(states) {
+        val pendingIds = states.values
+            .filter {
+                it.status == PackStatus.INSTALLED &&
+                    it.verifyStatus == PackVerifyStatus.UNKNOWN
+            }
+            .map { it.pack.id }
+        if (pendingIds.isEmpty()) return@LaunchedEffect
+        withContext(Dispatchers.Default) {
+            pendingIds.forEach { id -> packManager.verifyInstalled(id) }
+        }
+    }
+
     GlassScreen(
         title = LookbookCopy.STUDIO_PACKS,
         subtitle = "On-device · resumable · survives reinstall",
@@ -73,20 +88,20 @@ fun PacksScreen(
                 if (durableReady) {
                     "Durable: Documents/TheLookbook/packs — survives uninstall. Reinstall detects packs automatically."
                 } else {
-                    "Enable durable storage before downloading so packs remain after uninstall/reinstall."
+                    "Tap Download on a pack to enable durable storage (all-files access) so multi-GB packs survive uninstall/reinstall."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (!durableReady) {
                 Spacer(Modifier.height(8.dp))
-                Button(
+                OutlinedButton(
                     onClick = {
                         runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Enable durable storage")
+                    Text("Enable durable storage now")
                 }
             }
         }

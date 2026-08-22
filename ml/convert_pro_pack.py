@@ -44,7 +44,7 @@ from pathlib import Path
 
 IMG, LAT, OPSET = 512, 64, 18
 # Pixel 9 (12 GB RAM) and similar flagships.
-MIN_SPEC = {"minRamMb": 10000, "requiresNpu": False, "minSdk": 26}
+MIN_SPEC = {"minRamMb": 10000, "requiresNpu": False, "minSdk": 35}
 
 
 def log(*a):

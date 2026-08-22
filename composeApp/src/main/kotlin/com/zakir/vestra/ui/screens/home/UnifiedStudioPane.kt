@@ -72,6 +72,7 @@ fun UnifiedStudioPane(
     val prompt by viewModel.prompt.collectAsState()
     val reference by viewModel.referenceUri.collectAsState()
     val state by viewModel.state.collectAsState()
+    val liveLog by viewModel.liveLog.collectAsState()
     val preflight by viewModel.preflightMessage.collectAsState()
     val creative by viewModel.creativeMode.collectAsState()
     val pragmatic by viewModel.pragmaticMode.collectAsState()
@@ -122,12 +123,19 @@ fun UnifiedStudioPane(
         LocalModelCatalog.forCapability(effectiveCapability)
             .filter { it.packId != null }
             .map { entry ->
-                val ready = entry.packId?.let { packStates[it]?.isReady() == true } == true
+                val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
+                val ready = packReady && entry.runnable
+                val statusLabel = when {
+                    ready -> "Ready offline"
+                    !entry.runnable -> "Coming soon · not for this studio yet"
+                    else -> "Download in Settings · Try-on uses Lite/Pro"
+                }
                 OnDevicePickerEntry(
                     id = entry.id,
                     displayName = entry.displayName,
                     detail = entry.approxSizeLabel,
-                    ready = ready && entry.runnable,
+                    ready = ready,
+                    statusLabel = statusLabel,
                 )
             }
     }
@@ -188,8 +196,21 @@ fun UnifiedStudioPane(
     ) {
         GlassSectionLabel(subtitle.uppercase())
         Text(
-            estimate,
+            when (capability) {
+                AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
+                    "Cloud free models. On-device Lite/Pro packs power Try-on — local Create Studio ships when SD-Turbo weights publish."
+                AiCapability.VIDEO ->
+                    "Cloud HF Spaces only for now — no on-device video pack yet."
+                AiCapability.CODE ->
+                    "Cloud LLMs (Groq / OpenRouter / HF). No on-device coding model in this build."
+                else -> estimate
+            },
             style = MaterialTheme.typography.bodySmall,
+            color = VestraColors.InkMuted,
+        )
+        Text(
+            estimate,
+            style = MaterialTheme.typography.labelSmall,
             color = VestraColors.InkMuted,
         )
         if (preflightChip != null && preflight == null) {
@@ -289,13 +310,23 @@ fun UnifiedStudioPane(
         }
 
         Spacer(Modifier.height(12.dp))
+        val failedMsg = (state as? GenerativeState.Failed)?.message.orEmpty()
+        val quotaOrCredits = failedMsg.contains("ZeroGPU", ignoreCase = true) ||
+            failedMsg.contains("monthly credits", ignoreCase = true) ||
+            failedMsg.contains("Inference Providers", ignoreCase = true)
         ResultPane(
             state = state,
+            liveLog = liveLog,
             onCancel = { viewModel.forceStop() },
             onRetry = {
                 viewModel.clearResult()
-                onGenerate()
+                if (quotaOrCredits) {
+                    showModelPicker = true
+                } else {
+                    onGenerate()
+                }
             },
+            retryLabel = if (quotaOrCredits) "Choose model" else LookbookCopy.ACTION_RETRY,
             onDismiss = viewModel::clearResult,
         )
         Spacer(Modifier.height(24.dp))
@@ -313,6 +344,7 @@ fun UnifiedStudioPane(
             models = pickerModels,
             selectedId = selectedId,
             onDeviceEntries = onDeviceEntries,
+            health = viewModel.appSettings.modelHealth,
             onSelect = { chosen ->
                 when (effectiveCapability) {
                     AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)

@@ -24,6 +24,7 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
 import com.zakir.vestra.shared.quality.QualityEnhancer
 import com.zakir.vestra.shared.quality.QualityPostProcessor
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -101,16 +102,16 @@ class DiffusionEngine(
         val startedAt = System.currentTimeMillis()
         val diag = DiagnosticsHook.startTryOn(EngineTier.PRO, modelLabel = packId)
 
-        emit(GenerationState.Preparing("Reading images"))
-        val person = io.loadPerson(request.person)
-        val garment = io.loadBitmap(request.garment.uri)
-        if (person == null || garment == null) {
-            DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
-            emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
-            return@flow
-        }
-
         try {
+            emit(GenerationState.Preparing("Reading images"))
+            val person = io.loadPerson(request.person)
+            val garment = io.loadBitmap(request.garment.uri)
+            if (person == null || garment == null) {
+                DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
+                emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
+                return@flow
+            }
+
             val category = request.garment.category?.effectiveCategory()
                 ?: GarmentClassifier.classify(garment)
             val promptSpec = com.zakir.vestra.shared.engine.pipeline.PromptSpec(
@@ -157,6 +158,8 @@ class DiffusionEngine(
                     )
                     DiagnosticsHook.completeTryOn(diag, success = true, note = "SD-ControlNet · $packId")
                     return@flow
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
                     emit(
@@ -205,11 +208,7 @@ class DiffusionEngine(
                 // ── Stage 3: SYNTHESIS — diffuse under structure + texture +
                 // PromptStyle guidance (CFG 7.0, 20–25 steps, mobile-safe).
                 val scheduler = DdimScheduler()
-                val steps = if (config.lcmDistilled) {
-                    minOf(8, maxOf(4, config.inferenceSteps / 4))
-                } else {
-                    config.inferenceSteps
-                }
+                val steps = DiffusionSteps.resolve(config.inferenceSteps, config.lcmDistilled)
                 val cfg = config.guidanceScale
                 val timesteps = scheduler.timesteps(steps)
                 val random = request.seed?.let { Random(it) } ?: Random(System.nanoTime())
@@ -270,6 +269,8 @@ class DiffusionEngine(
                 )
                 DiagnosticsHook.completeTryOn(diag, success = true, note = "legacy Pro · $packId")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             Log.e(TAG, "Pro generation failed", error)
             DiagnosticsHook.completeTryOn(diag, false, error.message)
@@ -295,13 +296,13 @@ class DiffusionEngine(
 private fun UnavailableReason.toProError(): TryOnError = when (this) {
     UnavailableReason.PACK_VERIFY_FAILED ->
         TryOnError.Internal(
-            "Pro pack failed verification — open Settings → Model packs and re-download pro-v2-int8 and lite-v1.",
+            "Pro pack failed verification — open Settings → Model packs and re-download pro-v1 (or pro-v2-int8) and lite-v1.",
         )
     UnavailableReason.PACK_VERIFY_PENDING ->
         TryOnError.Internal("Model packs are still verifying — wait a moment and try again.")
     UnavailableReason.PACK_NOT_INSTALLED ->
         TryOnError.Internal(
-            "Pro model pack not installed. Open Settings → Model packs to download pro-v2-int8 (~2 GB) and lite-v1.",
+            "Pro model pack not installed. Open Settings → Model packs to download pro-v1 (~4.3 GB) and lite-v1.",
         )
     UnavailableReason.COMPANION_PACK_MISSING ->
         TryOnError.Internal("Pro needs the Lite pack too — download lite-v1 in Settings → Model packs.")

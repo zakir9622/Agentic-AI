@@ -42,6 +42,10 @@ class GenerativeViewModel(
     private val _state = MutableStateFlow<GenerativeState?>(null)
     val state: StateFlow<GenerativeState?> = _state
 
+    /** Rolling live console lines for the current generation (newest last). */
+    private val _liveLog = MutableStateFlow<List<String>>(emptyList())
+    val liveLog: StateFlow<List<String>> = _liveLog
+
     private val _preflightMessage = MutableStateFlow<String?>(null)
     val preflightMessage: StateFlow<String?> = _preflightMessage
 
@@ -145,6 +149,7 @@ class GenerativeViewModel(
     fun prepareStudio(resetIfIdle: Boolean = true) {
         if (!resetIfIdle || isBusy) return
         _state.value = null
+        _liveLog.value = emptyList()
         _preflightMessage.value = null
         _prompt.value = ""
         _referenceUri.value = null
@@ -153,7 +158,7 @@ class GenerativeViewModel(
     fun preflightLabel(capability: AiCapability): String? {
         return when (val check = appSettings.preflight(capability)) {
             is PreflightResult.Blocked -> check.reason
-            is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.statusLabel(check.provider)}"
+            is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.liveStatusLabel(check.provider, appSettings.modelHealth)}"
         }
     }
 
@@ -226,6 +231,7 @@ class GenerativeViewModel(
         job?.cancel(CancellationException("force_stop"))
         job = null
         generationEpoch++
+        appendLive("Stopped by user")
         _state.value = if (showStopped) {
             GenerativeState.Failed("Stopped. Tap Generate to run again.")
         } else {
@@ -235,7 +241,16 @@ class GenerativeViewModel(
 
     fun clearResult() {
         forceStop(showStopped = false)
+        _liveLog.value = emptyList()
         _preflightMessage.value = null
+    }
+
+    private fun appendLive(line: String) {
+        val stamped = line.take(160)
+        _liveLog.value = (_liveLog.value + stamped).takeLast(40)
+        runCatching {
+            com.zakir.vestra.diagnostics.CrashReporter.i("Gen", stamped)
+        }
     }
 
     private fun startGeneration(
@@ -246,7 +261,9 @@ class GenerativeViewModel(
         job?.cancel()
         val epoch = ++generationEpoch
         _preflightMessage.value = null
+        _liveLog.value = emptyList()
         _state.value = GenerativeState.Preparing("Starting…")
+        appendLive("Start · ${capability.name} · ${modelLabel ?: "model"}")
         val builder = runDiagnostics?.startRun(
             capability = capability,
             tier = EngineTier.CLOUD,
@@ -261,30 +278,37 @@ class GenerativeViewModel(
                     if (epoch != generationEpoch) return@collect
                     _state.value = next
                     when (next) {
+                        is GenerativeState.Preparing -> appendLive(next.message)
                         is GenerativeState.Running -> {
+                            appendLive(next.stage)
                             val now = System.currentTimeMillis()
                             builder?.stage(next.stage, now - lastStageAt)
                             lastStageAt = now
                         }
                         is GenerativeState.ImageReady -> {
+                            appendLive("Image ready")
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Create")
                             builder?.complete(success = true, note = next.providerId)
                         }
                         is GenerativeState.VideoReady -> {
+                            appendLive("Video ready")
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Video")
                             builder?.complete(success = true, note = next.providerId)
                         }
                         is GenerativeState.CodeReady -> {
+                            appendLive("Code ready · ${next.tokensIn}+${next.tokensOut} tokens")
                             _lastUsedProviderId.value = next.providerId
                             builder?.complete(
                                 success = true,
                                 note = "${next.providerId} · ${next.tokensIn}+${next.tokensOut} tokens",
                             )
                         }
-                        is GenerativeState.Failed -> builder?.complete(success = false, error = next.message)
-                        else -> Unit
+                        is GenerativeState.Failed -> {
+                            appendLive("Failed · ${next.message.take(120)}")
+                            builder?.complete(success = false, error = next.message)
+                        }
                     }
                 }
             } catch (_: CancellationException) {
@@ -292,6 +316,7 @@ class GenerativeViewModel(
             } catch (e: Exception) {
                 if (epoch == generationEpoch) {
                     val msg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
+                    appendLive("Error · $msg")
                     _state.value = GenerativeState.Failed(msg)
                     builder?.complete(success = false, error = msg)
                 }

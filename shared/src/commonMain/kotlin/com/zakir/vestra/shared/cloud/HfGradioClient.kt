@@ -46,6 +46,7 @@ class HfGradioClient(
         pollDelayMs: Long = 2_000,
         wakeRetries: Int = 1,
         wakeDelayMs: Long = 8_000,
+        onPoll: suspend (pollIndex: Int, maxPolls: Int) -> Unit = { _, _ -> },
     ): JsonElement {
         require(spaceHost.isNotBlank()) { "Space host is empty" }
         require(apiName.isNotBlank()) { "Gradio api name is empty" }
@@ -64,7 +65,9 @@ class HfGradioClient(
                 if (quotaExhausted && credential == null) continue
                 when (
                     val outcome =
-                        attemptPredict(spaceHost, apiName, data, credential, maxPolls, pollDelayMs)
+                        attemptPredict(
+                            spaceHost, apiName, data, credential, maxPolls, pollDelayMs, onPoll,
+                        )
                 ) {
                     is PredictOutcome.Success -> return outcome.value
                     is PredictOutcome.QuotaExhausted -> {
@@ -108,6 +111,7 @@ class HfGradioClient(
         hfToken: String?,
         maxPolls: Int,
         pollDelayMs: Long,
+        onPoll: suspend (pollIndex: Int, maxPolls: Int) -> Unit = { _, _ -> },
     ): PredictOutcome {
         val base = "https://$spaceHost"
         val payload = buildJsonObject {
@@ -150,7 +154,8 @@ class HfGradioClient(
         val id = eventId ?: error(lastFailure ?: "Hugging Face Space $spaceHost/$apiName is unreachable")
         synchronized(prefixLock) { prefixCache[spaceHost] = usedPrefix }
 
-        repeat(maxPolls) {
+        repeat(maxPolls) { pollIndex ->
+            onPoll(pollIndex, maxPolls)
             val poll = http.get("$base$usedPrefix/call/$apiName/$id") {
                 hfToken?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }
             }

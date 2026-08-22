@@ -83,9 +83,22 @@ class VestraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Install BEFORE other init so early crashes are captured and logs append forever.
+        com.zakir.vestra.diagnostics.CrashReporter.install(this)
         val prefs = SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE))
         appSettings = AppSettings(prefs)
+        // CPU-only ORT by default; Engines toggle can opt into NNAPI.
+        com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi = appSettings.preferNnapi.value
+        appScope.launch {
+            appSettings.preferNnapi.collect { enabled ->
+                com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi = enabled
+                com.zakir.vestra.shared.engine.lite.OrtSessionCache.clearAll()
+            }
+        }
         appSettings.networkProbe = { isNetworkAvailable(this) }
+        registerNetworkCallback(this) {
+            // Probe is re-read on each call; callback keeps Home status from going sticky-offline.
+        }
         usageLedger = UsageLedger(prefs)
         deviceProbe = AndroidDeviceProbe(this)
         runDiagnostics = RunDiagnostics(prefs) { encoded ->
@@ -116,6 +129,9 @@ class VestraApp : Application() {
             http = http,
             manifestUrl = PACKS_MANIFEST_URL,
             integrityChecker = AndroidPackIntegrityChecker(),
+            onPackFilesChanging = { packRoot ->
+                com.zakir.vestra.shared.engine.lite.OrtSessionCache.invalidateContaining(packRoot)
+            },
         )
         PackDownloadWorker.dependencies = { packManager }
         appScope.launch {
@@ -143,7 +159,13 @@ class VestraApp : Application() {
             http,
             applyVisibleWatermark = true, // always stamp AI provenance on cloud outputs
         )
-        generative = GenerativeCloudService(http, cloudIo, appSettings, usageLedger)
+        generative = GenerativeCloudService(
+            http,
+            cloudIo,
+            appSettings,
+            usageLedger,
+            localImage = com.zakir.vestra.shared.engine.local.AndroidLocalImageGenerator(packManager),
+        )
 
         engineRouter = EngineRouter(
             listOf(
@@ -165,11 +187,40 @@ class VestraApp : Application() {
         const val PACKS_MANIFEST_URL =
             "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json"
 
+        @Suppress("DEPRECATION")
         fun isNetworkAvailable(context: Context): Boolean {
-            val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
-            val network = cm.activeNetwork ?: return false
-            val caps = cm.getNetworkCapabilities(network) ?: return false
-            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            val cm = context.getSystemService(ConnectivityManager::class.java) ?: return true
+            fun capable(network: android.net.Network): Boolean {
+                val caps = cm.getNetworkCapabilities(network) ?: return false
+                if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return true
+                // Some carriers/VPN handoffs leave INTERNET unset briefly while transport is up.
+                return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            }
+            cm.activeNetwork?.let { if (capable(it)) return true }
+            return cm.allNetworks.any { capable(it) }
+        }
+
+        /** Keep AppSettings probe fresh when connectivity changes (avoids sticky Offline). */
+        fun registerNetworkCallback(app: Application, onChange: () -> Unit) {
+            val cm = app.getSystemService(ConnectivityManager::class.java) ?: return
+            val request = android.net.NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            runCatching {
+                cm.registerNetworkCallback(
+                    request,
+                    object : ConnectivityManager.NetworkCallback() {
+                        override fun onAvailable(network: android.net.Network) = onChange()
+                        override fun onLost(network: android.net.Network) = onChange()
+                        override fun onCapabilitiesChanged(
+                            network: android.net.Network,
+                            networkCapabilities: NetworkCapabilities,
+                        ) = onChange()
+                    },
+                )
+            }
         }
     }
 }

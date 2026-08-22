@@ -153,7 +153,11 @@ class LatentCodec(
     private fun session(file: String): OrtSession =
         env.createSession(
             "$packDir/$file",
-            OrtSession.SessionOptions().apply { runCatching { addNnapi() } },
+            OrtSession.SessionOptions().apply {
+                if (com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi) {
+                    runCatching { addNnapi() }
+                }
+            },
         )
 
     private fun runVae(session: OrtSession, chw: FloatArray, height: Int, width: Int): FloatArray {

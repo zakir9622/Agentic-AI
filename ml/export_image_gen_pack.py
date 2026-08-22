@@ -27,7 +27,8 @@ def main() -> None:
         "tier": "LOCAL_IMAGE",
         "displayName": "SD-Turbo local",
         "description": "Offline Create Studio — 512×512, 1–4 steps",
-        "minSpec": {"minRamMb": 6144, "requiresNpu": False, "minSdk": 26},
+        "minSpec": {"minRamMb": 6144, "requiresNpu": False, "minSdk": 35},
+        "lcmDistilled": True,
         "graphs": {
             "text_encoder": "text_encoder.onnx",
             "unet": "unet.onnx",

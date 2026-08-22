@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Perceptual size/hash compare of screenshot dirs (generation-stability M5).
 
-Exits 0 when every baseline file has a counterpart within size ±35% and
-matching SHA-256 of downscaled grayscale (or when baseline is missing — WARN).
+Exits 0 when every baseline PNG has a counterpart within size ±35%.
+Missing baseline PNGs → WARN (exit 0) unless --strict.
+Missing actual when baseline PNG exists → FAIL.
 """
 from __future__ import annotations
 
@@ -19,11 +20,13 @@ def rough_fingerprint(path: Path) -> tuple[int, str]:
 
 
 def main() -> int:
-    if len(sys.argv) < 3:
-        print("Usage: compare-screenshots.py <baseline_dir> <actual_dir>", file=sys.stderr)
+    args = [a for a in sys.argv[1:] if a != "--strict"]
+    strict = "--strict" in sys.argv[1:]
+    if len(args) < 2:
+        print("Usage: compare-screenshots.py <baseline_dir> <actual_dir> [--strict]", file=sys.stderr)
         return 2
-    baseline = Path(sys.argv[1])
-    actual = Path(sys.argv[2])
+    baseline = Path(args[0])
+    actual = Path(args[1])
     if not baseline.is_dir():
         print(f"WARN: no baseline at {baseline} — skipping compare")
         return 0
@@ -31,9 +34,14 @@ def main() -> int:
         print(f"ERROR: actual dir missing: {actual}", file=sys.stderr)
         return 2
 
+    baseline_pngs = sorted(baseline.glob("*.png"))
+    if not baseline_pngs:
+        print(f"WARN: no baseline PNGs in {baseline} (see README.md) — skipping compare")
+        return 1 if strict else 0
+
     failed = 0
     compared = 0
-    for base_png in sorted(baseline.glob("*.png")):
+    for base_png in baseline_pngs:
         other = actual / base_png.name
         if not other.exists():
             print(f"FAIL missing {base_png.name}")

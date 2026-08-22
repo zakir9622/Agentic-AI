@@ -19,45 +19,28 @@ What remains is **quality depth** (model packs, composer controls), **CI/review 
 
 ---
 
-## What shipped (baseline @ v2.9.16)
+## What shipped (baseline @ v2.9.16 → v3.0.6)
 
-### Phase 1 — Diagnostics (~85%)
-- `RunDiagnostics`, `DiagnosticsHook`, engine stage timings (Lite / Pro / Cloud try-on)
-- Settings → Diagnostics: export JSON, “What happened?” on failures
-- `docs/BACKEND_PIPELINE.md`, `scripts/benchmark-local.py`, `scripts/benchmark-cloud.py`
+### Phase 1 — Diagnostics
+- `RunDiagnostics`, `DiagnosticsHook`, engine stage timings; Settings → Diagnostics export
+- Logcat snippet + app version in export bundle @ **v3.0.8**
 
-**Gaps:** Generative cloud runs log 0 ms stages; `UsageLedger` not merged into export; runtime store is SharedPreferences (export writes JSON on share only); no logcat snippet in bundle.
+### Phase 2 — Local models
+- Quality packs on HF + runners @ 3.0.4; pro prefers `pro-v1` until int8 uploaded
+- **Open:** `lite-v2` publish; `pro-v2-int8` HF; SD-Turbo weights (E4)
 
-### Phase 2 — Local models (~35%)
-- `OrtSessionCache`, `docs/LOCAL_MODEL_RESEARCH.md`, catalog filters non-runnable in settings picker
+### Phase 3–4 — Home + unified composer
+- Pager, dead-studio cleanup, on-device picker group, CFG/steps/seed — **done**
 
-**Gaps:** `lite-v2` not exported; BiRefNet / Real-ESRGAN packs not on HF manifest; `pro-v2-int8` export pending upload; UI still says Lite/Pro not Fast/Pro local try-on.
+### Phase 5 — Settings
+- Hub + Cloud / Engines / Appearance section files @ 3.0.6; durable CTA on pack download
 
-### Phase 3 — Home navigation (~90%)
-- `HomeScreen` HorizontalPager: Try-on → Image → Video → Code → News
-- Deep links redirect legacy routes
+### Phase 6 — News & Chat
+- Unified picker + RSS from assets — **done**
 
-**Gaps:** ~1,350 lines dead studio screens; News headline tap scrolls to **Code** tab instead of News chat.
-
-### Phase 4 — Unified composer (~60%)
-- `UnifiedStudioPane` + evolved `PromptComposer` + grouped `ModelPickerSheet` (HF / Groq / OpenRouter)
-
-**Gaps:** No On-device group in picker; no CFG/steps/seed for Pro; no per-model dynamic advanced panel.
-
-### Phase 5 — Settings (~80%)
-- Hub + filtered Cloud / Engines / Appearance / Diagnostics subsections; permission chips read-only
-
-**Gaps:** “Enable durable storage” button still in Appearance; monolithic `SettingsScreen.kt` (~1,180 lines).
-
-### Phase 6 — News & Chat (~85%)
-- `NewsRepository`, `ChatRepository`, `NewsChatScreen`, headline context in system prompt
-
-**Gaps:** Chat uses fixed CODE provider from Settings; RSS URLs hardcoded (not assets); headline handoff bug.
-
-### Phase 7 — Test & release (~40%)
-- Unit tests in CI; sideload release APK workflow; v2.9.16 green
-
-**Gaps:** Integration scripts, benchmarks, probes, instrumented tests, accesslint, computerUse matrix **not in CI**.
+### Phase 7 — Test & release
+- Unit tests + integration/benchmarks in CI; accesslint routes expanded @ 3.0.6
+- **Open:** live accesslint sweep + Pixel visual baseline PNGs (need device)
 
 ---
 
@@ -163,7 +146,7 @@ flowchart TB
 |------|------------|--------------|
 | Pro masks depend on lite-v1 | Ship lite-v2 as upgrade, not delete lite-v1 until verified | B1 |
 | ZeroGPU / HF 402 | Local fallback + clear UX (already partial) | — |
-| minSdk 35 vs plan “Android 8+” for Lite | Document device matrix; consider flavor split if Lite-only sideload needed | E |
+| minSdk 35 (Android 15+) | Documented everywhere; Lite requires Android 15+ | E / M6 |
 | Settings monolith regressions | Split files in C4 before adding features | C4 |
 | CI without integration | Stream A4 before next major feature merge | A4 |
 
@@ -191,25 +174,25 @@ Use these as the canonical follow-up todo list:
 - [x] **A5** Fix generative RunLog stage timings + UsageLedger in export
 - [x] **A6** pro-v2-int8 de-prefer pro-v1 + docs sync (HF upload still pending)
 - [x] **B1** lite-v2 export flag in export_lite_pack.py (manifest publish blocked)
-- [x] **B2** Ship birefnet-v1 + realesrgan-v1 packs to HF manifest
+- [x] **B2** Ship birefnet-v1 + realesrgan-v1 packs to HF manifest (+ v3.0.4 runners)
 - [x] **B3** Pack smoke tests in integration-local-models.py
 - [x] **B4** Pro lazy UNet load + progress UI
-- [x] **B5** Pack in-use gate during uninstall/update
+- [x] **B5** Pack in-use gate during uninstall/update (+ v3.0.4 refcount / ORT invalidate)
 - [x] **B6** UI copy: Local try-on Fast/Pro
 - [x] **C1** On-device group in ModelPickerSheet
 - [x] **C2** Dynamic advanced panel (CFG/steps/seed)
 - [x] **C3** Wire advanced params to engines (GenerativeAssists + HF Inference path)
-- [x] **C4** Settings hub sections (SettingsScreen split partial — hub/cloud/engines/appearance shipped)
+- [x] **C4** SettingsScreen split into widgets + section files; durable CTA on pack download only
 - [x] **C5** Chat unified model picker
 - [x] **C6** RSS feeds from assets
 - [x] **D1** accesslint.config.json targets added (full sweep deferred)
 - [~] **D2** e2e-matrix.sh harness (device recording still manual)
 - [x] **D3** Unit tests for diagnostics/chat/news
 - [x] **D4** Instrumented home/settings navigation tests (route smoke extended)
-- [x] **E1** Continuous JSON diagnostics persistence (filesDir/run_history.json)
+- [x] **E1** Continuous JSON diagnostics persistence (filesDir/run_history.json) + logcat in export @ 3.0.8
 - [x] **E2** In-app pipeline explainer (Diagnostics → Help)
 - [ ] **E3** Gemma 3 / LiteRT-LM prototype (research only)
-- [~] **E4** SD-Turbo scaffold (`local-sdturbo-v1` + export script); weights pending
+- [~] **E4** SD-Turbo: `AndroidLocalImageGenerator` + export scaffold @ 3.0.7; weights pending
 
 ---
 

@@ -5,6 +5,9 @@ name: Release APK
 # - push to cursor/** feature branches → "preview" pre-release (always overwritten)
 # - tags v* → versioned release
 # - workflow_dispatch → same as branch rules above
+#
+# IMPORTANT: Uses signing/lookbook-sideload.keystore (committed). Never generate a
+# fresh keystore here — that breaks in-place updates ("App not installed").
 
 on:
   push:
@@ -32,19 +35,18 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate release keystore
+      - name: Verify stable sideload keystore
         run: |
-          keytool -genkey -v -keystore release.keystore -alias lookbook \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass lookbook -keypass lookbook \
-            -dname "CN=The Lookbook, OU=Mobile, O=Vestra, L=Local, ST=NA, C=US"
+          test -f signing/lookbook-sideload.keystore
+          keytool -list -keystore signing/lookbook-sideload.keystore \
+            -storepass lookbook-sideload -alias lookbook
 
       - name: Assemble sideload release APK
         env:
-          KEYSTORE_PATH: release.keystore
-          KEYSTORE_PASSWORD: lookbook
+          KEYSTORE_PATH: signing/lookbook-sideload.keystore
+          KEYSTORE_PASSWORD: lookbook-sideload
           KEY_ALIAS: lookbook
-          KEY_PASSWORD: lookbook
+          KEY_PASSWORD: lookbook-sideload
         run: ./gradlew :composeApp:assembleSideloadRelease --no-daemon
 
       - name: Stage APK
@@ -92,15 +94,17 @@ jobs:
           NOTES="$(cat <<EOF
           Sideload release APK from \`${GITHUB_REF_NAME}\` (\`${GITHUB_SHA}\`).
 
-          **Install:** Pixel 9 / Android 8.0+. Allow unknown sources, then open the APK.
+          **Install / update:** Pixel 9 / Android 15+ (API 35). Signed with the stable
+          \`signing/lookbook-sideload.keystore\` so later versions update **in place**.
+
+          - **First time on a device that had an older CI APK:** uninstall once, then install this build.
+          - **After v3.0.16+:** open the new APK — Android updates without uninstall.
 
           **Engines:**
-          - On-device Lite (bundled for debug) / Pro pack (~2–4 GB, Model packs)
-          - Cloud try-on: Hugging Face Spaces (free), Replicate, fal.ai
-          - Create Studio: prompt image gen / edit
-          - Code & Video: open-source cloud models (configure in Settings)
+          - On-device Lite / Pro packs (Try-on)
+          - Cloud Image / Video / Code (HF Spaces + Inference; configure token in Settings)
 
-          Download Pro from **Settings → Model packs** inside the app (one-time, fully offline after).
+          Download packs from **Settings → Model packs** (one-time; offline after).
           EOF
           )"
           gh release delete "${TAG}" --yes --cleanup-tag 2>/dev/null || true

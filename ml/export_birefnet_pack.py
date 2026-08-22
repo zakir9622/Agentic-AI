@@ -27,7 +27,7 @@ def write_meta(out: Path) -> None:
         "tier": "LITE",
         "displayName": "BiRefNet matting",
         "description": "Cleaner garment/person mattes for Lite and Pro try-on.",
-        "minSpec": {"minRamMb": 4096, "requiresNpu": False, "minSdk": 26},
+        "minSpec": {"minRamMb": 4096, "requiresNpu": False, "minSdk": 35},
         "kind": "QUALITY",
         "license": "MIT",
     }

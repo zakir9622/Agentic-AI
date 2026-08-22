@@ -33,6 +33,11 @@ class ModelPackManager(
     private val http: HttpClient,
     private val manifestUrl: String,
     private val integrityChecker: PackIntegrityChecker = NoOpPackIntegrityChecker,
+    /**
+     * Called before pack files are deleted or replaced (uninstall / install commit).
+     * Android closes cached ORT sessions that point into [packRoot].
+     */
+    private val onPackFilesChanging: (packRoot: String) -> Unit = {},
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -46,18 +51,27 @@ class ModelPackManager(
     /** Serializes ONNX verification (install + startup) so parallel callers cannot OOM. */
     private val integrityLock = Any()
 
-    /** Pack IDs referenced by an active engine run — blocks [uninstall]. */
-    private val activePackIds = mutableSetOf<String>()
+    /**
+     * Refcount of pack IDs referenced by active engine / quality runs.
+     * Blocks [uninstall], [completeInstall], and [commitVerifiedInstall] while > 0.
+     */
+    private val activePackCounts = mutableMapOf<String, Int>()
 
     fun markPackInUse(id: String) {
-        synchronized(activePackIds) { activePackIds.add(id) }
+        synchronized(activePackCounts) {
+            activePackCounts[id] = (activePackCounts[id] ?: 0) + 1
+        }
     }
 
     fun markPackIdle(id: String) {
-        synchronized(activePackIds) { activePackIds.remove(id) }
+        synchronized(activePackCounts) {
+            val next = (activePackCounts[id] ?: 0) - 1
+            if (next <= 0) activePackCounts.remove(id) else activePackCounts[id] = next
+        }
     }
 
-    fun isPackInUse(id: String): Boolean = synchronized(activePackIds) { id in activePackIds }
+    fun isPackInUse(id: String): Boolean =
+        synchronized(activePackCounts) { (activePackCounts[id] ?: 0) > 0 }
 
     /** Loads the last manifest fetched (offline start), then refreshes over the network. */
     suspend fun refresh(networkAllowed: Boolean = true) {
@@ -123,7 +137,13 @@ class ModelPackManager(
         }
     }
 
-    /** Verifies every installed pack; call after [refresh] on startup. */
+    /**
+     * Re-checks installed packs after [refresh] on startup.
+     *
+     * Already-[PackVerifyStatus.VERIFIED] packs only re-check file sizes (no ONNX
+     * session create) to avoid a verify→native-kill→restart storm on Pixel-class devices.
+     * Unverified / failed packs still run the full integrity path once.
+     */
     suspend fun verifyAllInstalled() = withContext(Dispatchers.Default) {
         synchronized(integrityLock) {
             _states.value.values
@@ -131,11 +151,20 @@ class ModelPackManager(
                 .forEach { state ->
                     val dir = installedDir(state.pack.id) ?: return@forEach
                     markVerifying(state.pack.id)
-                    val error = runIntegrityChecks(state.pack, dir)
-                    if (error == null) {
+                    val fileError = integrityChecker.verifyFiles(state.pack, dir)
+                    if (fileError != null) {
+                        markVerifyFailed(state.pack.id, fileError)
+                        return@forEach
+                    }
+                    if (state.verifyStatus == PackVerifyStatus.VERIFIED) {
+                        markVerified(state.pack.id)
+                        return@forEach
+                    }
+                    val onnxError = integrityChecker.verifyOnnx(state.pack, dir)
+                    if (onnxError == null) {
                         markVerified(state.pack.id)
                     } else {
-                        markVerifyFailed(state.pack.id, error)
+                        markVerifyFailed(state.pack.id, onnxError)
                     }
                 }
         }
@@ -183,6 +212,8 @@ class ModelPackManager(
      */
     fun completeInstall(id: String, stagingDir: String): Boolean {
         val pack = pack(id) ?: return false
+        // Never replace files under open ORT sessions — retry after the run finishes.
+        if (isPackInUse(id)) return false
         for (file in pack.files) {
             val staged = "$stagingDir/${file.path}"
             if (!fs.exists(staged) || fs.sha256(staged) != file.sha256) {
@@ -196,15 +227,21 @@ class ModelPackManager(
                 return false
             }
         }
+        val packRoot = "${fs.packsRoot()}/${pack.id}"
         val target = versionDir(pack)
+        onPackFilesChanging(packRoot)
         fs.delete(target)
         fs.mkdirs(parentOf(target))
         fs.move(stagingDir, target)
         fs.writeText("$target/$COMPLETE_MARKER", pack.version.toString())
+        fs.writeText("$target/$ONNX_OK_MARKER", "ok")
         // Older versions of this pack are dead weight now.
-        fs.listFiles("${fs.packsRoot()}/${pack.id}")
+        fs.listFiles(packRoot)
             .filter { it != target }
-            .forEach(fs::delete)
+            .forEach { old ->
+                onPackFilesChanging(old)
+                fs.delete(old)
+            }
         updateStatus(id) {
             it.copy(
                 status = PackStatus.INSTALLED,
@@ -223,11 +260,14 @@ class ModelPackManager(
      */
     fun commitVerifiedInstall(id: String, sourceDir: String): Boolean {
         val pack = pack(id) ?: return false
+        if (isPackInUse(id)) return false
         synchronized(integrityLock) {
             runIntegrityChecks(pack, sourceDir)?.let { return false }
         }
+        val packRoot = "${fs.packsRoot()}/${pack.id}"
         val target = versionDir(pack)
         if (target != sourceDir) {
+            onPackFilesChanging(packRoot)
             fs.delete(target)
             fs.mkdirs(parentOf(target))
             if (fs.exists(sourceDir)) {
@@ -235,6 +275,7 @@ class ModelPackManager(
             }
         }
         fs.writeText("$target/$COMPLETE_MARKER", pack.version.toString())
+        fs.writeText("$target/$ONNX_OK_MARKER", "ok")
         updateStatus(id) {
             it.copy(
                 status = PackStatus.INSTALLED,
@@ -249,7 +290,9 @@ class ModelPackManager(
 
     fun uninstall(id: String): Boolean {
         if (isPackInUse(id)) return false
-        fs.delete("${fs.packsRoot()}/$id")
+        val packRoot = "${fs.packsRoot()}/$id"
+        onPackFilesChanging(packRoot)
+        fs.delete(packRoot)
         updateStatus(id) {
             it.copy(
                 status = PackStatus.NOT_INSTALLED,
@@ -288,6 +331,9 @@ class ModelPackManager(
                 verifiedAtMs = EpochClock.System.nowMs(),
             )
         }
+        installedDir(id)?.let { dir ->
+            runCatching { fs.writeText("$dir/$ONNX_OK_MARKER", "ok") }
+        }
     }
 
     private fun markVerifyFailed(id: String, error: String) {
@@ -297,6 +343,10 @@ class ModelPackManager(
                 verifyError = error,
                 verifiedAtMs = null,
             )
+        }
+        installedDir(id)?.let { dir ->
+            val marker = "$dir/$ONNX_OK_MARKER"
+            if (fs.exists(marker)) runCatching { fs.delete(marker) }
         }
     }
 
@@ -325,6 +375,7 @@ class ModelPackManager(
                 status != PackStatus.INSTALLED -> PackVerifyStatus.UNKNOWN
                 prior?.pack?.version == pack.version &&
                     prior.verifyStatus == PackVerifyStatus.VERIFIED -> PackVerifyStatus.VERIFIED
+                fs.exists("$dir/$ONNX_OK_MARKER") -> PackVerifyStatus.VERIFIED
                 else -> PackVerifyStatus.UNKNOWN
             }
             val progress = when (status) {
@@ -391,6 +442,8 @@ class ModelPackManager(
 
     companion object {
         const val COMPLETE_MARKER = ".complete"
+        /** Written after a successful ONNX (or light) verify so cold starts skip session create. */
+        const val ONNX_OK_MARKER = ".onnx_ok"
 
         /** Catalog entries for packs installed outside the published manifest. */
         const val BUNDLED_MANIFEST = "manifest.bundled.json"

@@ -5,6 +5,7 @@ import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
+import com.zakir.vestra.shared.cloud.ModelHealthTracker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
@@ -99,10 +100,11 @@ class UsageLedger(private val settings: Settings) {
     fun estimateNext(provider: CloudModelProvider): String {
         val tokens = provider.estTokensPerRequest
         val contract = CloudModelContracts.forProvider(provider)
+        val health = ModelHealthTracker(settings)
         return buildString {
             append(provider.displayName)
             append(" · ")
-            append(CloudModelContracts.statusLabel(provider))
+            append(CloudModelContracts.liveStatusLabel(provider, health))
             append(" · ")
             append(provider.platform.displayLabel())
             append(" · Free")

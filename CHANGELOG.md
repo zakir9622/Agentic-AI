@@ -1,5 +1,45 @@
 # Changelog — The Lookbook
 
+## 3.0.10
+- **ZeroGPU UX:** account quota no longer shows misleading “Cooling down · 1m” — chip says **ZeroGPU empty · refills daily**
+- After account ZeroGPU fail, skip other HF Spaces and try Inference fallbacks; error CTA becomes **Choose model**
+
+## 3.0.9
+- **Auto-troubleshooting:** uncaught crashes append to `diagnostics/crash_log.txt` (never auto-cleared) with classified `likelyCause`
+- Continuous `app_trace.log` breadcrumbs (screen route) + rotating size cap
+- Diagnostics: last-crash card, **Share troubleshooting bundle**, manual clear only for crash/trace
+
+## 3.0.8
+- Diagnostics export includes **logcat snippet** (warnings+) + app version in the JSON bundle
+- Plan **COMPLETION.md** scorecard for Claude expansion + v3 follow-up (~95% in-repo done)
+
+## 3.0.7
+- **M4 LocalImageEngine:** `AndroidLocalImageGenerator` validates installed `local-sdturbo-v1` graphs (rejects scaffold placeholders); Create Studio stays on cloud until real weights + sampler
+- **cycle4:** `DiffusionSteps` LCM clamp (4–8) extracted + unit-tested; export scaffold sets `lcmDistilled`
+- **M5:** `scripts/catalog-matrix.py` + `verify-all-models.sh` fold local `runnable` flags into the report
+
+## 3.0.6
+- **C4 SettingsScreen split:** widgets + general/cloud/engines/appearance section files; orchestrator ~380 lines (was ~1,180)
+- Durable-storage **primary CTA** moved off Appearance — pack download (`rememberPackDownloadStarter`) + Packs screen own enable flow; Settings shows status/tip only
+- **Honesty polish:** `PackAwareLocalImageGenerator.isReady` false until runner wired; `pro-v2-int8` catalog `runnable=false` until HF; on-device picker “Coming soon” for unpublished packs
+- Hostname sanitize in cloud failure hints; QNN comment honesty; `visual-verify.sh --dry-run`; accesslint routes expanded; release notes Android 15+
+
+## 3.0.5
+- **Live model health UI:** picker, Usage, Settings, and preflight show cooldown / verified labels from `ModelHealthTracker` (not static Ready)
+- Health records success/failure for **code + video** as well as image
+- **Blank-frame reject:** Android luminance MAD check after download; image size floor raised to 2 KB
+- Scaffold `LocalImageGenerator` + pack-aware wiring in Create Studio (still `runnable = false` until weights)
+- Unit tests: `ModelHealthTrackerTest`, validator 2 KB floor
+
+## 3.0.4
+- **Quality pack integration:** Real-ESRGAN runner feeds FP16 `input` + `denoise_strength` (was silent no-op via single float32 OrtModel)
+- BiRefNet matte applies **sigmoid** on logits before resize (was min–max normalize)
+- Integrity verify smoke-runs Real-ESRGAN; catalog sizes corrected (~224 MB / ~5 MB)
+- `realesrgan-v1` minRam gate lowered to 2 GB in export metadata; integration script smokes both quality packs
+- **Local model crash hardening:** pack in-use refcount; block uninstall/update while generating; invalidate ORT session cache before pack file replace; rethrow cancel; soft-fail quality OOM; harden OrtModel output bounds; BackdropCompositor shares session cache
+- **Stable release plan:** `docs/plans/stable-release/` — R0 (this cut) vs R1 perfect (offline Create Studio, pro-v2-int8 HF, live health UI)
+- Pro unavailable copy prefers **pro-v1** (matches HF manifest); docs clarify **minSdk 35 / Android 15+**
+
 ## 3.0.3
 - Published **birefnet-v1** (~224 MB) and **realesrgan-v1** (~5 MB) to `Iamzakirzr/vestra-packs` manifest
 - Download from **Settings → Model packs**; matte refine + upscale activate when installed

@@ -65,7 +65,7 @@ def build_pack(pack_dir: Path, base_url: str, previous: dict | None) -> dict:
         "totalBytes": sum(f["bytes"] for f in files),
         "files": files,
         "minSpec": meta.get(
-            "minSpec", {"minRamMb": 0, "requiresNpu": False, "minSdk": 26}
+            "minSpec", {"minRamMb": 0, "requiresNpu": False, "minSdk": 35}
         ),
     }
     # Dev packs (non-commercial research weights) carry their license notice and

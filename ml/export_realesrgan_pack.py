@@ -24,7 +24,7 @@ def write_meta(out: Path, scale: int) -> None:
         "tier": "LITE",
         "displayName": f"Real-ESRGAN {scale}×",
         "description": "Upscale try-on and Create outputs for listing-ready stills.",
-        "minSpec": {"minRamMb": 4096, "requiresNpu": False, "minSdk": 26},
+        "minSpec": {"minRamMb": 2048, "requiresNpu": False, "minSdk": 35},
         "kind": "QUALITY",
         "scale": scale,
         "license": "BSD-3-Clause",

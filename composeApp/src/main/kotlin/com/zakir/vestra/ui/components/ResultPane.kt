@@ -9,12 +9,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,13 +35,16 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
+import kotlinx.coroutines.delay
 
 @Composable
 fun ResultPane(
     state: GenerativeState?,
+    liveLog: List<String> = emptyList(),
     onRetry: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
+    retryLabel: String = LookbookCopy.ACTION_RETRY,
 ) {
     val context = LocalContext.current
     val reportStore = remember { LocalReportStore(context) }
@@ -69,12 +77,36 @@ fun ResultPane(
 
     when (state) {
         null -> Unit
-        is GenerativeState.Preparing -> GlassLoadingCard(state.message, onCancel = onCancel)
-        is GenerativeState.Running -> GlassLoadingCard(
-            message = state.stage,
-            progress = state.fraction,
-            onCancel = onCancel,
-        )
+        is GenerativeState.Preparing -> {
+            GlassLoadingCard(state.message, onCancel = onCancel)
+            LiveGenConsole(liveLog)
+        }
+        is GenerativeState.Running -> {
+            var tick by remember(state.deadlineEpochMs, state.stage) { mutableIntStateOf(0) }
+            LaunchedEffect(state.deadlineEpochMs) {
+                if (state.deadlineEpochMs == null) return@LaunchedEffect
+                while (true) {
+                    delay(1_000)
+                    tick++
+                }
+            }
+            @Suppress("UNUSED_EXPRESSION")
+            tick // recompose each second
+            val remSec = state.deadlineEpochMs?.let { deadline ->
+                ((deadline - System.currentTimeMillis()) / 1_000L).coerceAtLeast(0L)
+            }
+            val message = if (remSec != null) {
+                "${state.stage} · ${remSec}s left"
+            } else {
+                state.stage
+            }
+            GlassLoadingCard(
+                message = message,
+                progress = state.fraction,
+                onCancel = onCancel,
+            )
+            LiveGenConsole(liveLog)
+        }
         is GenerativeState.ImageReady -> GlassCard {
             GlassSectionLabel("RESULT")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -166,10 +198,41 @@ fun ResultPane(
                 },
             )
         }
-        is GenerativeState.Failed -> GlassErrorBanner(
-            message = state.message,
-            onRetry = onRetry,
-            onDismiss = onDismiss,
-        )
+        is GenerativeState.Failed -> {
+            if (liveLog.isNotEmpty()) LiveGenConsole(liveLog)
+            GlassErrorBanner(
+                message = state.message,
+                onRetry = onRetry,
+                retryLabel = retryLabel,
+                onDismiss = onDismiss,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiveGenConsole(lines: List<String>) {
+    if (lines.isEmpty()) return
+    Spacer(Modifier.height(10.dp))
+    GlassCard {
+        GlassSectionLabel("LIVE")
+        val scroll = rememberScrollState()
+        LaunchedEffect(lines.size) {
+            scroll.animateScrollTo(scroll.maxValue)
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 160.dp)
+                .verticalScroll(scroll),
+        ) {
+            lines.takeLast(24).forEach { line ->
+                Text(
+                    "· $line",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }

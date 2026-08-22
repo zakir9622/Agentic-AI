@@ -73,7 +73,7 @@ private const val MANIFEST = """
         {"path": "a.onnx", "url": "https://packs/a.onnx", "sha256": "hash-a", "bytes": 60},
         {"path": "b.onnx", "url": "https://packs/b.onnx", "sha256": "hash-b", "bytes": 40}
       ],
-      "minSpec": {"minRamMb": 0, "requiresNpu": false, "minSdk": 26}
+      "minSpec": {"minRamMb": 0, "requiresNpu": false, "minSdk": 35}
     },
     {
       "id": "pro-v1",
@@ -85,7 +85,7 @@ private const val MANIFEST = """
       "files": [
         {"path": "unet.onnx", "url": "https://packs/unet.onnx", "sha256": "hash-u", "bytes": 1000}
       ],
-      "minSpec": {"minRamMb": 16000, "requiresNpu": true, "minSdk": 31}
+      "minSpec": {"minRamMb": 16000, "requiresNpu": true, "minSdk": 35}
     }
   ]
 }
@@ -127,7 +127,7 @@ class ModelPackManagerTest {
               {"id":"lite-bundled","version":1,"tier":"LITE","displayName":"Bundled Lite",
                "description":"d","totalBytes":10,
                "files":[{"path":"a.onnx","url":"bundled","sha256":"bundled","bytes":10}],
-               "minSpec":{"minRamMb":0,"requiresNpu":false,"minSdk":26}}
+               "minSpec":{"minRamMb":0,"requiresNpu":false,"minSdk":35}}
             ]}
         """.trimIndent()
         fs.files["/packs/lite-bundled/1/a.onnx"] = "X".repeat(10)
@@ -199,6 +199,71 @@ class ModelPackManagerTest {
         manager.uninstall("lite-v1")
         assertFalse(manager.isInstalled("lite-v1"))
         assertEquals(PackStatus.NOT_INSTALLED, manager.states.value.getValue("lite-v1").status)
+    }
+
+    @Test
+    fun uninstallBlockedWhilePackInUse() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+
+        manager.markPackInUse("lite-v1")
+        assertFalse(manager.uninstall("lite-v1"))
+        assertTrue(manager.isInstalled("lite-v1"))
+
+        manager.markPackIdle("lite-v1")
+        assertTrue(manager.uninstall("lite-v1"))
+        assertFalse(manager.isInstalled("lite-v1"))
+    }
+
+    @Test
+    fun completeInstallBlockedWhilePackInUse() = runTest {
+        val fs = FakeFs()
+        val changed = mutableListOf<String>()
+        val manager = ModelPackManager(
+            fs,
+            FakeProbe(),
+            manifestClient(),
+            "https://m/manifest.json",
+            onPackFilesChanging = { changed += it },
+        )
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+        assertTrue(changed.any { it.contains("lite-v1") })
+
+        // Simulate Update while generating — must not swap files under open sessions.
+        val staging2 = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging2/a.onnx"] = "A".repeat(60)
+        fs.files["$staging2/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging2/a.onnx"] = "hash-a"
+        fs.hashes["$staging2/b.onnx"] = "hash-b"
+        manager.markPackInUse("lite-v1")
+        assertFalse(manager.completeInstall("lite-v1", staging2))
+        manager.markPackIdle("lite-v1")
+    }
+
+    @Test
+    fun packInUseUsesRefcount() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        manager.markPackInUse("lite-v1")
+        manager.markPackInUse("lite-v1")
+        manager.markPackIdle("lite-v1")
+        assertTrue(manager.isPackInUse("lite-v1"))
+        manager.markPackIdle("lite-v1")
+        assertFalse(manager.isPackInUse("lite-v1"))
     }
 
     @Test
@@ -377,7 +442,8 @@ class ModelPackManagerTest {
         manager.completeInstall("lite-v1", staging)
         verifyCount = 0
         manager.verifyAllInstalled()
-        assertEquals(1, verifyCount)
+        // Already verified at install — startup path is files-only (no ONNX session create).
+        assertEquals(0, verifyCount)
         assertTrue(manager.isReady("lite-v1"))
     }
 

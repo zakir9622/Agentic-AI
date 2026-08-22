@@ -237,6 +237,10 @@ object CloudModelContracts {
         ModelSupportLevel.UNSUPPORTED -> "Unsupported"
     }
 
+    /** Prefer live cooldown / verified labels from [health] when available. */
+    fun liveStatusLabel(provider: CloudModelProvider, health: ModelHealthTracker?): String =
+        health?.observedLabel(provider.id) ?: statusLabel(provider)
+
     fun settingsSupportingText(provider: CloudModelProvider): String {
         val c = forProvider(provider)
         val status = statusLabel(provider)
@@ -276,7 +280,7 @@ object CloudModelContracts {
                     "Add a Groq or OpenRouter key in Settings, or wait for the allowance to refill."
             msg.contains("quota exceeded", ignoreCase = true) || msg.contains("ZeroGPU quota", ignoreCase = true) ->
                 "Your Hugging Face account is out of free ZeroGPU minutes. The allowance refills " +
-                    "daily — retry later, use a different HF token, or run try-on locally with Lite/Pro."
+                    "daily — tap Choose model for an Inference route, use a different HF token, or run try-on locally with Lite/Pro."
             msg.contains("401") || msg.contains("Unauthorized", ignoreCase = true) ->
                 "API key rejected for ${provider.displayName}. Re-save the free token in Settings."
             msg.contains("429") || msg.contains("rate", ignoreCase = true) ->
@@ -304,16 +308,26 @@ object CloudModelContracts {
             msg.contains("No internet", ignoreCase = true) ||
                 msg.contains("Unable to resolve host", ignoreCase = true) ||
                 msg.contains("UnknownHostException", ignoreCase = true) ||
-                msg.contains("Network is unreachable", ignoreCase = true) ||
-                msg.contains("failed to connect", ignoreCase = true) ->
+                msg.contains("Network is unreachable", ignoreCase = true) ->
                 "No internet connection. Reconnect and retry — or use Lite/Pro try-on offline."
+            msg.contains("connection abort", ignoreCase = true) ||
+                msg.contains("connection reset", ignoreCase = true) ||
+                msg.contains("Software caused connection", ignoreCase = true) ||
+                msg.contains("Broken pipe", ignoreCase = true) ->
+                "$label lost the connection mid-request. Retry, or pick another free model — " +
+                    "or use Lite/Pro try-on offline."
+            msg.contains("failed to connect", ignoreCase = true) ||
+                msg.contains("connection refused", ignoreCase = true) ||
+                msg.contains("ConnectException", ignoreCase = true) ->
+                "$label could not reach the model host. Retry, switch model, or check VPN — " +
+                    "this is usually not a phone offline issue."
             msg.contains("Model not supported by provider", ignoreCase = true) ->
                 "HF Inference Providers rejected ${provider.displayName}. Switch to a Space model in Settings."
             msg.contains("LinkedHashMap", ignoreCase = true) ||
                 msg.contains("Kotlin reflection", ignoreCase = true) ->
                 "$label failed to encode the request for ${provider.displayName}. Update the app and retry."
             msg.isBlank() -> "${c.failureHint} (${c.schemaNote})"
-            else -> "${provider.displayName}: ${msg.take(220)}"
+            else -> "${provider.displayName}: ${sanitizeHostnames(msg).take(220)}"
         }
         return prefix + body
     }

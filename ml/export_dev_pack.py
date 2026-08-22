@@ -89,7 +89,7 @@ def main() -> None:
                 "tier": "PRO",
                 "displayName": "Pro engine (DEV)",
                 "description": "CatVTON research weights for private testing. Not for distribution.",
-                "minSpec": {"minRamMb": 7168, "requiresNpu": True, "minSdk": 31},
+                "minSpec": {"minRamMb": 7168, "requiresNpu": True, "minSdk": 35},
                 "devOnly": True,
                 "licenseNotice": "CC BY-NC-SA 4.0 (CatVTON) — non-commercial, private testing only.",
             },

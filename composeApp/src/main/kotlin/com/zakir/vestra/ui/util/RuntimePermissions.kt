@@ -147,7 +147,7 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
                 !DurableStorage.hasAllFilesAccess() -> {
                     Toast.makeText(
                         context,
-                        "Enable durable storage so this pack survives uninstall, then tap Download again",
+                        "Allow all-files access for this multi-GB pack so it survives uninstall, then tap Download again",
                         Toast.LENGTH_LONG,
                     ).show()
                     runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }

@@ -1,7 +1,34 @@
 #!/usr/bin/env bash
-# Compare visual-verify screenshots against docs/screenshots/baseline/
-# Usage: scripts/visual-verify.sh [serial] [outdir] [--compare]
+# Capture visual-verify screenshots (device) or list expected routes (CI dry-run).
+# Usage:
+#   scripts/visual-verify.sh [--list-routes|--dry-run]
+#   scripts/visual-verify.sh [serial] [outdir] [--compare]
 set -euo pipefail
+
+ROUTES=(
+  "studio/tryon:01-atelier-tryon"
+  "studio/image:02-image-studio"
+  "studio/video:03-video-studio"
+  "studio/code:04-code-studio"
+  "studio/news:05-news-chat"
+  "wardrobe:06-looks-gallery"
+  "help:07-help-faq"
+  "settings:08-settings"
+  "usage:09-cloud-usage"
+  "garment:10-garment-capture"
+  "settings:11-settings-about"
+)
+
+if [[ "${1:-}" == "--list-routes" || "${1:-}" == "--dry-run" ]]; then
+  echo "visual-verify routes (lookbook://screen/<route> → filename):"
+  for pair in "${ROUTES[@]}"; do
+    echo "  ${pair%%:*} → ${pair##*:}.png"
+  done
+  echo "Baseline dir: docs/screenshots/baseline/"
+  echo "Dry-run OK (no adb)."
+  exit 0
+fi
+
 SERIAL="${1:-emulator-5554}"
 OUT="${2:-/opt/cursor/artifacts/screenshots/visual-verify}"
 COMPARE=0

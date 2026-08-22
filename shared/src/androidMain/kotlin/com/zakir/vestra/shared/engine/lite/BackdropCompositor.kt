@@ -21,7 +21,8 @@ class BackdropCompositor(private val segModelPath: String) {
     fun apply(source: Bitmap, backdrop: Backdrop): Bitmap {
         if (backdrop == Backdrop.ORIGINAL) return source
 
-        val mask = OrtModel(segModelPath).use { model ->
+        val model = OrtSessionCache.open(segModelPath)
+        val mask = run {
             val (h, w) = model.inputSize(defaultSize = 320)
             val (output, shape) = model.run(ImageOps.toNormalizedChw(source, h, w), h, w)
             val maskH = shape.getOrNull(2)?.toInt() ?: h

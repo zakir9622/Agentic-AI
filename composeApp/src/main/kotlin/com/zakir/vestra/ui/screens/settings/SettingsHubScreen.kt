@@ -74,9 +74,9 @@ fun SettingsHubScreen(
             item {
                 GlassCard(onClick = { onOpenDiagnostics?.invoke() }) {
                     GlassSectionLabel("DIAGNOSTICS")
-                    Text("Run history & export", style = MaterialTheme.typography.titleMedium)
+                    Text("Crashes · run history · export", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Share JSON logs of try-on and cloud generations",
+                        "Auto-troubleshooting logs append on every crash — share the bundle without losing history",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

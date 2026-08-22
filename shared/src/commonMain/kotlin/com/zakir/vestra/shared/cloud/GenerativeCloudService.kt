@@ -3,7 +3,11 @@ package com.zakir.vestra.shared.cloud
 import com.zakir.vestra.shared.safety.InputSafetyGate
 import com.zakir.vestra.shared.safety.SafetyVerdict
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.engine.local.LocalImageGenerator
+import com.zakir.vestra.shared.engine.local.LocalImageResult
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
 import com.zakir.vestra.shared.usage.UsageLedger
+import com.zakir.vestra.shared.time.EpochClock
 import io.ktor.client.HttpClient
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -15,7 +19,15 @@ import kotlinx.serialization.json.jsonPrimitive
 
 sealed interface GenerativeState {
     data class Preparing(val message: String) : GenerativeState
-    data class Running(val fraction: Float, val stage: String) : GenerativeState
+    /**
+     * @param stage Human-readable activity (no baked-in countdown — UI ticks [deadlineEpochMs]).
+     * @param deadlineEpochMs Wall-clock deadline for remaining-seconds display; null = no timer.
+     */
+    data class Running(
+        val fraction: Float,
+        val stage: String,
+        val deadlineEpochMs: Long? = null,
+    ) : GenerativeState
     data class ImageReady(val path: String, val providerId: String) : GenerativeState
     data class VideoReady(val path: String, val providerId: String) : GenerativeState
     data class CodeReady(val text: String, val tokensIn: Int, val tokensOut: Int, val providerId: String) : GenerativeState
@@ -24,7 +36,8 @@ sealed interface GenerativeState {
 
 /**
  * Free-tier generative service: HF Spaces + HF Inference Providers for image/video,
- * Groq/HF/OpenRouter for code.
+ * Groq/HF/OpenRouter for code. Optional [localImage] is tried first for text-to-image
+ * when the on-device pack is ready.
  */
 class GenerativeCloudService(
     private val http: HttpClient,
@@ -32,6 +45,7 @@ class GenerativeCloudService(
     private val settings: AppSettings,
     private val usage: UsageLedger,
     private val health: ModelHealthTracker = settings.modelHealth,
+    private val localImage: LocalImageGenerator = UnimplementedLocalImageGenerator,
 ) {
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
@@ -53,8 +67,32 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            require(settings.networkLikelyAvailable()) {
-                throw CloudFailureException(CloudFailure.Offline)
+            // Offline Create Studio (M4): try local pack before requiring network.
+            if (referenceUri.isNullOrBlank() && localImage.isReady()) {
+                emit(GenerativeState.Running(0.08f, "Generating on-device…"))
+                when (val local = localImage.generate(prompt.trim(), assists.seed)) {
+                    is LocalImageResult.Ok -> {
+                        emit(GenerativeState.ImageReady(local.imagePath, "local-sdturbo-v1"))
+                        return@flow
+                    }
+                    is LocalImageResult.Unavailable -> {
+                        emit(
+                            GenerativeState.Running(
+                                0.1f,
+                                "Local pack unavailable — trying cloud…",
+                            ),
+                        )
+                    }
+                }
+            }
+            // Probe can lag behind real 5G/Wi‑Fi — prefer attempting the request.
+            if (!settings.networkLikelyAvailable()) {
+                emit(
+                    GenerativeState.Running(
+                        0.05f,
+                        "Network probe uncertain — trying cloud anyway…",
+                    ),
+                )
             }
             val candidates = CloudModelRouting.fallbackChain(provider, capability, settings, health)
             val referenceDataUrl = referenceUri?.takeIf { it.isNotBlank() }?.let {
@@ -64,22 +102,35 @@ class GenerativeCloudService(
             val variants = visualPromptVariants(prompt, assists)
             var lastFailure: CloudFailure = CloudFailure.Unknown("Image generation failed")
             var skipInference = false
+            var skipSpaces = false
             var offline = false
             val budget = GenerationBudget.forImage()
-            emit(GenerativeState.Running(0.05f, "Budget ${GenerationBudget.IMAGE_DEADLINE_MS / 1000}s…"))
+            val deadline = budget.deadlineMs
+            emit(
+                GenerativeState.Running(
+                    0.05f,
+                    "Queued · ${provider.displayName}",
+                    deadlineEpochMs = deadline,
+                ),
+            )
 
             for ((modelIndex, candidate) in candidates.withIndex()) {
                 budget.throwIfExpired()
                 if (offline) break
                 attempted = candidate
                 if (skipInference && candidate.platform == CloudPlatform.HF_INFERENCE) continue
+                if (skipSpaces && candidate.platform == CloudPlatform.HF_SPACE) continue
                 if (CloudModelContracts.preflightOrNull(candidate) != null) continue
                 if (candidate.requiresApiKey && settings.apiKeyFor(candidate).isNullOrBlank()) continue
                 if (modelIndex > 0) {
                     emit(
                         GenerativeState.Running(
                             0.3f,
-                            "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                            when {
+                                skipSpaces -> "ZeroGPU empty — trying ${candidate.displayName}…"
+                                else -> "${provider.displayName} is busy — trying ${candidate.displayName}…"
+                            },
+                            deadlineEpochMs = deadline,
                         ),
                     )
                 }
@@ -88,12 +139,12 @@ class GenerativeCloudService(
                 for ((index, variant) in variants.withIndex()) {
                     if (advanceModel) break
                     budget.throwIfExpired()
-                    val remSec = budget.remainingMs() / 1000
                     emit(
                         GenerativeState.Running(
                             0.2f + index * 0.15f,
-                            if (index == 0) "Generating image… (${remSec}s left)"
-                            else "Retrying with softer prompt… (${remSec}s left)",
+                            if (index == 0) "Submitting to ${candidate.displayName}…"
+                            else "Retrying with softer prompt…",
+                            deadlineEpochMs = deadline,
                         ),
                     )
                     try {
@@ -101,7 +152,13 @@ class GenerativeCloudService(
                             CloudPlatform.HF_INFERENCE -> {
                                 val token = settings.hfToken.value
                                     ?: throw CloudFailureException(CloudFailure.AuthRejected)
-                                emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
+                                emit(
+                                    GenerativeState.Running(
+                                        0.5f,
+                                        "HF Inference · ${candidate.displayName}",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
                                 val bytes = if (referenceDataUrl != null) {
                                     val refBytes = io.loadImageBytes(referenceUri!!)
                                         ?: error("Couldn't read the reference image")
@@ -131,6 +188,13 @@ class GenerativeCloudService(
                                     variant,
                                     referenceDataUrl,
                                 )
+                                emit(
+                                    GenerativeState.Running(
+                                        0.35f,
+                                        "Space queue · ${candidate.displayName}",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
                                 val result = hf.predict(
                                     candidate.endpoint,
                                     CloudModelContracts.effectiveApiName(candidate),
@@ -138,9 +202,26 @@ class GenerativeCloudService(
                                     settings.hfToken.value,
                                     maxPolls = budget.maxPolls(),
                                     wakeRetries = 1,
+                                    onPoll = { pollIndex, maxPolls ->
+                                        val frac =
+                                            0.35f + 0.5f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
+                                        emit(
+                                            GenerativeState.Running(
+                                                frac.coerceIn(0.35f, 0.9f),
+                                                "Space poll ${pollIndex + 1}/$maxPolls · ${candidate.displayName}",
+                                                deadlineEpochMs = deadline,
+                                            ),
+                                        )
+                                    },
                                 )
                                 val url = GradioOutput.extractMediaRef(result)
-                                emit(GenerativeState.Running(0.85f, "Downloading…"))
+                                emit(
+                                    GenerativeState.Running(
+                                        0.92f,
+                                        "Downloading image…",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
                                 io.downloadResult(url, spaceHost = candidate.endpoint)
                             }
                             else -> throw CloudFailureException(
@@ -160,11 +241,27 @@ class GenerativeCloudService(
                     } catch (e: Exception) {
                         val failure = CloudFailureClassifier.from(e)
                         lastFailure = failure
-                        health.recordFailure(candidate.id)
+                        val kind = when (failure) {
+                            is CloudFailure.QuotaExhausted ->
+                                if (failure.scope == CloudFailure.QuotaExhausted.Scope.ACCOUNT) {
+                                    ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
+                                } else {
+                                    ModelHealthTracker.FailureKind.GENERIC
+                                }
+                            CloudFailure.CreditsExhausted -> ModelHealthTracker.FailureKind.CREDITS
+                            CloudFailure.Offline -> ModelHealthTracker.FailureKind.OFFLINE
+                            else -> ModelHealthTracker.FailureKind.GENERIC
+                        }
+                        health.recordFailure(candidate.id, kind)
                         when {
                             failure is CloudFailure.Offline -> {
                                 offline = true
                                 break
+                            }
+                            failure is CloudFailure.QuotaExhausted &&
+                                failure.scope == CloudFailure.QuotaExhausted.Scope.ACCOUNT -> {
+                                skipSpaces = true
+                                advanceModel = true
                             }
                             failure is CloudFailure.CreditsExhausted -> {
                                 skipInference = true
@@ -285,7 +382,14 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            require(settings.networkLikelyAvailable()) { "No internet connection" }
+            if (!settings.networkLikelyAvailable()) {
+                emit(
+                    GenerativeState.Running(
+                        0.05f,
+                        "Network probe uncertain — trying cloud anyway…",
+                    ),
+                )
+            }
             val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
             val system = buildCodeSystem(assists)
             val temperature = when {
@@ -300,6 +404,7 @@ class GenerativeCloudService(
                 "Provide working code for:\n$cleaned\n\nIf anything is unclear, pick sensible defaults and note them.",
             )
             var lastError: Exception? = null
+            val codeDeadline = EpochClock.System.nowMs() + 90_000L
             for ((modelIndex, candidate) in candidates.withIndex()) {
                 attempted = candidate
                 CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
@@ -309,10 +414,17 @@ class GenerativeCloudService(
                         GenerativeState.Running(
                             0.25f,
                             "${provider.displayName} unavailable — trying ${candidate.displayName}…",
+                            deadlineEpochMs = codeDeadline,
                         ),
                     )
                 } else {
-                    emit(GenerativeState.Running(0.3f, "Thinking…"))
+                    emit(
+                        GenerativeState.Running(
+                            0.3f,
+                            "Calling ${candidate.displayName}…",
+                            deadlineEpochMs = codeDeadline,
+                        ),
+                    )
                 }
                 val key = settings.apiKeyFor(candidate) ?: error("API key required for ${candidate.displayName}")
                 var result: LlmResult? = null
@@ -332,7 +444,10 @@ class GenerativeCloudService(
                         }
                     }
                 }
-                if (quotaExhausted && modelIndex < candidates.lastIndex) continue
+                if (quotaExhausted && modelIndex < candidates.lastIndex) {
+                    health.recordFailure(candidate.id, ModelHealthTracker.FailureKind.CREDITS)
+                    continue
+                }
                 if (result != null) {
                     usage.record(
                         candidate,
@@ -341,9 +456,11 @@ class GenerativeCloudService(
                         success = true,
                         note = "Code · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
                     )
+                    health.recordSuccess(candidate.id)
                     emit(GenerativeState.CodeReady(result.text, result.tokensIn, result.tokensOut, candidate.id))
                     return@flow
                 }
+                health.recordFailure(candidate.id)
             }
             throw lastError ?: IllegalStateException("Empty LLM response")
         } catch (e: CancellationException) {
@@ -354,6 +471,7 @@ class GenerativeCloudService(
                 success = false,
                 note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
+            health.recordFailure(attempted.id)
             emit(GenerativeState.Failed(
                 CloudModelContracts.friendlyFailure(
                     attempted,
@@ -377,13 +495,28 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            require(settings.networkLikelyAvailable()) {
-                throw CloudFailureException(CloudFailure.Offline)
+            if (!settings.networkLikelyAvailable()) {
+                emit(
+                    GenerativeState.Running(
+                        0.05f,
+                        "Network probe uncertain — trying cloud anyway…",
+                    ),
+                )
             }
             val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health)
             val variants = visualPromptVariants(prompt, assists)
+            val budget = GenerationBudget.forVideo()
+            val deadline = budget.deadlineMs
             var lastError: Exception? = null
+            emit(
+                GenerativeState.Running(
+                    0.05f,
+                    "Queued · ${provider.displayName}",
+                    deadlineEpochMs = deadline,
+                ),
+            )
             for ((modelIndex, candidate) in candidates.withIndex()) {
+                budget.throwIfExpired()
                 attempted = candidate
                 CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
                 requireKeyIfNeeded(candidate)
@@ -392,18 +525,21 @@ class GenerativeCloudService(
                         GenerativeState.Running(
                             0.2f,
                             "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                            deadlineEpochMs = deadline,
                         ),
                     )
                 }
                 for ((index, variant) in variants.withIndex()) {
+                    budget.throwIfExpired()
                     emit(
                         GenerativeState.Running(
                             0.15f + index * 0.15f,
                             if (index == 0) {
-                                "Rendering video (this can take a minute)…"
+                                "Submitting video job · ${candidate.displayName}"
                             } else {
                                 "Retrying with softer prompt…"
                             },
+                            deadlineEpochMs = deadline,
                         ),
                     )
                     try {
@@ -414,22 +550,48 @@ class GenerativeCloudService(
                             hfToken = settings.hfToken.value,
                             maxPolls = 180,
                             pollDelayMs = 3_000,
+                            onPoll = { pollIndex, maxPolls ->
+                                val frac =
+                                    0.2f + 0.65f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
+                                emit(
+                                    GenerativeState.Running(
+                                        frac.coerceIn(0.2f, 0.9f),
+                                        "Video poll ${pollIndex + 1}/$maxPolls · ${candidate.displayName}",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
+                            },
                         )
                         val url = extractRef(result)
-                        emit(GenerativeState.Running(0.9f, "Downloading video…"))
+                        emit(
+                            GenerativeState.Running(
+                                0.92f,
+                                "Downloading video…",
+                                deadlineEpochMs = deadline,
+                            ),
+                        )
                         val path = io.downloadResult(url, spaceHost = candidate.endpoint)
                         usage.record(
                             candidate,
                             success = true,
                             note = "Video · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
                         )
+                        health.recordSuccess(candidate.id)
                         emit(GenerativeState.VideoReady(path, candidate.id))
                         return@flow
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        val failure = CloudFailureClassifier.from(e)
                         lastError = e
+                        val kind = when {
+                            e.isAccountQuotaExhausted() -> ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
+                            failure is CloudFailure.Offline -> ModelHealthTracker.FailureKind.OFFLINE
+                            else -> ModelHealthTracker.FailureKind.GENERIC
+                        }
+                        health.recordFailure(candidate.id, kind)
                         if (e.isAccountQuotaExhausted()) throw e
+                        if (failure is CloudFailure.Offline) throw e
                     }
                 }
             }
@@ -441,6 +603,14 @@ class GenerativeCloudService(
                 attempted,
                 success = false,
                 note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
+            )
+            health.recordFailure(
+                attempted.id,
+                if (e.isAccountQuotaExhausted()) {
+                    ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
+                } else {
+                    ModelHealthTracker.FailureKind.GENERIC
+                },
             )
             emit(GenerativeState.Failed(
                 CloudModelContracts.friendlyFailure(
@@ -529,7 +699,10 @@ class GenerativeCloudService(
         assists: GenerativeAssists = GenerativeAssists(),
     ): Pair<LlmResult, CloudModelProvider> {
         val provider = settings.selectedProvider(capability)
-        require(settings.networkLikelyAvailable()) { "No internet connection" }
+        // Soft gate — ConnectivityManager can briefly report offline on 5G.
+        if (!settings.networkLikelyAvailable()) {
+            // Fall through: first HTTP attempt still runs; classifier handles real Offline.
+        }
         val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
         val effectiveSystem = buildCodeSystem(assists).let { base ->
             if (system.isBlank()) base else "$base\n\n$system"

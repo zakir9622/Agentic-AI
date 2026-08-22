@@ -56,6 +56,9 @@ class AndroidCloudIo(
         CloudOutputValidator.validate(bytes, isVideo = isVideo)?.let { reason ->
             error(reason)
         }
+        if (!isVideo) {
+            BlankFrameDetector.rejectIfBlank(bytes)?.let { reason -> error(reason) }
+        }
         val dir = File(context.filesDir, "generations").apply { mkdirs() }
         val ext = when {
             isVideo && (resolved.contains(".webm", ignoreCase = true) || isWebm(bytes)) -> "webm"

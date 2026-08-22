@@ -59,6 +59,9 @@ data class DiagnosticsExportBundle(
     val runs: List<RunRecord>,
     val usageLedger: UsageSummary? = null,
     val exportedAtMs: Long,
+    /** Last ~200 logcat lines (warnings+) when exported from the device. */
+    val logcatSnippet: String? = null,
+    val appVersion: String? = null,
 )
 
 /**
@@ -97,12 +100,18 @@ class RunDiagnostics(
 
     fun exportJson(): String = json.encodeToString(_records.value)
 
-    fun exportBundle(usage: UsageSummary? = null): String =
+    fun exportBundle(
+        usage: UsageSummary? = null,
+        logcatSnippet: String? = null,
+        appVersion: String? = null,
+    ): String =
         json.encodeToString(
             DiagnosticsExportBundle(
                 runs = _records.value,
                 usageLedger = usage,
                 exportedAtMs = EpochClock.System.nowMs(),
+                logcatSnippet = logcatSnippet,
+                appVersion = appVersion,
             ),
         )
 

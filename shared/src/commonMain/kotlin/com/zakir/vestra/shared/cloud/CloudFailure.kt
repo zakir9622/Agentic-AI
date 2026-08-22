@@ -18,7 +18,8 @@ sealed interface CloudFailure {
         enum class Scope { ACCOUNT, MODEL }
 
         override val retryable = false
-        override val advanceModel = scope == Scope.ACCOUNT
+        /** Always try another route — ACCOUNT skips Spaces in GenerativeCloudService. */
+        override val advanceModel = true
         override val retryVariants = false
     }
 
@@ -85,6 +86,28 @@ sealed interface CloudFailure {
 
 class CloudFailureException(val failure: CloudFailure) : Exception(failure.toUserHint())
 
+/** Strip hostnames / URLs from user-facing error fragments. */
+fun sanitizeHostnames(raw: String): String {
+    var s = raw
+    // https://host/... or http://host
+    s = HOST_URL_REGEX.replace(s, "[host]")
+    // bare foo.hf.space / api.example.com (keep short tokens like 404)
+    s = BARE_HOST_REGEX.replace(s) { m ->
+        val host = m.value
+        if (host.contains('.') && host.any { it.isLetter() }) "[host]" else host
+    }
+    return s
+}
+
+private val HOST_URL_REGEX = Regex(
+    """https?://[^\s"'<>]+""",
+    RegexOption.IGNORE_CASE,
+)
+private val BARE_HOST_REGEX = Regex(
+    """\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:hf\.space|huggingface\.co|groq\.com|openrouter\.ai|[a-z]{2,})\b""",
+    RegexOption.IGNORE_CASE,
+)
+
 fun CloudFailure.toUserHint(): String = when (this) {
     CloudFailure.Offline -> "No internet connection"
     is CloudFailure.QuotaExhausted -> when (scope) {
@@ -100,7 +123,7 @@ fun CloudFailure.toUserHint(): String = when (this) {
     CloudFailure.Timeout -> "Request timed out"
     CloudFailure.SafetyBlocked -> "Content blocked by safety filter"
     CloudFailure.BadOutput -> "Invalid output received"
-    is CloudFailure.Unknown -> raw.take(220)
+    is CloudFailure.Unknown -> sanitizeHostnames(raw).take(220)
 }
 
 object CloudFailureClassifier {
@@ -115,8 +138,18 @@ object CloudFailureClassifier {
             lower.contains("no internet") ||
                 lower.contains("unable to resolve host") ||
                 lower.contains("unknownhostexception") ||
-                lower.contains("network is unreachable") ||
-                lower.contains("failed to connect") -> CloudFailure.Offline
+                lower.contains("network is unreachable") -> CloudFailure.Offline
+
+            // Mid-transfer / peer refused — Space or DNS blip, not "phone has no internet".
+            lower.contains("connection abort") ||
+                lower.contains("connection reset") ||
+                lower.contains("broken pipe") ||
+                lower.contains("econnreset") ||
+                lower.contains("econnaborted") ||
+                lower.contains("software caused connection") ||
+                lower.contains("failed to connect") ||
+                lower.contains("connection refused") ||
+                lower.contains("connectexception") -> CloudFailure.Timeout
 
             lower.contains("402") ||
                 lower.contains("depleted your monthly") ||
@@ -158,7 +191,7 @@ object CloudFailureClassifier {
 
             msg.isBlank() -> CloudFailure.Unknown("Generation failed")
 
-            else -> CloudFailure.Unknown(msg.take(220))
+            else -> CloudFailure.Unknown(sanitizeHostnames(msg).take(220))
         }
     }
 }
