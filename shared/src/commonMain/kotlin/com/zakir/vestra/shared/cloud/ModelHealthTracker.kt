@@ -22,6 +22,8 @@ class ModelHealthTracker(
         CREDITS,
         /** Connectivity blip — must not look like Space cool-down. */
         OFFLINE,
+        /** Free-tier rate / queue — short cooldown so fallback can skip this host. */
+        RATE_LIMIT,
     }
 
     fun recordSuccess(providerId: String) {
@@ -41,6 +43,7 @@ class ModelHealthTracker(
             FailureKind.QUOTA_ACCOUNT -> QUOTA_ACCOUNT_COOLDOWN_MS
             FailureKind.CREDITS -> CREDITS_COOLDOWN_MS
             FailureKind.OFFLINE -> OFFLINE_COOLDOWN_MS
+            FailureKind.RATE_LIMIT -> RATE_LIMIT_COOLDOWN_MS
             FailureKind.GENERIC -> cooldownFor(failures)
         }
         save(
@@ -74,6 +77,10 @@ class ModelHealthTracker(
                 FailureKind.QUOTA_ACCOUNT -> "ZeroGPU empty · refills daily"
                 FailureKind.CREDITS -> "Inference credits empty · monthly"
                 FailureKind.OFFLINE -> "Offline · reconnect"
+                FailureKind.RATE_LIMIT -> {
+                    val secs = ((entry.cooldownUntilMs - now) / 1_000L).coerceAtLeast(1L)
+                    "Rate limited · ${secs}s"
+                }
                 FailureKind.GENERIC -> {
                     val mins = ((entry.cooldownUntilMs - now) / 60_000L).coerceAtLeast(1L)
                     "Cooling down · ${mins}m"
@@ -103,6 +110,8 @@ class ModelHealthTracker(
         const val CREDITS_COOLDOWN_MS = 24L * 60L * 60L * 1000L
         /** Brief only — connectivity often returns in seconds. */
         const val OFFLINE_COOLDOWN_MS = 5_000L
+        /** Skip rate-limited Spaces briefly so fallback can try the next host. */
+        const val RATE_LIMIT_COOLDOWN_MS = 90_000L
 
         fun cooldownFor(consecutiveFailures: Int): Long = when (consecutiveFailures) {
             1 -> 30_000L

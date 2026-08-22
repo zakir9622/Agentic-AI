@@ -86,7 +86,7 @@ class FreeCloudDiscovery(
      */
     suspend fun discoverHf(token: String?, capability: AiCapability): List<CloudModelProvider> {
         if (token.isNullOrBlank()) return emptyList()
-        if (capability == AiCapability.TRY_ON || capability == AiCapability.VIDEO) {
+        if (capability == AiCapability.TRY_ON || capability == AiCapability.VIDEO || capability == AiCapability.AUDIO) {
             return emptyList()
         }
         val routerModels = discoverFromRouter(token, capability)
@@ -111,7 +111,7 @@ class FreeCloudDiscovery(
             AiCapability.IMAGE_GEN -> "text-to-image"
             AiCapability.IMAGE_EDIT -> "image-to-image"
             AiCapability.CODE -> "text-generation"
-            AiCapability.TRY_ON, AiCapability.VIDEO -> return emptyList()
+            AiCapability.TRY_ON, AiCapability.VIDEO, AiCapability.AUDIO -> return emptyList()
         }
         val url =
             "https://huggingface.co/api/models?pipeline_tag=$pipeline&inference=warm&sort=downloads&direction=-1&limit=12"
@@ -195,7 +195,7 @@ class FreeCloudDiscovery(
                     lower.contains("instruct") ||
                     lower.contains("image-edit") ||
                     lower.contains("qwen") && lower.contains("edit")
-            AiCapability.TRY_ON, AiCapability.VIDEO -> false
+            AiCapability.TRY_ON, AiCapability.VIDEO, AiCapability.AUDIO -> false
         }
     }
 }

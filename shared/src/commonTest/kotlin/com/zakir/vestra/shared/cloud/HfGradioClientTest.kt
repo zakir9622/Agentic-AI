@@ -3,6 +3,7 @@ package com.zakir.vestra.shared.cloud
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -18,6 +19,11 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class HfGradioClientTest {
+
+    private fun client(engine: MockEngine): HttpClient = HttpClient(engine) {
+        install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        install(HttpTimeout)
+    }
 
     @Test
     fun predictSendsJsonObjectNotMap() = runTest {
@@ -40,10 +46,7 @@ class HfGradioClientTest {
                 )
             }
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
-        val result = HfGradioClient(http).predict(
+        val result = HfGradioClient(client(engine)).predict(
             spaceHost = "example.hf.space",
             apiName = "predict",
             data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
@@ -80,10 +83,7 @@ class HfGradioClientTest {
                 respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/event-stream"))
             }
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
-        val result = HfGradioClient(http).predict(
+        val result = HfGradioClient(client(engine)).predict(
             spaceHost = "example.hf.space",
             apiName = "predict",
             data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
@@ -113,11 +113,8 @@ class HfGradioClientTest {
                 )
             }
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
         val failure = assertFailsWith<IllegalStateException> {
-            HfGradioClient(http).predict(
+            HfGradioClient(client(engine)).predict(
                 spaceHost = "example.hf.space",
                 apiName = "predict",
                 data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
@@ -156,11 +153,8 @@ data: {"error": "You have exceeded your free ZeroGPU quota (60s requested vs. 0s
                 respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/event-stream"))
             }
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
         val failure = assertFailsWith<IllegalStateException> {
-            HfGradioClient(http).predict(
+            HfGradioClient(client(engine)).predict(
                 spaceHost = "example.hf.space",
                 apiName = "predict",
                 data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
@@ -177,11 +171,81 @@ data: {"error": "You have exceeded your free ZeroGPU quota (60s requested vs. 0s
 
     @Test
     fun predictRejectsEmptyPayload() = runTest {
-        val http = HttpClient(MockEngine { respond("", HttpStatusCode.OK) }) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
+        val http = client(MockEngine { respond("", HttpStatusCode.OK) })
         assertFailsWith<IllegalArgumentException> {
             HfGradioClient(http).predict("host", "predict", emptyList(), null)
         }
+    }
+
+    @Test
+    fun predictHonorsDeadlineBeforeBurningWakeRetries() = runTest {
+        var posts = 0
+        val engine = MockEngine { request ->
+            if (request.method.value == "POST") {
+                posts++
+                respond(
+                    """{"event_id":"evt-1"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            } else {
+                respond(
+                    "event: error\ndata: null\n\n",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "text/event-stream"),
+                )
+            }
+        }
+        val deadline = com.zakir.vestra.shared.time.EpochClock.System.nowMs() - 1
+        val failure = assertFailsWith<IllegalStateException> {
+            HfGradioClient(client(engine)).predict(
+                spaceHost = "example.hf.space",
+                apiName = "predict",
+                data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
+                hfToken = null,
+                maxPolls = 20,
+                pollDelayMs = 1,
+                wakeRetries = 2,
+                deadlineMs = deadline,
+            )
+        }
+        assertTrue(failure.message.orEmpty().contains("Timed out", ignoreCase = true), failure.message)
+        assertEquals(0, posts, "Expired deadline must not submit Gradio jobs")
+    }
+
+    @Test
+    fun pendingPollsAdvanceInsteadOfStallingOnPollOne() = runTest {
+        var polls = 0
+        val engine = MockEngine { request ->
+            if (request.method.value == "POST") {
+                respond(
+                    """{"event_id":"evt-1"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            } else {
+                polls++
+                val body = if (polls >= 3) {
+                    "event: complete\ndata: [\"https://example.com/out.png\"]\n\n"
+                } else {
+                    "event: pending\ndata: null\n\n"
+                }
+                respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/event-stream"))
+            }
+        }
+        val seen = mutableListOf<Int>()
+        val result = HfGradioClient(client(engine)).predict(
+            spaceHost = "example.hf.space",
+            apiName = "predict",
+            data = listOf(kotlinx.serialization.json.JsonPrimitive("hello")),
+            hfToken = null,
+            maxPolls = 5,
+            pollDelayMs = 1,
+            wakeRetries = 0,
+            onPoll = { index, _ -> seen += index },
+        )
+        assertEquals("https://example.com/out.png", result.jsonPrimitive.content)
+        assertEquals(listOf(0, 1, 2), seen)
+        assertEquals(3, polls)
     }
 }

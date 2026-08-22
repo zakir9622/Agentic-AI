@@ -9,6 +9,7 @@ object CloudOutputValidator {
     private const val MIN_IMAGE_BYTES = 2_048
     private const val MIN_DIMENSION = 64
     private const val MIN_VIDEO_BYTES = 8_192
+    private const val MIN_AUDIO_BYTES = 256
 
     fun validate(bytes: ByteArray, isVideo: Boolean = false): String? {
         if (bytes.isEmpty()) return "Downloaded file is empty"
@@ -19,6 +20,33 @@ object CloudOutputValidator {
             else -> validateImage(bytes)
         }
     }
+
+    fun validateAudio(bytes: ByteArray): String? {
+        if (bytes.isEmpty()) return "Downloaded audio is empty"
+        if (bytes.size < MIN_AUDIO_BYTES) return "Downloaded audio is too small (${bytes.size} bytes)"
+        return when {
+            isWav(bytes) || isFlac(bytes) || isMp3(bytes) || isOgg(bytes) -> null
+            else -> "Downloaded file is not a recognizable audio clip"
+        }
+    }
+
+    private fun isWav(b: ByteArray): Boolean =
+        b.size >= 12 && b[0] == 'R'.code.toByte() && b[1] == 'I'.code.toByte() &&
+            b[8] == 'W'.code.toByte() && b[9] == 'A'.code.toByte()
+
+    private fun isFlac(b: ByteArray): Boolean =
+        b.size >= 4 && b[0] == 'f'.code.toByte() && b[1] == 'L'.code.toByte() &&
+            b[2] == 'a'.code.toByte() && b[3] == 'C'.code.toByte()
+
+    private fun isMp3(b: ByteArray): Boolean =
+        b.size >= 3 && (
+            (b[0] == 0xFF.toByte() && (b[1].toInt() and 0xE0) == 0xE0) ||
+                (b[0] == 'I'.code.toByte() && b[1] == 'D'.code.toByte() && b[2] == '3'.code.toByte())
+            )
+
+    private fun isOgg(b: ByteArray): Boolean =
+        b.size >= 4 && b[0] == 'O'.code.toByte() && b[1] == 'g'.code.toByte() &&
+            b[2] == 'g'.code.toByte() && b[3] == 'S'.code.toByte()
 
     private fun validateImage(bytes: ByteArray): String? {
         if (!isPng(bytes) && !isJpeg(bytes) && !isWebp(bytes) && !isGif(bytes)) {

@@ -167,6 +167,7 @@ internal fun LazyListScope.settingsCloudCapabilitiesSection(
     imageEditId: String,
     codeId: String,
     videoId: String,
+    audioId: String,
 ) {
     item(key = "cap-tryon") {
         CloudCapabilityDropdown(
@@ -216,6 +217,16 @@ internal fun LazyListScope.settingsCloudCapabilitiesSection(
             appSettings = appSettings,
             discovery = freeCloudDiscovery,
             onSelect = appSettings::setVideoProvider,
+        )
+    }
+    item(key = "cap-audio") {
+        CloudCapabilityDropdown(
+            title = "AUDIO / TTS MODELS",
+            capability = AiCapability.AUDIO,
+            selectedId = audioId,
+            appSettings = appSettings,
+            discovery = freeCloudDiscovery,
+            onSelect = appSettings::setAudioProvider,
         )
     }
 }

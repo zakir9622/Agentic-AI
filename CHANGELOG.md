@@ -1,5 +1,51 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc4
+- **Local model picker honesty:** Create Studio ON-DEVICE list uses `forStudioPicker` — Real-ESRGAN / BiRefNet / GFPGAN quality packs no longer appear as Image generators; SD-Turbo / local TTS / local video show scaffold · weights-not-published status
+- **Audio mic + voice change:** Record short PCM/WAV on-device, apply local DSP knobs (record → transform → play); `RECORD_AUDIO` permission
+- **Cloud audio hosts:** Edge-TTS → `innoai/Edge-TTS-Text-to-Speech` (`tts_interface`); Kokoro → Remsky ZeroGPU (`generate_speech_from_ui`); MMS-TTS demoted (HF Inference often rejects); default audio = Kokoro
+- **Cloud video:** Wan2 fails faster (short poll) then falls back to LTX; rate-limit cooldown messaging
+- **UX:** Fix double “Space Space” in offline 404 copy
+- **Try-on crash hardening:** Soft-wrap ORT session create / UnsatisfiedLinkError; yield before heavy graphs; catch native Throwable on Lite/Pro generate path
+
+## 3.1.0-rc3
+- **Image edit timeouts:** Gradio poll GETs capped at ~12s (no more 60–75s stuck on “Space poll 1/N”)
+- Honor the image deadline inside Space wake/poll loops; skip wake retries when budget is tight
+- After Qwen (or another primary) burns the 120s window, grant a 45s grace pass for InstructPix2Pix fallback
+
+## 3.1.0-rc2
+- **Audio Studio:** new home tab — cloud TTS (MMS-TTS Inference, Kokoro Space, Edge/OpenVoice Space)
+- **Voice personas:** Amina, Noor, Layla, Yasir, Omar, Sam, Rana, Kai (named varieties)
+- **Local voice changer:** on-device DSP knobs — pitch, speed, formant, warmth, clarity (no pack required)
+- **Local TTS scaffold:** `local-tts-v1` + `LocalAudioGenerator` (`TTS_RUNNER_WIRED=false` until weights)
+- Honest Settings / model picker entries for audio
+
+## 3.1.0-rc1
+- **Big release R2 (true limits):** full ATR Auto classification for all garment categories; single-pass human parse on generate
+- **Garment chips:** complete taxonomy (Abaya, Jilbab, Kaftan, Hijab, Niqab, Dupatta, Headscarf, Shalwar, Kurta, Lehenga, Dress, Upper, Trousers, Full coverage) + Auto
+- **Real-input harness:** `scripts/test_atr_classify.py` + `scripts/fixtures/atr/*.json` (12 worn-photo shapes); Kotlin `AtrTaxonomyTest` mirrors fixtures
+- **UI — Loom Ink:** cool mist + brass + teal-ink atelier; stronger brand hero; less card clutter on Packs intro
+- **On-device Create Studio:** `Txt2ImgPipeline` scaffold (`SAMPLER_WIRED=false`); honest cloud-only Image/Video/Code until HF weights
+- Plan: `docs/plans/big-release-r2/`
+
+## 3.0.16
+- Stable sideload keystore + soft network preflight (stop false offline blocks)
+
+## 3.0.15
+- Live gen console + ticking countdown; diagnostics share off main thread
+
+## 3.0.14
+- Garment pick no longer loads `human_parse.onnx`; connection-abort UX ≠ offline
+
+## 3.0.13
+- Offline ≠ Cooling down; Lite soft verify; trim-memory no longer clears ORT on UI_HIDDEN
+
+## 3.0.12
+- ORT CPU default; soft startup verify; Prefer NNAPI toggle (off)
+
+## 3.0.11
+- Abrupt-exit session watchdog; low-memory + logcat FATAL scrape
+
 ## 3.0.10
 - **ZeroGPU UX:** account quota no longer shows misleading “Cooling down · 1m” — chip says **ZeroGPU empty · refills daily**
 - After account ZeroGPU fail, skip other HF Spaces and try Inference fallbacks; error CTA becomes **Choose model**

@@ -82,42 +82,38 @@ fun PacksScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(12.dp))
-        GlassCard {
-            Text(
-                if (durableReady) {
-                    "Durable: Documents/TheLookbook/packs — survives uninstall. Reinstall detects packs automatically."
-                } else {
-                    "Tap Download on a pack to enable durable storage (all-files access) so multi-GB packs survive uninstall/reinstall."
+        Spacer(Modifier.height(10.dp))
+        Text(
+            if (durableReady) {
+                "Durable: Documents/TheLookbook/packs — survives uninstall. Reinstall detects packs automatically."
+            } else {
+                "Enable durable storage (all-files access) so multi-GB packs survive uninstall/reinstall."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!durableReady) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
                 },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (!durableReady) {
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Enable durable storage now")
-                }
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Enable durable storage now")
             }
         }
         Spacer(Modifier.height(16.dp))
 
         if (states.isEmpty()) {
-            GlassCard {
-                Text(
-                    lastError?.let { "Couldn't load the pack catalog — $it" }
-                        ?: "Couldn't load the pack catalog. Connect once to fetch it — installed packs keep working offline.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = { scope.launch { packManager.refresh() } }) { Text("Retry") }
-            }
+            Text(
+                lastError?.let { "Couldn't load the pack catalog — $it" }
+                    ?: "Couldn't load the pack catalog. Connect once to fetch it — installed packs keep working offline.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = { scope.launch { packManager.refresh() } }) { Text("Retry") }
         }
 
         lastError?.takeIf { states.isNotEmpty() }?.let { err ->

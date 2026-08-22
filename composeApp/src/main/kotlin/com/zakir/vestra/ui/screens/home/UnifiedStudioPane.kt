@@ -102,6 +102,7 @@ fun UnifiedStudioPane(
         AiCapability.IMAGE_EDIT -> imageEditId
         AiCapability.CODE -> codeId
         AiCapability.VIDEO -> videoId
+        AiCapability.AUDIO -> provider.id
         else -> provider.id
     }
     val estimate = viewModel.usage.estimateNext(provider)
@@ -120,24 +121,17 @@ fun UnifiedStudioPane(
             ?: CloudModelCatalog.forCapability(effectiveCapability)
     }
     val onDeviceEntries = remember(packStates, effectiveCapability) {
-        LocalModelCatalog.forCapability(effectiveCapability)
-            .filter { it.packId != null }
-            .map { entry ->
-                val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
-                val ready = packReady && entry.runnable
-                val statusLabel = when {
-                    ready -> "Ready offline"
-                    !entry.runnable -> "Coming soon · not for this studio yet"
-                    else -> "Download in Settings · Try-on uses Lite/Pro"
-                }
-                OnDevicePickerEntry(
-                    id = entry.id,
-                    displayName = entry.displayName,
-                    detail = entry.approxSizeLabel,
-                    ready = ready,
-                    statusLabel = statusLabel,
-                )
-            }
+        LocalModelCatalog.forStudioPicker(effectiveCapability).map { entry ->
+            val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
+            val ready = entry.runnable && (entry.packId == null || packReady)
+            OnDevicePickerEntry(
+                id = entry.id,
+                displayName = entry.displayName,
+                detail = entry.testingNote,
+                ready = ready,
+                statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
+            )
+        }
     }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -185,6 +179,7 @@ fun UnifiedStudioPane(
         AiCapability.IMAGE_GEN -> viewModel.generateImage()
         AiCapability.VIDEO -> viewModel.generateVideo()
         AiCapability.CODE -> viewModel.generateCode()
+        AiCapability.AUDIO -> viewModel.generateAudio()
         else -> Unit
     }
 
@@ -198,11 +193,13 @@ fun UnifiedStudioPane(
         Text(
             when (capability) {
                 AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
-                    "Cloud free models. On-device Lite/Pro packs power Try-on — local Create Studio ships when SD-Turbo weights publish."
+                    "Cloud free models. Try-on Lite/Pro are on-device. Create Studio unlocks when local-sdturbo-v1 weights + sampler ship (R2.2)."
                 AiCapability.VIDEO ->
-                    "Cloud HF Spaces only for now — no on-device video pack yet."
+                    "Cloud HF Spaces only — on-device video is out of scope for v3.1."
+                AiCapability.AUDIO ->
+                    "Cloud TTS + local voice-changer knobs. On-device TTS when local-tts-v1 ships."
                 AiCapability.CODE ->
-                    "Cloud LLMs (Groq / OpenRouter / HF). No on-device coding model in this build."
+                    "Cloud LLMs (Groq / OpenRouter / HF). On-device Gemma is stretch / not in this build."
                 else -> estimate
             },
             style = MaterialTheme.typography.bodySmall,

@@ -24,6 +24,7 @@ enum class RunCapability {
     IMAGE_EDIT,
     CODE,
     VIDEO,
+    AUDIO,
     CHAT,
 }
 

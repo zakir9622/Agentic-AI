@@ -167,4 +167,5 @@ fun AiCapability.displayLabel(): String = when (this) {
     AiCapability.IMAGE_EDIT -> "Image recreate / edit"
     AiCapability.CODE -> "Coding"
     AiCapability.VIDEO -> "Video"
+    AiCapability.AUDIO -> "Audio"
 }

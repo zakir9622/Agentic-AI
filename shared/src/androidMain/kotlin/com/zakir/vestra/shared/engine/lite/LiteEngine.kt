@@ -10,6 +10,7 @@ import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import com.zakir.vestra.shared.domain.TryOnResult
+import com.zakir.vestra.shared.domain.effectiveCategory
 import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
@@ -88,6 +89,10 @@ class LiteEngine(
                 return@flow
             }
 
+            emit(GenerationState.Running(0.12f, "Loading Lite models…"))
+            // Yield so the UI can paint before heavy ORT session create (Pixel 9 LMK path).
+            kotlinx.coroutines.yield()
+
             emit(GenerationState.Running(0.15f, "Extracting garment"))
             t0 = EpochClock.System.nowMs()
             val garmentCut = runCatching {
@@ -99,7 +104,7 @@ class LiteEngine(
                 emit(
                     GenerationState.Failed(
                         TryOnError.Internal(
-                            error.message?.take(120)
+                            softOrtMessage(error)
                                 ?: "Lite segmentation model failed — re-download lite-v1 in Settings → Model packs.",
                         ),
                     ),
@@ -108,14 +113,25 @@ class LiteEngine(
             }
             DiagnosticsHook.stage(diag, "garment_seg", t0)
 
-            // Auto mode: infer the category from the cutout's geometry so abayas,
-            // scarves, and trousers each land on the right body region.
-            val category = request.garment.category ?: GarmentClassifier.classify(garmentCut)
-
             emit(GenerationState.Running(0.45f, "Reading the body"))
             t0 = EpochClock.System.nowMs()
-            val region = parsing.analyze(person, category)
-            DiagnosticsHook.stage(diag, "human_parse", t0, category.name)
+            // Auto: one ATR pass on the person → full taxonomy; reuse map for region.
+            // Manual chip: skip classify; still one parse for the mask.
+            val parsed = parsing.parse(person)
+            val category = request.garment.category?.effectiveCategory()
+                ?: parsed?.let { GarmentClassifier.classifyFromAtr(it.classMap) }
+                ?: GarmentClassifier.classify(garmentCut)
+            val region = if (parsed != null) {
+                parsing.regionFrom(parsed, person, category)
+            } else {
+                null
+            }
+            DiagnosticsHook.stage(
+                diag,
+                "human_parse",
+                t0,
+                "${category.name}${if (request.garment.category == null) "+auto" else ""}",
+            )
             if (region == null) {
                 DiagnosticsHook.completeTryOn(diag, false, "No person detected")
                 emit(
@@ -170,11 +186,33 @@ class LiteEngine(
             throw error
         } catch (error: Exception) {
             DiagnosticsHook.completeTryOn(diag, false, error.message)
-            emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
+            emit(GenerationState.Failed(TryOnError.Internal(softOrtMessage(error) ?: error.message ?: "Generation failed")))
+        } catch (error: Throwable) {
+            // Catch LinkageError / UnsatisfiedLinkError that bypass Exception.
+            DiagnosticsHook.completeTryOn(diag, false, error.message)
+            emit(
+                GenerationState.Failed(
+                    TryOnError.Internal(
+                        softOrtMessage(error)
+                            ?: "On-device try-on crashed in native code — try again, or re-download lite-v1.",
+                    ),
+                ),
+            )
         } finally {
             packs.markPackIdle(PACK_ID)
         }
     }.flowOn(Dispatchers.Default)
+
+    private fun softOrtMessage(error: Throwable): String? {
+        val msg = error.message.orEmpty()
+        return when {
+            error is UnsatisfiedLinkError || error.cause is UnsatisfiedLinkError ->
+                "ONNX Runtime failed to load — reinstall the app or re-download lite-v1."
+            msg.contains("ONNX", ignoreCase = true) || msg.contains("Ort", ignoreCase = true) ->
+                msg.take(160)
+            else -> null
+        }
+    }
 
     private fun extractGarment(model: OrtModel, garment: Bitmap): Bitmap {
         val (h, w) = model.inputSize(defaultSize = 320)

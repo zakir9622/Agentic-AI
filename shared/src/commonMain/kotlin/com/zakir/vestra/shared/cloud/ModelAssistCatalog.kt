@@ -38,6 +38,9 @@ object ModelAssistCatalog {
             AssistToggle("detail", "Detail boost", "Sharpness and lighting clauses."),
             AssistToggle("quality", "Quality guard", "Avoid blur / artifacts language."),
         )
+        AiCapability.AUDIO -> listOf(
+            AssistToggle("fashion", "Fashion context", "Modest lookbook narration framing in the spoken script."),
+        )
         AiCapability.TRY_ON -> emptyList() // garment+person inputs, not free-text assist
     }
 }

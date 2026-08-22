@@ -47,6 +47,7 @@ class DiffusionEngine(
     private val device: DeviceProbe,
     private val io: LiteEngineIo,
     private val masker: PersonMasker,
+    private val parsing: com.zakir.vestra.shared.engine.lite.HumanParsing,
     private val applyWatermark: Boolean = false,
     private val quality: QualityPostProcessor = NoOpQualityPostProcessor,
 ) : TryOnEngine {
@@ -104,6 +105,7 @@ class DiffusionEngine(
 
         try {
             emit(GenerationState.Preparing("Reading images"))
+            kotlinx.coroutines.yield()
             val person = io.loadPerson(request.person)
             val garment = io.loadBitmap(request.garment.uri)
             if (person == null || garment == null) {
@@ -112,7 +114,11 @@ class DiffusionEngine(
                 return@flow
             }
 
+            // Auto: ATR on person when Lite parse is available; else garment geometry.
+            emit(GenerationState.Running(0.03f, "Loading body parse…"))
+            kotlinx.coroutines.yield()
             val category = request.garment.category?.effectiveCategory()
+                ?: parsing.classifyWorn(person)
                 ?: GarmentClassifier.classify(garment)
             val promptSpec = com.zakir.vestra.shared.engine.pipeline.PromptSpec(
                 positive = CastingPromptBuilder.buildPositive(request.casting, category),
@@ -275,6 +281,16 @@ class DiffusionEngine(
             Log.e(TAG, "Pro generation failed", error)
             DiagnosticsHook.completeTryOn(diag, false, error.message)
             emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
+        } catch (error: Throwable) {
+            Log.e(TAG, "Pro generation native failure", error)
+            DiagnosticsHook.completeTryOn(diag, false, error.message)
+            emit(
+                GenerationState.Failed(
+                    TryOnError.Internal(
+                        "Pro try-on crashed in native code — switch to Lite, or re-download pro-v1 + lite-v1.",
+                    ),
+                ),
+            )
         } finally {
             packId?.let { packs.markPackIdle(it) }
             packs.markPackIdle(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)

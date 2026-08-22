@@ -22,15 +22,17 @@ enum class AiCapability {
     IMAGE_EDIT,
     CODE,
     VIDEO,
+    AUDIO,
 }
 
 /**
  * Visual capabilities are executed by the Gradio Space client, so only [CloudPlatform.HF_SPACE]
  * providers can serve them. Text capabilities use the chat clients and accept any free platform.
+ * Audio uses Spaces and/or HF Inference TTS routes.
  */
 fun AiCapability.requiresSpace(): Boolean = when (this) {
     AiCapability.TRY_ON, AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> true
-    AiCapability.CODE -> false
+    AiCapability.CODE, AiCapability.AUDIO -> false
 }
 
 /**
@@ -329,12 +331,12 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 86,
             speedScore = 55,
-            usageNote = "Degraded · generate_video 8-arg schema; queues fill often.",
+            usageNote = "Degraded · generate_video 8-arg schema; queues fill often — fails fast to LTX.",
         ),
         CloudModelProvider(
             id = "ltx-zerogpu-hf",
             displayName = "LTX-Video ZeroGPU",
-            description = "LTX-Video community ZeroGPU Space (replacement for retired official Space).",
+            description = "LTX-Video community ZeroGPU Space (DeepRat Optimized).",
             platform = CloudPlatform.HF_SPACE,
             capability = AiCapability.VIDEO,
             endpoint = "DeepRat-LTX-Video-ZeroGPU-Optimized.hf.space",
@@ -343,7 +345,50 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 84,
             speedScore = 70,
-            usageNote = "Ready · text_to_video (14 args). Prefer when Wan2 is queued.",
+            usageNote = "Ready · text_to_video (14 args). Default video route.",
+        ),
+
+        // ── Audio / TTS (free HF Spaces + Inference) ────────────────────
+        CloudModelProvider(
+            id = "kokoro-tts-hf",
+            displayName = "Kokoro TTS",
+            description = "Kokoro multi-voice TTS on free ZeroGPU Space — personas map to built-in speakers.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.AUDIO,
+            endpoint = "Remsky-Kokoro-TTS-Zero.hf.space",
+            apiName = "generate_speech_from_ui",
+            license = "Apache 2.0",
+            requiresApiKey = false,
+            qualityScore = 88,
+            speedScore = 75,
+            usageNote = "Ready · generate_speech_from_ui. Default audio route; queues at peak.",
+        ),
+        CloudModelProvider(
+            id = "edge-tts-hf",
+            displayName = "Edge-TTS",
+            description = "Community Edge-TTS Gradio Space — many neural voices, free.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.AUDIO,
+            endpoint = "innoai-Edge-TTS-Text-to-Speech.hf.space",
+            apiName = "tts_interface",
+            license = "MIT / upstream",
+            requiresApiKey = false,
+            qualityScore = 84,
+            speedScore = 80,
+            usageNote = "Ready · tts_interface (text, voice, rate, pitch).",
+        ),
+        CloudModelProvider(
+            id = "mms-tts-eng-hf",
+            displayName = "MMS-TTS English",
+            description = "Meta MMS text-to-speech (English) via HF Inference — often rejected on free Inference Providers.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.AUDIO,
+            endpoint = "facebook/mms-tts-eng",
+            license = "CC-BY-NC-4.0",
+            requiresApiKey = true,
+            qualityScore = 78,
+            speedScore = 70,
+            usageNote = "Degraded · HF Inference often rejects this model id; prefer Kokoro / Edge-TTS Spaces.",
         ),
     )
 
@@ -368,6 +413,7 @@ object CloudModelCatalog {
             AiCapability.IMAGE_EDIT -> defaultImageEditId
             AiCapability.CODE -> defaultCodeId
             AiCapability.VIDEO -> defaultVideoId
+            AiCapability.AUDIO -> defaultAudioId
         }
         return byId(preferredId) ?: forCapability(capability).first()
     }
@@ -377,5 +423,7 @@ object CloudModelCatalog {
     val defaultImageEditId: String = "qwen-image-edit-hf"
     val defaultCodeId: String = "llama33-70b-groq"
     val defaultVideoId: String = "ltx-zerogpu-hf"
+    /** Prefer Space TTS — MMS Inference is often rejected on free Inference Providers. */
+    val defaultAudioId: String = "kokoro-tts-hf"
     val defaultId: String = defaultTryOnId
 }

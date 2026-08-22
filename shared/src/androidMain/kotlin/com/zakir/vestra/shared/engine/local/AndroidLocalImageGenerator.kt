@@ -1,24 +1,31 @@
 package com.zakir.vestra.shared.engine.local
 
 import com.zakir.vestra.shared.packs.ModelPackManager
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * Android local Create Studio generator (M4 / E4).
+ * Android local Create Studio generator (M4 / E4 / R2).
  *
- * Ready only when `local-sdturbo-v1` is installed **and** every declared ONNX graph
- * is present with a real weight size (scaffold placeholders are rejected).
- * Full SD-Turbo sampling reuses Pro OrtGraph once weights ship — until then
- * [generate] returns [LocalImageResult.Unavailable] with an actionable reason.
+ * Ready only when `local-sdturbo-v1` graphs are real **and**
+ * [Txt2ImgPipeline.SAMPLER_WIRED] is true. Until then [generate] returns
+ * [LocalImageResult.Unavailable] with an actionable unlock reason.
+ *
+ * Pro try-on packs are never used here (different UNet contract).
  */
 class AndroidLocalImageGenerator(
     private val packs: ModelPackManager,
     private val packId: String = PACK_ID,
 ) : LocalImageGenerator {
 
-    override fun isReady(): Boolean = false
+    /**
+     * Product ready = real graphs **and** [Txt2ImgPipeline.SAMPLER_WIRED].
+     * Stays false in R2.0 so Create Studio never claims offline falsely.
+     */
+    override fun isReady(): Boolean {
+        if (!Txt2ImgPipeline.SAMPLER_WIRED) return false
+        return packGraphsReady()
+    }
 
     override fun generate(prompt: String, seed: Long?): LocalImageResult {
         if (!packs.isReady(packId)) {
@@ -40,10 +47,7 @@ class AndroidLocalImageGenerator(
                     "Export real ONNX graphs (see ml/export_image_gen_pack.py) then re-publish.",
             )
         }
-        // Graphs present — sampling pipeline not productized yet (reuse Pro UnetRunner).
-        return LocalImageResult.Unavailable(
-            "Local SD-Turbo graphs found but sampling runner not wired yet — using cloud Create Studio.",
-        )
+        return Txt2ImgPipeline(dirPath, config).generate(prompt, seed)
     }
 
     /** True when pack graphs look real (for Settings / catalog status only). */
@@ -82,29 +86,3 @@ class AndroidLocalImageGenerator(
         }
     }
 }
-
-@Serializable
-data class LocalImagePackConfig(
-    val version: Int = 1,
-    val graphs: LocalImageGraphs? = null,
-    val scheduler: LocalImageScheduler? = null,
-    val resolution: Int = 512,
-    val lcmDistilled: Boolean = true,
-)
-
-@Serializable
-data class LocalImageGraphs(
-    val text_encoder: String? = null,
-    val unet: String? = null,
-    val vae_decoder: String? = null,
-) {
-    val textEncoder: String? get() = text_encoder
-    val vaeDecoder: String? get() = vae_decoder
-}
-
-@Serializable
-data class LocalImageScheduler(
-    val type: String = "lcm",
-    val steps: Int = 4,
-    val guidance: Float = 1.0f,
-)

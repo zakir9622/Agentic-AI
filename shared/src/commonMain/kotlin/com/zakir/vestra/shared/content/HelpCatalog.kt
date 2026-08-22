@@ -15,6 +15,7 @@ object LookbookCopy {
     const val STUDIO_IMAGE = "Image studio"
     const val STUDIO_VIDEO = "Video studio"
     const val STUDIO_CODE = "Code studio"
+    const val STUDIO_AUDIO = "Audio studio"
     const val STUDIO_WARDROBE = "Looks gallery"
     const val STUDIO_PACKS = "Model packs"
     const val STUDIO_USAGE = "Cloud usage"
@@ -133,7 +134,9 @@ object HelpCatalog {
             id = "cloud-queue",
             category = "API keys & cloud",
             question = "Generation says queue full or timed out.",
-            answer = "Free Spaces share public GPU quotas. Wait a few minutes, retry off-peak, or switch model in Settings. " +
+            answer = "Free Spaces share public GPU quotas. The app caps each Space poll (~12s) and will try one " +
+                "alternate edit model after a primary timeout. Wait a few minutes, retry off-peak, or switch " +
+                "model in the composer (InstructPix2Pix is often faster than Qwen when ZeroGPU is busy). " +
                 "Cancel generation if a job is stuck, then try again with a simpler prompt.",
         ),
         HelpTopic(

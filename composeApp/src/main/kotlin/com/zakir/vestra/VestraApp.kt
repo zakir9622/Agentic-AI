@@ -165,6 +165,10 @@ class VestraApp : Application() {
             appSettings,
             usageLedger,
             localImage = com.zakir.vestra.shared.engine.local.AndroidLocalImageGenerator(packManager),
+            localAudio = com.zakir.vestra.shared.engine.local.AndroidLocalAudioGenerator(packManager),
+            localVoiceChanger = com.zakir.vestra.shared.engine.local.AndroidLocalVoiceChanger(
+                outputDir = java.io.File(filesDir, "generations").also { it.mkdirs() },
+            ),
         )
 
         engineRouter = EngineRouter(
@@ -175,6 +179,7 @@ class VestraApp : Application() {
                     device = deviceProbe,
                     io = liteEngineIo,
                     masker = { person, category -> humanParsing.analyze(person, category.effectiveCategory())?.mask },
+                    parsing = humanParsing,
                     applyWatermark = BuildConfig.APPLY_WATERMARK,
                     quality = quality,
                 ),
