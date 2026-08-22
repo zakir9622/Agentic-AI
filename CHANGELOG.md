@@ -1,5 +1,9 @@
 # Changelog — The Lookbook
 
+## 3.0.8
+- Diagnostics export includes **logcat snippet** (warnings+) + app version in the JSON bundle
+- Plan **COMPLETION.md** scorecard for Claude expansion + v3 follow-up (~95% in-repo done)
+
 ## 3.0.7
 - **M4 LocalImageEngine:** `AndroidLocalImageGenerator` validates installed `local-sdturbo-v1` graphs (rejects scaffold placeholders); Create Studio stays on cloud until real weights + sampler
 - **cycle4:** `DiffusionSteps` LCM clamp (4–8) extracted + unit-tested; export scaffold sets `lcmDistilled`

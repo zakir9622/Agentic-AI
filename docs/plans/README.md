@@ -18,6 +18,8 @@ Active roadmaps live in separate directories so parallel workstreams do not coll
 
 When items overlap (e.g. BiRefNet packs, settings split), implement once and mark done in both plans.
 
+**Scorecard:** [`COMPLETION.md`](COMPLETION.md) — Claude cycles + v3 follow-up A1–E4 vs current tree.
+
 ## Iterative UX cycles (historical)
 
 Short atelier polish loops on `iterative-*` branches (v2.7.1–2.7.5): cancel, a11y, Share/Report, preflight. All merged into `main` — **complete**.

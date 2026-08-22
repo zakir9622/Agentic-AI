@@ -1,8 +1,8 @@
 # Claude Code — Expansion & improvement roadmap
 
 **Source:** Claude Code planning session (`lookbook_expansion_roadmap`)  
-**Baseline when written:** v2.9.5 — updated against **v3.0.4 RC**  
-**Canonical plan:** [`PLAN.md`](PLAN.md)
+**Baseline when written:** v2.9.5 — updated against **v3.0.8**  
+**Canonical plan:** [`PLAN.md`](PLAN.md) · **Scorecard:** [`../COMPLETION.md`](../COMPLETION.md)
 
 Phased roadmap for cloud/local model expansion, quality tooling, UI cleanup, and infrastructure. Written before v3 `HomeScreen` shipped; map legacy `StudioScreen` references to the home pager + `UnifiedStudioPane`.
 

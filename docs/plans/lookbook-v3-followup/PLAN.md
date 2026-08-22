@@ -23,7 +23,7 @@ What remains is **quality depth** (model packs, composer controls), **CI/review 
 
 ### Phase 1 — Diagnostics
 - `RunDiagnostics`, `DiagnosticsHook`, engine stage timings; Settings → Diagnostics export
-- **Open:** logcat snippet in export bundle (nice-to-have)
+- Logcat snippet + app version in export bundle @ **v3.0.8**
 
 ### Phase 2 — Local models
 - Quality packs on HF + runners @ 3.0.4; pro prefers `pro-v1` until int8 uploaded
@@ -189,7 +189,7 @@ Use these as the canonical follow-up todo list:
 - [~] **D2** e2e-matrix.sh harness (device recording still manual)
 - [x] **D3** Unit tests for diagnostics/chat/news
 - [x] **D4** Instrumented home/settings navigation tests (route smoke extended)
-- [x] **E1** Continuous JSON diagnostics persistence (filesDir/run_history.json)
+- [x] **E1** Continuous JSON diagnostics persistence (filesDir/run_history.json) + logcat in export @ 3.0.8
 - [x] **E2** In-app pipeline explainer (Diagnostics → Help)
 - [ ] **E3** Gemma 3 / LiteRT-LM prototype (research only)
 - [~] **E4** SD-Turbo: `AndroidLocalImageGenerator` + export scaffold @ 3.0.7; weights pending

@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: cycle2-quality-packs
     content: Build and ship BiRefNet + Real-ESRGAN packs; publish pro-v2-int8 to HF manifest
-    status: in_progress
+    status: completed
   - id: cycle3-ui-settings
     content: 'Split Settings, add model health UI, generation feedback, token wizard'
     status: completed

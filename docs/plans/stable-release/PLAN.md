@@ -44,7 +44,7 @@
 | M1 typed failures + fallback | **DONE** (minor hostname-string residue) |
 | M2 health + budget + validator | **DONE** @ 3.0.5 — live labels + blank-frame + 2 KB floor |
 | M3 Gradio schemas | **MOSTLY DONE** |
-| M4 local image gen | **DEFERRED** — scaffold only |
+| M4 local image gen | **CODE DONE** @ 3.0.7 (`AndroidLocalImageGenerator`); weights pending |
 | M5 visual harness | **PARTIAL** — scripts exist; baselines/device evidence thin |
 | M6 cleanup/portability | **MOSTLY DONE** — EpochClock/hooks + minSdk 35 docs; iOS stretch open |
 

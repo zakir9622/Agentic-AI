@@ -37,4 +37,17 @@ class RunDiagnosticsTest {
         assertTrue(bundle.contains("usageLedger"))
         assertTrue(bundle.contains("totalRequests"))
     }
+
+    @Test
+    fun exportBundleIncludesOptionalLogcatAndVersion() {
+        val diag = RunDiagnostics(TestMemorySettings())
+        diag.startRun(RunCapability.TRY_ON, tier = EngineTier.LITE).complete(success = true)
+        val bundle = diag.exportBundle(
+            logcatSnippet = "W/Lookbook: sample warning line",
+            appVersion = "3.0.8 (50)",
+        )
+        assertTrue(bundle.contains("logcatSnippet"))
+        assertTrue(bundle.contains("sample warning line"))
+        assertTrue(bundle.contains("3.0.8 (50)"))
+    }
 }

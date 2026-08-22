@@ -13,12 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.BuildConfig
 import com.zakir.vestra.data.DiagnosticsExport
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
@@ -31,7 +31,6 @@ import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
 @Composable
 fun DiagnosticsScreen(
     diagnostics: RunDiagnostics,
@@ -82,7 +81,7 @@ fun DiagnosticsScreen(
         GlassCard {
             GlassSectionLabel("EXPORT")
             Text(
-                "Share the last ${records.size.coerceAtMost(100)} runs as JSON when reporting issues.",
+                "Share the last ${records.size.coerceAtMost(100)} runs as JSON (includes usage ledger + recent logcat when available).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -90,7 +89,11 @@ fun DiagnosticsScreen(
             OutlinedButton(
                 onClick = {
                     DiagnosticsExport.writeToFilesDir(context, diagnostics, usage)
-                    val bundle = diagnostics.exportBundle(usageSummary)
+                    val bundle = diagnostics.exportBundle(
+                        usage = usageSummary,
+                        logcatSnippet = DiagnosticsExport.captureLogcatSnippet(),
+                        appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    )
                     val send = Intent(Intent.ACTION_SEND).apply {
                         type = "application/json"
                         putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
