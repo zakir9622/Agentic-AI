@@ -6,6 +6,7 @@ import com.zakir.vestra.shared.usage.UsageLedger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -59,6 +60,11 @@ private class FakeIo : CloudImageIo {
 
 class GenerativeCloudServiceTest {
 
+    private fun httpClient(engine: MockEngine): HttpClient = HttpClient(engine) {
+        install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        install(HttpTimeout)
+    }
+
     /** Valid 64×64 PNG header + padding above the 2 KB download floor. */
     private val validPngBytes: ByteArray = byteArrayOf(
         0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte(),
@@ -96,9 +102,7 @@ class GenerativeCloudServiceTest {
                 )
             }
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
+        val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
             setImageGenProvider("flux-schnell-hf")
             setHfToken("hf_test")
@@ -128,9 +132,7 @@ class GenerativeCloudServiceTest {
                 )
             }
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
+        val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
             setImageGenProvider("flux-schnell-hf")
         }
@@ -158,9 +160,7 @@ class GenerativeCloudServiceTest {
                 headersOf(HttpHeaders.ContentType, "application/json"),
             )
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
+        val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
             setCodeProvider("llama33-70b-groq")
             setHfToken("hf_test")
@@ -188,9 +188,7 @@ class GenerativeCloudServiceTest {
                 headersOf(HttpHeaders.ContentType, "application/json"),
             )
         }
-        val http = HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
+        val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
             setCodeProvider("llama33-70b-groq")
             setOpenRouterApiKey("sk-or-test")

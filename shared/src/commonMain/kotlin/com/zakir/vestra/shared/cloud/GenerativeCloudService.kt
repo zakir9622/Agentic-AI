@@ -115,8 +115,8 @@ class GenerativeCloudService(
             var skipInference = false
             var skipSpaces = false
             var offline = false
-            val budget = GenerationBudget.forImage()
-            val deadline = budget.deadlineMs
+            var deadline = GenerationBudget.forImage().deadlineMs
+            var fallbackGraceUsed = false
             emit(
                 GenerativeState.Running(
                     0.05f,
@@ -126,7 +126,19 @@ class GenerativeCloudService(
             )
 
             for ((modelIndex, candidate) in candidates.withIndex()) {
-                budget.throwIfExpired()
+                var budget = GenerationBudget(deadline)
+                if (budget.expired()) {
+                    // Primary ZeroGPU Spaces often burn the whole 120s on one hung poll; grant one
+                    // short grace window so InstructPix2Pix (etc.) can still run.
+                    val canGrace = !fallbackGraceUsed &&
+                        modelIndex > 0 &&
+                        lastFailure.allowsImageFallbackGrace()
+                    if (!canGrace) break
+                    fallbackGraceUsed = true
+                    deadline = com.zakir.vestra.shared.time.EpochClock.System.nowMs() +
+                        GenerationBudget.IMAGE_FALLBACK_GRACE_MS
+                    budget = GenerationBudget(deadline)
+                }
                 if (offline) break
                 attempted = candidate
                 if (skipInference && candidate.platform == CloudPlatform.HF_INFERENCE) continue
@@ -139,6 +151,8 @@ class GenerativeCloudService(
                             0.3f,
                             when {
                                 skipSpaces -> "ZeroGPU empty — trying ${candidate.displayName}…"
+                                fallbackGraceUsed ->
+                                    "${provider.displayName} timed out — trying ${candidate.displayName}…"
                                 else -> "${provider.displayName} is busy — trying ${candidate.displayName}…"
                             },
                             deadlineEpochMs = deadline,
@@ -149,7 +163,8 @@ class GenerativeCloudService(
                 var advanceModel = false
                 for ((index, variant) in variants.withIndex()) {
                     if (advanceModel) break
-                    budget.throwIfExpired()
+                    budget = GenerationBudget(deadline)
+                    if (budget.expired()) break
                     emit(
                         GenerativeState.Running(
                             0.2f + index * 0.15f,
@@ -206,13 +221,16 @@ class GenerativeCloudService(
                                         deadlineEpochMs = deadline,
                                     ),
                                 )
+                                val wakeRetries = if (budget.allowWakeRetry()) 1 else 0
                                 val result = hf.predict(
                                     candidate.endpoint,
                                     CloudModelContracts.effectiveApiName(candidate),
                                     data,
                                     settings.hfToken.value,
                                     maxPolls = budget.maxPolls(),
-                                    wakeRetries = 1,
+                                    wakeRetries = wakeRetries,
+                                    deadlineMs = deadline,
+                                    pollRequestTimeoutMs = GenerationBudget.GRADIO_POLL_REQUEST_TIMEOUT_MS,
                                     onPoll = { pollIndex, maxPolls ->
                                         val frac =
                                             0.35f + 0.5f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
@@ -936,4 +954,14 @@ class GenerativeCloudService(
 
     private fun extractRef(element: kotlinx.serialization.json.JsonElement): String =
         GradioOutput.extractMediaRef(element)
+}
+
+/** Failures where burning the primary image deadline should still try one alternate Space. */
+private fun CloudFailure.allowsImageFallbackGrace(): Boolean = when (this) {
+    CloudFailure.Timeout, CloudFailure.Busy, CloudFailure.Waking -> true
+    is CloudFailure.Unknown ->
+        raw.contains("timeout", ignoreCase = true) ||
+            raw.contains("timed out", ignoreCase = true) ||
+            raw.contains("queue", ignoreCase = true)
+    else -> false
 }
