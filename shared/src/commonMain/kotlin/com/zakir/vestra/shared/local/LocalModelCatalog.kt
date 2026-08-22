@@ -38,7 +38,7 @@ object LocalModelCatalog {
             license = "Apache-2.0 / open ONNX graphs",
             approxSizeLabel = "~15–40 MB",
             runnable = true,
-            testingNote = "Best for fast local testing. Set Try-on engine → Lite. Debug builds bundle lite-v1.",
+            testingNote = "Download lite-v1 from Settings → Model packs (~68 MB). Required for Lite and Pro try-on.",
         ),
         LocalModelEntry(
             id = "local-pro-int8",
@@ -62,7 +62,7 @@ object LocalModelCatalog {
             license = "CreativeML OpenRAIL-M (SD1.5)",
             approxSizeLabel = "~4.3 GB",
             runnable = true,
-            testingNote = "Use when INT8 quality is not enough. Same Pro engine.",
+            testingNote = "On HF manifest with pro-v1. Download both lite-v1 + pro-v1 for full Pro try-on.",
         ),
         LocalModelEntry(
             id = "local-studio-models",
