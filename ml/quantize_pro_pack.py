@@ -16,7 +16,7 @@ import json
 import shutil
 from pathlib import Path
 
-MIN_SPEC = {"minRamMb": 10000, "requiresNpu": False, "minSdk": 26}
+MIN_SPEC = {"minRamMb": 10000, "requiresNpu": False, "minSdk": 35}
 QUANTIZE_TARGETS = ("unet.onnx", "controlnet.onnx")
 
 

@@ -87,7 +87,7 @@ def main() -> None:
                 "tier": "LITE",
                 "displayName": "Lite engine",
                 "description": "Fast offline try-on: garment cutout, body analysis, and fitting on every supported phone.",
-                "minSpec": {"minRamMb": 0, "requiresNpu": False, "minSdk": 26},
+                "minSpec": {"minRamMb": 0, "requiresNpu": False, "minSdk": 35},
             },
             indent=2,
         )

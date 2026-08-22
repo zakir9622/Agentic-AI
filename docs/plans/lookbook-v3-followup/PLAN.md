@@ -26,38 +26,22 @@ What remains is **quality depth** (model packs, composer controls), **CI/review 
 - Settings → Diagnostics: export JSON, “What happened?” on failures
 - `docs/BACKEND_PIPELINE.md`, `scripts/benchmark-local.py`, `scripts/benchmark-cloud.py`
 
-**Gaps:** Generative cloud runs log 0 ms stages; `UsageLedger` not merged into export; runtime store is SharedPreferences (export writes JSON on share only); no logcat snippet in bundle.
+**Gaps (historical — closed):** diagnostics stages/ledger, BiRefNet/ESRGAN on HF, on-device picker + advanced panel, Settings C4 split, RSS assets, CI integration scripts. **Still open:** `pro-v2-int8` / `lite-v2` / `local-sdturbo-v1` HF weights; Gemma (E3); device a11y/visual baselines.
 
-### Phase 2 — Local models (~35%)
-- `OrtSessionCache`, `docs/LOCAL_MODEL_RESEARCH.md`, catalog filters non-runnable in settings picker
+### Phase 2 — Local models
+- Quality packs on HF + runners @ 3.0.4; pro prefers `pro-v1` until int8 uploaded
 
-**Gaps:** `lite-v2` not exported; BiRefNet / Real-ESRGAN packs not on HF manifest; `pro-v2-int8` export pending upload; UI still says Lite/Pro not Fast/Pro local try-on.
+**Gaps:** `lite-v2` publish; `pro-v2-int8` HF upload; SD-Turbo weights (E4).
 
-### Phase 3 — Home navigation (~90%)
-- `HomeScreen` HorizontalPager: Try-on → Image → Video → Code → News
-- Deep links redirect legacy routes
+### Phase 5 — Settings
+- Hub + Cloud / Engines / Appearance section files @ 3.0.6
 
-**Gaps:** ~1,350 lines dead studio screens; News headline tap scrolls to **Code** tab instead of News chat.
+**Gaps:** none for C4; durable CTA on pack download.
 
-### Phase 4 — Unified composer (~60%)
-- `UnifiedStudioPane` + evolved `PromptComposer` + grouped `ModelPickerSheet` (HF / Groq / OpenRouter)
+### Phase 7 — Test & release
+- Unit tests + integration/benchmarks in CI; accesslint config routes expanded @ 3.0.6
 
-**Gaps:** No On-device group in picker; no CFG/steps/seed for Pro; no per-model dynamic advanced panel.
-
-### Phase 5 — Settings (~80%)
-- Hub + filtered Cloud / Engines / Appearance / Diagnostics subsections; permission chips read-only
-
-**Gaps:** (closed @ 3.0.6) SettingsScreen split into section files; durable CTA on pack download.
-
-### Phase 6 — News & Chat (~85%)
-- `NewsRepository`, `ChatRepository`, `NewsChatScreen`, headline context in system prompt
-
-**Gaps:** Chat uses fixed CODE provider from Settings; RSS URLs hardcoded (not assets); headline handoff bug.
-
-### Phase 7 — Test & release (~40%)
-- Unit tests in CI; sideload release APK workflow; v2.9.16 green
-
-**Gaps:** Integration scripts, benchmarks, probes, instrumented tests, accesslint, computerUse matrix **not in CI**.
+**Gaps:** live accesslint sweep + Pixel visual baseline PNGs (need device).
 
 ---
 

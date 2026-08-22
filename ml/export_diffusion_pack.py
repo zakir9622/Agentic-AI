@@ -141,7 +141,7 @@ def export(weights: Path, out: Path, width: int, height: int, fp16: bool) -> Non
                 "tier": "PRO",
                 "displayName": "Pro engine",
                 "description": "Photorealistic on-device try-on diffusion for flagship phones.",
-                "minSpec": {"minRamMb": 7168, "requiresNpu": True, "minSdk": 31},
+                "minSpec": {"minRamMb": 7168, "requiresNpu": True, "minSdk": 35},
             },
             indent=2,
         )

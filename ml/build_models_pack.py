@@ -72,7 +72,7 @@ def main() -> None:
                 "kind": "MODELS",
                 "displayName": "Studio models",
                 "description": "Photorealistic base models for the casting gallery.",
-                "minSpec": {"minRamMb": 0, "requiresNpu": False, "minSdk": 26},
+                "minSpec": {"minRamMb": 0, "requiresNpu": False, "minSdk": 35},
                 "studioModels": studio_models,
             },
             indent=2,
