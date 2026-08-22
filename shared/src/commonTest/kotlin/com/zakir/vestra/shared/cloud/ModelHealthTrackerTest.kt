@@ -76,6 +76,24 @@ class ModelHealthTrackerTest {
     }
 
     @Test
+    fun offlineShowsOfflineLabelNotCoolingDown() {
+        val previous = EpochClock.System
+        EpochClock.System = EpochClock { 3_000_000L }
+        try {
+            val tracker = ModelHealthTracker(TestMemorySettings())
+            tracker.recordFailure("qwen-edit", ModelHealthTracker.FailureKind.OFFLINE)
+            assertTrue(tracker.isInCooldown("qwen-edit"))
+            val label = tracker.observedLabel("qwen-edit")
+            assertNotNull(label)
+            assertTrue(label!!.contains("Offline", ignoreCase = true))
+            assertFalse(label.contains("Cooling", ignoreCase = true))
+            assertEquals(5_000L, tracker.cooldownRemainingMs("qwen-edit"))
+        } finally {
+            EpochClock.System = previous
+        }
+    }
+
+    @Test
     fun observedLabelNullWhenNoHistory() {
         val tracker = ModelHealthTracker(TestMemorySettings())
         assertNull(tracker.observedLabel("unknown-model"))

@@ -56,7 +56,10 @@ object DebugPackBootstrap {
 
             if (completeMarker.exists()) {
                 // Re-verify on every launch — wipe corrupt installs from interrupted copies.
-                if (verifyDir(versionDir.absolutePath) == null) return
+                if (verifyDir(versionDir.absolutePath) == null) {
+                    File(versionDir, ModelPackManager.ONNX_OK_MARKER).writeText("ok")
+                    return
+                }
                 com.zakir.vestra.shared.engine.lite.OrtSessionCache.invalidateContaining(versionDir.absolutePath)
                 versionDir.deleteRecursively()
             }
@@ -86,6 +89,7 @@ object DebugPackBootstrap {
                 return
             }
             completeMarker.writeText(VERSION.toString())
+            File(versionDir, ModelPackManager.ONNX_OK_MARKER).writeText("ok")
         }
     }
 

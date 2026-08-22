@@ -184,11 +184,18 @@ class VestraApp : Application() {
         const val PACKS_MANIFEST_URL =
             "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json"
 
+        @Suppress("DEPRECATION")
         fun isNetworkAvailable(context: Context): Boolean {
-            val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
-            val network = cm.activeNetwork ?: return false
-            val caps = cm.getNetworkCapabilities(network) ?: return false
-            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            val cm = context.getSystemService(ConnectivityManager::class.java) ?: return true
+            fun capable(network: android.net.Network): Boolean {
+                val caps = cm.getNetworkCapabilities(network) ?: return false
+                if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
+                // VALIDATED is ideal but often false during captive-portal / VPN handoff
+                // while 5G/Wi‑Fi is already usable — treat INTERNET as enough.
+                return true
+            }
+            cm.activeNetwork?.let { if (capable(it)) return true }
+            return cm.allNetworks.any { capable(it) }
         }
     }
 }

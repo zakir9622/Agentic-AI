@@ -196,6 +196,7 @@ class GenerativeCloudService(
                                     ModelHealthTracker.FailureKind.GENERIC
                                 }
                             CloudFailure.CreditsExhausted -> ModelHealthTracker.FailureKind.CREDITS
+                            CloudFailure.Offline -> ModelHealthTracker.FailureKind.OFFLINE
                             else -> ModelHealthTracker.FailureKind.GENERIC
                         }
                         health.recordFailure(candidate.id, kind)
@@ -478,14 +479,16 @@ class GenerativeCloudService(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        val failure = CloudFailureClassifier.from(e)
                         lastError = e
-                        val kind = if (e.isAccountQuotaExhausted()) {
-                            ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
-                        } else {
-                            ModelHealthTracker.FailureKind.GENERIC
+                        val kind = when {
+                            e.isAccountQuotaExhausted() -> ModelHealthTracker.FailureKind.QUOTA_ACCOUNT
+                            failure is CloudFailure.Offline -> ModelHealthTracker.FailureKind.OFFLINE
+                            else -> ModelHealthTracker.FailureKind.GENERIC
                         }
                         health.recordFailure(candidate.id, kind)
                         if (e.isAccountQuotaExhausted()) throw e
+                        if (failure is CloudFailure.Offline) throw e
                     }
                 }
             }

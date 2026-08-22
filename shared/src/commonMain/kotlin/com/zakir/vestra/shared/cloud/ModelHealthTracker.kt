@@ -20,6 +20,8 @@ class ModelHealthTracker(
         GENERIC,
         QUOTA_ACCOUNT,
         CREDITS,
+        /** Connectivity blip — must not look like Space cool-down. */
+        OFFLINE,
     }
 
     fun recordSuccess(providerId: String) {
@@ -38,6 +40,7 @@ class ModelHealthTracker(
         val cooldownMs = when (kind) {
             FailureKind.QUOTA_ACCOUNT -> QUOTA_ACCOUNT_COOLDOWN_MS
             FailureKind.CREDITS -> CREDITS_COOLDOWN_MS
+            FailureKind.OFFLINE -> OFFLINE_COOLDOWN_MS
             FailureKind.GENERIC -> cooldownFor(failures)
         }
         save(
@@ -70,6 +73,7 @@ class ModelHealthTracker(
             entry.cooldownUntilMs > now -> when (kind) {
                 FailureKind.QUOTA_ACCOUNT -> "ZeroGPU empty · refills daily"
                 FailureKind.CREDITS -> "Inference credits empty · monthly"
+                FailureKind.OFFLINE -> "Offline · reconnect"
                 FailureKind.GENERIC -> {
                     val mins = ((entry.cooldownUntilMs - now) / 60_000L).coerceAtLeast(1L)
                     "Cooling down · ${mins}m"
@@ -97,6 +101,8 @@ class ModelHealthTracker(
         /** Account ZeroGPU refills on a daily cadence — avoid a misleading 30s “cool down”. */
         const val QUOTA_ACCOUNT_COOLDOWN_MS = 6L * 60L * 60L * 1000L
         const val CREDITS_COOLDOWN_MS = 24L * 60L * 60L * 1000L
+        /** Brief only — connectivity often returns in seconds. */
+        const val OFFLINE_COOLDOWN_MS = 5_000L
 
         fun cooldownFor(consecutiveFailures: Int): Long = when (consecutiveFailures) {
             1 -> 30_000L

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.domain.PackState
 import com.zakir.vestra.shared.domain.PackStatus
+import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.content.LookbookCopy
@@ -55,6 +56,20 @@ fun PacksScreen(
     LaunchedEffect(Unit) {
         durableReady = DurableStorage.hasAllFilesAccess()
         packManager.refresh()
+    }
+
+    // Finish packs left on "verification pending" (e.g. pre-.onnx_ok installs).
+    LaunchedEffect(states) {
+        val pendingIds = states.values
+            .filter {
+                it.status == PackStatus.INSTALLED &&
+                    it.verifyStatus == PackVerifyStatus.UNKNOWN
+            }
+            .map { it.pack.id }
+        if (pendingIds.isEmpty()) return@LaunchedEffect
+        withContext(Dispatchers.Default) {
+            pendingIds.forEach { id -> packManager.verifyInstalled(id) }
+        }
     }
 
     GlassScreen(

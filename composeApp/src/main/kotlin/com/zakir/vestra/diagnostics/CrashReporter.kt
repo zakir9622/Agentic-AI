@@ -355,15 +355,20 @@ object CrashReporter {
             @Suppress("DEPRECATION")
             override fun onTrimMemory(level: Int) {
                 val label = trimLabel(level)
-                if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+                // RUNNING_CRITICAL is 15; UI_HIDDEN is 20 — never use >= CRITICAL alone
+                // or every background trim clears ORT sessions (seen in v3.0.12 bundles).
+                val severe = level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
                     level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
-                ) {
+                if (severe) {
                     markLowMemory(label)
                     runCatching {
                         com.zakir.vestra.shared.engine.lite.OrtSessionCache.clearAll()
                     }
                     w("Mem", "onTrimMemory $label ($level) — cleared ORT session cache")
-                } else if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+                } else if (
+                    level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+                    level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE
+                ) {
                     w("Mem", "onTrimMemory $label ($level)")
                 }
             }
