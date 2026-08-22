@@ -1,6 +1,7 @@
 package com.zakir.vestra
 
 import android.content.Context
+import com.zakir.vestra.shared.packs.ModelPackManager
 import java.io.File
 
 /**
@@ -24,8 +25,6 @@ object DebugPackBootstrap {
      * leaves a half-written pack that later looks installed.
      */
     fun seedLitePackAsync(context: Context, packsRoot: File = File(context.filesDir, "packs")) {
-        val completeMarker = File(packsRoot, "$PACK_ID/$VERSION/.complete")
-        if (completeMarker.exists()) return
         Thread({ seedLitePack(context, packsRoot) }, "lite-pack-seed").apply {
             priority = Thread.MIN_PRIORITY
             isDaemon = true
@@ -35,11 +34,15 @@ object DebugPackBootstrap {
     fun seedLitePack(context: Context, packsRoot: File = File(context.filesDir, "packs")) {
         val versionDir = File(packsRoot, "$PACK_ID/$VERSION")
         val completeMarker = File(versionDir, ".complete")
-        if (completeMarker.exists()) return
 
         runCatching {
             // Probe: absent in release builds → IOException → skip entirely.
             context.assets.open("packs/$PACK_ID/garment_seg.onnx").close()
+
+            // An already-seeded pack still needs its catalog entry, which earlier builds
+            // wrote into manifest.cache.json where a remote refresh overwrote it.
+            writeBundledManifest(packsRoot)
+            if (completeMarker.exists()) return
 
             // Stage beside the target so an interrupted copy can't be mistaken for a pack.
             val staging = File(packsRoot, "$PACK_ID/.staging-$VERSION")
@@ -57,11 +60,16 @@ object DebugPackBootstrap {
                 staging.deleteRecursively()
             }
             completeMarker.writeText(VERSION.toString())
-
-            // Seed the offline manifest cache so refresh(networkAllowed=false)
-            // recognizes the pack without contacting Hugging Face.
-            File(packsRoot, "manifest.cache.json").writeText(localManifest())
         }
+    }
+
+    /**
+     * Kept separate from manifest.cache.json so a remote refresh — whose published catalog
+     * does not list the bundled pack — cannot drop it again.
+     */
+    private fun writeBundledManifest(packsRoot: File) {
+        packsRoot.mkdirs()
+        File(packsRoot, ModelPackManager.BUNDLED_MANIFEST).writeText(localManifest())
     }
 
     private fun localManifest(): String {
