@@ -108,6 +108,9 @@ def test_hf_manifest_and_download() -> None:
     print(f"  OK  pro-v1 config.json ({len(cfg_bytes)} bytes) keys={list(cfg.keys())[:6]}…")
     unet = next((f for f in pro["files"] if f["path"] == "unet.onnx"), None)
     if unet:
+        unet_data = next((f for f in pro["files"] if f["path"] == "unet.onnx.data"), None)
+        data_gb = (unet_data["bytes"] / 1e9) if unet_data else 0.0
+        combined_gb = (unet["bytes"] + (unet_data["bytes"] if unet_data else 0)) / 1e9
         # HEAD-style: fetch only first byte via Range to prove host serves the file.
         req = urllib.request.Request(
             unet["url"],
@@ -116,7 +119,12 @@ def test_hf_manifest_and_download() -> None:
         with urllib.request.urlopen(req, timeout=60) as resp:
             if resp.status not in (200, 206):
                 raise SystemExit(f"pro-v1 unet.onnx unreachable: HTTP {resp.status}")
-        print(f"  OK  pro-v1/unet.onnx reachable ({unet['bytes'] / 1e9:.2f} GB)")
+        label = f"pro-v1/unet.onnx reachable"
+        if unet_data:
+            label += f" + unet.onnx.data ({data_gb:.2f} GB external) → {combined_gb:.2f} GB total"
+        else:
+            label += f" ({unet['bytes'] / 1e9:.2f} GB)"
+        print(f"  OK  {label}")
 
 
 def main() -> int:

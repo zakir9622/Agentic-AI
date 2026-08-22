@@ -302,6 +302,86 @@ class ModelPackManagerTest {
     }
 
     @Test
+    fun installedNotReadyUntilVerified() = runTest {
+        val fs = FakeFs()
+        // Marker present but verify status UNKNOWN after refresh (no prior verified state).
+        fs.files["/packs/lite-v1/2/a.onnx"] = "A".repeat(60)
+        fs.files["/packs/lite-v1/2/b.onnx"] = "B".repeat(40)
+        fs.files["/packs/lite-v1/2/${ModelPackManager.COMPLETE_MARKER}"] = "2"
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        assertTrue(manager.isInstalled("lite-v1"))
+        assertFalse(manager.isReady("lite-v1"))
+        assertEquals(PackVerifyStatus.UNKNOWN, manager.states.value.getValue("lite-v1").verifyStatus)
+    }
+
+    @Test
+    fun isReadyFalseWhenVerifyFailed() = runTest {
+        val fs = FakeFs()
+        val checker = object : PackIntegrityChecker {
+            var allowOnnx = true
+            override fun verifyFiles(pack: com.zakir.vestra.shared.domain.ModelPack, dir: String) = null
+            override fun verifyOnnx(pack: com.zakir.vestra.shared.domain.ModelPack, dir: String) =
+                if (allowOnnx) null else "ONNX smoke failed"
+        }
+        val manager = ModelPackManager(
+            fs, FakeProbe(), manifestClient(), "https://m/manifest.json", integrityChecker = checker,
+        )
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+        assertTrue(manager.isReady("lite-v1"))
+
+        checker.allowOnnx = false
+        assertFalse(manager.verifyInstalled("lite-v1"))
+        assertFalse(manager.isReady("lite-v1"))
+        assertEquals(PackVerifyStatus.FAILED, manager.states.value.getValue("lite-v1").verifyStatus)
+    }
+
+    @Test
+    fun wrongFileSizeOnRebuildDropsCompleteMarker() = runTest {
+        val fs = FakeFs()
+        fs.files["/packs/lite-v1/2/${ModelPackManager.COMPLETE_MARKER}"] = "2"
+        fs.files["/packs/lite-v1/2/a.onnx"] = "A".repeat(30) // manifest expects 60
+        fs.files["/packs/lite-v1/2/b.onnx"] = "B".repeat(40)
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        assertFalse(manager.isInstalled("lite-v1"))
+        assertFalse(fs.exists("/packs/lite-v1/2/${ModelPackManager.COMPLETE_MARKER}"))
+    }
+
+    @Test
+    fun verifyAllInstalledChecksEveryPack() = runTest {
+        val fs = FakeFs()
+        var verifyCount = 0
+        val checker = object : PackIntegrityChecker {
+            override fun verifyFiles(pack: com.zakir.vestra.shared.domain.ModelPack, dir: String) = null
+            override fun verifyOnnx(pack: com.zakir.vestra.shared.domain.ModelPack, dir: String): String? {
+                verifyCount++
+                return null
+            }
+        }
+        val manager = ModelPackManager(
+            fs, FakeProbe(), manifestClient(), "https://m/manifest.json", integrityChecker = checker,
+        )
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        manager.completeInstall("lite-v1", staging)
+        verifyCount = 0
+        manager.verifyAllInstalled()
+        assertEquals(1, verifyCount)
+        assertTrue(manager.isReady("lite-v1"))
+    }
+
+    @Test
     fun deviceSpecGate() {
         val manager = ModelPackManager(FakeFs(), FakeProbe(ram = 4096, npu = false), manifestClient(), "u")
         assertTrue(manager.deviceMeets(DeviceSpec(minRamMb = 0, requiresNpu = false)))

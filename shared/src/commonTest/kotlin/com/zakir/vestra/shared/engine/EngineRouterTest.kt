@@ -67,6 +67,20 @@ class EngineRouterTest {
     }
 
     @Test
+    fun packVerifyFailedMapsToActionableError() = runTest {
+        val lite = FakeEngine(
+            EngineTier.LITE,
+            Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED),
+        )
+        val router = EngineRouter(listOf(lite))
+        val terminal = router.generate(request(EngineTier.LITE)).last()
+        val failed = assertIs<GenerationState.Failed>(terminal)
+        val internal = assertIs<TryOnError.Internal>(failed.error)
+        assertEquals(true, internal.message.contains("lite-v1", ignoreCase = true))
+        assertEquals(true, internal.message.contains("verification", ignoreCase = true))
+    }
+
+    @Test
     fun missingEngineFailsInsteadOfThrowing() = runTest {
         val router = EngineRouter(emptyList())
         val terminal = router.generate(request(EngineTier.LITE)).last()

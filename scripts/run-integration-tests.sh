@@ -31,8 +31,16 @@ run_step "Gradle unit tests" ./gradlew :shared:testDebugUnitTest :composeApp:tes
 run_step "Lite pack assets (verify-lite-pack.sh)" bash scripts/verify-lite-pack.sh
 run_step "HF manifest integrity" python3 scripts/verify-manifest.py
 run_step "Local ONNX integration (bundled + HF download)" python3 scripts/integration-local-models.py
+run_step "Edge-case integration (truncation, input geometry, pro weights)" python3 scripts/integration-edge-cases.py
 run_step "Cloud probe (quick)" python3 scripts/probe-models.py --quick --json /tmp/lookbook-probe-quick.json
 run_step "Cloud probe (full spaces)" python3 scripts/probe-models.py --json /tmp/lookbook-probe-full.json
+
+if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | rg -q 'device$'; then
+  run_step "Connected Android instrumentation" ./gradlew :composeApp:connectedSideloadDebugAndroidTest --quiet
+else
+  log "SKIP: Connected Android instrumentation (no adb device)"
+  log ""
+fi
 
 log "=== Summary ==="
 if [[ "$FAILED" -eq 0 ]]; then
