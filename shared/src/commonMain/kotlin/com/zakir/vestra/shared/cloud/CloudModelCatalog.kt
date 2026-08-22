@@ -170,7 +170,7 @@ object CloudModelCatalog {
             requiresApiKey = true,
             qualityScore = 84,
             speedScore = 80,
-            usageNote = "Degraded · HF Inference edit route; prefer Qwen Image Edit Space when ZeroGPU is up.",
+            usageNote = "Unsupported · nscale rejects this model (HTTP 400). Use Qwen or InstructPix2Pix Space.",
         ),
         CloudModelProvider(
             id = "flux-schnell-inference",

@@ -223,7 +223,9 @@ class AppSettings(private val settings: Settings) {
         val stored = settings.getStringOrNull(key)
         // One-time: InstructPix2Pix was the default edit model but its Space often returns
         // empty Gradio errors — prefer Qwen Image Edit unless the user re-selects it later.
-        if (capability == AiCapability.IMAGE_EDIT && stored == "instruct-pix2pix-hf") {
+        if (capability == AiCapability.IMAGE_EDIT &&
+            (stored == "instruct-pix2pix-hf" || stored == "instruct-pix2pix-inference")
+        ) {
             val curated = CloudModelCatalog.defaultFor(capability)
             settings.putString(key, curated.id)
             return curated.id

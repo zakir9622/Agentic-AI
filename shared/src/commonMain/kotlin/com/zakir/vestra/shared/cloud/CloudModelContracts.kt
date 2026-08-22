@@ -109,10 +109,10 @@ object CloudModelContracts {
         ),
         CloudModelContract(
             providerId = "instruct-pix2pix-inference",
-            support = ModelSupportLevel.DEGRADED,
+            support = ModelSupportLevel.UNSUPPORTED,
             requiredInputs = listOf("HF token with Inference Providers", "reference image", "prompt"),
-            schemaNote = "fal/nscale image-to-image · timbrooks/instruct-pix2pix (falls back to Space edit)",
-            failureHint = "HF Inference edit failed. Switch to Qwen Image Edit or InstructPix2Pix Space in Settings.",
+            schemaNote = "nscale rejects timbrooks/instruct-pix2pix (HTTP 400) — use Qwen or InstructPix2Pix Space",
+            failureHint = "HF Inference does not host InstructPix2Pix on nscale. Use Qwen Image Edit or InstructPix2Pix Space.",
         ),
         CloudModelContract(
             providerId = "flux-schnell-inference",
@@ -140,7 +140,7 @@ object CloudModelContracts {
             support = ModelSupportLevel.READY,
             requiredInputs = listOf("prompt", "seed", "randomize", "width", "height", "steps"),
             schemaNote = "infer · prompt + seed/randomize/size/steps",
-            failureHint = "FLUX Schnell failed — check HF Space status or retry off-peak.",
+            failureHint = "FLUX Schnell Space failed — retry off-peak, add an HF token for FLUX Inference fallback, or switch model.",
         ),
         CloudModelContract(
             providerId = "sdxl-lightning-hf",
@@ -157,7 +157,7 @@ object CloudModelContracts {
             ),
             schemaNote = "infer · FileData image + prompt + seed/guidance/steps",
             failureHint = "Qwen Image Edit is out of free ZeroGPU quota or waking. " +
-                "The app retries and falls back to InstructPix2Pix automatically.",
+                "The app retries and falls back to InstructPix2Pix Space automatically.",
         ),
         CloudModelContract(
             providerId = "instruct-pix2pix-hf",
@@ -255,10 +255,23 @@ object CloudModelContracts {
         return if (c.support == ModelSupportLevel.UNSUPPORTED) c.failureHint else null
     }
 
-    fun friendlyFailure(provider: CloudModelProvider, raw: String, label: String): String {
+    fun friendlyFailure(
+        provider: CloudModelProvider,
+        raw: String,
+        label: String,
+        selectedDisplayName: String? = null,
+    ): String {
         val c = forProvider(provider)
         val msg = raw.trim()
-        return when {
+        val prefix = if (
+            selectedDisplayName != null &&
+            !selectedDisplayName.equals(provider.displayName, ignoreCase = true)
+        ) {
+            "$selectedDisplayName unavailable — "
+        } else {
+            ""
+        }
+        val body = when {
             c.support == ModelSupportLevel.UNSUPPORTED -> c.failureHint
             msg.contains("sufficient permissions", ignoreCase = true) ||
                 msg.contains("Inference Providers", ignoreCase = true) ->
@@ -295,14 +308,21 @@ object CloudModelContracts {
                 msg.contains("content policy", ignoreCase = true) ||
                 msg.contains("blocked", ignoreCase = true) ->
                 "$label was blocked by ${provider.displayName}. Enable Bypass filter assist or rephrase as fashion/editorial."
-            msg.contains("No internet", ignoreCase = true) ->
-                "No internet connection. Reconnect and retry."
+            msg.contains("No internet", ignoreCase = true) ||
+                msg.contains("Unable to resolve host", ignoreCase = true) ||
+                msg.contains("UnknownHostException", ignoreCase = true) ||
+                msg.contains("Network is unreachable", ignoreCase = true) ||
+                msg.contains("failed to connect", ignoreCase = true) ->
+                "No internet connection. Reconnect and retry — or use Lite/Pro try-on offline."
+            msg.contains("Model not supported by provider", ignoreCase = true) ->
+                "HF Inference Providers rejected ${provider.displayName}. Switch to a Space model in Settings."
             msg.contains("LinkedHashMap", ignoreCase = true) ||
                 msg.contains("Kotlin reflection", ignoreCase = true) ->
                 "$label failed to encode the request for ${provider.displayName}. Update the app and retry."
             msg.isBlank() -> "${c.failureHint} (${c.schemaNote})"
             else -> "${provider.displayName}: ${msg.take(220)}"
         }
+        return prefix + body
     }
 
     fun usageFailureNote(provider: CloudModelProvider, raw: String): String {

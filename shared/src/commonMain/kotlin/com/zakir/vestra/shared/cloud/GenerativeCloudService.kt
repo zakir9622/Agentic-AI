@@ -158,7 +158,8 @@ class GenerativeCloudService(
                             // ZeroGPU is account-wide for Spaces — jump to Inference Providers next.
                             continue
                         }
-                        if (e.isNonRetryableInferenceError()) throw e
+                        if (e.isNonRetryableInferenceError() || e.isBrokenInferenceRoute()) continue
+                        if (e.isNetworkError() && candidate.platform == CloudPlatform.HF_SPACE) continue
                     }
                 }
             }
@@ -173,7 +174,12 @@ class GenerativeCloudService(
             )
             emit(
                 GenerativeState.Failed(
-                    CloudModelContracts.friendlyFailure(attempted, e.message.orEmpty(), "Image generation"),
+                    CloudModelContracts.friendlyFailure(
+                        attempted,
+                        e.message.orEmpty(),
+                        "Image generation",
+                        selectedDisplayName = provider.displayName,
+                    ),
                 ),
             )
         }
@@ -200,6 +206,19 @@ class GenerativeCloudService(
         return msg.contains("depleted your monthly", ignoreCase = true) ||
             msg.contains("Inference Providers monthly credits", ignoreCase = true) ||
             msg.contains("token rejected for Inference", ignoreCase = true)
+    }
+
+    private fun Exception.isBrokenInferenceRoute(): Boolean {
+        val msg = message.orEmpty()
+        return msg.contains("Model not supported by provider", ignoreCase = true)
+    }
+
+    private fun Exception.isNetworkError(): Boolean {
+        val msg = message.orEmpty()
+        return msg.contains("Unable to resolve host", ignoreCase = true) ||
+            msg.contains("UnknownHostException", ignoreCase = true) ||
+            msg.contains("Network is unreachable", ignoreCase = true) ||
+            msg.contains("failed to connect", ignoreCase = true)
     }
 
     fun generateCode(
@@ -283,7 +302,14 @@ class GenerativeCloudService(
                 success = false,
                 note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
-            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(attempted, e.message.orEmpty(), "Code generation")))
+            emit(GenerativeState.Failed(
+                CloudModelContracts.friendlyFailure(
+                    attempted,
+                    e.message.orEmpty(),
+                    "Code generation",
+                    selectedDisplayName = provider.displayName,
+                ),
+            ))
         }
     }
 
@@ -365,7 +391,14 @@ class GenerativeCloudService(
                 success = false,
                 note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
-            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(attempted, e.message.orEmpty(), "Video generation")))
+            emit(GenerativeState.Failed(
+                CloudModelContracts.friendlyFailure(
+                    attempted,
+                    e.message.orEmpty(),
+                    "Video generation",
+                    selectedDisplayName = provider.displayName,
+                ),
+            ))
         }
     }
 

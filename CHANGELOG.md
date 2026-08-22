@@ -1,5 +1,13 @@
 # Changelog — The Lookbook
 
+## 2.9.15
+- Image edit fallback no longer hits broken InstructPix2Pix HF Inference (nscale HTTP 400)
+- Qwen Image Edit → InstructPix2Pix Space chain; migrate stale inference edit selection
+- DNS / offline errors map to friendly "No internet" instead of raw host resolution text
+- FLUX Space failures suggest HF Inference fallback when token is configured
+- Usage ledger failures prefix selected model when fallback chain exhausts
+- Google Gemma 3 local LLM documented as feasible via LiteRT-LM (catalog placeholder)
+
 ## 2.9.14
 - Quality plan: `QualityRating` maps catalog scores to 1–5★ (5★ = READY + score ≥ 90)
 - Cloud downloads validated (reject empty/corrupt images and videos; retry fallback chain)

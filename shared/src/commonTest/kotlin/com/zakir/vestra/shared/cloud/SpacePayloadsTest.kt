@@ -142,6 +142,17 @@ class SpacePayloadsTest {
     }
 
     @Test
+    fun friendlyFailureMapsDnsErrorsToNoInternet() {
+        val provider = CloudModelCatalog.byId("flux-schnell-hf")!!
+        val msg = CloudModelContracts.friendlyFailure(
+            provider,
+            """Unable to resolve host "black-forest-labs-flux-1-schnell.hf.space"""",
+            "Image generation",
+        )
+        assertTrue(msg.contains("No internet", ignoreCase = true), msg)
+    }
+
+    @Test
     fun imageGenAndEditAllowHfInferenceProviders() {
         listOf(AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT).forEach { capability ->
             val hasInference = CloudModelCatalog.forCapability(capability)

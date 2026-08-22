@@ -30,6 +30,25 @@ Open-source models evaluated for on-device use in The Lookbook.
 
 **Current approach:** Hide non-runnable catalog entries from pickers; use cloud HF / Groq / OpenRouter for Create Studio.
 
+## Google open-source models on Android (Aug 2026)
+
+**Verdict: Yes — Gemma can run locally on modern phones, but not in this build yet.**
+
+| Framework | Models | Android fit | Lookbook status |
+|-----------|--------|---------------|-----------------|
+| **LiteRT-LM** (recommended) | Gemma 3 1B, Gemma 3n E2B/E4B, Gemma 4 | CPU/GPU/NPU on Pixel 8+, Samsung S23+; `.litertlm` INT4 ~1–2 GB RAM | **Planned** — catalog entry `local-gemma-planned`, pack id reserved |
+| **MediaPipe LLM Inference** | Gemma 3 1B (`.task`) | Maintenance-only; Google directs new apps to LiteRT-LM | Not integrated |
+| **ExecuTorch** | Custom ONNX/Torch exports | Possible for vision; LLM path heavier than LiteRT-LM | Not integrated |
+
+**Recommendation:** For offline Code/News chat, ship **Gemma 3 1B INT4 via LiteRT-LM** as an optional ~1.5 GB pack on flagship devices (8 GB+ RAM, minSdk 35). Keep Qwen2.5-Coder 1.5B as an alternate if Hugging Face `.litertlm` exports are preferred for coding. Do **not** block on full multimodal Gemma 3n until RAM/thermal budgets are validated.
+
+**Not feasible soon:** On-device FLUX-class image gen and short video — stay on cloud Spaces + HF Inference fallback.
+
+References:
+- [LiteRT-LM README](https://github.com/google-ai-edge/LiteRT-LM)
+- [MediaPipe LLM Inference (Android)](https://developers.google.com/edge/mediapipe/solutions/genai/llm_inference/android)
+- [LiteRT Hugging Face community](https://huggingface.co/litert-community)
+
 ## Session caching
 
 `OrtSessionCache` reuses ONNX sessions per model path to cut cold-start latency on repeat try-on shots. Invalidate when pack root changes (re-download / verify).

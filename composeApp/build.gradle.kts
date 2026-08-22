@@ -15,7 +15,7 @@ android {
         minSdk = 35
         targetSdk = 36
         versionCode = 40
-        versionName = "2.9.14"
+        versionName = "2.9.15"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.

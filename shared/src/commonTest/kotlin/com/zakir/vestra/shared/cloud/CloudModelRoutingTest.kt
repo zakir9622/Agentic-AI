@@ -109,6 +109,16 @@ class CloudModelRoutingTest {
     }
 
     @Test
+    fun imageEditFallbackExcludesBrokenInferenceRoute() {
+        val settings = AppSettings(MemorySettings()).apply { setHfToken("hf_test") }
+        val selected = CloudModelCatalog.byId("qwen-image-edit-hf")!!
+        val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_EDIT, settings)
+        assertEquals("qwen-image-edit-hf", chain.first().id)
+        assertTrue(chain.any { it.id == "instruct-pix2pix-hf" })
+        assertTrue(chain.none { it.id == "instruct-pix2pix-inference" })
+    }
+
+    @Test
     fun tryOnFallbackExcludesUnsupportedFitDiT() {
         val selected = CloudModelCatalog.byId("ootd-hf")!!
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.TRY_ON)

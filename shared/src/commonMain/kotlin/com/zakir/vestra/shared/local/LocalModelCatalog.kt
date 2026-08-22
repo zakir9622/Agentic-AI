@@ -98,6 +98,17 @@ object LocalModelCatalog {
             testingNote = "Not in this build — use Groq/HF free coding models. Pack ID reserved: local-coder-v1.",
         ),
         LocalModelEntry(
+            id = "local-gemma-planned",
+            displayName = "Gemma 3 1B on-device (planned)",
+            description = "Google Gemma 3 1B via LiteRT-LM / MediaPipe LLM Inference — offline chat and code assist.",
+            capability = AiCapability.CODE,
+            packId = null,
+            license = "Gemma Terms of Use",
+            approxSizeLabel = "~1–2 GB (.litertlm INT4)",
+            runnable = false,
+            testingNote = "Feasible on Pixel 8+ / 8 GB RAM phones via LiteRT-LM. Not wired in this build — catalog placeholder only.",
+        ),
+        LocalModelEntry(
             id = "local-video-planned",
             displayName = "Local video (research)",
             description = "On-device short video is not practical on phones yet; use free LTX-Video HF Space.",

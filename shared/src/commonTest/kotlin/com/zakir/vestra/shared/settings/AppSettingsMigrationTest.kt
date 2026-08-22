@@ -52,4 +52,14 @@ class AppSettingsMigrationTest {
             com.zakir.vestra.shared.cloud.AiCapability.IMAGE_EDIT,
         ).id)
     }
+
+    @Test
+    fun imageEditMigratesAwayFromBrokenInferenceRoute() {
+        val raw = MemorySettings()
+        raw.putString("image_edit_provider_id", "instruct-pix2pix-inference")
+        val settings = AppSettings(raw)
+        assertEquals(CloudModelCatalog.defaultImageEditId, settings.selectedProvider(
+            com.zakir.vestra.shared.cloud.AiCapability.IMAGE_EDIT,
+        ).id)
+    }
 }
