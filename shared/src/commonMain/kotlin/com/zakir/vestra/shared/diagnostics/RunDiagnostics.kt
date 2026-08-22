@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.diagnostics
 
 import com.russhwolf.settings.Settings
 import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.usage.UsageSummary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
@@ -17,13 +18,6 @@ enum class RunCapability {
     VIDEO,
     CHAT,
 }
-
-@Serializable
-data class RunStage(
-    val name: String,
-    val durationMs: Long,
-    val detail: String = "",
-)
 
 @Serializable
 data class RunRecord(
@@ -52,11 +46,21 @@ data class RunRecord(
     }.trim()
 }
 
+@Serializable
+data class DiagnosticsExportBundle(
+    val runs: List<RunRecord>,
+    val usageLedger: UsageSummary? = null,
+    val exportedAtMs: Long,
+)
+
 /**
  * Persisted run history for local + cloud generations.
  * Export from Settings → Diagnostics when reporting issues.
  */
-class RunDiagnostics(private val settings: Settings) {
+class RunDiagnostics(
+    private val settings: Settings,
+    private val onPersist: ((String) -> Unit)? = null,
+) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
 
     private val _records = MutableStateFlow(load())
@@ -85,6 +89,15 @@ class RunDiagnostics(private val settings: Settings) {
 
     fun exportJson(): String = json.encodeToString(_records.value)
 
+    fun exportBundle(usage: UsageSummary? = null): String =
+        json.encodeToString(
+            DiagnosticsExportBundle(
+                runs = _records.value,
+                usageLedger = usage,
+                exportedAtMs = System.currentTimeMillis(),
+            ),
+        )
+
     fun clear() {
         _records.value = emptyList()
         settings.remove(KEY)
@@ -96,7 +109,9 @@ class RunDiagnostics(private val settings: Settings) {
         }.orEmpty()
 
     private fun persist(records: List<RunRecord>) {
-        settings.putString(KEY, json.encodeToString(records))
+        val encoded = json.encodeToString(records)
+        settings.putString(KEY, encoded)
+        onPersist?.invoke(encoded)
     }
 
     class RunBuilder internal constructor(

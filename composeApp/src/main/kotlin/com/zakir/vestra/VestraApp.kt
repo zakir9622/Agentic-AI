@@ -88,7 +88,12 @@ class VestraApp : Application() {
         appSettings.networkProbe = { isNetworkAvailable(this) }
         usageLedger = UsageLedger(prefs)
         deviceProbe = AndroidDeviceProbe(this)
-        runDiagnostics = RunDiagnostics(prefs)
+        runDiagnostics = RunDiagnostics(prefs) { encoded ->
+            runCatching {
+                val dir = java.io.File(filesDir, "diagnostics").apply { mkdirs() }
+                java.io.File(dir, "run_history.json").writeText(encoded)
+            }
+        }
         DiagnosticsHook.store = runDiagnostics
         DiagnosticsHook.deviceRamMb = deviceProbe.totalRamMb()
         chatRepository = ChatRepository(prefs)

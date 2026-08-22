@@ -128,7 +128,14 @@ fun PacksScreen(
                 },
                 onUninstall = {
                     scope.launch {
-                        withContext(Dispatchers.IO) { packManager.uninstall(state.pack.id) }
+                        val ok = withContext(Dispatchers.IO) { packManager.uninstall(state.pack.id) }
+                        if (!ok) {
+                            Toast.makeText(
+                                context,
+                                "Can't remove ${state.pack.displayName} while a generation is running",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
                     }
                 },
             )

@@ -20,7 +20,10 @@ data class NewsItem(
 /**
  * Fetches headlines from public RSS feeds (fashion + tech AI).
  */
-class NewsRepository(private val http: HttpClient) {
+class NewsRepository(
+    private val http: HttpClient,
+    private val feeds: List<Pair<String, String>> = DEFAULT_FEEDS,
+) {
     private val _items = MutableStateFlow<List<NewsItem>>(emptyList())
     val items: StateFlow<List<NewsItem>> = _items
 
@@ -30,7 +33,7 @@ class NewsRepository(private val http: HttpClient) {
     suspend fun refresh() {
         val merged = mutableListOf<NewsItem>()
         var lastError: String? = null
-        for ((source, url) in FEEDS) {
+        for ((source, url) in feeds) {
             runCatching {
                 val response = http.get(url)
                 if (!response.status.isSuccess()) error("HTTP ${response.status.value}")
@@ -84,7 +87,7 @@ class NewsRepository(private val http: HttpClient) {
         .replace("&#39;", "'")
 
     companion object {
-        private val FEEDS = listOf(
+        val DEFAULT_FEEDS = listOf(
             "BBC Tech" to "https://feeds.bbci.co.uk/news/technology/rss.xml",
             "Hugging Face" to "https://huggingface.co/blog/feed.xml",
         )

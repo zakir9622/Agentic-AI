@@ -34,10 +34,12 @@ import java.util.Locale
 @Composable
 fun DiagnosticsScreen(
     diagnostics: RunDiagnostics,
+    usage: com.zakir.vestra.shared.usage.UsageLedger? = null,
     onBack: () -> Unit,
     onOpenHelp: (() -> Unit)? = null,
 ) {
     val records by diagnostics.records.collectAsState()
+    val usageSummary by usage?.summary?.collectAsState() ?: remember { mutableStateOf(null) }
     val context = LocalContext.current
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
 
@@ -86,11 +88,12 @@ fun DiagnosticsScreen(
             Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = {
-                    DiagnosticsExport.writeToFilesDir(context, diagnostics)
+                    DiagnosticsExport.writeToFilesDir(context, diagnostics, usage)
+                    val bundle = diagnostics.exportBundle(usageSummary)
                     val send = Intent(Intent.ACTION_SEND).apply {
                         type = "application/json"
                         putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
-                        putExtra(Intent.EXTRA_TEXT, diagnostics.exportJson())
+                        putExtra(Intent.EXTRA_TEXT, bundle)
                     }
                     context.startActivity(Intent.createChooser(send, "Export diagnostics"))
                 },

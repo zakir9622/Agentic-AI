@@ -20,6 +20,10 @@ data class GenerativeAssists(
     val bypassFilter: Boolean = true,
     /** Image/video: append common quality negatives (blur, artifacts). */
     val qualityGuard: Boolean = true,
+    /** Optional sampler overrides when the backend exposes them (HF Inference). */
+    val inferenceSteps: Int? = null,
+    val guidanceScale: Float? = null,
+    val seed: Long? = null,
 )
 
 object ModelAssistCatalog {

@@ -45,6 +45,19 @@ class ModelPackManager(
     /** Serializes ONNX verification (install + startup) so parallel callers cannot OOM. */
     private val integrityLock = Any()
 
+    /** Pack IDs referenced by an active engine run — blocks [uninstall]. */
+    private val activePackIds = mutableSetOf<String>()
+
+    fun markPackInUse(id: String) {
+        synchronized(activePackIds) { activePackIds.add(id) }
+    }
+
+    fun markPackIdle(id: String) {
+        synchronized(activePackIds) { activePackIds.remove(id) }
+    }
+
+    fun isPackInUse(id: String): Boolean = synchronized(activePackIds) { id in activePackIds }
+
     /** Loads the last manifest fetched (offline start), then refreshes over the network. */
     suspend fun refresh(networkAllowed: Boolean = true) {
         withContext(Dispatchers.Default) {
@@ -233,7 +246,8 @@ class ModelPackManager(
         return true
     }
 
-    fun uninstall(id: String) {
+    fun uninstall(id: String): Boolean {
+        if (isPackInUse(id)) return false
         fs.delete("${fs.packsRoot()}/$id")
         updateStatus(id) {
             it.copy(
@@ -244,6 +258,7 @@ class ModelPackManager(
                 verifiedAtMs = null,
             )
         }
+        return true
     }
 
     fun deviceMeets(spec: DeviceSpec): Boolean =

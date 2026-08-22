@@ -87,6 +87,8 @@ class UsageLedger(private val settings: Settings) {
         persist(next)
     }
 
+    fun summaryJson(): String = json.encodeToString(_summary.value)
+
     fun clear() {
         _events.value = emptyList()
         _summary.value = UsageSummary()

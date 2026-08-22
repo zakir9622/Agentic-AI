@@ -66,6 +66,15 @@ class GenerativeViewModel(
     private val _qualityGuard = MutableStateFlow(true)
     val qualityGuard: StateFlow<Boolean> = _qualityGuard
 
+    private val _inferenceSteps = MutableStateFlow(22)
+    val inferenceSteps: StateFlow<Int> = _inferenceSteps
+
+    private val _guidanceScale = MutableStateFlow(7.0f)
+    val guidanceScale: StateFlow<Float> = _guidanceScale
+
+    private val _seed = MutableStateFlow<Long?>(null)
+    val seed: StateFlow<Long?> = _seed
+
     private var job: Job? = null
     private var generationEpoch = 0
 
@@ -109,6 +118,18 @@ class GenerativeViewModel(
         _qualityGuard.value = enabled
     }
 
+    fun setInferenceSteps(value: Int) {
+        _inferenceSteps.value = value.coerceIn(4, 50)
+    }
+
+    fun setGuidanceScale(value: Float) {
+        _guidanceScale.value = value.coerceIn(1f, 15f)
+    }
+
+    fun setSeed(value: Long?) {
+        _seed.value = value?.coerceAtLeast(0L)
+    }
+
     fun currentAssists(): GenerativeAssists = GenerativeAssists(
         pragmatic = _pragmaticMode.value,
         creative = _creativeMode.value,
@@ -116,6 +137,9 @@ class GenerativeViewModel(
         detailBoost = _detailBoost.value,
         bypassFilter = _bypassFilter.value,
         qualityGuard = _qualityGuard.value,
+        inferenceSteps = _inferenceSteps.value.takeIf { it != 22 },
+        guidanceScale = _guidanceScale.value.takeIf { it != 7.0f },
+        seed = _seed.value,
     )
 
     fun prepareStudio(resetIfIdle: Boolean = true) {
@@ -231,12 +255,17 @@ class GenerativeViewModel(
             deviceRamMb = deviceRamMb,
         )
         job = viewModelScope.launch {
+            var lastStageAt = System.currentTimeMillis()
             try {
                 block().collect { next ->
                     if (epoch != generationEpoch) return@collect
                     _state.value = next
                     when (next) {
-                        is GenerativeState.Running -> builder?.stage(next.stage, 0)
+                        is GenerativeState.Running -> {
+                            val now = System.currentTimeMillis()
+                            builder?.stage(next.stage, now - lastStageAt)
+                            lastStageAt = now
+                        }
                         is GenerativeState.ImageReady -> {
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Create")

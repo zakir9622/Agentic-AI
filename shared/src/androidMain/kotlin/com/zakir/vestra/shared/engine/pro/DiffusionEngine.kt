@@ -96,6 +96,8 @@ class DiffusionEngine(
             emit(GenerationState.Failed(TryOnError.ModelPackMissing))
             return@flow
         }
+        packId.let { packs.markPackInUse(it) }
+        packs.markPackInUse(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
         val startedAt = System.currentTimeMillis()
         DiagnosticsHook.startTryOn(EngineTier.PRO, modelLabel = packId)
 
@@ -213,6 +215,7 @@ class DiffusionEngine(
                 val sample = codec.initialNoise(random)
 
                 t0 = System.currentTimeMillis()
+                emit(GenerationState.Running(0.14f, "Loading Pro diffusion UNet (first run may take a minute)…"))
                 codec.openUnet().use { unet ->
                     timesteps.forEachIndexed { index, timestep ->
                         val noisePred = unet.predictNoise(
@@ -270,6 +273,9 @@ class DiffusionEngine(
             Log.e(TAG, "Pro generation failed", error)
             DiagnosticsHook.completeTryOn(false, error.message)
             emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
+        } finally {
+            packId?.let { packs.markPackIdle(it) }
+            packs.markPackIdle(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
         }
     }.flowOn(Dispatchers.Default)
 
@@ -280,7 +286,7 @@ class DiffusionEngine(
     }
 
     companion object {
-        val PACK_IDS = listOf("pro-v2-int8", "pro-v1")
+        val PACK_IDS = listOf("pro-v1", "pro-v2-int8")
         const val TAG = "VestraProBench"
     }
 }

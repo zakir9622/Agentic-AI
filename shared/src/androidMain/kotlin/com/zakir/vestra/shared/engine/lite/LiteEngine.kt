@@ -69,6 +69,7 @@ class LiteEngine(
             emit(GenerationState.Failed(TryOnError.ModelPackMissing))
             return@flow
         }
+        packs.markPackInUse(PACK_ID)
         val startedAt = System.currentTimeMillis()
         val diag = DiagnosticsHook.startTryOn(EngineTier.LITE)
 
@@ -165,6 +166,8 @@ class LiteEngine(
         } catch (error: Exception) {
             DiagnosticsHook.completeTryOn(false, error.message)
             emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
+        } finally {
+            packs.markPackIdle(PACK_ID)
         }
     }.flowOn(Dispatchers.Default)
 

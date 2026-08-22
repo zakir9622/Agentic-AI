@@ -28,6 +28,12 @@ jobs:
       - name: Verify HF packs manifest
         run: python3 scripts/verify-manifest.py
 
+      - name: Local model integration (bundled assets)
+        run: python3 scripts/integration-local-models.py --skip-hf-download
+
+      - name: Local model benchmarks (smoke)
+        run: python3 scripts/benchmark-local.py
+
       - name: Unit tests
         run: ./gradlew :shared:testDebugUnitTest :composeApp:testSideloadDebugUnitTest
 
@@ -42,3 +48,13 @@ jobs:
           name: vestra-debug-apk
           path: composeApp/build/outputs/apk/sideload/debug/*.apk
           retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-benchmark-json
+          path: |
+            /tmp/lookbook-benchmark-local.json
+            /tmp/lookbook-benchmark-cloud.json
+          retention-days: 7
+          if-no-files-found: ignore

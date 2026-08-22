@@ -27,7 +27,7 @@ adb -s "$SERIAL" shell settings put global transition_animation_scale 0
 adb -s "$SERIAL" shell settings put global animator_duration_scale 0
 
 adb -s "$SERIAL" shell am force-stop "$PKG"
-open_route studio
+open_route "studio/tryon"
 for i in $(seq 1 40); do
   adb -s "$SERIAL" exec-out screencap -p > "$OUT/_probe.png"
   bytes=$(wc -c < "$OUT/_probe.png")
@@ -37,16 +37,17 @@ for i in $(seq 1 40); do
   fi
   sleep 2
 done
-cp "$OUT/_probe.png" "$OUT/01-atelier.png"
-echo "✓ 01-atelier ($(wc -c < "$OUT/01-atelier.png") bytes)"
+cp "$OUT/_probe.png" "$OUT/01-atelier-tryon.png"
+echo "✓ 01-atelier-tryon ($(wc -c < "$OUT/01-atelier-tryon.png") bytes)"
 
 for pair in \
-  "create:02-image-studio" \
-  "video:03-video-studio" \
-  "code:04-code-studio" \
-  "wardrobe:05-looks-gallery" \
-  "help:06-help-faq" \
-  "settings:07-settings" \
+  "studio/image:02-image-studio" \
+  "studio/video:03-video-studio" \
+  "studio/code:04-code-studio" \
+  "studio/news:05-news-chat" \
+  "wardrobe:06-looks-gallery" \
+  "help:07-help-faq" \
+  "settings:08-settings" \
   "usage:09-cloud-usage" \
   "garment:10-garment-capture"
 do
@@ -61,8 +62,8 @@ for _ in 1 2 3 4; do
   sleep 0.35
 done
 sleep 1
-adb -s "$SERIAL" exec-out screencap -p > "$OUT/08-settings-about.png"
-echo "✓ 08-settings-about ($(wc -c < "$OUT/08-settings-about.png") bytes)"
+adb -s "$SERIAL" exec-out screencap -p > "$OUT/11-settings-about.png"
+echo "✓ 11-settings-about ($(wc -c < "$OUT/11-settings-about.png") bytes)"
 
 rm -f "$OUT/_probe.png"
 echo "Artifacts in $OUT"

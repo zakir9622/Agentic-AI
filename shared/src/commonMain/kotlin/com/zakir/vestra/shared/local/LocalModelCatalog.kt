@@ -30,7 +30,7 @@ object LocalModelCatalog {
     val entries: List<LocalModelEntry> = listOf(
         LocalModelEntry(
             id = "local-lite-tryon",
-            displayName = "Lite try-on (ONNX)",
+            displayName = "Fast try-on (ONNX)",
             description = "Open garment segmentation + human parsing compositor. Works on every Android 8+ phone.",
             capability = AiCapability.TRY_ON,
             packId = "lite-v1",
@@ -39,18 +39,6 @@ object LocalModelCatalog {
             approxSizeLabel = "~15–40 MB",
             runnable = true,
             testingNote = "Download lite-v1 from Settings → Model packs (~68 MB). Required for Lite and Pro try-on.",
-        ),
-        LocalModelEntry(
-            id = "local-pro-int8",
-            displayName = "Pro try-on INT8 (SD1.5)",
-            description = "Quantized Stable Diffusion 1.5 + ControlNet depth — full diffusion try-on on device. Pixel 9 optimized.",
-            capability = AiCapability.TRY_ON,
-            packId = "pro-v2-int8",
-            engineTier = EngineTier.PRO,
-            license = "CreativeML OpenRAIL-M (SD1.5)",
-            approxSizeLabel = "~2 GB",
-            runnable = true,
-            testingNote = "Requires lite-v1 installed first (human parsing). Flagship phones 8 GB+ RAM.",
         ),
         LocalModelEntry(
             id = "local-pro-fp16",
@@ -62,7 +50,19 @@ object LocalModelCatalog {
             license = "CreativeML OpenRAIL-M (SD1.5)",
             approxSizeLabel = "~4.3 GB",
             runnable = true,
-            testingNote = "On HF manifest with pro-v1. Download both lite-v1 + pro-v1 for full Pro try-on.",
+            testingNote = "Preferred Pro pack on HF manifest. Download lite-v1 + pro-v1 for full Pro try-on.",
+        ),
+        LocalModelEntry(
+            id = "local-pro-int8",
+            displayName = "Pro try-on INT8 (SD1.5)",
+            description = "Quantized Stable Diffusion 1.5 + ControlNet depth — full diffusion try-on on device. Pixel 9 optimized.",
+            capability = AiCapability.TRY_ON,
+            packId = "pro-v2-int8",
+            engineTier = EngineTier.PRO,
+            license = "CreativeML OpenRAIL-M (SD1.5)",
+            approxSizeLabel = "~2 GB",
+            runnable = true,
+            testingNote = "Export ready; HF manifest upload pending — pro-v1 is the default download until hosted.",
         ),
         LocalModelEntry(
             id = "local-studio-models",

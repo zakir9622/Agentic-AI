@@ -24,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,8 +36,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
+import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
+import com.zakir.vestra.shared.local.LocalModelCatalog
+import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassCard
@@ -44,8 +49,9 @@ import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.ModelPickerSheet
+import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
-import com.zakir.vestra.ui.screens.create.ResultPane
+import com.zakir.vestra.ui.components.ResultPane
 import com.zakir.vestra.ui.theme.VestraColors
 
 @Composable
@@ -54,6 +60,8 @@ fun UnifiedStudioPane(
     viewModel: GenerativeViewModel,
     modifier: Modifier = Modifier,
     onOpenSettings: (() -> Unit)? = null,
+    freeCloudDiscovery: FreeCloudDiscovery? = null,
+    packManager: ModelPackManager? = null,
 ) {
     LaunchedEffect(capability) {
         if (!viewModel.isBusy) {
@@ -71,7 +79,12 @@ fun UnifiedStudioPane(
     val fashionContext by viewModel.fashionContext.collectAsState()
     val bypassFilter by viewModel.bypassFilter.collectAsState()
     val qualityGuard by viewModel.qualityGuard.collectAsState()
+    val inferenceSteps by viewModel.inferenceSteps.collectAsState()
+    val guidanceScale by viewModel.guidanceScale.collectAsState()
+    val seed by viewModel.seed.collectAsState()
     val lastUsedId by viewModel.lastUsedProviderId.collectAsState()
+    val packStates by packManager?.states?.collectAsState()
+        ?: remember { mutableStateOf(emptyMap()) }
 
     val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
     val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
@@ -101,8 +114,22 @@ fun UnifiedStudioPane(
 
     var showModelPicker by remember { mutableStateOf(false) }
     var advancedExpanded by remember { mutableStateOf(false) }
-    val pickerModels = remember(effectiveCapability) {
-        CloudModelCatalog.forCapability(effectiveCapability)
+    val pickerModels = remember(effectiveCapability, freeCloudDiscovery) {
+        freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
+            ?: CloudModelCatalog.forCapability(effectiveCapability)
+    }
+    val onDeviceEntries = remember(packStates, effectiveCapability) {
+        LocalModelCatalog.forCapability(effectiveCapability)
+            .filter { it.packId != null }
+            .map { entry ->
+                val ready = entry.packId?.let { packStates[it]?.isReady() == true } == true
+                OnDevicePickerEntry(
+                    id = entry.id,
+                    displayName = entry.displayName,
+                    detail = entry.approxSizeLabel,
+                    ready = ready && entry.runnable,
+                )
+            }
     }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -226,6 +253,14 @@ fun UnifiedStudioPane(
             onQualityGuard = { viewModel.setQualityGuard(!qualityGuard) },
             onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
             onCreative = { viewModel.setCreativeMode(!creative) },
+            inferenceSteps = inferenceSteps,
+            guidanceScale = guidanceScale,
+            seed = seed?.toString().orEmpty(),
+            onInferenceSteps = viewModel::setInferenceSteps,
+            onGuidanceScale = viewModel::setGuidanceScale,
+            onSeed = { raw ->
+                viewModel.setSeed(raw.trim().toLongOrNull())
+            },
         )
 
         if (examples.isNotEmpty()) {
@@ -277,6 +312,7 @@ fun UnifiedStudioPane(
             },
             models = pickerModels,
             selectedId = selectedId,
+            onDeviceEntries = onDeviceEntries,
             onSelect = { chosen ->
                 when (effectiveCapability) {
                     AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)
@@ -309,6 +345,12 @@ private fun AdvancedAssistSection(
     onQualityGuard: () -> Unit,
     onPragmatic: () -> Unit,
     onCreative: () -> Unit,
+    inferenceSteps: Int = 22,
+    guidanceScale: Float = 7f,
+    seed: String = "",
+    onInferenceSteps: (Int) -> Unit = {},
+    onGuidanceScale: (Float) -> Unit = {},
+    onSeed: (String) -> Unit = {},
 ) {
     GlassCard(onClick = onToggle) {
         Row(
@@ -377,6 +419,49 @@ private fun AdvancedAssistSection(
                             enabled = !busy,
                             onToggle = onQualityGuard,
                         )
+                        if (capability == AiCapability.IMAGE_GEN || capability == AiCapability.IMAGE_EDIT) {
+                            Spacer(Modifier.height(12.dp))
+                            Text("Sampler (HF Inference when supported)", style = MaterialTheme.typography.labelSmall, color = VestraColors.Accent)
+                            Spacer(Modifier.height(6.dp))
+                            OutlinedTextField(
+                                value = inferenceSteps.toString(),
+                                onValueChange = { onInferenceSteps(it.toIntOrNull() ?: inferenceSteps) },
+                                label = { Text("Steps") },
+                                singleLine = true,
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
+                                    unfocusedBorderColor = VestraColors.GlassBorder,
+                                ),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = guidanceScale.toString(),
+                                onValueChange = { onGuidanceScale(it.toFloatOrNull() ?: guidanceScale) },
+                                label = { Text("CFG scale") },
+                                singleLine = true,
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
+                                    unfocusedBorderColor = VestraColors.GlassBorder,
+                                ),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = seed,
+                                onValueChange = onSeed,
+                                label = { Text("Seed (optional)") },
+                                singleLine = true,
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
+                                    unfocusedBorderColor = VestraColors.GlassBorder,
+                                ),
+                            )
+                        }
                     }
                 }
             }

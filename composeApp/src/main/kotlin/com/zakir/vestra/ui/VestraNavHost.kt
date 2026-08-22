@@ -5,6 +5,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
@@ -17,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.zakir.vestra.data.NewsFeedConfig
 import android.content.Intent
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
@@ -158,8 +160,11 @@ fun VestraNavHost(
             ),
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink("studio") }),
         ) { backStackEntry ->
+            val context = LocalContext.current
             val tab = backStackEntry.arguments?.getString("tab")
-            val newsRepository = remember { NewsRepository(platformHttpClient()) }
+            val newsRepository = remember(context) {
+                NewsRepository(platformHttpClient(), NewsFeedConfig.load(context))
+            }
             val chatViewModel: ChatViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST")
@@ -179,6 +184,7 @@ fun VestraNavHost(
                 wardrobe = wardrobe,
                 packManager = packManager,
                 generativeViewModel = generativeViewModel,
+                freeCloudDiscovery = freeCloudDiscovery,
                 newsRepository = newsRepository,
                 chatViewModel = chatViewModel,
                 onNewLook = {
@@ -414,6 +420,7 @@ fun VestraNavHost(
         composable(Routes.SETTINGS_DIAGNOSTICS) {
             DiagnosticsScreen(
                 diagnostics = runDiagnostics,
+                usage = usageLedger,
                 onBack = { navController.popBackStack() },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
             )

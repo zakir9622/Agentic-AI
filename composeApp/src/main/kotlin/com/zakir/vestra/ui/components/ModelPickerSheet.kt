@@ -45,6 +45,13 @@ import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.quality.QualityRating
 import com.zakir.vestra.ui.theme.VestraColors
 
+data class OnDevicePickerEntry(
+    val id: String,
+    val displayName: String,
+    val detail: String,
+    val ready: Boolean,
+)
+
 /**
  * In-composer searchable model list — chat-bar model pill opens this sheet.
  */
@@ -56,6 +63,7 @@ fun ModelPickerSheet(
     selectedId: String,
     onSelect: (CloudModelProvider) -> Unit,
     onDismiss: () -> Unit,
+    onDeviceEntries: List<OnDevicePickerEntry> = emptyList(),
 ) {
     var query by remember { mutableStateOf("") }
     val selectable = remember(models) {
@@ -147,6 +155,19 @@ fun ModelPickerSheet(
                         ModelPickerRow(model, selectedId, onSelect, onDismiss)
                     }
                 } else {
+                    if (onDeviceEntries.isNotEmpty()) {
+                        item(key = "header-ondevice") {
+                            Text(
+                                "ON-DEVICE",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = VestraColors.Accent,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                            )
+                        }
+                        items(onDeviceEntries, key = { "local-${it.id}" }) { entry ->
+                            OnDevicePickerRow(entry)
+                        }
+                    }
                     grouped.forEach { (section, models) ->
                         item(key = "header-$section") {
                             Text(
@@ -172,6 +193,45 @@ fun ModelPickerSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OnDevicePickerRow(entry: OnDevicePickerEntry) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(VestraColors.GlassFill)
+            .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(VestraColors.Accent.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(if (entry.ready) VestraColors.Accent else VestraColors.InkMuted),
+            )
+        }
+        Spacer(Modifier.size(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(entry.displayName, style = MaterialTheme.typography.titleSmall, color = VestraColors.Ink)
+            Text(
+                "${if (entry.ready) "Ready offline" else "Download in Settings"} · ${entry.detail}",
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.InkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

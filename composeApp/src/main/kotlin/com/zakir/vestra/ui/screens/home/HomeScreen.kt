@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.news.NewsRepository
@@ -104,6 +105,7 @@ fun HomeScreen(
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
     generativeViewModel: GenerativeViewModel,
+    freeCloudDiscovery: FreeCloudDiscovery? = null,
     newsRepository: NewsRepository? = null,
     chatViewModel: ChatViewModel? = null,
     onNewLook: () -> Unit,
@@ -154,10 +156,10 @@ fun HomeScreen(
     val statusLine = buildString {
         append(
             when {
-                proReady -> "Pro verified"
-                liteReady -> "Lite verified"
-                liteState?.status == PackStatus.INSTALLED -> "Lite verifying…"
-                else -> "Lite needs download"
+                proReady -> "Pro local try-on ready"
+                liteReady -> "Fast local try-on ready"
+                liteState?.status == PackStatus.INSTALLED -> "Fast try-on verifying…"
+                else -> "Fast try-on needs download"
             },
         )
         append("  ·  ")
@@ -188,7 +190,7 @@ fun HomeScreen(
         }
         onOpenNewsChat(headline)
         scope.launch {
-            pagerState.animateScrollToPage(HomeTab.CODE.ordinal)
+            pagerState.animateScrollToPage(HomeTab.NEWS.ordinal)
         }
     }
 
@@ -231,7 +233,7 @@ fun HomeScreen(
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text(
-                            if (proReady) "Pro" else "Lite",
+                            if (proReady) "Pro" else "Fast",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
@@ -315,20 +317,28 @@ fun HomeScreen(
                         capability = AiCapability.IMAGE_GEN,
                         viewModel = generativeViewModel,
                         onOpenSettings = onOpenSettings,
+                        freeCloudDiscovery = freeCloudDiscovery,
+                        packManager = packManager,
                     )
                     HomeTab.VIDEO -> UnifiedStudioPane(
                         capability = AiCapability.VIDEO,
                         viewModel = generativeViewModel,
                         onOpenSettings = onOpenSettings,
+                        freeCloudDiscovery = freeCloudDiscovery,
+                        packManager = packManager,
                     )
                     HomeTab.CODE -> UnifiedStudioPane(
                         capability = AiCapability.CODE,
                         viewModel = generativeViewModel,
                         onOpenSettings = onOpenSettings,
+                        freeCloudDiscovery = freeCloudDiscovery,
+                        packManager = packManager,
                     )
                     HomeTab.NEWS -> NewsChatScreen(
                         newsRepository = newsRepository,
                         chatViewModel = chatViewModel,
+                        appSettings = appSettings,
+                        freeCloudDiscovery = freeCloudDiscovery,
                         onHeadlineSelected = ::openNewsChat,
                     )
                 }
@@ -359,7 +369,7 @@ private fun TryOnPage(
                 AtelierHero(
                     brand = LookbookCopy.PRODUCT_NAME,
                     headline = "Start try-on shoot",
-                    support = "Abaya, hijab, and shalwar on-device with Lite or Pro — center of the atelier.",
+                    support = "Abaya, hijab, and shalwar on-device with Fast or Pro local try-on.",
                     cta = LookbookCopy.ACTION_START_TRY_ON,
                     onCta = onNewLook,
                     statusLine = statusLine,

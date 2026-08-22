@@ -27,12 +27,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.CloudModelCatalog
+import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.shared.news.NewsRepository
+import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.launch
@@ -41,6 +46,8 @@ import kotlinx.coroutines.launch
 fun NewsChatScreen(
     newsRepository: NewsRepository?,
     chatViewModel: ChatViewModel?,
+    appSettings: AppSettings? = null,
+    freeCloudDiscovery: FreeCloudDiscovery? = null,
     onHeadlineSelected: (String?) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
@@ -55,6 +62,19 @@ fun NewsChatScreen(
     val chatBusy by chatViewModel?.busy?.collectAsState() ?: remember { mutableStateOf(false) }
     val chatError by chatViewModel?.error?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
     var chatInput by remember { mutableStateOf("") }
+    var showModelPicker by remember { mutableStateOf(false) }
+
+    val codeId by appSettings?.codeProviderId?.collectAsState()
+        ?: remember { mutableStateOf(CloudModelCatalog.defaultCode().id) }
+    val chatProvider = appSettings?.selectedProvider(AiCapability.CODE)
+        ?: CloudModelCatalog.defaultCode()
+    val pickerModels = remember(freeCloudDiscovery, appSettings) {
+        if (appSettings != null && freeCloudDiscovery != null) {
+            freeCloudDiscovery.selectable(appSettings, AiCapability.CODE)
+        } else {
+            CloudModelCatalog.forCapability(AiCapability.CODE)
+        }
+    }
 
     LaunchedEffect(newsRepository) {
         if (newsRepository != null) {
@@ -154,11 +174,11 @@ fun NewsChatScreen(
             PromptComposer(
                 prompt = chatInput,
                 onPromptChange = { chatInput = it },
-                modelLabel = "News chat",
+                modelLabel = chatProvider.displayName,
                 assistCount = 0,
                 busy = chatBusy,
                 enabled = true,
-                onModelClick = {},
+                onModelClick = { if (appSettings != null) showModelPicker = true },
                 onSend = {
                     val text = chatInput
                     chatInput = ""
@@ -169,5 +189,15 @@ fun NewsChatScreen(
             )
         }
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (showModelPicker && appSettings != null) {
+        ModelPickerSheet(
+            title = "Chat models",
+            models = pickerModels,
+            selectedId = codeId,
+            onSelect = { chosen -> appSettings.setCodeProvider(chosen.id) },
+            onDismiss = { showModelPicker = false },
+        )
     }
 }
