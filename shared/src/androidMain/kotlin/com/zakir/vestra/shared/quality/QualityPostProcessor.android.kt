@@ -29,6 +29,8 @@ class AndroidQualityPostProcessor(
         packs.markPackInUse(REALESRGAN_PACK)
         return try {
             QualityOnnxUpscaler(model.absolutePath).upscale(rgba, width, height)
+        } catch (_: Throwable) {
+            null
         } finally {
             packs.markPackIdle(REALESRGAN_PACK)
         }
@@ -40,6 +42,9 @@ class AndroidQualityPostProcessor(
         packs.markPackInUse(BIREFNET_PACK)
         return try {
             QualityOnnxMatte(model.absolutePath).refine(rgba, width, height)
+        } catch (_: Throwable) {
+            // OutOfMemoryError and ORT native failures must not crash the try-on flow.
+            null
         } finally {
             packs.markPackIdle(BIREFNET_PACK)
         }
@@ -84,11 +89,15 @@ internal class QualityOnnxUpscaler(private val modelPath: String) {
                             resolveInputName(session, "denoise_strength") to denoiseTensor,
                         )
                         session.run(feeds).use { results ->
-                            val output = results[0] as OnnxTensor
+                            val output = results[0] as? OnnxTensor ?: return@runCatching null
                             val shape = output.info.shape
-                            val outH = shape.getOrNull(2)?.toInt() ?: (inH * 2)
-                            val outW = shape.getOrNull(3)?.toInt() ?: (inW * 2)
-                            val count = outH * outW * 3
+                            val outH = shape.getOrNull(2)?.toInt()?.takeIf { it > 0 } ?: (inH * 2)
+                            val outW = shape.getOrNull(3)?.toInt()?.takeIf { it > 0 } ?: (inW * 2)
+                            val channels = shape.getOrNull(1)?.toInt()?.takeIf { it > 0 } ?: 3
+                            val count = OrtModel.elementCount(shape)
+                            if (count !in 1..OrtModel.MAX_OUTPUT_ELEMENTS || channels < 3) {
+                                return@runCatching null
+                            }
                             val shorts = ShortArray(count)
                             output.shortBuffer.get(shorts)
                             val floats = FloatArray(count) { i -> halfBitsToFloat(shorts[i]) }

@@ -116,6 +116,9 @@ class VestraApp : Application() {
             http = http,
             manifestUrl = PACKS_MANIFEST_URL,
             integrityChecker = AndroidPackIntegrityChecker(),
+            onPackFilesChanging = { packRoot ->
+                com.zakir.vestra.shared.engine.lite.OrtSessionCache.invalidateContaining(packRoot)
+            },
         )
         PackDownloadWorker.dependencies = { packManager }
         appScope.launch {

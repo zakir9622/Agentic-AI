@@ -17,6 +17,7 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
 import com.zakir.vestra.shared.quality.QualityEnhancer
 import com.zakir.vestra.shared.quality.QualityPostProcessor
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -70,22 +71,23 @@ class LiteEngine(
             emit(GenerationState.Failed(TryOnError.ModelPackMissing))
             return@flow
         }
+
         packs.markPackInUse(PACK_ID)
-        val startedAt = EpochClock.System.nowMs()
         val diag = DiagnosticsHook.startTryOn(EngineTier.LITE)
-
-        emit(GenerationState.Preparing("Reading images"))
-        var t0 = EpochClock.System.nowMs()
-        val garment = io.loadBitmap(request.garment.uri)
-        val person = io.loadPerson(request.person)
-        DiagnosticsHook.stage(diag, "read_images", t0)
-        if (garment == null || person == null) {
-            DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
-            emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
-            return@flow
-        }
-
         try {
+            val startedAt = EpochClock.System.nowMs()
+
+            emit(GenerationState.Preparing("Reading images"))
+            var t0 = EpochClock.System.nowMs()
+            val garment = io.loadBitmap(request.garment.uri)
+            val person = io.loadPerson(request.person)
+            DiagnosticsHook.stage(diag, "read_images", t0)
+            if (garment == null || person == null) {
+                DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
+                emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
+                return@flow
+            }
+
             emit(GenerationState.Running(0.15f, "Extracting garment"))
             t0 = EpochClock.System.nowMs()
             val garmentCut = runCatching {
@@ -164,6 +166,8 @@ class LiteEngine(
                     ),
                 ),
             )
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             DiagnosticsHook.completeTryOn(diag, false, error.message)
             emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))

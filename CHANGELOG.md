@@ -5,6 +5,7 @@
 - BiRefNet matte applies **sigmoid** on logits before resize (was min–max normalize)
 - Integrity verify smoke-runs Real-ESRGAN; catalog sizes corrected (~224 MB / ~5 MB)
 - `realesrgan-v1` minRam gate lowered to 2 GB in export metadata; integration script smokes both quality packs
+- **Local model crash hardening:** pack in-use refcount; block uninstall/update while generating; invalidate ORT session cache before pack file replace; rethrow cancel; soft-fail quality OOM; harden OrtModel output bounds; BackdropCompositor shares session cache
 
 ## 3.0.3
 - Published **birefnet-v1** (~224 MB) and **realesrgan-v1** (~5 MB) to `Iamzakirzr/vestra-packs` manifest

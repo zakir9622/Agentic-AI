@@ -608,7 +608,11 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     PackDropdown(
-                        choices = localPackChoices.map { it.packId!! to "${it.displayName} · ${it.approxSizeLabel}" },
+                        choices = localPackChoices.mapNotNull { entry ->
+                            entry.packId?.let { id ->
+                                id to "${entry.displayName} · ${entry.approxSizeLabel}"
+                            }
+                        },
                         selectedId = selectedPackId,
                         onSelect = { id ->
                             selectedPackId = id

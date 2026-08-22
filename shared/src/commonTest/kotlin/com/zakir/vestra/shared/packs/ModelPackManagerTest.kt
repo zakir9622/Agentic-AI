@@ -202,6 +202,71 @@ class ModelPackManagerTest {
     }
 
     @Test
+    fun uninstallBlockedWhilePackInUse() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+
+        manager.markPackInUse("lite-v1")
+        assertFalse(manager.uninstall("lite-v1"))
+        assertTrue(manager.isInstalled("lite-v1"))
+
+        manager.markPackIdle("lite-v1")
+        assertTrue(manager.uninstall("lite-v1"))
+        assertFalse(manager.isInstalled("lite-v1"))
+    }
+
+    @Test
+    fun completeInstallBlockedWhilePackInUse() = runTest {
+        val fs = FakeFs()
+        val changed = mutableListOf<String>()
+        val manager = ModelPackManager(
+            fs,
+            FakeProbe(),
+            manifestClient(),
+            "https://m/manifest.json",
+            onPackFilesChanging = { changed += it },
+        )
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+        assertTrue(changed.any { it.contains("lite-v1") })
+
+        // Simulate Update while generating — must not swap files under open sessions.
+        val staging2 = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging2/a.onnx"] = "A".repeat(60)
+        fs.files["$staging2/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging2/a.onnx"] = "hash-a"
+        fs.hashes["$staging2/b.onnx"] = "hash-b"
+        manager.markPackInUse("lite-v1")
+        assertFalse(manager.completeInstall("lite-v1", staging2))
+        manager.markPackIdle("lite-v1")
+    }
+
+    @Test
+    fun packInUseUsesRefcount() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        manager.markPackInUse("lite-v1")
+        manager.markPackInUse("lite-v1")
+        manager.markPackIdle("lite-v1")
+        assertTrue(manager.isPackInUse("lite-v1"))
+        manager.markPackIdle("lite-v1")
+        assertFalse(manager.isPackInUse("lite-v1"))
+    }
+
+    @Test
     fun refreshPreservesDownloadingState() = runTest {
         val fs = FakeFs()
         val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")

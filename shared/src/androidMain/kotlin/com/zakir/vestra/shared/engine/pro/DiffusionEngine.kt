@@ -24,6 +24,7 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
 import com.zakir.vestra.shared.quality.QualityEnhancer
 import com.zakir.vestra.shared.quality.QualityPostProcessor
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -101,16 +102,16 @@ class DiffusionEngine(
         val startedAt = System.currentTimeMillis()
         val diag = DiagnosticsHook.startTryOn(EngineTier.PRO, modelLabel = packId)
 
-        emit(GenerationState.Preparing("Reading images"))
-        val person = io.loadPerson(request.person)
-        val garment = io.loadBitmap(request.garment.uri)
-        if (person == null || garment == null) {
-            DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
-            emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
-            return@flow
-        }
-
         try {
+            emit(GenerationState.Preparing("Reading images"))
+            val person = io.loadPerson(request.person)
+            val garment = io.loadBitmap(request.garment.uri)
+            if (person == null || garment == null) {
+                DiagnosticsHook.completeTryOn(diag, false, "Couldn't read the selected images")
+                emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
+                return@flow
+            }
+
             val category = request.garment.category?.effectiveCategory()
                 ?: GarmentClassifier.classify(garment)
             val promptSpec = com.zakir.vestra.shared.engine.pipeline.PromptSpec(
@@ -157,6 +158,8 @@ class DiffusionEngine(
                     )
                     DiagnosticsHook.completeTryOn(diag, success = true, note = "SD-ControlNet · $packId")
                     return@flow
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
                     emit(
@@ -270,6 +273,8 @@ class DiffusionEngine(
                 )
                 DiagnosticsHook.completeTryOn(diag, success = true, note = "legacy Pro · $packId")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             Log.e(TAG, "Pro generation failed", error)
             DiagnosticsHook.completeTryOn(diag, false, error.message)
