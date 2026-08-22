@@ -252,6 +252,15 @@ before you touch it.
 5. **Pro try-on requires `lite-v1`** for human parsing. Do not break that dependency.
 6. Engines emit `GenerationState.Failed(TryOnError)` — they never throw for expected failures.
 
+## Milestone progress (@ v3.0.1)
+
+- [x] **M1** Typed failures + correct fallback (A, B, E partial, G, J partial)
+- [x] **M2** Live model health + output validation (C, I partial; deadline pending)
+- [ ] **M3** Self-healing Space contracts (F)
+- [ ] **M4** Local image generation pack (L)
+- [ ] **M5** Test + visual harness (O)
+- [ ] **M6** Cleanup and portability (H, M, N, P, Q)
+
 ## Milestones
 
 Work them in order. Each has a hard gate. Do not start N+1 until N's gate is green.
