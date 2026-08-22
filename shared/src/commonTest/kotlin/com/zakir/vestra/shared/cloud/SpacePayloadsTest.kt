@@ -142,14 +142,17 @@ class SpacePayloadsTest {
     }
 
     @Test
-    fun onlySpaceProvidersServeVisualCapabilities() {
-        listOf(AiCapability.TRY_ON, AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO)
-            .forEach { capability ->
-                assertTrue(capability.requiresSpace(), "$capability must require a Space")
-                CloudModelCatalog.forCapability(capability).forEach { provider ->
-                    assertEquals(CloudPlatform.HF_SPACE, provider.platform, provider.id)
-                }
+    fun imageGenAndEditAllowHfInferenceProviders() {
+        listOf(AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT).forEach { capability ->
+            val hasInference = CloudModelCatalog.forCapability(capability)
+                .any { it.platform == CloudPlatform.HF_INFERENCE }
+            val hasSpace = CloudModelCatalog.forCapability(capability)
+                .any { it.platform == CloudPlatform.HF_SPACE }
+            assertTrue(hasSpace, "$capability needs at least one Space")
+            if (capability == AiCapability.IMAGE_GEN) {
+                assertTrue(hasInference, "$capability should offer HF Inference fallback")
             }
+        }
     }
 
     @Test

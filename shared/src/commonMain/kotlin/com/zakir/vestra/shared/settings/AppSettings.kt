@@ -121,7 +121,11 @@ class AppSettings(private val settings: Settings) {
             freeTier &&
             estCostUsd <= 0.0 &&
             CloudModelContracts.forProvider(this).support != ModelSupportLevel.UNSUPPORTED &&
-            (!capability.requiresSpace() || platform == CloudPlatform.HF_SPACE)
+            when {
+                !capability.requiresSpace() -> true
+                platform == CloudPlatform.HF_SPACE || platform == CloudPlatform.HF_INFERENCE -> true
+                else -> false
+            }
 
     fun selectedCloudProvider(): CloudModelProvider =
         resolveProvider(_cloudProviderId.value, AiCapability.TRY_ON)
@@ -216,7 +220,16 @@ class AppSettings(private val settings: Settings) {
             settings.putString(key, curated.id)
             return curated.id
         }
-        // Groq is the default code model but sideload builds often only seed HF/OpenRouter keys.
+        // When HF token is configured, prefer Inference Providers for image gen (OpenCode-style).
+        if (capability == AiCapability.IMAGE_GEN &&
+            !settings.getStringOrNull(KEY_HF_TOKEN).isNullOrBlank()
+        ) {
+            val stored = settings.getStringOrNull(key)
+            if (stored == null || stored == "flux-schnell-hf" || stored == "sdxl-lightning-hf") {
+                settings.putString(key, "flux-schnell-inference")
+                return "flux-schnell-inference"
+            }
+        }
         if (capability == AiCapability.CODE && stored == "llama33-70b-groq" &&
             settings.getStringOrNull(KEY_GROQ_KEY).isNullOrBlank()
         ) {

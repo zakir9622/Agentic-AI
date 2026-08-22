@@ -44,6 +44,14 @@ class CloudModelRoutingTest {
     }
 
     @Test
+    fun imageFallbackIncludesInferenceWhenHfTokenConfigured() {
+        val settings = AppSettings(MemorySettings()).apply { setHfToken("hf_test") }
+        val selected = CloudModelCatalog.byId("flux-schnell-hf")!!
+        val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_GEN, settings)
+        assertTrue(chain.any { it.id == "flux-schnell-inference" })
+    }
+
+    @Test
     fun imageFallbackIncludesReadyWhenUserSelectedDegraded() {
         val selected = CloudModelCatalog.byId("sdxl-lightning-hf")!!
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_GEN)

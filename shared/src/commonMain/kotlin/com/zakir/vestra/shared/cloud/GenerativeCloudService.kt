@@ -3,6 +3,8 @@ package com.zakir.vestra.shared.cloud
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import io.ktor.client.HttpClient
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -19,7 +21,8 @@ sealed interface GenerativeState {
 }
 
 /**
- * Free-tier generative service: HF Spaces for image/video, Groq/HF/OpenRouter-free for code.
+ * Free-tier generative service: HF Spaces + HF Inference Providers for image/video,
+ * Groq/HF/OpenRouter for code.
  */
 class GenerativeCloudService(
     private val http: HttpClient,
@@ -28,8 +31,10 @@ class GenerativeCloudService(
     private val usage: UsageLedger,
 ) {
     private val hf = HfGradioClient(http)
+    private val hfInference = HfInferenceClient(http)
     private val llm = LlmClient(http)
 
+    @OptIn(ExperimentalEncodingApi::class)
     fun generateImage(
         prompt: String,
         referenceUri: String?,
@@ -45,12 +50,7 @@ class GenerativeCloudService(
             CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
             requireKeyIfNeeded(provider)
             require(settings.networkLikelyAvailable()) { "No internet connection" }
-            require(provider.platform == CloudPlatform.HF_SPACE) {
-                "Only free Hugging Face Spaces are supported for images"
-            }
-            // Free ZeroGPU Spaces run out of quota without warning, so a healthy sibling Space
-            // finishes the job instead of handing the user a dead end.
-            val candidates = CloudModelRouting.fallbackChain(provider, capability)
+            val candidates = CloudModelRouting.fallbackChain(provider, capability, settings)
             val referenceDataUrl = referenceUri?.takeIf { it.isNotBlank() }?.let {
                 val bytes = io.loadImageBytes(it) ?: error("Couldn't read the reference image")
                 io.toDataUrl(bytes)
@@ -75,33 +75,64 @@ class GenerativeCloudService(
                         ),
                     )
                     try {
-                        val data = if (referenceDataUrl != null) {
-                            SpacePayloads.forImageEdit(candidate.id, variant, referenceDataUrl)
-                        } else {
-                            SpacePayloads.forImageGen(candidate.id, variant)
+                        when (candidate.platform) {
+                            CloudPlatform.HF_INFERENCE -> {
+                                if (referenceDataUrl != null) {
+                                    error("HF Inference edit is not supported yet — pick a Space model for edits.")
+                                }
+                                val token = settings.hfToken.value
+                                    ?: error("Add your HF token in Settings for Inference Providers.")
+                                emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
+                                val bytes = hfInference.textToImage(
+                                    modelId = candidate.endpoint,
+                                    prompt = variant,
+                                    hfToken = token,
+                                )
+                                val path = io.downloadResult(
+                                    "data:image/png;base64,${Base64.encode(bytes)}",
+                                )
+                                usage.record(
+                                    candidate,
+                                    success = true,
+                                    note = "Image · Inference · ${prompt.take(80)}",
+                                )
+                                emit(GenerativeState.ImageReady(path, candidate.id))
+                                return@flow
+                            }
+                            CloudPlatform.HF_SPACE -> {
+                                val data = if (referenceDataUrl != null) {
+                                    SpacePayloads.forImageEdit(candidate.id, variant, referenceDataUrl)
+                                } else {
+                                    SpacePayloads.forImageGen(candidate.id, variant)
+                                }
+                                val result = hf.predict(
+                                    candidate.endpoint,
+                                    CloudModelContracts.effectiveApiName(candidate),
+                                    data,
+                                    settings.hfToken.value,
+                                )
+                                val url = extractRef(result)
+                                emit(GenerativeState.Running(0.85f, "Downloading…"))
+                                val path = io.downloadResult(url, spaceHost = candidate.endpoint)
+                                usage.record(
+                                    candidate,
+                                    success = true,
+                                    note = "Image · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
+                                )
+                                emit(GenerativeState.ImageReady(path, candidate.id))
+                                return@flow
+                            }
+                            else -> error("Unsupported platform for images: ${candidate.platform}")
                         }
-                        val result = hf.predict(
-                            candidate.endpoint,
-                            CloudModelContracts.effectiveApiName(candidate),
-                            data,
-                            settings.hfToken.value,
-                        )
-                        val url = extractRef(result)
-                        emit(GenerativeState.Running(0.85f, "Downloading…"))
-                        val path = io.downloadResult(url, spaceHost = candidate.endpoint)
-                        usage.record(
-                            candidate,
-                            success = true,
-                            note = "Image · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
-                        )
-                        emit(GenerativeState.ImageReady(path, candidate.id))
-                        return@flow
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         lastError = e
-                        // The GPU allowance is account-wide, so no other Space can serve this.
-                        if (e.isAccountQuotaExhausted()) throw e
+                        if (e.isAccountQuotaExhausted() && candidate.platform == CloudPlatform.HF_SPACE) {
+                            // ZeroGPU is account-wide for Spaces — jump to Inference Providers next.
+                            continue
+                        }
+                        if (e.isNonRetryableInferenceError()) throw e
                     }
                 }
             }
@@ -128,6 +159,13 @@ class GenerativeCloudService(
             msg.contains("ZeroGPU quota", ignoreCase = true) ||
             msg.contains("exceeded your free ZeroGPU", ignoreCase = true) ||
             msg.contains("0s left", ignoreCase = true)
+    }
+
+    private fun Exception.isNonRetryableInferenceError(): Boolean {
+        val msg = message.orEmpty()
+        return msg.contains("depleted your monthly", ignoreCase = true) ||
+            msg.contains("Inference Providers monthly credits", ignoreCase = true) ||
+            msg.contains("token rejected for Inference", ignoreCase = true)
     }
 
     fun generateCode(

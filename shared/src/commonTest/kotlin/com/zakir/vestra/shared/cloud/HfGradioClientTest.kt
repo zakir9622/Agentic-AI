@@ -57,7 +57,7 @@ class HfGradioClientTest {
     }
 
     @Test
-    fun predictRetriesWithoutTheTokenWhenZeroGpuQuotaIsSpent() = runTest {
+    fun predictRetriesWithTokenAfterAnonymousEmptyError() = runTest {
         // Hugging Face answers an exhausted ZeroGPU allowance with an *empty* error rather than
         // a quota message, so a tokened call fails instantly while the anonymous shared quota
         // still runs the same payload.
@@ -72,7 +72,7 @@ class HfGradioClientTest {
                     headersOf(HttpHeaders.ContentType, "application/json"),
                 )
             } else {
-                val body = if (authorized) {
+                val body = if (!authorized) {
                     "event: error\ndata: null\n\n"
                 } else {
                     "event: complete\ndata: [\"https://example.com/out.png\"]\n\n"
@@ -93,7 +93,7 @@ class HfGradioClientTest {
             wakeRetries = 0,
         )
         assertEquals("https://example.com/out.png", result.jsonPrimitive.content)
-        assertEquals(listOf("Bearer hf_spent_quota", null), seenAuthHeaders)
+        assertEquals(listOf(null, "Bearer hf_spent_quota"), seenAuthHeaders)
     }
 
     @Test
@@ -151,7 +151,7 @@ data: {"error": "You have exceeded your free ZeroGPU quota (60s requested vs. 0s
 
 """
                 } else {
-                    "event: complete\ndata: [\"https://example.com/out.png\"]\n\n"
+                    "event: error\ndata: null\n\n"
                 }
                 respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/event-stream"))
             }
@@ -171,7 +171,8 @@ data: {"error": "You have exceeded your free ZeroGPU quota (60s requested vs. 0s
             )
         }
         assertTrue(failure.message.orEmpty().contains("ZeroGPU", ignoreCase = true))
-        assertEquals(listOf("Bearer hf_spent"), seenAuth.filter { it != null }.distinct())
+        assertEquals(listOf("Bearer hf_spent"), seenAuth.filterNotNull().distinct())
+        assertTrue(seenAuth.contains(null), "Anonymous should be tried before token")
     }
 
     @Test

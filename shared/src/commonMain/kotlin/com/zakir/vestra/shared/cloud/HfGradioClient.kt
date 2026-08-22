@@ -51,11 +51,9 @@ class HfGradioClient(
         require(data.isNotEmpty()) { "Gradio payload is empty" }
 
         val token = hfToken?.takeIf { it.isNotBlank() }
-        // Curated Spaces are public — the token only buys a larger ZeroGPU allowance. Once that
-        // allowance is spent Hugging Face rejects every tokened call instantly with an empty
-        // error, while the very same anonymous call still runs on the shared quota. So each
-        // wake attempt falls back to an unauthenticated call before giving up.
-        val credentials = if (token == null) listOf(null) else listOf(token, null)
+        // Curated Spaces are public — try anonymous first so a spent token allowance does not
+        // block the shared ZeroGPU queue. Fall back to the token for priority when available.
+        val credentials = if (token == null) listOf(null) else listOf(null, token)
 
         var lastEmptyError: String? = null
         var quotaExhausted = false

@@ -13,11 +13,9 @@ object CloudModelRouting {
         capability: AiCapability,
         settings: AppSettings? = null,
     ): List<CloudModelProvider> {
-        // Degraded Spaces (503, broken upstream) waste quota seconds when chained
-        // automatically — only include them when the user explicitly picked one.
         val allowDegradedAlternates =
             CloudModelContracts.forProvider(selected).support == ModelSupportLevel.DEGRADED
-        val alternates = CloudModelCatalog.forCapability(capability)
+        val spaceAlternates = CloudModelCatalog.forCapability(capability)
             .filter { candidate ->
                 candidate.id != selected.id &&
                     candidate.platform == CloudPlatform.HF_SPACE &&
@@ -27,7 +25,19 @@ object CloudModelRouting {
                     (settings == null || isUsable(candidate, settings))
             }
             .sortedWith(modelPriority())
-        return listOf(selected) + alternates
+        val inferenceAlternates = CloudModelCatalog.forCapability(capability)
+            .filter { candidate ->
+                candidate.id != selected.id &&
+                    candidate.platform == CloudPlatform.HF_INFERENCE &&
+                    CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED &&
+                    (settings == null || isUsable(candidate, settings))
+            }
+            .sortedWith(modelPriority())
+        val head = listOf(selected)
+        return when (selected.platform) {
+            CloudPlatform.HF_INFERENCE -> head + inferenceAlternates + spaceAlternates
+            else -> head + spaceAlternates + inferenceAlternates
+        }.distinctBy { it.id }
     }
 
     fun codeFallbackChain(

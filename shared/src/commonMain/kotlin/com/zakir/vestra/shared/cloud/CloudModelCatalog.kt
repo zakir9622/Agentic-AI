@@ -147,6 +147,32 @@ object CloudModelCatalog {
 
         // ── Image generation / recreate (free HF) ───────────────────────
         CloudModelProvider(
+            id = "flux-schnell-inference",
+            displayName = "FLUX.1 Schnell (HF Inference)",
+            description = "OpenCode-style HF Inference Providers — uses monthly HF credits, not ZeroGPU.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_GEN,
+            endpoint = "black-forest-labs/FLUX.1-schnell",
+            license = "Apache 2.0",
+            requiresApiKey = true,
+            qualityScore = 94,
+            speedScore = 90,
+            usageNote = "Ready · HF Inference Providers (nscale/fal). Needs HF token.",
+        ),
+        CloudModelProvider(
+            id = "z-image-turbo-inference",
+            displayName = "Z-Image Turbo (HF Inference)",
+            description = "Fast text-to-image via HF Inference Providers when Spaces are down.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_GEN,
+            endpoint = "Tongyi-MAI/Z-Image-Turbo",
+            license = "Apache 2.0",
+            requiresApiKey = true,
+            qualityScore = 90,
+            speedScore = 95,
+            usageNote = "Ready · HF Inference Providers (fal-ai). Needs HF token.",
+        ),
+        CloudModelProvider(
             id = "flux-schnell-hf",
             displayName = "FLUX.1 Schnell",
             description = "Fast open image model. Text-to-image from prompts. Free HF Space.",
@@ -207,6 +233,20 @@ object CloudModelCatalog {
         ),
 
         // ── Coding LLMs (free tiers) ────────────────────────────────────
+        CloudModelProvider(
+            id = "qwen25-coder-7b-hf",
+            displayName = "Qwen2.5-Coder 7B (HF)",
+            description = "Faster coding model via HF Inference Providers — lower credit use.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.CODE,
+            endpoint = "Qwen/Qwen2.5-Coder-7B-Instruct",
+            license = "Apache 2.0",
+            requiresApiKey = true,
+            qualityScore = 86,
+            speedScore = 92,
+            estTokensPerRequest = 1500,
+            usageNote = "Ready · HF Inference Providers. Good when 32B is rate-limited.",
+        ),
         CloudModelProvider(
             id = "qwen25-coder-hf",
             displayName = "Qwen2.5-Coder 32B",

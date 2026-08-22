@@ -183,6 +183,28 @@ def probe_llm(platform: str, model: str, token: str) -> str:
         return f"FAIL: {e}"
 
 
+def probe_inference_image(model: str, token: str) -> str:
+    payload = json.dumps({
+        "response_format": "b64_json",
+        "prompt": "modest fashion portrait",
+        "model": model,
+        "size": "512x512",
+    }).encode()
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    try:
+        req = urllib.request.Request(
+            "https://router.huggingface.co/nscale/v1/images/generations",
+            data=payload,
+            headers=headers,
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            body = json.loads(resp.read())
+            b64 = body["data"][0]["b64_json"]
+            return f"OK ({len(b64)} b64 chars)"
+    except Exception as e:
+        return f"FAIL: {e}"
+
+
 def classify_space(detail: str, required: bool, strict: bool) -> str:
     if detail.startswith("OK"):
         return "OK"

@@ -101,6 +101,27 @@ object CloudModelContracts {
 
         // ── Image gen / edit ────────────────────────────────────────────
         CloudModelContract(
+            providerId = "flux-schnell-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "prompt"),
+            schemaNote = "nscale/fal-ai text-to-image · black-forest-labs/FLUX.1-schnell",
+            failureHint = "HF Inference credits exhausted or token missing. Add HF token in Settings or wait for monthly reset.",
+        ),
+        CloudModelContract(
+            providerId = "z-image-turbo-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "prompt"),
+            schemaNote = "fal-ai text-to-image · Tongyi-MAI/Z-Image-Turbo",
+            failureHint = "Z-Image Turbo via HF Inference failed. Check HF token or try FLUX Inference.",
+        ),
+        CloudModelContract(
+            providerId = "qwen25-coder-7b-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "chat messages"),
+            schemaNote = "HF Inference chat · Qwen/Qwen2.5-Coder-7B-Instruct",
+            failureHint = "HF Inference rejected the 7B coder. Try 32B, Groq, or OpenRouter.",
+        ),
+        CloudModelContract(
             providerId = "flux-schnell-hf",
             support = ModelSupportLevel.READY,
             requiredInputs = listOf("prompt", "seed", "randomize", "width", "height", "steps"),
@@ -230,6 +251,9 @@ object CloudModelContracts {
                 "Your HF token cannot call Inference Providers. Create a token with Inference permission (classic Read/Write), Save in Settings, or switch Code to Groq."
             // ZeroGPU minutes are billed to the Hugging Face account, not the Space, so
             // switching models cannot help until the daily allowance refills.
+            msg.contains("402") || msg.contains("depleted your monthly", ignoreCase = true) ->
+                "Your Hugging Face Inference Providers monthly credits are used up. Credits reset each month. " +
+                    "Add a Groq or OpenRouter key in Settings, or wait for the allowance to refill."
             msg.contains("quota exceeded", ignoreCase = true) || msg.contains("ZeroGPU quota", ignoreCase = true) ->
                 "Your Hugging Face account is out of free ZeroGPU minutes. The allowance refills " +
                     "daily — retry later, use a different HF token, or run try-on locally with Lite/Pro."

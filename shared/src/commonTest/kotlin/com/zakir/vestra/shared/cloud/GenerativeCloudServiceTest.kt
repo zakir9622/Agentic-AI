@@ -60,6 +60,42 @@ private class FakeIo : CloudImageIo {
 class GenerativeCloudServiceTest {
 
     @Test
+    fun imageGenFallsBackToHfInferenceWhenSpacesFail() = runTest {
+        val hostsCalled = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            hostsCalled += request.url.host
+            when {
+                request.url.host.contains("router.huggingface.co") -> respond(
+                    """{"data":[{"b64_json":"aGVsbG8="}]}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+                request.method.value == "POST" -> respond(
+                    """{"event_id":"evt-1"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+                else -> respond(
+                    "event: error\ndata: null\n\n",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "text/event-stream"),
+                )
+            }
+        }
+        val http = HttpClient(engine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setImageGenProvider("flux-schnell-hf")
+            setHfToken("hf_test")
+        }
+        val service = GenerativeCloudService(http, FakeIo(), settings, UsageLedger(TestMemorySettings()))
+        val states = service.generateImage("abaya lookbook", referenceUri = null).toList()
+        assertTrue(states.any { it is GenerativeState.ImageReady })
+        assertTrue(hostsCalled.any { it.contains("router.huggingface.co") })
+    }
+
+    @Test
     fun imageGenDoesNotFallbackToDegradedSdxlWhenFluxFails() = runTest {
         val hostsCalled = mutableListOf<String>()
         val engine = MockEngine { request ->

@@ -95,6 +95,7 @@ class LlmClient(
                 when (httpResponse.status.value) {
                     401, 403 -> "HF/API token rejected (${httpResponse.status.value}). Use a classic Read/Write token (not fine-grained without Inference), then Save in Settings."
                     404 -> "Model not available on free $platform: $model. Switch model in Settings."
+                    402 -> "HF Inference monthly credits used up. Wait for reset or add Groq/OpenRouter in Settings."
                     429 -> "Free-tier rate limit on $platform. Wait a minute or switch model."
                     else -> {
                         val msg = detail.orEmpty()

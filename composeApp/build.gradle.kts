@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 31
-        versionName = "2.9.4"
+        versionCode = 32
+        versionName = "2.9.5"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
         buildConfigField("String", "DEFAULT_HF_TOKEN", "\"\"")
         buildConfigField("String", "DEFAULT_OPENROUTER_TOKEN", "\"\"")
