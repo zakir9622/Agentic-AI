@@ -1,5 +1,19 @@
 # Changelog — The Lookbook
 
+## 2.9.2
+- Fixed the biggest cause of failed cloud generation: once a Hugging Face
+  account's daily ZeroGPU allowance is spent, HF rejects every Space call that
+  carries the token instantly with an empty `event: error` / `data: null`, even
+  though the same request still runs anonymously. Space calls now retry without
+  the token, so image generation keeps working after the allowance runs out
+- Explain empty Gradio errors as a likely spent ZeroGPU allowance rather than an
+  unexplained failure
+- Point Qwen Image Edit at a distilled mirror of the Space: the official one
+  rejects every REST call outright, and 8 steps instead of 50 fits the free
+  allowance
+- Show the bundled Lite pack as installed as soon as it finishes seeding,
+  instead of only after the next app launch
+
 ## 2.9.1
 - Fixed image generation and editing against live Hugging Face Spaces: image
   arguments are now sent as Gradio `FileData` objects, so Qwen Image Edit and
