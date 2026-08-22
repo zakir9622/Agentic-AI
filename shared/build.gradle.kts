@@ -41,6 +41,7 @@ android {
     compileSdk = 36
     defaultConfig {
         minSdk = 35
+        consumerProguardFiles("consumer-rules.pro")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

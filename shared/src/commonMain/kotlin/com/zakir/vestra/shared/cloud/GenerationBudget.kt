@@ -40,7 +40,7 @@ class GenerationBudget(
         /** Extra window after primary image Space stalls so InstructPix2Pix / etc. can run. */
         const val IMAGE_FALLBACK_GRACE_MS = 45_000L
         const val VIDEO_DEADLINE_MS = 300_000L
-        const val AUDIO_DEADLINE_MS = 90_000L
+        const val AUDIO_DEADLINE_MS = 45_000L
         /** Cap each Gradio SSE poll so one hung GET cannot burn the whole deadline. */
         const val GRADIO_POLL_REQUEST_TIMEOUT_MS = 12_000L
 

@@ -208,6 +208,9 @@ class LiteEngine(
         return when {
             error is UnsatisfiedLinkError || error.cause is UnsatisfiedLinkError ->
                 "ONNX Runtime failed to load — reinstall the app or re-download lite-v1."
+            msg.contains("NoSuchMethodError", ignoreCase = true) ||
+                msg.contains("NodeInfo", ignoreCase = true) ->
+                "ONNX Runtime mismatch — reinstall this build (R8 keep rules). Re-download lite-v1 if it persists."
             msg.contains("ONNX", ignoreCase = true) || msg.contains("Ort", ignoreCase = true) ->
                 msg.take(160)
             else -> null

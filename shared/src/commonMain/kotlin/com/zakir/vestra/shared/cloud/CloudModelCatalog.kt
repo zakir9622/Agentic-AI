@@ -226,7 +226,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 92,
-            usageNote = "Degraded · Space errors on every run. Prefer FLUX Schnell.",
+            usageNote = "Unsupported · Space Gradio API offline (404). Use FLUX Schnell.",
         ),
         CloudModelProvider(
             id = "qwen-image-edit-hf",
@@ -361,7 +361,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 75,
-            usageNote = "Ready · generate_speech_from_ui. Default audio route; queues at peak.",
+            usageNote = "Degraded · ZeroGPU queues often burn the audio budget — Edge-TTS is preferred.",
         ),
         CloudModelProvider(
             id = "edge-tts-hf",
@@ -375,7 +375,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 84,
             speedScore = 80,
-            usageNote = "Ready · tts_interface (text, voice, rate, pitch).",
+            usageNote = "Ready · tts_interface (text, voice, rate, pitch). Default audio route.",
         ),
         CloudModelProvider(
             id = "mms-tts-eng-hf",
@@ -423,7 +423,7 @@ object CloudModelCatalog {
     val defaultImageEditId: String = "qwen-image-edit-hf"
     val defaultCodeId: String = "llama33-70b-groq"
     val defaultVideoId: String = "ltx-zerogpu-hf"
-    /** Prefer Space TTS — MMS Inference is often rejected on free Inference Providers. */
-    val defaultAudioId: String = "kokoro-tts-hf"
+    /** Prefer Edge-TTS — Kokoro ZeroGPU often queues past the audio budget. */
+    val defaultAudioId: String = "edge-tts-hf"
     val defaultId: String = defaultTryOnId
 }

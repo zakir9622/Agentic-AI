@@ -144,10 +144,10 @@ object CloudModelContracts {
         ),
         CloudModelContract(
             providerId = "sdxl-lightning-hf",
-            support = ModelSupportLevel.DEGRADED,
+            support = ModelSupportLevel.UNSUPPORTED,
             requiredInputs = listOf("prompt", "steps dropdown"),
-            schemaNote = "generate_image · Gradio 4 /call route; Space currently errors on every run",
-            failureHint = "SDXL Lightning's Space is failing upstream. Use FLUX Schnell.",
+            schemaNote = "generate_image · Gradio API info returns 404 (Space offline Aug 2026)",
+            failureHint = "SDXL Lightning Space is offline. Use FLUX Schnell Space.",
         ),
         CloudModelContract(
             providerId = "qwen-image-edit-hf",
@@ -295,14 +295,20 @@ object CloudModelContracts {
         }
         val body = when {
             c.support == ModelSupportLevel.UNSUPPORTED -> c.failureHint
+            // Check credits / 402 BEFORE the broad "Inference Providers" permissions match.
+            msg.contains("402") ||
+                msg.contains("depleted your monthly", ignoreCase = true) ||
+                msg.contains("monthly included credits", ignoreCase = true) ->
+                "Your Hugging Face Inference Providers monthly credits are used up. Credits reset each month. " +
+                    "Switch Image to a free Space (FLUX Schnell) in Settings, or wait for the allowance to refill."
             msg.contains("sufficient permissions", ignoreCase = true) ||
-                msg.contains("Inference Providers", ignoreCase = true) ->
+                (
+                    msg.contains("Inference Providers", ignoreCase = true) &&
+                        msg.contains("permission", ignoreCase = true)
+                    ) ->
                 "Your HF token cannot call Inference Providers. Create a token with Inference permission (classic Read/Write), Save in Settings, or switch Code to Groq."
             // ZeroGPU minutes are billed to the Hugging Face account, not the Space, so
             // switching models cannot help until the daily allowance refills.
-            msg.contains("402") || msg.contains("depleted your monthly", ignoreCase = true) ->
-                "Your Hugging Face Inference Providers monthly credits are used up. Credits reset each month. " +
-                    "Add a Groq or OpenRouter key in Settings, or wait for the allowance to refill."
             msg.contains("quota exceeded", ignoreCase = true) || msg.contains("ZeroGPU quota", ignoreCase = true) ->
                 "Your Hugging Face account is out of free ZeroGPU minutes. The allowance refills " +
                     "daily — tap Choose model for an Inference route, use a different HF token, or run try-on locally with Lite/Pro."
@@ -329,8 +335,19 @@ object CloudModelContracts {
                 (
                     msg.contains("does not exist", ignoreCase = true) &&
                         provider.platform == CloudPlatform.HF_INFERENCE
+                    ) ||
+                (
+                    msg.contains("deprecated", ignoreCase = true) &&
+                        provider.platform == CloudPlatform.HF_INFERENCE
                     ) ->
-                "HF Inference rejected ${provider.displayName}. Prefer a Space model (Kokoro / Edge-TTS) in Settings."
+                when (provider.capability) {
+                    AiCapability.AUDIO ->
+                        "HF Inference rejected ${provider.displayName}. Prefer Kokoro or Edge-TTS Spaces in Settings."
+                    AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
+                        "HF Inference rejected ${provider.displayName}. Prefer a free Image Space (FLUX Schnell) in Settings."
+                    else ->
+                        "HF Inference rejected ${provider.displayName}. Switch model in Settings."
+                }
             msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true) ->
                 "$label timed out on ${provider.displayName}. Retry off-peak or pick a faster free model."
             msg.contains("waking", ignoreCase = true) ||

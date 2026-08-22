@@ -247,21 +247,21 @@ class AppSettings(private val settings: Settings) {
             settings.putString(key, curated.id)
             return curated.id
         }
-        // Prefer Inference only when no explicit Space selection was stored.
-        if (capability == AiCapability.IMAGE_GEN &&
-            !settings.getStringOrNull(KEY_HF_TOKEN).isNullOrBlank()
-        ) {
-            val stored = settings.getStringOrNull(key)
-            if (stored == null) {
-                settings.putString(key, "flux-schnell-inference")
-                return "flux-schnell-inference"
+        // Prefer free Image Spaces — HF Inference monthly credits deplete fast.
+        // Force off broken SDXL Lightning; leave an explicit Inference selection alone.
+        if (capability == AiCapability.IMAGE_GEN) {
+            when (stored) {
+                null, "sdxl-lightning-hf" -> {
+                    settings.putString(key, "flux-schnell-hf")
+                    return "flux-schnell-hf"
+                }
             }
         }
         if (capability == AiCapability.CODE && stored == "deepseek-r1-free-or") {
             settings.putString(key, "openrouter-free")
             return "openrouter-free"
         }
-        // Prefer Space TTS — MMS Inference is often rejected on free Inference Providers.
+        // Prefer Edge-TTS as default — Kokoro ZeroGPU often queues past the audio budget.
         if (capability == AiCapability.AUDIO && (stored == null || stored == "mms-tts-eng-hf")) {
             val curated = CloudModelCatalog.defaultFor(capability)
             settings.putString(key, curated.id)

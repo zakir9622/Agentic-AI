@@ -28,12 +28,17 @@ class OrtModel(
 
     /** [height, width] the model expects; dynamic dims fall back to [defaultSize]. */
     fun inputSize(defaultSize: Int = 320): Pair<Int, Int> {
-        val info = session.inputInfo[inputName]?.info
-        val shape = (info as? TensorInfo)?.shape ?: return defaultSize to defaultSize
-        // NCHW: [batch, channels, height, width]
-        val h = shape.getOrNull(2)?.toInt()?.takeIf { it > 0 } ?: defaultSize
-        val w = shape.getOrNull(3)?.toInt()?.takeIf { it > 0 } ?: defaultSize
-        return h to w
+        // Prefer names-only path; getInputInfo() JNI can abort if R8 stripped NodeInfo.
+        return try {
+            val info = session.inputInfo[inputName]?.info
+            val shape = (info as? TensorInfo)?.shape ?: return defaultSize to defaultSize
+            // NCHW: [batch, channels, height, width]
+            val h = shape.getOrNull(2)?.toInt()?.takeIf { it > 0 } ?: defaultSize
+            val w = shape.getOrNull(3)?.toInt()?.takeIf { it > 0 } ?: defaultSize
+            h to w
+        } catch (_: Throwable) {
+            defaultSize to defaultSize
+        }
     }
 
     /**

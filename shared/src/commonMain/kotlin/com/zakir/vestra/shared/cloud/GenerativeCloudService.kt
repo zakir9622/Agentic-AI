@@ -784,9 +784,10 @@ class GenerativeCloudService(
                                 apiName = CloudModelContracts.effectiveApiName(candidate),
                                 data = data,
                                 hfToken = settings.hfToken.value,
-                                maxPolls = 90,
+                                maxPolls = budget.maxPolls(pollDelayMs = 2_000, floor = 3, ceiling = 20),
                                 pollDelayMs = 2_000,
                                 onPoll = { pollIndex, maxPolls ->
+                                    budget.throwIfExpired()
                                     val frac =
                                         0.35f + 0.5f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
                                     emit(

@@ -1,5 +1,11 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc6
+- **Try-on crash fix:** R8 keep `ai.onnxruntime.**` — Pixel SIGABRT was `NodeInfo.<init>` NoSuchMethodError during Lite generate
+- **Cloud Image:** Prefer FLUX Schnell Space by default; mark SDXL Lightning unsupported (Space API 404); fix 402 credit copy (was mislabeled as token permissions); capability-aware Inference rejection hints
+- **Cloud Audio:** Default Edge-TTS; budget 45s with budget-aware polls so Kokoro falls back instead of hanging ~90s
+- Continues true-local work from rc5 (system TTS, SD-Turbo engine)
+
 ## 3.1.0-rc5
 - **True local Audio:** Android system TTS offline (personas → device voices) + DSP knobs
 - **True local Image engine:** `AndroidTxt2ImgEngine` ORT denoise loop wired (`SAMPLER_WIRED=true`); needs `local-sdturbo-v1` pack weights to run

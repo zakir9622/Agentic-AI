@@ -13,8 +13,8 @@ object CrashClassifier {
             throwable is OutOfMemoryError || name.contains("OutOfMemory") || msg.contains("out of memory") ->
                 "OutOfMemory — Pro pack / large bitmap; free RAM or use Fast try-on"
             s.contains("onnxruntime") || s.contains("ortsession") || s.contains("ortmodel") ||
-                s.contains("ortgraph") ->
-                "ONNX Runtime — pack corrupt or in-use; re-download pack / wait for generation to finish"
+                s.contains("ortgraph") || s.contains("nodeinfo") ->
+                "ONNX Runtime — pack corrupt, R8 keep missing, or in-use; reinstall app / re-download pack"
             s.contains("cancellationexception") || msg.contains("standaloneCoroutine was cancelled") ->
                 "Job cancelled — usually back-press during generation (not a hard crash)"
             s.contains("native method") && (s.contains("libc") || msg.contains("signal")) ->
@@ -53,6 +53,9 @@ object CrashClassifier {
                 hints.contains("tombstone") || hints.contains("fatal signal") ||
                 hints.contains("debuggee is dying") ->
                 "Native crash (signal) — often ORT/NNAPI; re-download pack or disable NNAPI"
+            hints.contains("nodeinfo") ||
+                (hints.contains("nosuchmethoderror") && hints.contains("onnx")) ->
+                "ONNX Runtime R8 mismatch (NodeInfo) — reinstall this build; keep rules must retain ai.onnxruntime.*"
             hints.contains("onnxruntime") || hints.contains("nnapi") ||
                 screen.contains("packs") || screen.contains("engines") ||
                 screen.contains("garment") ->
