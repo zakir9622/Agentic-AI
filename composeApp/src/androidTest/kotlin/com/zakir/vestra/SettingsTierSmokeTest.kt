@@ -32,6 +32,7 @@ object HomeTabRoute {
     const val TRY_ON = "tryon"
     const val IMAGE = "image"
     const val VIDEO = "video"
+    const val AUDIO = "audio"
     const val CODE = "code"
     const val NEWS = "news"
 }
