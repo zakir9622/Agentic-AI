@@ -43,6 +43,9 @@ jobs:
       - name: Local model benchmarks (smoke)
         run: python3 scripts/benchmark-local.py
 
+      - name: ATR classify fixture harness (R2)
+        run: python3 scripts/test_atr_classify.py
+
       - name: Unit tests
         run: ./gradlew :shared:testDebugUnitTest :composeApp:testSideloadDebugUnitTest
 

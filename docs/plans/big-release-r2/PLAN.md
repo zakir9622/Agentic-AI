@@ -46,6 +46,7 @@
 - [x] `scripts/test_atr_classify.py` — mirrors taxonomy; loads `scripts/fixtures/atr/*.json`
 - [x] Fixtures: synthetic “real shape” histograms (worn abaya, niqab, trousers, …)
 - [x] Document how to drop real Pixel dumps later (`classMap` export)
+- [x] CI step in `android-ci.yml` runs the harness on every PR
 
 ### R2.0c — UI atelier overhaul (“Loom Ink”)
 
