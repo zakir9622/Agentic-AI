@@ -78,25 +78,50 @@ class CloudEngine(
             require(provider.platform == CloudPlatform.HF_SPACE) {
                 "Only free Hugging Face Spaces are supported for try-on"
             }
-            val resultUrlOrPath = runHfSpace(provider, personDataUrl, garmentDataUrl, category)
-
-            emit(GenerationState.Running(0.85f, "Downloading result…"))
-            val outPath = io.downloadResult(resultUrlOrPath, spaceHost = provider.endpoint)
-            usage?.record(
-                provider,
-                success = true,
-                note = "Try-on · ${provider.displayName} · ${CloudModelContracts.statusLabel(provider)}",
-            )
-            emit(
-                GenerationState.Complete(
-                    TryOnResult(
-                        imagePath = outPath,
-                        executedTier = EngineTier.CLOUD,
-                        durationMillis = System.currentTimeMillis() - startedAt,
-                        watermarked = false,
-                    ),
-                ),
-            )
+            val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.TRY_ON)
+            var lastError: Exception? = null
+            for ((modelIndex, candidate) in candidates.withIndex()) {
+                if (modelIndex > 0) {
+                    emit(
+                        GenerationState.Running(
+                            0.35f,
+                            "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                        ),
+                    )
+                }
+                try {
+                    val resultUrlOrPath = runHfSpace(candidate, personDataUrl, garmentDataUrl, category)
+                    emit(GenerationState.Running(0.85f, "Downloading result…"))
+                    val outPath = io.downloadResult(resultUrlOrPath, spaceHost = candidate.endpoint)
+                    usage?.record(
+                        candidate,
+                        success = true,
+                        note = "Try-on · ${candidate.displayName} · ${CloudModelContracts.statusLabel(candidate)}",
+                    )
+                    emit(
+                        GenerationState.Complete(
+                            TryOnResult(
+                                imagePath = outPath,
+                                executedTier = EngineTier.CLOUD,
+                                durationMillis = System.currentTimeMillis() - startedAt,
+                                watermarked = false,
+                            ),
+                        ),
+                    )
+                    return@flow
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    lastError = e
+                    if (
+                        e.message.orEmpty().contains("quota exceeded", ignoreCase = true) ||
+                        e.message.orEmpty().contains("ZeroGPU quota", ignoreCase = true)
+                    ) {
+                        throw e
+                    }
+                }
+            }
+            throw lastError ?: IllegalStateException("Try-on failed")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

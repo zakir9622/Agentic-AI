@@ -50,7 +50,7 @@ class GenerativeCloudService(
             }
             // Free ZeroGPU Spaces run out of quota without warning, so a healthy sibling Space
             // finishes the job instead of handing the user a dead end.
-            val candidates = fallbackChain(provider, capability)
+            val candidates = CloudModelRouting.fallbackChain(provider, capability)
             val referenceDataUrl = referenceUri?.takeIf { it.isNotBlank() }?.let {
                 val bytes = io.loadImageBytes(it) ?: error("Couldn't read the reference image")
                 io.toDataUrl(bytes)
@@ -122,23 +122,11 @@ class GenerativeCloudService(
         }
     }
 
-    private fun Exception.isAccountQuotaExhausted(): Boolean =
-        message.orEmpty().contains("quota exceeded", ignoreCase = true) ||
-            message.orEmpty().contains("ZeroGPU quota", ignoreCase = true)
-
-    /** Selected model first, then the other healthy free Spaces for the same capability. */
-    private fun fallbackChain(
-        selected: CloudModelProvider,
-        capability: AiCapability,
-    ): List<CloudModelProvider> {
-        val alternates = CloudModelCatalog.forCapability(capability)
-            .filter {
-                it.id != selected.id &&
-                    it.platform == CloudPlatform.HF_SPACE &&
-                    CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED
-            }
-            .sortedByDescending { it.qualityScore }
-        return listOf(selected) + alternates
+    private fun Exception.isAccountQuotaExhausted(): Boolean {
+        val msg = message.orEmpty()
+        return msg.contains("quota exceeded", ignoreCase = true) ||
+            msg.contains("ZeroGPU quota", ignoreCase = true) ||
+            msg.contains("exceeded your free ZeroGPU", ignoreCase = true)
     }
 
     fun generateCode(
@@ -146,13 +134,11 @@ class GenerativeCloudService(
         assists: GenerativeAssists = GenerativeAssists(),
     ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.CODE)
+        var attempted = provider
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
-            CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
-            requireKeyIfNeeded(provider)
             require(settings.networkLikelyAvailable()) { "No internet connection" }
-            emit(GenerativeState.Running(0.3f, "Thinking…"))
-            val key = settings.apiKeyFor(provider) ?: error("API key required for ${provider.displayName}")
+            val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
             val system = buildCodeSystem(assists)
             val temperature = when {
                 assists.creative && assists.pragmatic -> 0.5
@@ -166,36 +152,55 @@ class GenerativeCloudService(
                 "Provide working code for:\n$cleaned\n\nIf anything is unclear, pick sensible defaults and note them.",
             )
             var lastError: Exception? = null
-            var result: LlmResult? = null
-            for ((i, attempt) in attempts.withIndex()) {
-                if (i > 0) emit(GenerativeState.Running(0.35f + i * 0.1f, "Retrying…"))
-                try {
-                    result = llm.chat(provider.platform, provider.endpoint, attempt, key, system, temperature)
-                    break
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    lastError = e
+            for ((modelIndex, candidate) in candidates.withIndex()) {
+                attempted = candidate
+                CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
+                requireKeyIfNeeded(candidate)
+                if (modelIndex > 0) {
+                    emit(
+                        GenerativeState.Running(
+                            0.25f,
+                            "${provider.displayName} unavailable — trying ${candidate.displayName}…",
+                        ),
+                    )
+                } else {
+                    emit(GenerativeState.Running(0.3f, "Thinking…"))
+                }
+                val key = settings.apiKeyFor(candidate) ?: error("API key required for ${candidate.displayName}")
+                var result: LlmResult? = null
+                for ((i, attempt) in attempts.withIndex()) {
+                    if (i > 0) emit(GenerativeState.Running(0.35f + i * 0.1f, "Retrying…"))
+                    try {
+                        result = llm.chat(candidate.platform, candidate.endpoint, attempt, key, system, temperature)
+                        break
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        lastError = e
+                    }
+                }
+                if (result != null) {
+                    usage.record(
+                        candidate,
+                        tokensIn = result.tokensIn,
+                        tokensOut = result.tokensOut,
+                        success = true,
+                        note = "Code · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
+                    )
+                    emit(GenerativeState.CodeReady(result.text, result.tokensIn, result.tokensOut, candidate.id))
+                    return@flow
                 }
             }
-            val done = result ?: throw (lastError ?: IllegalStateException("Empty LLM response"))
-            usage.record(
-                provider,
-                tokensIn = done.tokensIn,
-                tokensOut = done.tokensOut,
-                success = true,
-                note = "Code · ${CloudModelContracts.statusLabel(provider)} · ${prompt.take(80)}",
-            )
-            emit(GenerativeState.CodeReady(done.text, done.tokensIn, done.tokensOut, provider.id))
+            throw lastError ?: IllegalStateException("Empty LLM response")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             usage.record(
-                provider,
+                attempted,
                 success = false,
-                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+                note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
-            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Code generation")))
+            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(attempted, e.message.orEmpty(), "Code generation")))
         }
     }
 
@@ -204,50 +209,64 @@ class GenerativeCloudService(
         assists: GenerativeAssists = GenerativeAssists(),
     ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.VIDEO)
+        var attempted = provider
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
-            CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
-            requireKeyIfNeeded(provider)
             require(settings.networkLikelyAvailable()) { "No internet connection" }
             require(provider.platform == CloudPlatform.HF_SPACE) {
                 "Only free Hugging Face Spaces are supported for video"
             }
+            val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO)
             val variants = visualPromptVariants(prompt, assists)
             var lastError: Exception? = null
-            for ((index, variant) in variants.withIndex()) {
-                emit(
-                    GenerativeState.Running(
-                        0.15f + index * 0.15f,
-                        if (index == 0) {
-                            "Rendering video (this can take a minute)…"
-                        } else {
-                            "Retrying with softer prompt…"
-                        },
-                    ),
-                )
-                try {
-                    val result = hf.predict(
-                        spaceHost = provider.endpoint,
-                        apiName = CloudModelContracts.effectiveApiName(provider),
-                        data = SpacePayloads.forVideo(provider.id, variant),
-                        hfToken = settings.hfToken.value,
-                        maxPolls = 180,
-                        pollDelayMs = 3_000,
+            for ((modelIndex, candidate) in candidates.withIndex()) {
+                attempted = candidate
+                CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
+                requireKeyIfNeeded(candidate)
+                if (modelIndex > 0) {
+                    emit(
+                        GenerativeState.Running(
+                            0.2f,
+                            "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                        ),
                     )
-                    val url = extractRef(result)
-                    emit(GenerativeState.Running(0.9f, "Downloading video…"))
-                    val path = io.downloadResult(url, spaceHost = provider.endpoint)
-                    usage.record(
-                        provider,
-                        success = true,
-                        note = "Video · ${CloudModelContracts.statusLabel(provider)} · ${prompt.take(80)}",
+                }
+                for ((index, variant) in variants.withIndex()) {
+                    emit(
+                        GenerativeState.Running(
+                            0.15f + index * 0.15f,
+                            if (index == 0) {
+                                "Rendering video (this can take a minute)…"
+                            } else {
+                                "Retrying with softer prompt…"
+                            },
+                        ),
                     )
-                    emit(GenerativeState.VideoReady(path, provider.id))
-                    return@flow
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    lastError = e
+                    try {
+                        val result = hf.predict(
+                            spaceHost = candidate.endpoint,
+                            apiName = CloudModelContracts.effectiveApiName(candidate),
+                            data = SpacePayloads.forVideo(candidate.id, variant),
+                            hfToken = settings.hfToken.value,
+                            maxPolls = 180,
+                            pollDelayMs = 3_000,
+                        )
+                        val url = extractRef(result)
+                        emit(GenerativeState.Running(0.9f, "Downloading video…"))
+                        val path = io.downloadResult(url, spaceHost = candidate.endpoint)
+                        usage.record(
+                            candidate,
+                            success = true,
+                            note = "Video · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
+                        )
+                        emit(GenerativeState.VideoReady(path, candidate.id))
+                        return@flow
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        lastError = e
+                        if (e.isAccountQuotaExhausted()) throw e
+                    }
                 }
             }
             throw lastError ?: IllegalStateException("Video generation failed")
@@ -255,11 +274,11 @@ class GenerativeCloudService(
             throw e
         } catch (e: Exception) {
             usage.record(
-                provider,
+                attempted,
                 success = false,
-                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+                note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
-            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Video generation")))
+            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(attempted, e.message.orEmpty(), "Video generation")))
         }
     }
 

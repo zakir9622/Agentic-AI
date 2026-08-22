@@ -39,7 +39,7 @@ object SpacePayloads {
             "instruct-pix2pix-hf" -> listOf(
                 fileData(imageDataUrl),
                 JsonPrimitive(prompt),
-                JsonPrimitive(20), // steps
+                JsonPrimitive(8), // steps — lower to fit free ZeroGPU seconds
                 JsonPrimitive("Randomize Seed"),
                 JsonPrimitive(42),
                 JsonPrimitive("Fix CFG"),
@@ -51,9 +51,9 @@ object SpacePayloads {
                 JsonPrimitive(prompt),
                 JsonPrimitive(0), // seed
                 JsonPrimitive(true), // randomize seed
-                JsonPrimitive(1.0), // true guidance scale — the distilled mirror's default
-                JsonPrimitive(8), // steps — 50 regularly exceeds the free ZeroGPU budget
-                JsonPrimitive(false), // rewrite prompt (keeps the user's wording)
+                JsonPrimitive(1.0), // true guidance scale
+                JsonPrimitive(8), // steps
+                JsonPrimitive(false), // enhance prompt — off avoids extra HF Inference call
             )
             else -> listOf(fileData(imageDataUrl), JsonPrimitive(prompt))
         }
@@ -71,17 +71,17 @@ object SpacePayloads {
         )
         "ltx-zerogpu-hf" -> listOf(
             JsonPrimitive(prompt),
-            JsonPrimitive("blurry, low quality, distorted, watermark, text"),
-            JsonPrimitive(""), // image_n unused for t2v
-            JsonPrimitive(""), // video_n unused for t2v
+            JsonPrimitive("worst quality, inconsistent motion, blurry, jittery, distorted, watermark, text"),
+            JsonNull, // image_n — must be null for text-to-video, not ""
+            JsonNull, // video_n
             JsonPrimitive(512), // height
-            JsonPrimitive(768), // width
+            JsonPrimitive(704), // width (live Space default)
             JsonPrimitive("text-to-video"),
-            JsonPrimitive(3.0), // duration seconds
-            JsonPrimitive(0), // frames from input video
+            JsonPrimitive(2.0), // duration seconds (live default)
+            JsonPrimitive(9), // frames from input video
             JsonPrimitive(42), // seed
             JsonPrimitive(true), // randomize
-            JsonPrimitive(3.0), // cfg
+            JsonPrimitive(1.0), // cfg (live default)
             JsonPrimitive(true), // improve texture
             JsonPrimitive(false), // slow motion
         )

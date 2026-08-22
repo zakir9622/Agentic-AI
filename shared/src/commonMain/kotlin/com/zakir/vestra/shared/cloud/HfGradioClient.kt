@@ -240,7 +240,9 @@ class HfGradioClient(
             contains("queue is full", ignoreCase = true) ||
             contains("worker error", ignoreCase = true) ||
             contains("gpu task aborted", ignoreCase = true) ||
-            contains("no gpu is currently available", ignoreCase = true)
+            contains("no gpu is currently available", ignoreCase = true) ||
+            contains("No GPU was available", ignoreCase = true) ||
+            contains("queue timeout", ignoreCase = true)
 
     private fun formatGradioError(
         detail: String?,

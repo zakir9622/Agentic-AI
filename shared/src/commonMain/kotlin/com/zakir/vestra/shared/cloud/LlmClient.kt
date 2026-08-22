@@ -115,6 +115,8 @@ class LlmClient(
 
         val content = extractMessageContent(response)
             ?.takeIf { it.isNotBlank() }
+            ?: extractReasoningContent(response)
+            ?.takeIf { it.isNotBlank() }
             ?: run {
                 val err = extractErrorMessage(response)
                 error(
@@ -150,6 +152,26 @@ class LlmClient(
             }.joinToString("").ifBlank { null }
             else -> null
         }
+    }
+
+    private fun extractReasoningContent(response: JsonObject): String? {
+        val message = response["choices"]
+            ?.jsonArray
+            ?.firstOrNull()
+            ?.jsonObject
+            ?.get("message")
+            ?.jsonObject
+            ?: return null
+        message["reasoning"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }?.let { return it }
+        val details = message["reasoning_details"]?.jsonArray ?: return null
+        return details.mapNotNull { part ->
+            when (part) {
+                is JsonObject -> part["text"]?.jsonPrimitive?.contentOrNull
+                    ?: part["content"]?.jsonPrimitive?.contentOrNull
+                is JsonPrimitive -> part.contentOrNull
+                else -> null
+            }
+        }.joinToString("").trim().ifBlank { null }
     }
 
     private fun extractErrorMessage(response: JsonObject?): String? {

@@ -80,6 +80,33 @@ class LlmClientTest {
     }
 
     @Test
+    fun chatExtractsOpenRouterReasoningWhenContentIsNull() = runTest {
+        val captured = mutableListOf<String>()
+        val http = clientWith(
+            captured,
+            """
+            {
+              "choices": [{
+                "message": {
+                  "role": "assistant",
+                  "content": null,
+                  "reasoning": "fun ok() = 1"
+                }
+              }],
+              "usage": {"prompt_tokens": 2, "completion_tokens": 4}
+            }
+            """.trimIndent(),
+        )
+        val result = LlmClient(http).chat(
+            platform = CloudPlatform.OPENROUTER,
+            model = "openrouter/free",
+            prompt = "Say OK",
+            apiKey = "sk-or-test",
+        )
+        assertEquals("fun ok() = 1", result.text)
+    }
+
+    @Test
     fun chatWorksForHfInferenceAndOpenRouterUrls() = runTest {
         val captured = mutableListOf<String>()
         val http = clientWith(

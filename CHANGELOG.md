@@ -1,5 +1,12 @@
 # Changelog — The Lookbook
 
+## 2.9.3
+- Model fallback chains for video, cloud try-on, and code (tries the next free model when one is busy or missing a key)
+- LTX-Video payload aligned to live Space schema (null image fields, 704×512, 2s / CFG 1)
+- InstructPix2Pix uses 8 steps to fit free ZeroGPU seconds
+- OpenRouter free models: read `reasoning` when `content` is null
+- Model picker lists Ready models first
+
 ## 2.9.2
 - Fixed the biggest cause of failed cloud generation: once a Hugging Face
   account's daily ZeroGPU allowance is spent, HF rejects every Space call that

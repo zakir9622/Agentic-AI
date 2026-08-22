@@ -58,7 +58,7 @@ fun ModelPickerSheet(
     var query by remember { mutableStateOf("") }
     val filtered = remember(models, query) {
         val q = query.trim().lowercase()
-        if (q.isEmpty()) {
+        val list = if (q.isEmpty()) {
             models
         } else {
             models.filter {
@@ -68,6 +68,15 @@ fun ModelPickerSheet(
                     (it.endpoint?.lowercase()?.contains(q) == true)
             }
         }
+        list.sortedWith(
+            compareByDescending<CloudModelProvider> {
+                when (CloudModelContracts.forProvider(it).support) {
+                    ModelSupportLevel.READY -> 3
+                    ModelSupportLevel.DEGRADED -> 2
+                    ModelSupportLevel.UNSUPPORTED -> 0
+                }
+            }.thenBy { it.displayName.lowercase() },
+        )
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
