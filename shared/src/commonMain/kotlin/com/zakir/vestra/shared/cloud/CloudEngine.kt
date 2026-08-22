@@ -1,5 +1,6 @@
 package com.zakir.vestra.shared.cloud
 
+import com.zakir.vestra.shared.diagnostics.DiagnosticsHook
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.shared.domain.GenerationState
@@ -48,6 +49,7 @@ class CloudEngine(
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
         val provider = settings.selectedCloudProvider()
         val startedAt = System.currentTimeMillis()
+        val diag = DiagnosticsHook.startTryOn(EngineTier.CLOUD, modelLabel = provider.displayName)
 
         CloudModelContracts.preflightOrNull(provider)?.let { blocked ->
             usage?.record(
@@ -56,13 +58,17 @@ class CloudEngine(
                 note = CloudModelContracts.usageFailureNote(provider, blocked),
             )
             emit(GenerationState.Failed(TryOnError.Internal(blocked)))
+            DiagnosticsHook.completeTryOn(false, blocked)
             return@flow
         }
 
         emit(GenerationState.Preparing("Connecting to ${provider.displayName}"))
+        var t0 = System.currentTimeMillis()
         val personBytes = io.loadImageBytes(request.person)
         val garmentBytes = io.loadImageBytes(request.garment.uri)
+        DiagnosticsHook.stage(diag, "load_images", t0)
         if (personBytes == null || garmentBytes == null) {
+            DiagnosticsHook.completeTryOn(false, "Couldn't read images")
             emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
             return@flow
         }
@@ -90,14 +96,19 @@ class CloudEngine(
                     )
                 }
                 try {
+                    t0 = System.currentTimeMillis()
                     val resultUrlOrPath = runHfSpace(candidate, personDataUrl, garmentDataUrl, category)
+                    DiagnosticsHook.stage(diag, "space_predict", t0, candidate.displayName)
                     emit(GenerationState.Running(0.85f, "Downloading result…"))
+                    t0 = System.currentTimeMillis()
                     val outPath = io.downloadResult(resultUrlOrPath, spaceHost = candidate.endpoint)
+                    DiagnosticsHook.stage(diag, "download", t0)
                     usage?.record(
                         candidate,
                         success = true,
                         note = "Try-on · ${candidate.displayName} · ${CloudModelContracts.statusLabel(candidate)}",
                     )
+                    DiagnosticsHook.completeTryOn(success = true, note = candidate.displayName)
                     emit(
                         GenerationState.Complete(
                             TryOnResult(
@@ -138,6 +149,7 @@ class CloudEngine(
             } else {
                 TryOnError.Internal(friendly)
             }
+            DiagnosticsHook.completeTryOn(false, friendly)
             emit(GenerationState.Failed(error))
         }
     }

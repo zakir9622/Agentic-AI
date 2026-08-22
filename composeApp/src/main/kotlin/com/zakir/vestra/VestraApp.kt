@@ -86,9 +86,11 @@ class VestraApp : Application() {
         appSettings = AppSettings(prefs)
         appSettings.networkProbe = { isNetworkAvailable(this) }
         usageLedger = UsageLedger(prefs)
-        runDiagnostics = RunDiagnostics(prefs)
-        chatRepository = ChatRepository(prefs)
         deviceProbe = AndroidDeviceProbe(this)
+        runDiagnostics = RunDiagnostics(prefs)
+        DiagnosticsHook.store = runDiagnostics
+        DiagnosticsHook.deviceRamMb = deviceProbe.totalRamMb()
+        chatRepository = ChatRepository(prefs)
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 
         val http = platformHttpClient()

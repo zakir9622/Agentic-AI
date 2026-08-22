@@ -11,9 +11,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import android.content.Intent
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
@@ -25,8 +27,6 @@ import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
 import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
-import com.zakir.vestra.ui.screens.code.CodeStudioScreen
-import com.zakir.vestra.ui.screens.create.CreateStudioScreen
 import com.zakir.vestra.ui.screens.onboarding.OnboardingScreen
 import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
@@ -41,14 +41,14 @@ import com.zakir.vestra.ui.screens.home.HomeScreen
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.ui.screens.usage.UsageScreen
-import com.zakir.vestra.ui.screens.video.VideoStudioScreen
 import com.zakir.vestra.ui.screens.help.HelpScreen
 import com.zakir.vestra.ui.screens.privacy.PrivacyScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
 object Routes {
     const val ONBOARDING = "onboarding"
-    const val STUDIO = "studio"
+    const val STUDIO = "studio/{tab}"
+    fun studioHome(tab: String = "tryon") = "studio/$tab"
     const val GARMENT = "garment"
     const val CASTING = "casting"
     const val PERSON = "person"
@@ -91,7 +91,7 @@ fun VestraNavHost(
     onDeepLinkHandled: () -> Unit = {},
 ) {
     val onboardingComplete by appSettings.onboardingComplete.collectAsState()
-    val start = if (onboardingComplete) Routes.STUDIO else Routes.ONBOARDING
+    val start = if (onboardingComplete) Routes.studioHome() else Routes.ONBOARDING
 
     LaunchedEffect(pendingDeepLinkIntent, onboardingComplete) {
         val intent = pendingDeepLinkIntent ?: return@LaunchedEffect
@@ -142,7 +142,7 @@ fun VestraNavHost(
             OnboardingScreen(
                 appSettings = appSettings,
                 onDone = {
-                    navController.navigate(Routes.STUDIO) {
+                    navController.navigate(Routes.studioHome()) {
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 },
@@ -150,8 +150,15 @@ fun VestraNavHost(
         }
         composable(
             route = Routes.STUDIO,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.STUDIO) }),
-        ) {
+            arguments = listOf(
+                navArgument("tab") {
+                    type = NavType.StringType
+                    defaultValue = "tryon"
+                },
+            ),
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink("studio") }),
+        ) { backStackEntry ->
+            val tab = backStackEntry.arguments?.getString("tab")
             val newsRepository = remember { NewsRepository(platformHttpClient()) }
             val chatViewModel: ChatViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
@@ -185,6 +192,7 @@ fun VestraNavHost(
                 onOpenNewsChat = { headline ->
                     headline?.let { generativeViewModel.setPrompt("Discuss: $it") }
                 },
+                initialTabRoute = tab,
             )
         }
         composable(
@@ -220,10 +228,11 @@ fun VestraNavHost(
                 viewModel = tryOnViewModel,
                 onComplete = {
                     navController.navigate(Routes.RESULT) {
-                        popUpTo(Routes.STUDIO)
+                        popUpTo(Routes.studioHome())
                     }
                 },
-                onAbort = { navController.popBackStack(Routes.STUDIO, inclusive = false) },
+                onAbort = { navController.popBackStack(Routes.studioHome(), inclusive = false) },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
             )
         }
         composable(Routes.RESULT) {
@@ -233,11 +242,11 @@ fun VestraNavHost(
                 onNewLook = {
                     tryOnViewModel.resetSession()
                     navController.navigate(Routes.GARMENT) {
-                        popUpTo(Routes.STUDIO)
+                        popUpTo(Routes.studioHome())
                     }
                 },
                 onBackToStudio = {
-                    navController.popBackStack(Routes.STUDIO, inclusive = false)
+                    navController.popBackStack(Routes.studioHome(), inclusive = false)
                 },
                 onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
             )
@@ -246,37 +255,34 @@ fun VestraNavHost(
             route = Routes.CREATE,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CREATE) }),
         ) {
-            CreateStudioScreen(
-                viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
-                onOpenSettings = {
-                    navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
-                },
-            )
+            LaunchedEffect(Unit) {
+                navController.navigate(Routes.studioHome("image")) {
+                    launchSingleTop = true
+                    popUpTo(Routes.CREATE) { inclusive = true }
+                }
+            }
         }
         composable(
             route = Routes.CODE,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CODE) }),
         ) {
-            CodeStudioScreen(
-                viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
-                onOpenSettings = {
-                    navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
-                },
-            )
+            LaunchedEffect(Unit) {
+                navController.navigate(Routes.studioHome("code")) {
+                    launchSingleTop = true
+                    popUpTo(Routes.CODE) { inclusive = true }
+                }
+            }
         }
         composable(
             route = Routes.VIDEO,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.VIDEO) }),
         ) {
-            VideoStudioScreen(
-                viewModel = generativeViewModel,
-                onBack = { navController.popBackStack() },
-                onOpenSettings = {
-                    navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
-                },
-            )
+            LaunchedEffect(Unit) {
+                navController.navigate(Routes.studioHome("video")) {
+                    launchSingleTop = true
+                    popUpTo(Routes.VIDEO) { inclusive = true }
+                }
+            }
         }
         composable(
             route = Routes.USAGE,
@@ -289,7 +295,7 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenCreate = {
                     generativeViewModel.prepareStudio(resetIfIdle = true)
-                    navController.navigate(Routes.CREATE)
+                    navController.navigate(Routes.studioHome("image"))
                 },
             )
         }
@@ -323,7 +329,7 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
                 onStartTryOn = {
                     navController.navigate(Routes.GARMENT) {
-                        popUpTo(Routes.STUDIO)
+                        popUpTo(Routes.studioHome())
                     }
                 },
             )
@@ -409,6 +415,7 @@ fun VestraNavHost(
             DiagnosticsScreen(
                 diagnostics = runDiagnostics,
                 onBack = { navController.popBackStack() },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
             )
         }
         composable(

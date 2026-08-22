@@ -19,7 +19,6 @@ import com.zakir.vestra.shared.domain.HairCoverage
 import com.zakir.vestra.shared.domain.Scenario
 import com.zakir.vestra.shared.domain.SkinTone
 import com.zakir.vestra.shared.domain.layerRank
-import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.settings.AppSettings
@@ -171,14 +170,6 @@ class TryOnViewModel(
     ): TryOnResult? {
         var currentPerson = person
         var lastResult: TryOnResult? = null
-        val runBuilder = runDiagnostics?.startRun(
-            capability = RunCapability.TRY_ON,
-            tier = appSettings.engineTier.value,
-            modelId = null,
-            modelLabel = appSettings.engineTier.value.name,
-            deviceRamMb = deviceRamMb,
-        )
-        val layerStartedAt = System.currentTimeMillis()
         layers.forEachIndexed { layerIndex, piece ->
             val isLastLayer = layerIndex == layers.lastIndex
             val terminal = engineRouter.generate(
@@ -194,29 +185,14 @@ class TryOnViewModel(
             when (terminal) {
                 is GenerationState.Complete -> {
                     lastResult = terminal.result
-                    runBuilder?.stage(
-                        "layer_${layerIndex + 1}",
-                        System.currentTimeMillis() - layerStartedAt,
-                        piece.category?.name ?: "auto",
-                    )
                     // Absolute path — LiteEngineIo reads app-private generation files directly.
                     currentPerson = PersonSource.UserPhoto(terminal.result.imagePath)
                 }
                 is GenerationState.Failed -> {
-                    runBuilder?.complete(
-                        success = false,
-                        error = when (val err = terminal.error) {
-                            is TryOnError.Internal -> err.message
-                            is TryOnError.SafetyBlocked -> err.reason
-                            else -> err.toString()
-                        },
-                        note = "layer ${layerIndex + 1}/${layers.size}",
-                    )
                     _shoot.value = ShootState(shotIndex, totalShots, terminal, completed)
                     return null
                 }
                 else -> {
-                    runBuilder?.complete(success = false, error = "Generation interrupted")
                     _shoot.value = ShootState(
                         shotIndex,
                         totalShots,
@@ -228,12 +204,6 @@ class TryOnViewModel(
                     return null
                 }
             }
-        }
-        lastResult?.let { result ->
-            runBuilder?.complete(
-                success = true,
-                note = "${layers.size} layer(s) · ${result.executedTier.name}",
-            )
         }
         return lastResult
     }

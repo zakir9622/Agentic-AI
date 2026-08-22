@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.engine.pro
 
 import android.graphics.Bitmap
 import android.util.Log
+import com.zakir.vestra.shared.diagnostics.DiagnosticsHook
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.shared.domain.effectiveCategory
@@ -96,6 +97,7 @@ class DiffusionEngine(
             return@flow
         }
         val startedAt = System.currentTimeMillis()
+        DiagnosticsHook.startTryOn(EngineTier.PRO, modelLabel = packId)
 
         emit(GenerationState.Preparing("Reading images"))
         val person = io.loadPerson(request.person)
@@ -150,6 +152,7 @@ class DiffusionEngine(
                             ),
                         ),
                     )
+                    DiagnosticsHook.completeTryOn(success = true, note = "SD-ControlNet · $packId")
                     return@flow
                 } catch (error: Exception) {
                     Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
@@ -261,15 +264,19 @@ class DiffusionEngine(
                         ),
                     ),
                 )
+                DiagnosticsHook.completeTryOn(success = true, note = "legacy Pro · $packId")
             }
         } catch (error: Exception) {
             Log.e(TAG, "Pro generation failed", error)
+            DiagnosticsHook.completeTryOn(false, error.message)
             emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
         }
     }.flowOn(Dispatchers.Default)
 
     private fun log(stage: String, since: Long) {
-        Log.i(TAG, "$stage: ${System.currentTimeMillis() - since} ms (ram=${device.totalRamMb()} MB)")
+        val ms = System.currentTimeMillis() - since
+        Log.i(TAG, "$stage: $ms ms (ram=${device.totalRamMb()} MB)")
+        DiagnosticsHook.stage(stage, since)
     }
 
     companion object {

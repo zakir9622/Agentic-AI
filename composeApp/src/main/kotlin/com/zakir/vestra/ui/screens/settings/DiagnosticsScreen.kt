@@ -1,6 +1,8 @@
 package com.zakir.vestra.ui.screens.settings
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -10,9 +12,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.data.DiagnosticsExport
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.diagnostics.RunRecord
@@ -29,6 +35,7 @@ import java.util.Locale
 fun DiagnosticsScreen(
     diagnostics: RunDiagnostics,
     onBack: () -> Unit,
+    onOpenHelp: (() -> Unit)? = null,
 ) {
     val records by diagnostics.records.collectAsState()
     val context = LocalContext.current
@@ -39,6 +46,23 @@ fun DiagnosticsScreen(
         subtitle = "Local + cloud generation history",
         onBack = onBack,
     ) {
+        GlassCard {
+            GlassSectionLabel("HOW IT WORKS")
+            Text(
+                "Lite segments and warps on-device; Pro runs diffusion; cloud uses HF Spaces. " +
+                    "Each run records stage timings you can export when reporting issues.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            onOpenHelp?.let { open ->
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = open, modifier = Modifier.fillMaxWidth()) {
+                    Text(LookbookCopy.ACTION_OPEN_HELP)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
         if (records.isEmpty()) {
             GlassEmptyState(
                 message = "No runs recorded yet. Try a try-on shoot or generate an image in the studio.",
@@ -62,6 +86,7 @@ fun DiagnosticsScreen(
             Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = {
+                    DiagnosticsExport.writeToFilesDir(context, diagnostics)
                     val send = Intent(Intent.ACTION_SEND).apply {
                         type = "application/json"
                         putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
@@ -89,7 +114,14 @@ fun DiagnosticsScreen(
 
 @Composable
 private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
-    GlassCard {
+    var expanded by remember(record.id) { mutableStateOf(!record.success) }
+    GlassCard(
+        modifier = if (!record.success) {
+            Modifier.clickable { expanded = !expanded }
+        } else {
+            Modifier
+        },
+    ) {
         Text(
             fmt.format(Date(record.timestampMs)),
             style = MaterialTheme.typography.labelSmall,
@@ -113,7 +145,7 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
         }
         if (record.stages.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
-            record.stages.take(6).forEach { stage ->
+            record.stages.take(if (expanded) 12 else 4).forEach { stage ->
                 Text(
                     "• ${stage.name}: ${stage.durationMs}ms",
                     style = MaterialTheme.typography.labelSmall,
@@ -124,6 +156,23 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
         record.error?.let {
             Spacer(Modifier.height(4.dp))
             Text(it, style = MaterialTheme.typography.bodySmall, color = VestraColors.Accent)
+        }
+        AnimatedVisibility(visible = expanded && !record.success) {
+            Spacer(Modifier.height(8.dp))
+            GlassSectionLabel("WHAT HAPPENED?")
+            Text(
+                record.humanSummary(),
+                style = MaterialTheme.typography.bodySmall,
+                color = VestraColors.InkMuted,
+            )
+        }
+        if (!record.success) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (expanded) "Tap to collapse" else "Tap for details",
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.Accent,
+            )
         }
     }
 }

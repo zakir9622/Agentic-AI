@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
+import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.quality.QualityRating
 import com.zakir.vestra.ui.theme.VestraColors
@@ -82,6 +83,21 @@ fun ModelPickerSheet(
             }.thenByDescending { it.qualityScore }
                 .thenBy { it.displayName.lowercase() },
         )
+    }
+    val grouped = remember(filtered) {
+        val huggingFace = filtered.filter {
+            it.platform == CloudPlatform.HF_SPACE || it.platform == CloudPlatform.HF_INFERENCE
+        }
+        val groq = filtered.filter { it.platform == CloudPlatform.GROQ }
+        val openRouter = filtered.filter { it.platform == CloudPlatform.OPENROUTER }
+        val covered = (huggingFace + groq + openRouter).map { it.id }.toSet()
+        val other = filtered.filter { it.id !in covered }
+        buildList {
+            if (huggingFace.isNotEmpty()) add("Hugging Face" to huggingFace)
+            if (groq.isNotEmpty()) add("Groq" to groq)
+            if (openRouter.isNotEmpty()) add("OpenRouter" to openRouter)
+            if (other.isNotEmpty()) add("Other" to other)
+        }
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -126,85 +142,22 @@ fun ModelPickerSheet(
                     .heightIn(max = 420.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                items(filtered, key = { it.id }) { model ->
-                    val selected = model.id == selectedId
-                    val support = CloudModelContracts.forProvider(model).support
-                    val blocked = support == ModelSupportLevel.UNSUPPORTED
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
-                            )
-                            .border(
-                                1.dp,
-                                if (selected) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
-                                RoundedCornerShape(16.dp),
-                            )
-                            .clickable(enabled = !blocked) {
-                                onSelect(model)
-                                onDismiss()
-                            }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(VestraColors.Accent.copy(alpha = 0.18f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        when (support) {
-                                            ModelSupportLevel.READY -> VestraColors.Accent
-                                            ModelSupportLevel.DEGRADED -> VestraColors.AccentSoft
-                                            ModelSupportLevel.UNSUPPORTED -> VestraColors.InkMuted
-                                        },
-                                    ),
-                            )
-                        }
-                        Spacer(Modifier.size(12.dp))
-                        Column(Modifier.weight(1f)) {
+                if (query.isNotBlank()) {
+                    items(filtered, key = { it.id }) { model ->
+                        ModelPickerRow(model, selectedId, onSelect, onDismiss)
+                    }
+                } else {
+                    grouped.forEach { (section, models) ->
+                        item(key = "header-$section") {
                             Text(
-                                model.displayName,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = if (blocked) VestraColors.InkMuted else VestraColors.Ink,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                buildString {
-                                    append(QualityRating.label(model))
-                                    append(" · ")
-                                    append(CloudModelContracts.statusLabel(model))
-                                    append(" · ")
-                                    append(model.platform.name.replace('_', ' ').lowercase())
-                                    if (blocked) append(" · not selectable")
-                                },
+                                section.uppercase(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = VestraColors.InkMuted,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
+                                color = VestraColors.Accent,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                             )
                         }
-                        if (selected) {
-                            Icon(
-                                Icons.Outlined.Check,
-                                contentDescription = "Selected",
-                                tint = VestraColors.Accent,
-                            )
-                        } else if (!blocked) {
-                            Text(
-                                "Use",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = VestraColors.Accent,
-                            )
+                        items(models, key = { it.id }) { model ->
+                            ModelPickerRow(model, selectedId, onSelect, onDismiss)
                         }
                     }
                 }
@@ -219,6 +172,95 @@ fun ModelPickerSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ModelPickerRow(
+    model: CloudModelProvider,
+    selectedId: String,
+    onSelect: (CloudModelProvider) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val selected = model.id == selectedId
+    val support = CloudModelContracts.forProvider(model).support
+    val blocked = support == ModelSupportLevel.UNSUPPORTED
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
+            )
+            .border(
+                1.dp,
+                if (selected) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
+                RoundedCornerShape(16.dp),
+            )
+            .clickable(enabled = !blocked) {
+                onSelect(model)
+                onDismiss()
+            }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(VestraColors.Accent.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when (support) {
+                            ModelSupportLevel.READY -> VestraColors.Accent
+                            ModelSupportLevel.DEGRADED -> VestraColors.AccentSoft
+                            ModelSupportLevel.UNSUPPORTED -> VestraColors.InkMuted
+                        },
+                    ),
+            )
+        }
+        Spacer(Modifier.size(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                model.displayName,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (blocked) VestraColors.InkMuted else VestraColors.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                buildString {
+                    append(QualityRating.label(model))
+                    append(" · ")
+                    append(CloudModelContracts.statusLabel(model))
+                    append(" · ")
+                    append(model.platform.name.replace('_', ' ').lowercase())
+                    if (blocked) append(" · not selectable")
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.InkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (selected) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = "Selected",
+                tint = VestraColors.Accent,
+            )
+        } else if (!blocked) {
+            Text(
+                "Use",
+                style = MaterialTheme.typography.labelMedium,
+                color = VestraColors.Accent,
+            )
         }
     }
 }

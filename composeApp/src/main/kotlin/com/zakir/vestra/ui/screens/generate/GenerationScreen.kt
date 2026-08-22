@@ -3,7 +3,7 @@ package com.zakir.vestra.ui.screens.generate
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +46,7 @@ fun GenerationScreen(
     viewModel: TryOnViewModel,
     onComplete: () -> Unit,
     onAbort: () -> Unit,
+    onOpenHelp: (() -> Unit)? = null,
 ) {
     val shoot by viewModel.shoot.collectAsState()
     val haptics = LocalHapticFeedback.current
@@ -175,6 +176,17 @@ fun GenerationScreen(
                     text = LookbookCopy.ACTION_CANCEL_GENERATION,
                     onClick = ::abortGeneration,
                 )
+                onOpenHelp?.let { open ->
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        LookbookCopy.ACTION_OPEN_HELP,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = VestraColors.Accent,
+                        modifier = Modifier
+                            .clickable(onClick = open)
+                            .padding(8.dp),
+                    )
+                }
             }
         }
     }

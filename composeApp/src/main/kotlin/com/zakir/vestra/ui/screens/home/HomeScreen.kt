@@ -28,16 +28,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
@@ -70,7 +66,6 @@ import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.PackStatus
-import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
@@ -78,23 +73,26 @@ import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.AtelierHero
-import com.zakir.vestra.ui.components.GlassErrorBanner
-import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.SpatialBackground
-import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
 import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class HomeTab(val label: String) {
-    TRY_ON("Try-on"),
-    IMAGE("Image"),
-    VIDEO("Video"),
-    CODE("Code"),
-    NEWS("News"),
+private enum class HomeTab(val label: String, val routeKey: String) {
+    TRY_ON("Try-on", "tryon"),
+    IMAGE("Image", "image"),
+    VIDEO("Video", "video"),
+    CODE("Code", "code"),
+    NEWS("News", "news"),
+    ;
+
+    companion object {
+        fun fromRouteKey(key: String?): HomeTab =
+            entries.firstOrNull { it.routeKey.equals(key, ignoreCase = true) } ?: TRY_ON
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -112,6 +110,7 @@ fun HomeScreen(
     onOpenPacks: () -> Unit,
     onOpenHelp: () -> Unit,
     onOpenNewsChat: (headline: String?) -> Unit = {},
+    initialTabRoute: String? = null,
 ) {
     val context = LocalContext.current
     val recent by wardrobe.entries.collectAsState()
@@ -168,8 +167,16 @@ fun HomeScreen(
     }
 
     val tabs = HomeTab.entries
-    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val initialPage = HomeTab.fromRouteKey(initialTabRoute).ordinal
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(initialTabRoute) {
+        val target = HomeTab.fromRouteKey(initialTabRoute).ordinal
+        if (pagerState.currentPage != target) {
+            pagerState.scrollToPage(target)
+        }
+    }
 
     fun openNewsChat(headline: String?) {
         headline?.let {
@@ -317,10 +324,10 @@ fun HomeScreen(
                         viewModel = generativeViewModel,
                         onOpenSettings = onOpenSettings,
                     )
-                    HomeTab.NEWS -> NewsPage(
+                    HomeTab.NEWS -> NewsChatScreen(
                         newsRepository = newsRepository,
                         chatViewModel = chatViewModel,
-                        onOpenNewsChat = ::openNewsChat,
+                        onHeadlineSelected = ::openNewsChat,
                     )
                 }
             }
@@ -513,179 +520,5 @@ private fun TryOnPage(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun NewsPage(
-    newsRepository: NewsRepository?,
-    chatViewModel: ChatViewModel?,
-    onOpenNewsChat: (String?) -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    val newsItems by newsRepository?.items?.collectAsState() ?: remember { mutableStateOf(emptyList<NewsItem>()) }
-    val newsError by newsRepository?.error?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
-    var refreshing by remember { mutableStateOf(false) }
-
-    val chatMessages by chatViewModel?.messages?.collectAsState()
-        ?: remember { mutableStateOf(emptyList<com.zakir.vestra.shared.chat.ChatMessage>()) }
-    val chatBusy by chatViewModel?.busy?.collectAsState() ?: remember { mutableStateOf(false) }
-    val chatError by chatViewModel?.error?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
-    var chatInput by remember { mutableStateOf("") }
-
-    LaunchedEffect(newsRepository) {
-        if (newsRepository != null) {
-            refreshing = true
-            newsRepository.refresh()
-            refreshing = false
-        }
-    }
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 8.dp),
-    ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GlassSectionLabel("NEWS & CHAT")
-            if (newsRepository != null) {
-                IconButton(
-                    onClick = {
-                        refreshing = true
-                        scope.launch {
-                            newsRepository.refresh()
-                            refreshing = false
-                        }
-                    },
-                    enabled = !refreshing,
-                ) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = "Refresh news",
-                        tint = VestraColors.Accent,
-                    )
-                }
-            }
-        }
-        Text(
-            "Fashion and AI headlines — discuss any story below.",
-            style = MaterialTheme.typography.bodySmall,
-            color = VestraColors.InkMuted,
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
-
-        if (newsRepository == null) {
-            GlassCard(onClick = { onOpenNewsChat(null) }) {
-                Text(
-                    "News feed unavailable — open Code tab to chat.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VestraColors.InkMuted,
-                )
-            }
-            return@Column
-        }
-
-        if (newsError != null && newsItems.isEmpty()) {
-            GlassCard {
-                Text(
-                    newsError ?: "Could not load headlines.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VestraColors.InkMuted,
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-
-        if (newsItems.isEmpty() && !refreshing) {
-            GlassCard(onClick = { onOpenNewsChat(null) }) {
-                Text(
-                    "No headlines yet — refresh or start a chat below.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VestraColors.InkMuted,
-                )
-            }
-        } else {
-            newsItems.take(8).forEach { item ->
-                Spacer(Modifier.height(8.dp))
-                GlassCard(onClick = {
-                    chatInput = "Discuss this headline for modest fashion and on-device AI: ${item.title}"
-                    onOpenNewsChat(item.title)
-                }) {
-                    Text(
-                        item.source,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = VestraColors.Accent,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        item.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = VestraColors.Ink,
-                    )
-                }
-            }
-        }
-
-        if (chatViewModel != null) {
-            Spacer(Modifier.height(20.dp))
-            GlassSectionLabel("CHAT")
-            chatMessages.takeLast(6).forEach { msg ->
-                Spacer(Modifier.height(8.dp))
-                GlassCard {
-                    Text(
-                        msg.role.uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = VestraColors.Accent,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        msg.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = VestraColors.Ink,
-                    )
-                }
-            }
-            if (chatError != null) {
-                Spacer(Modifier.height(8.dp))
-                GlassErrorBanner(
-                    message = chatError!!,
-                    onRetry = { chatViewModel.clearError() },
-                    retryLabel = "Dismiss",
-                    onDismiss = { chatViewModel.clearError() },
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            PromptComposer(
-                prompt = chatInput,
-                onPromptChange = { chatInput = it },
-                modelLabel = "News chat",
-                assistCount = 0,
-                busy = chatBusy,
-                enabled = true,
-                onModelClick = {},
-                onSend = {
-                    val text = chatInput
-                    chatInput = ""
-                    chatViewModel.send(text)
-                },
-                onStop = { chatViewModel.cancel() },
-                placeholder = "Ask about headlines, local packs, or cloud models…",
-            )
-        } else {
-            Spacer(Modifier.height(16.dp))
-            GlassCard(onClick = { onOpenNewsChat(null) }) {
-                Text(
-                    "Open news chat",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = VestraColors.Accent,
-                )
-            }
-        }
-        Spacer(Modifier.height(24.dp))
     }
 }
