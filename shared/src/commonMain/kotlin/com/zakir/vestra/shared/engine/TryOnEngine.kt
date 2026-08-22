@@ -32,6 +32,9 @@ enum class UnavailableReason {
      */
     PACK_VERIFY_FAILED,
 
+    /** Installed but verification has not finished yet (startup or re-check in progress). */
+    PACK_VERIFY_PENDING,
+
     /**
      * The tier's own pack is installed but a pack it depends on is not — Pro reads the person
      * mask from the Lite pack, so Pro alone cannot run.

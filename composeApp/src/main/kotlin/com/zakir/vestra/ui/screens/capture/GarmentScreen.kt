@@ -97,7 +97,9 @@ fun GarmentScreen(
                 Toast.makeText(context, "Couldn't read that image — try another photo", Toast.LENGTH_SHORT).show()
                 return@launch
             }
-            val worn = withContext(Dispatchers.Default) { humanParsing.looksLikeWornPhoto(bitmap) }
+            val worn = withContext(Dispatchers.Default) {
+                runCatching { humanParsing.looksLikeWornPhoto(bitmap) }.getOrDefault(false)
+            }
             if (worn) {
                 wornPhotoWarning = uri
             } else {

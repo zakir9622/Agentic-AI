@@ -2,22 +2,25 @@ package com.zakir.vestra.shared.engine.lite
 
 import android.graphics.Bitmap
 import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 
 /**
  * Runs the human-parsing model from the Lite pack and derives the garment
  * target region. Shared by the Lite engine (warp target) and the Pro engine
  * (inpaint mask).
+ *
+ * Never throws — corrupt or mid-copy ONNX files return null / false instead of
+ * crashing the garment screen or generation pipeline.
  */
 class HumanParsing(private val packs: ModelPackManager) {
 
-    /** Null when the Lite pack isn't installed or no person was found. */
-    fun analyze(person: Bitmap, category: GarmentCategory): TargetRegion? {
-        val packDir = packs.installedDir(LiteEngine.PACK_ID) ?: return null
-        return OrtModel("$packDir/human_parse.onnx").use { model ->
+    /** Null when the Lite pack isn't ready or no person was found. */
+    fun analyze(person: Bitmap, category: GarmentCategory): TargetRegion? =
+        withHumanParseModel { model ->
             val (h, w) = model.inputSize(defaultSize = 473)
             val (logits, shape) = model.run(ImageOps.toNormalizedChw(person, h, w), h, w)
-            val classes = shape.getOrNull(1)?.toInt() ?: return null
+            val classes = shape.getOrNull(1)?.toInt() ?: return@withHumanParseModel null
             val outH = shape.getOrNull(2)?.toInt() ?: h
             val outW = shape.getOrNull(3)?.toInt() ?: w
             val classMap = ImageOps.argmax(logits, classes, outH * outW)
@@ -31,24 +34,22 @@ class HumanParsing(private val packs: ModelPackManager) {
             } else {
                 regionMask
             }
-            val box = ImageOps.boundingBox(effective, outW, outH) ?: return null
+            val box = ImageOps.boundingBox(effective, outW, outH) ?: return@withHumanParseModel null
             TargetRegion.fromMask(effective, outW, outH, box, person)
         }
-    }
 
     /**
      * True when the image looks like a photo of a *person wearing* the outfit
      * (a face + skin + limbs), rather than a flat/hanger garment shot. Used by
      * the input guard: feeding a whole-scene model photo makes the Lite
      * compositor paste the entire picture onto the model. Returns false when the
-     * pack isn't installed (can't tell → don't warn).
+     * pack isn't ready (can't tell → don't warn).
      */
-    fun looksLikeWornPhoto(image: Bitmap): Boolean {
-        val packDir = packs.installedDir(LiteEngine.PACK_ID) ?: return false
-        return OrtModel("$packDir/human_parse.onnx").use { model ->
+    fun looksLikeWornPhoto(image: Bitmap): Boolean =
+        withHumanParseModel { model ->
             val (h, w) = model.inputSize(defaultSize = 473)
             val (logits, shape) = model.run(ImageOps.toNormalizedChw(image, h, w), h, w)
-            val classes = shape.getOrNull(1)?.toInt() ?: return false
+            val classes = shape.getOrNull(1)?.toInt() ?: return@withHumanParseModel false
             val outH = shape.getOrNull(2)?.toInt() ?: h
             val outW = shape.getOrNull(3)?.toInt() ?: w
             val classMap = ImageOps.argmax(logits, classes, outH * outW)
@@ -66,7 +67,14 @@ class HumanParsing(private val packs: ModelPackManager) {
             // A worn photo shows a visible face/hair AND exposed skin (limbs).
             // A flat garment shows neither meaningfully.
             (face / total > 0.004f || hair / total > 0.02f) && limbs / total > 0.02f
-        }
+        } ?: false
+
+    private inline fun <T> withHumanParseModel(block: (OrtModel) -> T): T? {
+        if (packs.verifyStatus(LiteEngine.PACK_ID) != PackVerifyStatus.VERIFIED) return null
+        val packDir = packs.installedDir(LiteEngine.PACK_ID) ?: return null
+        return runCatching {
+            OrtModel("$packDir/human_parse.onnx").use { block(it) }
+        }.getOrNull()
     }
 }
 

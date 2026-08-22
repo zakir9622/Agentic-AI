@@ -51,10 +51,15 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
     private fun verifyProPack(dir: String): String? {
         val configFile = File(dir, "config.json")
         if (!configFile.exists()) return "Pro config.json missing"
-        // Load every ONNX in the pack directory — catches corrupt/truncated graphs.
-        val onnxFiles = File(dir).listFiles()?.filter { it.name.endsWith(".onnx") }.orEmpty()
-        if (onnxFiles.isEmpty()) return "No ONNX files in Pro pack"
-        for (file in onnxFiles.sortedBy { it.name }) {
+        if (!File(dir, "unet.onnx").exists()) return "No ONNX files in Pro pack"
+        // Skip unet.onnx — ~2 GB with external weights; file sizes are checked in verifyFiles.
+        // Smoke-load smaller companion graphs only to avoid OOM during startup verify.
+        val skip = setOf("unet.onnx")
+        val onnxFiles = File(dir).listFiles()
+            ?.filter { it.name.endsWith(".onnx") && it.name !in skip }
+            .orEmpty()
+            .sortedBy { it.length() }
+        for (file in onnxFiles) {
             loadOnnxSession(file.absolutePath)?.let { return "${file.name}: $it" }
         }
         return null

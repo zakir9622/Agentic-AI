@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.shared.domain.GenerationState
+import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import com.zakir.vestra.shared.domain.TryOnResult
@@ -42,14 +43,26 @@ class LiteEngine(
     override fun isAvailable(): Availability = when {
         !packs.isInstalled(PACK_ID) ->
             Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
-        !packs.isReady(PACK_ID) ->
-            Availability.Unavailable(
-                UnavailableReason.PACK_VERIFY_FAILED,
-            )
-        else -> Availability.Ready
+        packs.isReady(PACK_ID) -> Availability.Ready
+        packs.verifyStatus(PACK_ID) == PackVerifyStatus.FAILED ->
+            Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED)
+        else ->
+            Availability.Unavailable(UnavailableReason.PACK_VERIFY_PENDING)
     }
 
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
+        if (!packs.isReady(PACK_ID)) {
+            val msg = when (packs.verifyStatus(PACK_ID)) {
+                PackVerifyStatus.FAILED ->
+                    "Lite pack failed verification — open Settings → Model packs and re-download lite-v1."
+                PackVerifyStatus.VERIFYING ->
+                    "Lite pack is verifying — wait a moment and try again."
+                else ->
+                    "Lite pack not ready yet — wait for verification to finish."
+            }
+            emit(GenerationState.Failed(TryOnError.Internal(msg)))
+            return@flow
+        }
         val packDir = packs.installedDir(PACK_ID)
         if (packDir == null) {
             emit(GenerationState.Failed(TryOnError.ModelPackMissing))
@@ -97,7 +110,9 @@ class LiteEngine(
                 composed
             } else {
                 emit(GenerationState.Running(0.9f, "Setting the backdrop"))
-                BackdropCompositor("$packDir/garment_seg.onnx").apply(composed, request.backdrop)
+                runCatching {
+                    BackdropCompositor("$packDir/garment_seg.onnx").apply(composed, request.backdrop)
+                }.getOrElse { composed }
             }
 
             emit(GenerationState.Running(0.95f, "Developing"))

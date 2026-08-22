@@ -1145,6 +1145,8 @@ private fun EngineTier.description(availability: Availability): String {
             UnavailableReason.PACK_NOT_INSTALLED -> "$base Model pack not installed."
             UnavailableReason.PACK_VERIFY_FAILED ->
                 "$base Model pack failed verification — re-download in Model packs."
+            UnavailableReason.PACK_VERIFY_PENDING ->
+                "$base Model pack verifying — wait a moment."
             UnavailableReason.COMPANION_PACK_MISSING ->
                 "$base Pro also needs the Lite pack — install Lite to enable it."
             UnavailableReason.DEVICE_NOT_CAPABLE -> "$base Device doesn’t meet RAM requirements."

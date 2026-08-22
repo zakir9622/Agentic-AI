@@ -7,6 +7,7 @@ import com.zakir.vestra.shared.domain.GarmentCategory
 import com.zakir.vestra.shared.domain.effectiveCategory
 import com.zakir.vestra.shared.engine.pipeline.CastingPromptBuilder
 import com.zakir.vestra.shared.domain.GenerationState
+import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import com.zakir.vestra.shared.domain.TryOnResult
@@ -60,17 +61,33 @@ class DiffusionEngine(
                 Availability.Unavailable(UnavailableReason.DEVICE_NOT_CAPABLE)
             !packs.isInstalled(packId) ->
                 Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
-            !packs.isReady(packId) ->
-                Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED)
+            !packs.isReady(packId) -> when (packs.verifyStatus(packId)) {
+                PackVerifyStatus.FAILED ->
+                    Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED)
+                else ->
+                    Availability.Unavailable(UnavailableReason.PACK_VERIFY_PENDING)
+            }
             !packs.isInstalled(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID) ->
                 Availability.Unavailable(UnavailableReason.COMPANION_PACK_MISSING)
             !packs.isReady(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID) ->
-                Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED)
+                when (packs.verifyStatus(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)) {
+                    PackVerifyStatus.FAILED ->
+                        Availability.Unavailable(UnavailableReason.PACK_VERIFY_FAILED)
+                    else ->
+                        Availability.Unavailable(UnavailableReason.PACK_VERIFY_PENDING)
+                }
             else -> Availability.Ready
         }
     }
 
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
+        when (val availability = isAvailable()) {
+            is Availability.Ready -> Unit
+            is Availability.Unavailable -> {
+                emit(GenerationState.Failed(availability.reason.toProError()))
+                return@flow
+            }
+        }
         val packId = resolvePackId()
         val packDir = packId?.let { packs.installedDir(it) }
         if (packDir == null) {
@@ -225,8 +242,10 @@ class DiffusionEngine(
                     composed
                 } else {
                     emit(GenerationState.Running(0.93f, "Setting the backdrop"))
-                    com.zakir.vestra.shared.engine.lite.BackdropCompositor("$liteDir/garment_seg.onnx")
-                        .apply(composed, request.backdrop)
+                    runCatching {
+                        com.zakir.vestra.shared.engine.lite.BackdropCompositor("$liteDir/garment_seg.onnx")
+                            .apply(composed, request.backdrop)
+                    }.getOrElse { composed }
                 }
 
                 val outPath = finish(staged)
@@ -255,6 +274,23 @@ class DiffusionEngine(
         val PACK_IDS = listOf("pro-v2-int8", "pro-v1")
         const val TAG = "VestraProBench"
     }
+}
+
+private fun UnavailableReason.toProError(): TryOnError = when (this) {
+    UnavailableReason.PACK_VERIFY_FAILED ->
+        TryOnError.Internal(
+            "Pro pack failed verification — open Settings → Model packs and re-download pro-v2-int8 and lite-v1.",
+        )
+    UnavailableReason.PACK_VERIFY_PENDING ->
+        TryOnError.Internal("Model packs are still verifying — wait a moment and try again.")
+    UnavailableReason.PACK_NOT_INSTALLED ->
+        TryOnError.Internal(
+            "Pro model pack not installed. Open Settings → Model packs to download pro-v2-int8 (~2 GB) and lite-v1.",
+        )
+    UnavailableReason.COMPANION_PACK_MISSING ->
+        TryOnError.Internal("Pro needs the Lite pack too — download lite-v1 in Settings → Model packs.")
+    UnavailableReason.DEVICE_NOT_CAPABLE -> TryOnError.DeviceNotCapable
+    else -> TryOnError.Internal("Pro engine unavailable — check Settings → Model packs.")
 }
 
 /** Person-region mask provider; implemented by the Lite pipeline's parser. */

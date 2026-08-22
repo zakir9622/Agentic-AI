@@ -33,6 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class VestraApp : Application() {
 
@@ -97,13 +98,12 @@ class VestraApp : Application() {
         PackDownloadWorker.dependencies = { packManager }
         appScope.launch {
             packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp))
-            packManager.verifyAllInstalled()
-        }
-        DebugPackBootstrap.seedLitePackAsync(this, DurableStorage.resolvePacksRoot(this)) {
-            appScope.launch {
-                packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp))
-                packManager.verifyInstalled(LiteEngine.PACK_ID)
+            // Seed bundled lite pack before verification so we never ONNX-load a half-written copy.
+            withContext(Dispatchers.IO) {
+                DebugPackBootstrap.seedLitePack(this@VestraApp, DurableStorage.resolvePacksRoot(this@VestraApp))
             }
+            packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp))
+            packManager.verifyAllInstalled()
         }
         appScope.launch {
             if (!appSettings.hfToken.value.isNullOrBlank()) {

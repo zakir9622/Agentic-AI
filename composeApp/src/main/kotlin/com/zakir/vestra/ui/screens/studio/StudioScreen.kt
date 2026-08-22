@@ -102,7 +102,6 @@ fun StudioScreen(
     val packStates by packManager.states.collectAsState()
     LaunchedEffect(Unit) {
         packManager.refresh()
-        packManager.verifyAllInstalled()
     }
     val proReady = listOf("pro-v2-int8", "pro-v1").any { id ->
         packStates[id]?.isReady() == true

@@ -52,6 +52,15 @@ private fun UnavailableReason.toError(tier: EngineTier): TryOnError = when (this
                     "Model pack failed verification — re-download from Settings → Model packs."
             },
         )
+    UnavailableReason.PACK_VERIFY_PENDING ->
+        TryOnError.Internal(
+            when (tier) {
+                EngineTier.PRO, EngineTier.LITE ->
+                    "Model packs are still verifying — wait a moment and try again."
+                else ->
+                    "Model pack verification in progress — try again shortly."
+            },
+        )
     UnavailableReason.PACK_NOT_INSTALLED ->
         TryOnError.Internal(
             when (tier) {

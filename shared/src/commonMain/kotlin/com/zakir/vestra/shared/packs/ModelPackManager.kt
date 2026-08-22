@@ -6,6 +6,8 @@ import com.zakir.vestra.shared.domain.PackVerifyStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import io.ktor.client.HttpClient
@@ -41,6 +43,9 @@ class ModelPackManager(
     /** Last catalog-load failure (null when the catalog loaded). Surfaced in the UI. */
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError
+
+    /** Serializes ONNX verification so parallel callers cannot OOM the process. */
+    private val verifyMutex = Mutex()
 
     /** Loads the last manifest fetched (offline start), then refreshes over the network. */
     suspend fun refresh(networkAllowed: Boolean = true) {
@@ -82,30 +87,46 @@ class ModelPackManager(
     /** Installed and passed file + ONNX verification — safe for local inference. */
     fun isReady(id: String): Boolean = _states.value[id]?.isReady() == true
 
+    fun verifyStatus(id: String): PackVerifyStatus =
+        _states.value[id]?.verifyStatus ?: PackVerifyStatus.UNKNOWN
+
     /**
      * Re-validates an installed pack (files + ONNX). Updates [states] with
      * [PackVerifyStatus.VERIFIED] or [PackVerifyStatus.FAILED].
      */
-    suspend fun verifyInstalled(id: String): Boolean = withContext(Dispatchers.Default) {
-        val state = _states.value[id] ?: return@withContext false
-        if (state.status != PackStatus.INSTALLED) return@withContext false
-        val dir = installedDir(id) ?: return@withContext false
-        markVerifying(id)
-        val error = runIntegrityChecks(state.pack, dir)
-        if (error == null) {
-            markVerified(id)
-            true
-        } else {
-            markVerifyFailed(id, error)
-            false
+    suspend fun verifyInstalled(id: String): Boolean = verifyMutex.withLock {
+        withContext(Dispatchers.Default) {
+            val state = _states.value[id] ?: return@withContext false
+            if (state.status != PackStatus.INSTALLED) return@withContext false
+            val dir = installedDir(id) ?: return@withContext false
+            markVerifying(id)
+            val error = runIntegrityChecks(state.pack, dir)
+            if (error == null) {
+                markVerified(id)
+                true
+            } else {
+                markVerifyFailed(id, error)
+                false
+            }
         }
     }
 
     /** Verifies every installed pack; call after [refresh] on startup. */
-    suspend fun verifyAllInstalled() = withContext(Dispatchers.Default) {
-        _states.value.values
-            .filter { it.status == PackStatus.INSTALLED }
-            .forEach { verifyInstalled(it.pack.id) }
+    suspend fun verifyAllInstalled() = verifyMutex.withLock {
+        withContext(Dispatchers.Default) {
+            _states.value.values
+                .filter { it.status == PackStatus.INSTALLED }
+                .forEach { state ->
+                    val dir = installedDir(state.pack.id) ?: return@forEach
+                    markVerifying(state.pack.id)
+                    val error = runIntegrityChecks(state.pack, dir)
+                    if (error == null) {
+                        markVerified(state.pack.id)
+                    } else {
+                        markVerifyFailed(state.pack.id, error)
+                    }
+                }
+        }
     }
 
     fun markDownloading(id: String, progress: Float) {

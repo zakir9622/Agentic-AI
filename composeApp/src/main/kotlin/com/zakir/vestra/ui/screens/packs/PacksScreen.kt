@@ -55,7 +55,6 @@ fun PacksScreen(
     LaunchedEffect(Unit) {
         durableReady = DurableStorage.hasAllFilesAccess()
         packManager.refresh()
-        packManager.verifyAllInstalled()
     }
 
     GlassScreen(
