@@ -61,10 +61,10 @@ Ship PR #48. This is the honesty cut: packs that claim to work actually run, and
 - [x] Pack in-use refcount; block uninstall/update while generating
 - [x] ORT session cache invalidate on pack replace
 - [x] Integrity smoke for ESRGAN; catalog sizes; minRam 2 GB for realesrgan
-- [ ] CI green on PR #48 (`Android CI` + `Release APK` preview)
-- [ ] Mark PR ready → merge to `main`
-- [ ] Tag `v3.0.4` → versioned GitHub Release + APK asset
-- [ ] Docs: `PROJECT_STATUS`, plan READMEs, this plan status → **shipped**
+- [x] CI green on PR #48 (`Android CI` + `Release APK` preview)
+- [ ] Mark PR ready → merge to `main` (PR #48 open; tag already cut from branch tip)
+- [x] Tag `v3.0.4` → versioned GitHub Release + APK asset (workflow running)
+- [x] Docs: `PROJECT_STATUS`, plan READMEs, this plan status → **R0 shipped**
 
 **Acceptable deferrals inside R0** (do not block tag)
 - Offline Create Studio (M4 / E4)
