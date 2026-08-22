@@ -14,12 +14,15 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.storage.DurableStorage
@@ -65,12 +68,47 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
     val context = LocalContext.current
     var pendingPackId by remember { mutableStateOf<String?>(null) }
     var showNotifRationale by remember { mutableStateOf(false) }
+    var observingPackId by remember { mutableStateOf<String?>(null) }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {
         val id = pendingPackId
         pendingPackId = null
-        if (id != null) enqueuePackDownload(context, id, showToast)
+        if (id != null) enqueuePackDownload(context, id, showToast) { observingPackId = id }
+    }
+
+    LaunchedEffect(observingPackId) {
+        val packId = observingPackId ?: return@LaunchedEffect
+        WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWorkFlow(PackDownloadWorker.workName(packId))
+            .collect { infos ->
+                val info = infos.firstOrNull() ?: return@collect
+                when (info.state) {
+                    WorkInfo.State.SUCCEEDED -> {
+                        if (showToast) {
+                            Toast.makeText(
+                                context,
+                                "Pack installed — ready to use offline",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                        observingPackId = null
+                    }
+                    WorkInfo.State.FAILED -> {
+                        if (showToast) {
+                            val err = info.outputData.getString(PackDownloadWorker.KEY_ERROR)
+                            Toast.makeText(
+                                context,
+                                packDownloadErrorMessage(err),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                        observingPackId = null
+                    }
+                    WorkInfo.State.CANCELLED -> observingPackId = null
+                    else -> Unit
+                }
+            }
     }
 
     if (showNotifRationale) {
@@ -96,7 +134,7 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
                         showNotifRationale = false
                         pendingPackId = null
                         // Still download without notifications.
-                        if (id != null) enqueuePackDownload(context, id, showToast)
+                        if (id != null) enqueuePackDownload(context, id, showToast) { observingPackId = id }
                     },
                 ) { Text("Not now") }
             },
@@ -115,7 +153,7 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
                     runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
                 }
                 context.hasPostNotificationsPermission() ->
-                    enqueuePackDownload(context, packId, showToast)
+                    enqueuePackDownload(context, packId, showToast) { observingPackId = packId }
                 else -> {
                     pendingPackId = packId
                     showNotifRationale = true
@@ -125,8 +163,23 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
     }
 }
 
-private fun enqueuePackDownload(context: Context, packId: String, showToast: Boolean) {
+private fun packDownloadErrorMessage(error: String?): String = when (error) {
+    "checksum" -> "Download failed verification — tap Download again or check your connection"
+    "no_space" -> "Not enough storage for this pack — free space and retry"
+    "unknown_pack" -> "Pack not found in catalog — open Settings and pull to refresh"
+    "download_failed" -> "Download interrupted — retry; partial files resume automatically"
+    null -> "Download failed — retry from Settings → Model packs"
+    else -> "Download failed: $error"
+}
+
+private fun enqueuePackDownload(
+    context: Context,
+    packId: String,
+    showToast: Boolean,
+    onEnqueued: () -> Unit = {},
+) {
     PackDownloadWorker.enqueue(context, packId)
+    onEnqueued()
     if (showToast) {
         Toast.makeText(
             context,

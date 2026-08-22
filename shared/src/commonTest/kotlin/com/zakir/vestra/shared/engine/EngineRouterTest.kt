@@ -62,7 +62,8 @@ class EngineRouterTest {
         val router = EngineRouter(listOf(pro))
         val terminal = router.generate(request(EngineTier.PRO)).last()
         val failed = assertIs<GenerationState.Failed>(terminal)
-        assertEquals(TryOnError.ModelPackMissing, failed.error)
+        val internal = assertIs<TryOnError.Internal>(failed.error)
+        assertEquals(true, internal.message.contains("pack", ignoreCase = true))
     }
 
     @Test

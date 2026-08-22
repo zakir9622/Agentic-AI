@@ -11,6 +11,9 @@ import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
+import com.zakir.vestra.shared.quality.QualityEnhancer
+import com.zakir.vestra.shared.quality.QualityPostProcessor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -31,6 +34,7 @@ class LiteEngine(
     private val packs: ModelPackManager,
     private val io: LiteEngineIo,
     private val parsing: HumanParsing,
+    private val quality: QualityPostProcessor = NoOpQualityPostProcessor,
 ) : TryOnEngine {
 
     override val tier: EngineTier = EngineTier.LITE
@@ -94,7 +98,8 @@ class LiteEngine(
             }
 
             emit(GenerationState.Running(0.95f, "Developing"))
-            val outPath = io.saveResult(Watermark.apply(staged))
+            val finalImage = QualityEnhancer.upscaleIfInstalled(quality, staged)
+            val outPath = io.saveResult(Watermark.apply(finalImage))
 
             emit(
                 GenerationState.Complete(

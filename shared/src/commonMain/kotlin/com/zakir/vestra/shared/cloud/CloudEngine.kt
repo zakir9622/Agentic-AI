@@ -73,6 +73,7 @@ class CloudEngine(
         val garmentDataUrl = io.toDataUrl(garmentBytes)
         val category = request.garment.category?.effectiveCategory() ?: GarmentCategory.ABAYA
 
+        var attempted = provider
         try {
             emit(GenerationState.Running(0.2f, "Uploading to ${provider.displayName}…"))
             require(provider.platform == CloudPlatform.HF_SPACE) {
@@ -81,6 +82,7 @@ class CloudEngine(
             val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.TRY_ON)
             var lastError: Exception? = null
             for ((modelIndex, candidate) in candidates.withIndex()) {
+                attempted = candidate
                 if (modelIndex > 0) {
                     emit(
                         GenerationState.Running(
@@ -127,11 +129,11 @@ class CloudEngine(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val friendly = CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Try-on")
+            val friendly = CloudModelContracts.friendlyFailure(attempted, e.message.orEmpty(), "Try-on")
             usage?.record(
-                provider,
+                attempted,
                 success = false,
-                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+                note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
             val error = if (
                 friendly.contains("No internet", ignoreCase = true) ||

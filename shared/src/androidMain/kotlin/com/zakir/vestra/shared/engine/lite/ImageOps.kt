@@ -90,6 +90,38 @@ object ImageOps {
         return ids
     }
 
+    /** ARGB_8888 bitmap → row-major RGBA bytes. */
+    fun toRgba(bitmap: Bitmap): Triple<ByteArray, Int, Int> {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        val rgba = ByteArray(width * height * 4)
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val dst = i * 4
+            rgba[dst] = ((pixel shr 16) and 0xFF).toByte()
+            rgba[dst + 1] = ((pixel shr 8) and 0xFF).toByte()
+            rgba[dst + 2] = (pixel and 0xFF).toByte()
+            rgba[dst + 3] = ((pixel shr 24) and 0xFF).toByte()
+        }
+        return Triple(rgba, width, height)
+    }
+
+    /** Row-major RGBA bytes → ARGB_8888 bitmap. */
+    fun fromRgba(rgba: ByteArray, width: Int, height: Int): Bitmap {
+        val pixels = IntArray(width * height)
+        for (i in pixels.indices) {
+            val src = i * 4
+            val alpha = rgba[src + 3].toInt() and 0xFF
+            val red = rgba[src].toInt() and 0xFF
+            val green = rgba[src + 1].toInt() and 0xFF
+            val blue = rgba[src + 2].toInt() and 0xFF
+            pixels[i] = (alpha shl 24) or (red shl 16) or (green shl 8) or blue
+        }
+        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+    }
+
     /** Tight bounding box of true cells in a row-major boolean map; null when empty. */
     fun boundingBox(mask: BooleanArray, width: Int, height: Int): IntArray? {
         var left = width

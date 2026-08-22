@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Rotate90DegreesCw
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,6 +60,8 @@ import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
 import com.zakir.vestra.shared.domain.Backdrop
 import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.engine.lite.HumanParsing
+import com.zakir.vestra.shared.engine.lite.LiteEngineIo
 import com.zakir.vestra.ui.TryOnViewModel
 import com.zakir.vestra.ui.components.AtelierFilterChip
 import com.zakir.vestra.ui.components.GlassImageFrame
@@ -72,6 +76,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun GarmentScreen(
     viewModel: TryOnViewModel,
+    humanParsing: HumanParsing,
+    liteEngineIo: LiteEngineIo,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
@@ -82,14 +88,33 @@ fun GarmentScreen(
     var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
     var selectedPiece by remember { mutableIntStateOf(0) }
     var rotating by remember { mutableStateOf(false) }
+    var wornPhotoWarning by remember { mutableStateOf<String?>(null) }
+
+    fun validateGarmentUri(uri: String, onAccept: () -> Unit) {
+        scope.launch {
+            val bitmap = withContext(Dispatchers.IO) { liteEngineIo.loadBitmap(uri) }
+            if (bitmap == null) {
+                Toast.makeText(context, "Couldn't read that image — try another photo", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val worn = withContext(Dispatchers.Default) { humanParsing.looksLikeWornPhoto(bitmap) }
+            if (worn) {
+                wornPhotoWarning = uri
+            } else {
+                onAccept()
+            }
+        }
+    }
 
     val pickLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         uri?.let {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            viewModel.addGarment(it.toString())
-            selectedPiece = outfit.size
+            validateGarmentUri(it.toString()) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.addGarment(it.toString())
+                selectedPiece = outfit.size
+            }
         }
     }
 
@@ -97,10 +122,12 @@ fun GarmentScreen(
         ActivityResultContracts.TakePicture(),
     ) { saved ->
         if (saved) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            pendingCaptureUri?.let {
-                viewModel.addGarment(it.toString())
-                selectedPiece = outfit.size
+            pendingCaptureUri?.let { uri ->
+                validateGarmentUri(uri.toString()) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.addGarment(uri.toString())
+                    selectedPiece = outfit.size
+                }
             }
         }
         pendingCaptureUri = null
@@ -125,6 +152,32 @@ fun GarmentScreen(
         pickLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
 
     val active = outfit.getOrNull(selectedPiece.coerceIn(0, (outfit.size - 1).coerceAtLeast(0)))
+
+    wornPhotoWarning?.let { warnedUri ->
+        AlertDialog(
+            onDismissRequest = { wornPhotoWarning = null },
+            title = { Text("Looks like a worn photo") },
+            text = {
+                Text(
+                    "This image shows a person wearing clothes. For try-on, use a flat lay, " +
+                        "hanger, or mannequin shot of the garment alone — not a model wearing it.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.addGarment(warnedUri)
+                        selectedPiece = outfit.size
+                        wornPhotoWarning = null
+                    },
+                ) { Text("Use anyway") }
+            },
+            dismissButton = {
+                TextButton(onClick = { wornPhotoWarning = null }) { Text("Pick another") }
+            },
+        )
+    }
 
     SpatialBackground {
         Column(

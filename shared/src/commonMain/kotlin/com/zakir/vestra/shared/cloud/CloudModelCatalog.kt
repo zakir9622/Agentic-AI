@@ -170,7 +170,7 @@ object CloudModelCatalog {
             requiresApiKey = true,
             qualityScore = 84,
             speedScore = 80,
-            usageNote = "Ready · HF Inference edit. Needs HF token + reference image.",
+            usageNote = "Degraded · HF Inference edit route; prefer Qwen Image Edit Space when ZeroGPU is up.",
         ),
         CloudModelProvider(
             id = "flux-schnell-inference",
