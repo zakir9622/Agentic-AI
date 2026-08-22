@@ -24,4 +24,15 @@ class GenerationBudgetTest {
         assertTrue(polls in 5..60, "polls=$polls")
         assertEquals(0, GenerationBudget(deadlineMs = now - 1).maxPolls())
     }
+
+    @Test
+    fun allowWakeRetryRequiresHeadroom() {
+        val now = EpochClock.System.nowMs()
+        assertTrue(
+            GenerationBudget(now + 60_000L).allowWakeRetry(nowMs = now),
+        )
+        assertTrue(
+            !GenerationBudget(now + 10_000L).allowWakeRetry(nowMs = now),
+        )
+    }
 }

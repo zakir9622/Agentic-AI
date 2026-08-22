@@ -1,5 +1,10 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc3
+- **Image edit timeouts:** Gradio poll GETs capped at ~12s (no more 60–75s stuck on “Space poll 1/N”)
+- Honor the image deadline inside Space wake/poll loops; skip wake retries when budget is tight
+- After Qwen (or another primary) burns the 120s window, grant a 45s grace pass for InstructPix2Pix fallback
+
 ## 3.1.0-rc2
 - **Audio Studio:** new home tab — cloud TTS (MMS-TTS Inference, Kokoro Space, Edge/OpenVoice Space)
 - **Voice personas:** Amina, Noor, Layla, Yasir, Omar, Sam, Rana, Kai (named varieties)

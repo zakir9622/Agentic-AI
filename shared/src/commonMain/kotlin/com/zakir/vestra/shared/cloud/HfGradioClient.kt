@@ -1,6 +1,9 @@
 package com.zakir.vestra.shared.cloud
 
+import com.zakir.vestra.shared.time.EpochClock
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -9,6 +12,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -28,6 +32,9 @@ import kotlinx.serialization.json.put
  *  - Gradio 5 serves the queue under `/gradio_api/call/…` while Gradio 4 serves `/call/…`.
  *  - Image inputs must be [SpacePayloads.fileData] objects; a bare data-URL string is
  *    rejected by pydantic and streams back an *empty* error (`event: error`/`data: null`).
+ *
+ * Poll GETs use a short [pollRequestTimeoutMs] so a hung ZeroGPU SSE long-poll cannot burn
+ * the whole image deadline on "Space poll 1/N" (see device diagnostics on Qwen Image Edit).
  */
 class HfGradioClient(
     private val http: HttpClient,
@@ -46,6 +53,8 @@ class HfGradioClient(
         pollDelayMs: Long = 2_000,
         wakeRetries: Int = 1,
         wakeDelayMs: Long = 8_000,
+        deadlineMs: Long? = null,
+        pollRequestTimeoutMs: Long = GenerationBudget.GRADIO_POLL_REQUEST_TIMEOUT_MS,
         onPoll: suspend (pollIndex: Int, maxPolls: Int) -> Unit = { _, _ -> },
     ): JsonElement {
         require(spaceHost.isNotBlank()) { "Space host is empty" }
@@ -59,14 +68,31 @@ class HfGradioClient(
 
         var lastEmptyError: String? = null
         var quotaExhausted = false
-        repeat(wakeRetries + 1) { attempt ->
-            if (attempt > 0) delay(wakeDelayMs)
+        for (attempt in 0..wakeRetries) {
+            throwIfDeadline(deadlineMs, spaceHost)
+            if (attempt > 0) {
+                if (deadlineMs != null &&
+                    EpochClock.System.nowMs() + wakeDelayMs >= deadlineMs
+                ) {
+                    break
+                }
+                delay(wakeDelayMs)
+            }
             for (credential in credentials) {
+                throwIfDeadline(deadlineMs, spaceHost)
                 if (quotaExhausted && credential == null) continue
                 when (
                     val outcome =
                         attemptPredict(
-                            spaceHost, apiName, data, credential, maxPolls, pollDelayMs, onPoll,
+                            spaceHost = spaceHost,
+                            apiName = apiName,
+                            data = data,
+                            hfToken = credential,
+                            maxPolls = maxPolls,
+                            pollDelayMs = pollDelayMs,
+                            deadlineMs = deadlineMs,
+                            pollRequestTimeoutMs = pollRequestTimeoutMs,
+                            onPoll = onPoll,
                         )
                 ) {
                     is PredictOutcome.Success -> return outcome.value
@@ -78,6 +104,7 @@ class HfGradioClient(
                 }
             }
         }
+        throwIfDeadline(deadlineMs, spaceHost)
         error(lastEmptyError ?: "Hugging Face Space $spaceHost did not return a result")
     }
 
@@ -111,6 +138,8 @@ class HfGradioClient(
         hfToken: String?,
         maxPolls: Int,
         pollDelayMs: Long,
+        deadlineMs: Long?,
+        pollRequestTimeoutMs: Long,
         onPoll: suspend (pollIndex: Int, maxPolls: Int) -> Unit = { _, _ -> },
     ): PredictOutcome {
         val base = "https://$spaceHost"
@@ -126,8 +155,13 @@ class HfGradioClient(
         var lastFailure: String? = null
 
         for (prefix in prefixes) {
+            throwIfDeadline(deadlineMs, spaceHost)
             val response = http.post("$base$prefix/call/$apiName") {
                 contentType(ContentType.Application.Json)
+                timeout {
+                    requestTimeoutMillis = submitRequestTimeoutMs(deadlineMs, pollRequestTimeoutMs)
+                    socketTimeoutMillis = submitRequestTimeoutMs(deadlineMs, pollRequestTimeoutMs)
+                }
                 hfToken?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }
                 setBody(payload)
             }
@@ -155,13 +189,29 @@ class HfGradioClient(
         synchronized(prefixLock) { prefixCache[spaceHost] = usedPrefix }
 
         repeat(maxPolls) { pollIndex ->
+            throwIfDeadline(deadlineMs, spaceHost)
             onPoll(pollIndex, maxPolls)
-            val poll = http.get("$base$usedPrefix/call/$apiName/$id") {
-                hfToken?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }
-            }
-            val body = poll.bodyAsText()
-            if (!poll.status.isSuccess()) {
-                error("Hugging Face Space poll HTTP ${poll.status.value}: ${body.take(240)}")
+            val body = try {
+                val poll = http.get("$base$usedPrefix/call/$apiName/$id") {
+                    timeout {
+                        requestTimeoutMillis = pollRequestTimeoutMs
+                        socketTimeoutMillis = pollRequestTimeoutMs
+                    }
+                    hfToken?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }
+                }
+                if (!poll.status.isSuccess()) {
+                    error("Hugging Face Space poll HTTP ${poll.status.value}: ${poll.bodyAsText().take(240)}")
+                }
+                poll.bodyAsText()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Hung SSE / socket — advance the poll counter instead of burning 180s on poll 1.
+                if (isTransportTimeout(e)) {
+                    delay(pollDelayMs)
+                    return@repeat
+                }
+                throw e
             }
             if (body.contains("event: error") || body.contains("\"event\":\"error\"")) {
                 val detail = gradioErrorDetail(body)
@@ -183,6 +233,29 @@ class HfGradioClient(
             "Timed out waiting for Hugging Face Space ($spaceHost). " +
                 "Try again off-peak or pick a faster free model.",
         )
+    }
+
+    private fun throwIfDeadline(deadlineMs: Long?, spaceHost: String) {
+        if (deadlineMs != null && EpochClock.System.nowMs() >= deadlineMs) {
+            error(
+                "Timed out waiting for Hugging Face Space ($spaceHost). " +
+                    "Try again off-peak or pick a faster free model.",
+            )
+        }
+    }
+
+    private fun submitRequestTimeoutMs(deadlineMs: Long?, pollRequestTimeoutMs: Long): Long {
+        val fromDeadline = deadlineMs?.let { (it - EpochClock.System.nowMs()).coerceAtLeast(5_000L) }
+        return listOfNotNull(fromDeadline, 30_000L, pollRequestTimeoutMs * 2).minOrNull() ?: 30_000L
+    }
+
+    private fun isTransportTimeout(error: Throwable): Boolean {
+        if (error is HttpRequestTimeoutException) return true
+        val msg = error.message.orEmpty()
+        val name = error::class.simpleName.orEmpty()
+        return name.contains("Timeout", ignoreCase = true) ||
+            msg.contains("timeout", ignoreCase = true) ||
+            msg.contains("timed out", ignoreCase = true)
     }
 
     private fun parseCompletePayload(raw: String): JsonElement {

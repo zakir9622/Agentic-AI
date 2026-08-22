@@ -22,7 +22,8 @@ fun platformHttpClient(): HttpClient = HttpClient(OkHttp) {
         )
     }
     install(HttpTimeout) {
-        // Cloud try-on runs take up to ~2 minutes; pack downloads stream for longer.
+        // Default high for pack downloads / long try-on; Gradio polls override per-request
+        // to ~12s so one hung ZeroGPU SSE cannot burn the whole image deadline.
         requestTimeoutMillis = 180_000
         connectTimeoutMillis = 20_000
         socketTimeoutMillis = 180_000
