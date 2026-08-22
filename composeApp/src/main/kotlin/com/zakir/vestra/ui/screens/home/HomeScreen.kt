@@ -77,6 +77,7 @@ import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.screens.news.NewsChatScreen
+import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
 import java.io.File
 import kotlinx.coroutines.delay
