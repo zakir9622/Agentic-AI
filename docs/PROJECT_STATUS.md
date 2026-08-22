@@ -1,6 +1,6 @@
 # The Lookbook — Project Status
 
-> Modest-wear AI studio for Android. Last updated: 2026-08-22 (v3.0.0).
+> Modest-wear AI studio for Android. Last updated: 2026-08-22 (v3.0.3).
 
 ## What this app is
 
@@ -23,7 +23,7 @@
 | Unified composer + on-device model group + advanced sampler | ✅ |
 | Settings hub + diagnostics export (runs + usage ledger) | ✅ |
 | CI: manifest verify + integration-local-models + benchmarks | ✅ |
-| Quality packs (BiRefNet, Real-ESRGAN) export scripts | ✅ scripts ready |
+| Quality packs (BiRefNet, Real-ESRGAN) on HF manifest | ✅ birefnet-v1 + realesrgan-v1 |
 | pro-v2-int8 HF manifest | ⏳ export ready; app prefers pro-v1 until upload |
 
 ## Build
@@ -51,7 +51,9 @@ Hosted at `Iamzakirzr/vestra-packs` (manifest published 2026-08-22):
 - `lite-v1` — Fast ONNX (~68 MB) — **on HF manifest** ✅
 - `pro-v1` — FP16 SD1.5 pack (~4.3 GB) — **on HF manifest** ✅ (default Pro download)
 - `pro-v2-int8` — INT8 UNet/ControlNet (~2 GB) — export ready; manifest upload pending
-- `birefnet-v1`, `realesrgan-v1`, `lite-v2` — optional quality packs (export via ml/)
+- `birefnet-v1` — BiRefNet Swin-Tiny matte (~224 MB) — **on HF manifest** ✅
+- `realesrgan-v1` — Real-ESRGAN upscale (~5 MB) — **on HF manifest** ✅
+- `lite-v2` — optional Fast upgrade (export via ml/; publish pending)
 
 Verify live manifest: `python3 scripts/verify-manifest.py`  
 Publish updates: `python3 scripts/publish-packs.py` (requires HF credentials)
