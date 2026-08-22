@@ -315,20 +315,6 @@ object CloudModelCatalog {
             estTokensPerRequest = 2000,
             usageNote = "Ready · openrouter/free. Requires free OpenRouter API key.",
         ),
-        CloudModelProvider(
-            id = "deepseek-r1-free-or",
-            displayName = "OpenRouter Free (legacy id)",
-            description = "Legacy catalog id — routes to openrouter/free (DeepSeek :free retired).",
-            platform = CloudPlatform.OPENROUTER,
-            capability = AiCapability.CODE,
-            endpoint = "openrouter/free",
-            license = "Upstream model licenses",
-            requiresApiKey = true,
-            qualityScore = 88,
-            speedScore = 80,
-            estTokensPerRequest = 2000,
-            usageNote = "Ready · legacy id → openrouter/free (DeepSeek :free retired).",
-        ),
 
         // ── Video (free HF Spaces) ──────────────────────────────────────
         CloudModelProvider(

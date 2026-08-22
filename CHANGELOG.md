@@ -1,6 +1,11 @@
 # Changelog — The Lookbook
 
-## 2.9.15
+## 3.0.1
+- **Generation stability (Claude plan M1/M2):** `CloudFailure` typed errors; image fallback chain correctly advances models (fixes root-cause `continue` bug); per-candidate preflight inside loop; `ModelHealthTracker` with exponential cooldown; stronger `CloudOutputValidator` (1 KB min + dimension check); video no longer hard-requires HF Space; 402 skips remaining Inference candidates
+- Removed duplicate `deepseek-r1-free-or` catalog entry (migration to `openrouter-free`)
+- Unit tests: `CloudFailureTest`, updated `GenerativeCloudServiceTest` fixtures
+
+## 3.0.0
 - Image edit fallback no longer hits broken InstructPix2Pix HF Inference (nscale HTTP 400)
 - Qwen Image Edit → InstructPix2Pix Space chain; migrate stale inference edit selection
 - DNS / offline errors map to friendly "No internet" instead of raw host resolution text

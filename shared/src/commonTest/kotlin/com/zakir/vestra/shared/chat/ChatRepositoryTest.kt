@@ -1,6 +1,6 @@
 package com.zakir.vestra.shared.chat
 
-import com.russhwolf.settings.MapSettings
+import com.zakir.vestra.shared.testutil.TestMemorySettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -8,7 +8,7 @@ class ChatRepositoryTest {
 
     @Test
     fun appendPersistsAndBuildsLlmContext() {
-        val repo = ChatRepository(MapSettings())
+        val repo = ChatRepository(TestMemorySettings())
         repo.append("user", "Hello")
         repo.append("assistant", "Hi there", "groq-llama")
         assertEquals(2, repo.messages.value.size)

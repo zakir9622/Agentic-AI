@@ -2,7 +2,7 @@
 
 > **Baseline:** v2.9.16 (versionCode 41). Source audited at `06a24f1`; re-checked against
 > `5ad009b` — the commits in between are documentation only, so every finding still stands.
-> **Status:** audit complete, execution not started.
+> **Status:** M1 + M2 partial complete @ v3.0.1 (typed failures, fallback fix, model health, output validation). M3–M6 pending.
 > Read-only review — no source file was changed by this document.
 >
 > **Overlaps** [`../lookbook-v3-followup/`](../lookbook-v3-followup/) on model health, quality

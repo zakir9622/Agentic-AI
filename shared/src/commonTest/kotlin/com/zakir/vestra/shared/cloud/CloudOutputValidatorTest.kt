@@ -13,12 +13,27 @@ class CloudOutputValidatorTest {
     }
 
     @Test
-    fun acceptsMinimalPngHeader() {
+    fun acceptsValidSizedPng() {
         val png = byteArrayOf(
             0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte(),
             0x0D, 0x0A, 0x1A, 0x0A,
-        ) + ByteArray(80)
+            // IHDR chunk length
+            0x00, 0x00, 0x00, 0x0D,
+            'I'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'R'.code.toByte(),
+            0x00, 0x00, 0x00, 0x40, // width 64
+            0x00, 0x00, 0x00, 0x40, // height 64
+            0x08, 0x02, 0x00, 0x00, 0x00,
+        ) + ByteArray(1100)
         assertNull(CloudOutputValidator.validate(png))
+    }
+
+    @Test
+    fun rejectsTinyPng() {
+        val tiny = byteArrayOf(
+            0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte(),
+            0x0D, 0x0A, 0x1A, 0x0A,
+        ) + ByteArray(60)
+        assertNotNull(CloudOutputValidator.validate(tiny))
     }
 
     @Test

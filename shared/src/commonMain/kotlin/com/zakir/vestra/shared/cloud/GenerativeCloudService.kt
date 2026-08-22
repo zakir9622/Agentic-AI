@@ -31,6 +31,7 @@ class GenerativeCloudService(
     private val io: CloudImageIo,
     private val settings: AppSettings,
     private val usage: UsageLedger,
+    private val health: ModelHealthTracker = settings.modelHealth,
 ) {
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
@@ -44,8 +45,6 @@ class GenerativeCloudService(
     ): Flow<GenerativeState> = flow {
         val capability = if (referenceUri.isNullOrBlank()) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
         val provider = settings.selectedProvider(capability)
-        // Errors are reported against the model that actually ran, which is not the selected
-        // one once the fallback chain kicks in.
         var attempted = provider
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
@@ -53,18 +52,25 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
-            requireKeyIfNeeded(provider)
-            require(settings.networkLikelyAvailable()) { "No internet connection" }
-            val candidates = CloudModelRouting.fallbackChain(provider, capability, settings)
+            require(settings.networkLikelyAvailable()) {
+                throw CloudFailureException(CloudFailure.Offline)
+            }
+            val candidates = CloudModelRouting.fallbackChain(provider, capability, settings, health)
             val referenceDataUrl = referenceUri?.takeIf { it.isNotBlank() }?.let {
                 val bytes = io.loadImageBytes(it) ?: error("Couldn't read the reference image")
                 io.toDataUrl(bytes)
             }
             val variants = visualPromptVariants(prompt, assists)
-            var lastError: Exception? = null
+            var lastFailure: CloudFailure = CloudFailure.Unknown("Image generation failed")
+            var skipInference = false
+            var offline = false
+
             for ((modelIndex, candidate) in candidates.withIndex()) {
+                if (offline) break
                 attempted = candidate
+                if (skipInference && candidate.platform == CloudPlatform.HF_INFERENCE) continue
+                if (CloudModelContracts.preflightOrNull(candidate) != null) continue
+                if (candidate.requiresApiKey && settings.apiKeyFor(candidate).isNullOrBlank()) continue
                 if (modelIndex > 0) {
                     emit(
                         GenerativeState.Running(
@@ -73,7 +79,10 @@ class GenerativeCloudService(
                         ),
                     )
                 }
+
+                var advanceModel = false
                 for ((index, variant) in variants.withIndex()) {
+                    if (advanceModel) break
                     emit(
                         GenerativeState.Running(
                             0.2f + index * 0.15f,
@@ -81,49 +90,33 @@ class GenerativeCloudService(
                         ),
                     )
                     try {
-                        when (candidate.platform) {
+                        val path = when (candidate.platform) {
                             CloudPlatform.HF_INFERENCE -> {
                                 val token = settings.hfToken.value
-                                    ?: error("Add your HF token in Settings for Inference Providers.")
-                                if (referenceDataUrl != null) {
-                                    emit(GenerativeState.Running(0.5f, "Editing via HF Inference…"))
+                                    ?: throw CloudFailureException(CloudFailure.AuthRejected)
+                                emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
+                                val bytes = if (referenceDataUrl != null) {
                                     val refBytes = io.loadImageBytes(referenceUri!!)
                                         ?: error("Couldn't read the reference image")
-                                    val bytes = hfInference.imageToImage(
+                                    hfInference.imageToImage(
                                         modelId = candidate.endpoint,
                                         prompt = variant,
                                         imageBytes = refBytes,
                                         hfToken = token,
                                     )
-                                    CloudOutputValidator.validate(bytes)?.let { error(it) }
-                                    val path = io.downloadResult(
-                                        "data:image/png;base64,${Base64.encode(bytes)}",
+                                } else {
+                                    hfInference.textToImage(
+                                        modelId = candidate.endpoint,
+                                        prompt = variant,
+                                        hfToken = token,
                                     )
-                                    usage.record(
-                                        candidate,
-                                        success = true,
-                                        note = "Image edit · Inference · ${prompt.take(80)}",
-                                    )
-                                    emit(GenerativeState.ImageReady(path, candidate.id))
-                                    return@flow
                                 }
-                                emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
-                                val bytes = hfInference.textToImage(
-                                    modelId = candidate.endpoint,
-                                    prompt = variant,
-                                    hfToken = token,
-                                )
-                                CloudOutputValidator.validate(bytes)?.let { error(it) }
-                                val path = io.downloadResult(
+                                CloudOutputValidator.validate(bytes)?.let {
+                                    throw CloudFailureException(CloudFailure.BadOutput)
+                                }
+                                io.downloadResult(
                                     "data:image/png;base64,${Base64.encode(bytes)}",
                                 )
-                                usage.record(
-                                    candidate,
-                                    success = true,
-                                    note = "Image · Inference · ${prompt.take(80)}",
-                                )
-                                emit(GenerativeState.ImageReady(path, candidate.id))
-                                return@flow
                             }
                             CloudPlatform.HF_SPACE -> {
                                 val data = if (referenceDataUrl != null) {
@@ -139,44 +132,65 @@ class GenerativeCloudService(
                                 )
                                 val url = GradioOutput.extractMediaRef(result)
                                 emit(GenerativeState.Running(0.85f, "Downloading…"))
-                                val path = io.downloadResult(url, spaceHost = candidate.endpoint)
-                                usage.record(
-                                    candidate,
-                                    success = true,
-                                    note = "Image · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
-                                )
-                                emit(GenerativeState.ImageReady(path, candidate.id))
-                                return@flow
+                                io.downloadResult(url, spaceHost = candidate.endpoint)
                             }
-                            else -> error("Unsupported platform for images: ${candidate.platform}")
+                            else -> throw CloudFailureException(
+                                CloudFailure.Unknown("Unsupported platform for images: ${candidate.platform}"),
+                            )
                         }
+                        usage.record(
+                            candidate,
+                            success = true,
+                            note = "Image · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
+                        )
+                        health.recordSuccess(candidate.id)
+                        emit(GenerativeState.ImageReady(path, candidate.id))
+                        return@flow
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        lastError = e
-                        if (e.isAccountQuotaExhausted() && candidate.platform == CloudPlatform.HF_SPACE) {
-                            // ZeroGPU is account-wide for Spaces — jump to Inference Providers next.
-                            continue
+                        val failure = CloudFailureClassifier.from(e)
+                        lastFailure = failure
+                        health.recordFailure(candidate.id)
+                        when {
+                            failure is CloudFailure.Offline -> {
+                                offline = true
+                                break
+                            }
+                            failure is CloudFailure.CreditsExhausted -> {
+                                skipInference = true
+                                advanceModel = true
+                            }
+                            failure.advanceModel -> advanceModel = true
+                            failure.retryVariants && index < variants.lastIndex -> Unit
+                            else -> advanceModel = true
                         }
-                        if (e.isNonRetryableInferenceError() || e.isBrokenInferenceRoute()) continue
-                        if (e.isNetworkError() && candidate.platform == CloudPlatform.HF_SPACE) continue
                     }
                 }
             }
-            throw lastError ?: IllegalStateException("Image generation failed")
+            throw CloudFailureException(lastFailure)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            val failure = CloudFailureClassifier.from(e)
+            val rawForFriendly = when (failure) {
+                CloudFailure.SchemaRejected -> "event: error data: null"
+                CloudFailure.CreditsExhausted -> "HTTP 402: depleted your monthly Inference Providers credits"
+                CloudFailure.Offline -> "No internet connection"
+                is CloudFailure.QuotaExhausted -> "ZeroGPU quota exceeded"
+                is CloudFailure.Unknown -> failure.raw
+                else -> failure.toUserHint()
+            }
             usage.record(
                 attempted,
                 success = false,
-                note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
+                note = CloudModelContracts.usageFailureNote(attempted, rawForFriendly),
             )
             emit(
                 GenerativeState.Failed(
                     CloudModelContracts.friendlyFailure(
                         attempted,
-                        e.message.orEmpty(),
+                        rawForFriendly,
                         "Image generation",
                         selectedDisplayName = provider.displayName,
                     ),
@@ -325,11 +339,10 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            require(settings.networkLikelyAvailable()) { "No internet connection" }
-            require(provider.platform == CloudPlatform.HF_SPACE) {
-                "Only free Hugging Face Spaces are supported for video"
+            require(settings.networkLikelyAvailable()) {
+                throw CloudFailureException(CloudFailure.Offline)
             }
-            val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO)
+            val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health)
             val variants = visualPromptVariants(prompt, assists)
             var lastError: Exception? = null
             for ((modelIndex, candidate) in candidates.withIndex()) {

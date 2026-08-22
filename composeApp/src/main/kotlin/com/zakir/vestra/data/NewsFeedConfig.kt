@@ -1,24 +1,21 @@
 package com.zakir.vestra.data
 
 import android.content.Context
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-
-@Serializable
-private data class NewsFeedEntry(
-    val source: String,
-    val url: String,
-)
+import com.zakir.vestra.shared.news.NewsRepository
+import org.json.JSONArray
 
 object NewsFeedConfig {
-    private val json = Json { ignoreUnknownKeys = true }
-
     fun load(context: Context): List<Pair<String, String>> =
-        runCatching {
-            context.assets.open("news_feeds.json").bufferedReader().use { reader ->
-                json.decodeFromString<List<NewsFeedEntry>>(reader.readText())
-                    .map { it.source to it.url }
+        try {
+            val text = context.assets.open("news_feeds.json").bufferedReader().readText()
+            val array = JSONArray(text)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    add(obj.getString("source") to obj.getString("url"))
+                }
             }
-        }.getOrElse { com.zakir.vestra.shared.news.NewsRepository.DEFAULT_FEEDS }
-
+        } catch (_: Exception) {
+            NewsRepository.DEFAULT_FEEDS
+        }
 }

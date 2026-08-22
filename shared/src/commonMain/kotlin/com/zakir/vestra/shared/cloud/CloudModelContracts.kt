@@ -191,13 +191,6 @@ object CloudModelContracts {
             schemaNote = "OpenRouter · openrouter/free",
             failureHint = "OpenRouter free router failed. Re-save the OpenRouter key or switch to Groq.",
         ),
-        CloudModelContract(
-            providerId = "deepseek-r1-free-or",
-            support = ModelSupportLevel.READY,
-            requiredInputs = listOf("OpenRouter API key", "openrouter/free"),
-            schemaNote = "Legacy id → openrouter/free",
-            failureHint = "OpenRouter free router failed (legacy DeepSeek :free retired). Use openrouter/free or Groq.",
-        ),
 
         // ── Video ───────────────────────────────────────────────────────
         CloudModelContract(

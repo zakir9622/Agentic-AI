@@ -12,9 +12,15 @@ object CloudModelRouting {
         selected: CloudModelProvider,
         capability: AiCapability,
         settings: AppSettings? = null,
+        health: ModelHealthTracker? = null,
     ): List<CloudModelProvider> {
         val allowDegradedAlternates =
             CloudModelContracts.forProvider(selected).support == ModelSupportLevel.DEGRADED
+        fun filterCandidate(candidate: CloudModelProvider): Boolean {
+            if (candidate.id == selected.id) return true
+            if (health?.isInCooldown(candidate.id) == true) return false
+            return true
+        }
         val spaceAlternates = CloudModelCatalog.forCapability(capability)
             .filter { candidate ->
                 candidate.id != selected.id &&
@@ -22,18 +28,20 @@ object CloudModelRouting {
                     CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED &&
                     (allowDegradedAlternates ||
                         CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.DEGRADED) &&
-                    (settings == null || isUsable(candidate, settings))
+                    (settings == null || isUsable(candidate, settings)) &&
+                    filterCandidate(candidate)
             }
-            .sortedWith(modelPriority())
+            .sortedWith(healthAwarePriority(health))
         val inferenceAlternates = CloudModelCatalog.forCapability(capability)
             .filter { candidate ->
                 candidate.id != selected.id &&
                     candidate.platform == CloudPlatform.HF_INFERENCE &&
                     CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED &&
-                    (settings == null || isUsable(candidate, settings))
+                    (settings == null || isUsable(candidate, settings)) &&
+                    filterCandidate(candidate)
             }
-            .sortedWith(modelPriority())
-        val head = listOf(selected)
+            .sortedWith(healthAwarePriority(health))
+        val head = listOf(selected).filter { filterCandidate(it) || it.id == selected.id }
         return when (selected.platform) {
             CloudPlatform.HF_INFERENCE -> head + inferenceAlternates + spaceAlternates
             else -> head + spaceAlternates + inferenceAlternates
@@ -69,12 +77,20 @@ object CloudModelRouting {
     private fun isUsable(candidate: CloudModelProvider, settings: AppSettings): Boolean =
         !candidate.requiresApiKey || !settings.apiKeyFor(candidate).isNullOrBlank()
 
-    private fun modelPriority(): Comparator<CloudModelProvider> =
+    private fun healthAwarePriority(health: ModelHealthTracker?): Comparator<CloudModelProvider> =
         compareByDescending<CloudModelProvider> { provider ->
-            when (CloudModelContracts.forProvider(provider).support) {
+            health?.effectiveSupport(provider)?.let { support ->
+                when (support) {
+                    ModelSupportLevel.READY -> 3
+                    ModelSupportLevel.DEGRADED -> 1
+                    ModelSupportLevel.UNSUPPORTED -> 0
+                }
+            } ?: when (CloudModelContracts.forProvider(provider).support) {
                 ModelSupportLevel.READY -> 3
                 ModelSupportLevel.DEGRADED -> 2
                 ModelSupportLevel.UNSUPPORTED -> 0
             }
         }.thenByDescending { it.qualityScore }
+
+    private fun modelPriority(): Comparator<CloudModelProvider> = healthAwarePriority(null)
 }

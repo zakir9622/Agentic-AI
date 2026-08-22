@@ -1,6 +1,6 @@
 package com.zakir.vestra.shared.diagnostics
 
-import com.russhwolf.settings.MapSettings
+import com.zakir.vestra.shared.testutil.TestMemorySettings
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.usage.UsageSummary
 import kotlin.test.Test
@@ -11,7 +11,7 @@ class RunDiagnosticsTest {
 
     @Test
     fun appendAndExportRoundTrip() {
-        val diag = RunDiagnostics(MapSettings())
+        val diag = RunDiagnostics(TestMemorySettings())
         val builder = diag.startRun(
             capability = RunCapability.IMAGE_GEN,
             tier = EngineTier.CLOUD,
@@ -30,7 +30,7 @@ class RunDiagnosticsTest {
 
     @Test
     fun exportBundleIncludesUsageLedger() {
-        val diag = RunDiagnostics(MapSettings())
+        val diag = RunDiagnostics(TestMemorySettings())
         diag.startRun(RunCapability.CHAT, modelLabel = "Groq").complete(success = true)
         val usage = UsageSummary(totalRequests = 3, successCount = 2)
         val bundle = diag.exportBundle(usage)

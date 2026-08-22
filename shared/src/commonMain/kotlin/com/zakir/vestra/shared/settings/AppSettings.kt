@@ -6,6 +6,7 @@ import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
+import com.zakir.vestra.shared.cloud.ModelHealthTracker
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.cloud.requiresSpace
 import com.zakir.vestra.shared.domain.EngineTier
@@ -19,6 +20,8 @@ enum class AppearanceMode {
 }
 
 class AppSettings(private val settings: Settings) {
+
+    val modelHealth = ModelHealthTracker(settings)
 
     private val _engineTier = MutableStateFlow(readTier())
     val engineTier: StateFlow<EngineTier> = _engineTier
@@ -239,6 +242,10 @@ class AppSettings(private val settings: Settings) {
                 settings.putString(key, "flux-schnell-inference")
                 return "flux-schnell-inference"
             }
+        }
+        if (capability == AiCapability.CODE && stored == "deepseek-r1-free-or") {
+            settings.putString(key, "openrouter-free")
+            return "openrouter-free"
         }
         if (capability == AiCapability.CODE && stored == "llama33-70b-groq" &&
             settings.getStringOrNull(KEY_GROQ_KEY).isNullOrBlank()
