@@ -72,8 +72,10 @@ object CrashClassifier {
             s.contains("engines") ||
             s.contains("studio") ||
             s.contains("tryon") ||
+            s.contains("garment") ||
             s.contains("wardrobe") ||
-            s.contains("generate")
+            s.contains("generate") ||
+            s.contains("person")
     }
 
     /** True when abrupt exit should update last_crash.json (banner), not only crash_log. */

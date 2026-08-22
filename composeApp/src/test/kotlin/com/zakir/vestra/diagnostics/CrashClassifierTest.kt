@@ -53,6 +53,12 @@ class CrashClassifierTest {
     }
 
     @Test
+    fun garmentScreenIsRisky() {
+        assertTrue(CrashClassifier.riskyScreen("garment"))
+        assertTrue(CrashClassifier.abruptIsActionable("garment", ""))
+    }
+
+    @Test
     fun backgroundAbruptNotActionableWithoutHints() {
         assertFalse(CrashClassifier.abruptIsActionable("settings", ""))
         assertTrue(CrashClassifier.riskyScreen("packs"))

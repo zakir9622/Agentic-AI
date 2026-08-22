@@ -24,6 +24,14 @@ class CloudFailureTest {
     }
 
     @Test
+    fun connectionAbortIsTimeoutNotOffline() {
+        val failure = CloudFailureClassifier.fromMessage("Software caused connection abort")
+        assertEquals(CloudFailure.Timeout, failure)
+        assertTrue(failure.advanceModel)
+        assertTrue(failure.retryable)
+    }
+
+    @Test
     fun offlineShortCircuits() {
         val failure = CloudFailureClassifier.fromMessage("Unable to resolve host \"example.hf.space\"")
         assertEquals(CloudFailure.Offline, failure)

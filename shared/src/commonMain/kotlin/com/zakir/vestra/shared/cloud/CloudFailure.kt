@@ -138,8 +138,17 @@ object CloudFailureClassifier {
             lower.contains("no internet") ||
                 lower.contains("unable to resolve host") ||
                 lower.contains("unknownhostexception") ||
-                lower.contains("network is unreachable") ||
-                lower.contains("failed to connect") -> CloudFailure.Offline
+                lower.contains("network is unreachable") -> CloudFailure.Offline
+
+            // Mid-transfer socket drops — Space still reachable; not "no internet".
+            lower.contains("connection abort") ||
+                lower.contains("connection reset") ||
+                lower.contains("broken pipe") ||
+                lower.contains("econnreset") ||
+                lower.contains("econnaborted") ||
+                lower.contains("software caused connection") -> CloudFailure.Timeout
+
+            lower.contains("failed to connect") -> CloudFailure.Offline
 
             lower.contains("402") ||
                 lower.contains("depleted your monthly") ||

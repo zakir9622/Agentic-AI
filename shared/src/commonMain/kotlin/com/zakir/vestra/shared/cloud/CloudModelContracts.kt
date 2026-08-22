@@ -308,8 +308,15 @@ object CloudModelContracts {
             msg.contains("No internet", ignoreCase = true) ||
                 msg.contains("Unable to resolve host", ignoreCase = true) ||
                 msg.contains("UnknownHostException", ignoreCase = true) ||
-                msg.contains("Network is unreachable", ignoreCase = true) ||
-                msg.contains("failed to connect", ignoreCase = true) ->
+                msg.contains("Network is unreachable", ignoreCase = true) ->
+                "No internet connection. Reconnect and retry — or use Lite/Pro try-on offline."
+            msg.contains("connection abort", ignoreCase = true) ||
+                msg.contains("connection reset", ignoreCase = true) ||
+                msg.contains("Software caused connection", ignoreCase = true) ||
+                msg.contains("Broken pipe", ignoreCase = true) ->
+                "$label lost the connection mid-request. Retry, or pick another free model — " +
+                    "or use Lite/Pro try-on offline."
+            msg.contains("failed to connect", ignoreCase = true) ->
                 "No internet connection. Reconnect and retry — or use Lite/Pro try-on offline."
             msg.contains("Model not supported by provider", ignoreCase = true) ->
                 "HF Inference Providers rejected ${provider.displayName}. Switch to a Space model in Settings."
