@@ -1,6 +1,6 @@
 # The Lookbook — Project Status
 
-> Modest-wear AI studio for Android. Last updated: 2026-08-22 (v3.0.3).
+> Modest-wear AI studio for Android. Last updated: 2026-08-22 (v3.0.4).
 
 ## What this app is
 
@@ -23,7 +23,7 @@
 | Unified composer + on-device model group + advanced sampler | ✅ |
 | Settings hub + diagnostics export (runs + usage ledger) | ✅ |
 | CI: manifest verify + integration-local-models + benchmarks | ✅ |
-| Quality packs (BiRefNet, Real-ESRGAN) on HF manifest | ✅ birefnet-v1 + realesrgan-v1 |
+| Quality packs (BiRefNet, Real-ESRGAN) on HF manifest | ✅ birefnet-v1 + realesrgan-v1 (app runners fixed in 3.0.4) |
 | pro-v2-int8 HF manifest | ⏳ export ready; app prefers pro-v1 until upload |
 
 ## Build

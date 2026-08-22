@@ -1,5 +1,11 @@
 # Changelog — The Lookbook
 
+## 3.0.4
+- **Quality pack integration:** Real-ESRGAN runner feeds FP16 `input` + `denoise_strength` (was silent no-op via single float32 OrtModel)
+- BiRefNet matte applies **sigmoid** on logits before resize (was min–max normalize)
+- Integrity verify smoke-runs Real-ESRGAN; catalog sizes corrected (~224 MB / ~5 MB)
+- `realesrgan-v1` minRam gate lowered to 2 GB in export metadata; integration script smokes both quality packs
+
 ## 3.0.3
 - Published **birefnet-v1** (~224 MB) and **realesrgan-v1** (~5 MB) to `Iamzakirzr/vestra-packs` manifest
 - Download from **Settings → Model packs**; matte refine + upscale activate when installed

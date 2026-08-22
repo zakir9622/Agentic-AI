@@ -4,6 +4,8 @@ import com.zakir.vestra.shared.domain.ModelPack
 import com.zakir.vestra.shared.domain.PackKind
 import com.zakir.vestra.shared.engine.lite.LiteEngine
 import com.zakir.vestra.shared.engine.lite.OrtModel
+import com.zakir.vestra.shared.quality.AndroidQualityPostProcessor
+import com.zakir.vestra.shared.quality.QualityOnnxUpscaler
 import java.io.File
 
 /**
@@ -35,8 +37,10 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
         pack.kind == PackKind.MODELS -> null
         pack.id == LiteEngine.PACK_ID -> verifyLitePack(dir)
         pack.id.startsWith("pro-") -> verifyProPack(dir)
-        pack.id.endsWith("-v1") && pack.id.contains("realesrgan") ||
-            pack.id.contains("birefnet") -> verifyAnyOnnx(dir)
+        pack.id == AndroidQualityPostProcessor.REALESRGAN_PACK ||
+            pack.id.contains("realesrgan", ignoreCase = true) -> verifyRealesrganPack(dir)
+        pack.id == AndroidQualityPostProcessor.BIREFNET_PACK ||
+            pack.id.contains("birefnet", ignoreCase = true) -> verifyBirefnetPack(dir)
         else -> verifyManifestOnnxFiles(pack, dir)
     }
 
@@ -65,7 +69,34 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
         return null
     }
 
-    private fun verifyAnyOnnx(dir: String): String? {
+    /**
+     * Real-ESRGAN needs a real FP16 + denoise_strength run — session open alone
+     * still "passes" for this two-input graph while inference would no-op in the app.
+     */
+    private fun verifyRealesrganPack(dir: String): String? {
+        val onnx = File(dir).listFiles()?.firstOrNull { it.name.endsWith(".onnx") }
+            ?: return "No ONNX file found"
+        return runCatching {
+            val size = 64
+            val rgba = ByteArray(size * size * 4) { idx ->
+                when (idx % 4) {
+                    3 -> 255.toByte()
+                    else -> 128.toByte()
+                }
+            }
+            val out = QualityOnnxUpscaler(onnx.absolutePath).upscale(rgba, size, size)
+                ?: return@runCatching "Real-ESRGAN smoke inference returned null"
+            if (out.width < size || out.height < size) {
+                return@runCatching "Real-ESRGAN output too small (${out.width}×${out.height})"
+            }
+            null
+        }.getOrElse { error ->
+            error.message?.take(120) ?: error::class.simpleName ?: "Real-ESRGAN verify failed"
+        }
+    }
+
+    /** BiRefNet is single float32 NCHW — OrtModel open is enough; full 1024 run is heavy. */
+    private fun verifyBirefnetPack(dir: String): String? {
         val onnx = File(dir).listFiles()?.firstOrNull { it.name.endsWith(".onnx") }
             ?: return "No ONNX file found"
         return loadOnnxSession(onnx.absolutePath)

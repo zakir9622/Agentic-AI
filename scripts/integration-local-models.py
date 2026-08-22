@@ -66,6 +66,63 @@ def test_bundled_assets() -> None:
     smoke_onnx(BUNDLED_LITE / "human_parse.onnx", 512, 512, "bundled human_parse")
 
 
+def smoke_realesrgan(model_path: Path) -> None:
+    """James040 FP16 graph: input NCHW float16 + denoise_strength float16."""
+    session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    names = {i.name for i in session.get_inputs()}
+    assert "input" in names and "denoise_strength" in names, f"unexpected inputs: {names}"
+    h = w = 64
+    feeds = {
+        "input": np.random.rand(1, 3, h, w).astype(np.float16),
+        "denoise_strength": np.array([0], dtype=np.float16),
+    }
+    outputs = session.run(None, feeds)
+    assert outputs and outputs[0] is not None
+    out = outputs[0]
+    assert out.dtype == np.float16, f"expected float16 out, got {out.dtype}"
+    assert out.shape[2] >= h and out.shape[3] >= w, f"upscale too small: {out.shape}"
+    print(f"  OK  realesrgan smoke: {model_path.name} out={out.shape}")
+
+
+def smoke_birefnet(model_path: Path) -> None:
+    session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    inp = session.get_inputs()[0]
+    assert inp.name == "input_image", f"unexpected BiRefNet input: {inp.name}"
+    chw = np.random.randn(1, 3, 1024, 1024).astype(np.float32)
+    outputs = session.run(None, {inp.name: chw})
+    assert outputs and outputs[0] is not None
+    out = outputs[0]
+    assert out.shape == (1, 1, 1024, 1024), f"unexpected BiRefNet out: {out.shape}"
+    print(f"  OK  birefnet smoke: {model_path.name} out={out.shape}")
+
+
+def smoke_quality_packs_from_hf(packs: dict) -> None:
+    """Download + run quality packs when present on the live manifest."""
+    print("\n== Quality packs (BiRefNet / Real-ESRGAN) ==")
+    for pack_id, smoker in (
+        ("realesrgan-v1", smoke_realesrgan),
+        ("birefnet-v1", smoke_birefnet),
+    ):
+        if pack_id not in packs:
+            print(f"  … {pack_id} not on manifest")
+            continue
+        pack = packs[pack_id]
+        onnx_files = [f for f in pack["files"] if f["path"].endswith(".onnx")]
+        if not onnx_files:
+            raise SystemExit(f"{pack_id}: no ONNX in manifest")
+        entry = onnx_files[0]
+        print(f"  … downloading {pack_id}/{entry['path']} ({entry['bytes'] / 1e6:.1f} MB)")
+        data = fetch(entry["url"])
+        if len(data) != entry["bytes"]:
+            raise SystemExit(f"{pack_id} size mismatch")
+        if sha256_of(data) != entry["sha256"]:
+            raise SystemExit(f"{pack_id} sha256 mismatch")
+        with tempfile.TemporaryDirectory(prefix=f"{pack_id}-") as tmp:
+            dest = Path(tmp) / entry["path"]
+            dest.write_bytes(data)
+            smoker(dest)
+
+
 def test_hf_manifest_and_download() -> None:
     print("\n== Live HF manifest + download ==")
     manifest = json.loads(fetch(MANIFEST_URL))
@@ -107,6 +164,9 @@ def test_hf_manifest_and_download() -> None:
     for optional in ("birefnet-v1", "realesrgan-v1", "lite-v2"):
         if optional in packs:
             print(f"  OK  optional pack {optional} listed")
+
+    smoke_quality_packs_from_hf(packs)
+
     pro = packs["pro-v1"]
     config = next((f for f in pro["files"] if f["path"] == "config.json"), None)
     if config is None:

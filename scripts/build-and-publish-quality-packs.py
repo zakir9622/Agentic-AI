@@ -100,7 +100,7 @@ def build_realesrgan() -> None:
                 "tier": "LITE",
                 "displayName": "Real-ESRGAN upscale",
                 "description": "Upscale try-on and Create outputs for listing-ready stills.",
-                "minSpec": {"minRamMb": 4096, "requiresNpu": False, "minSdk": 26},
+                "minSpec": {"minRamMb": 2048, "requiresNpu": False, "minSdk": 26},
                 "kind": "QUALITY",
                 "scale": 2,
                 "license": "BSD-3-Clause",
