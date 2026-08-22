@@ -8,10 +8,8 @@ import io.ktor.client.HttpClient
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -70,131 +68,115 @@ class GenerativeCloudService(
             val budget = GenerationBudget.forImage()
             emit(GenerativeState.Running(0.05f, "Budget ${GenerationBudget.IMAGE_DEADLINE_MS / 1000}s…"))
 
-            var delivered = false
-            try {
-                withTimeout(GenerationBudget.IMAGE_DEADLINE_MS) {
-                    for ((modelIndex, candidate) in candidates.withIndex()) {
-                        budget.throwIfExpired()
-                        if (offline) break
-                        attempted = candidate
-                        if (skipInference && candidate.platform == CloudPlatform.HF_INFERENCE) continue
-                        if (CloudModelContracts.preflightOrNull(candidate) != null) continue
-                        if (candidate.requiresApiKey && settings.apiKeyFor(candidate).isNullOrBlank()) continue
-                        if (modelIndex > 0) {
-                            emit(
-                                GenerativeState.Running(
-                                    0.3f,
-                                    "${provider.displayName} is busy — trying ${candidate.displayName}…",
-                                ),
-                            )
-                        }
+            for ((modelIndex, candidate) in candidates.withIndex()) {
+                budget.throwIfExpired()
+                if (offline) break
+                attempted = candidate
+                if (skipInference && candidate.platform == CloudPlatform.HF_INFERENCE) continue
+                if (CloudModelContracts.preflightOrNull(candidate) != null) continue
+                if (candidate.requiresApiKey && settings.apiKeyFor(candidate).isNullOrBlank()) continue
+                if (modelIndex > 0) {
+                    emit(
+                        GenerativeState.Running(
+                            0.3f,
+                            "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                        ),
+                    )
+                }
 
-                        var advanceModel = false
-                        for ((index, variant) in variants.withIndex()) {
-                            if (advanceModel) break
-                            budget.throwIfExpired()
-                            val remSec = budget.remainingMs() / 1000
-                            emit(
-                                GenerativeState.Running(
-                                    0.2f + index * 0.15f,
-                                    if (index == 0) "Generating image… (${remSec}s left)"
-                                    else "Retrying with softer prompt… (${remSec}s left)",
-                                ),
-                            )
-                            try {
-                                val path = when (candidate.platform) {
-                                    CloudPlatform.HF_INFERENCE -> {
-                                        val token = settings.hfToken.value
-                                            ?: throw CloudFailureException(CloudFailure.AuthRejected)
-                                        emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
-                                        val bytes = if (referenceDataUrl != null) {
-                                            val refBytes = io.loadImageBytes(referenceUri!!)
-                                                ?: error("Couldn't read the reference image")
-                                            hfInference.imageToImage(
-                                                modelId = candidate.endpoint,
-                                                prompt = variant,
-                                                imageBytes = refBytes,
-                                                hfToken = token,
-                                            )
-                                        } else {
-                                            hfInference.textToImage(
-                                                modelId = candidate.endpoint,
-                                                prompt = variant,
-                                                hfToken = token,
-                                            )
-                                        }
-                                        CloudOutputValidator.validate(bytes)?.let {
-                                            throw CloudFailureException(CloudFailure.BadOutput)
-                                        }
-                                        io.downloadResult(
-                                            "data:image/png;base64,${Base64.encode(bytes)}",
-                                        )
-                                    }
-                                    CloudPlatform.HF_SPACE -> {
-                                        val data = resolveImageSpacePayload(
-                                            candidate,
-                                            variant,
-                                            referenceDataUrl,
-                                        )
-                                        val result = hf.predict(
-                                            candidate.endpoint,
-                                            CloudModelContracts.effectiveApiName(candidate),
-                                            data,
-                                            settings.hfToken.value,
-                                            maxPolls = budget.maxPolls(),
-                                            wakeRetries = 1,
-                                        )
-                                        val url = GradioOutput.extractMediaRef(result)
-                                        emit(GenerativeState.Running(0.85f, "Downloading…"))
-                                        io.downloadResult(url, spaceHost = candidate.endpoint)
-                                    }
-                                    else -> throw CloudFailureException(
-                                        CloudFailure.Unknown("Unsupported platform for images: ${candidate.platform}"),
+                var advanceModel = false
+                for ((index, variant) in variants.withIndex()) {
+                    if (advanceModel) break
+                    budget.throwIfExpired()
+                    val remSec = budget.remainingMs() / 1000
+                    emit(
+                        GenerativeState.Running(
+                            0.2f + index * 0.15f,
+                            if (index == 0) "Generating image… (${remSec}s left)"
+                            else "Retrying with softer prompt… (${remSec}s left)",
+                        ),
+                    )
+                    try {
+                        val path = when (candidate.platform) {
+                            CloudPlatform.HF_INFERENCE -> {
+                                val token = settings.hfToken.value
+                                    ?: throw CloudFailureException(CloudFailure.AuthRejected)
+                                emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
+                                val bytes = if (referenceDataUrl != null) {
+                                    val refBytes = io.loadImageBytes(referenceUri!!)
+                                        ?: error("Couldn't read the reference image")
+                                    hfInference.imageToImage(
+                                        modelId = candidate.endpoint,
+                                        prompt = variant,
+                                        imageBytes = refBytes,
+                                        hfToken = token,
+                                    )
+                                } else {
+                                    hfInference.textToImage(
+                                        modelId = candidate.endpoint,
+                                        prompt = variant,
+                                        hfToken = token,
                                     )
                                 }
-                                usage.record(
-                                    candidate,
-                                    success = true,
-                                    note = "Image · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
-                                )
-                                health.recordSuccess(candidate.id)
-                                emit(GenerativeState.ImageReady(path, candidate.id))
-                                delivered = true
-                                return@withTimeout
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                val failure = CloudFailureClassifier.from(e)
-                                lastFailure = failure
-                                health.recordFailure(candidate.id)
-                                when {
-                                    failure is CloudFailure.Offline -> {
-                                        offline = true
-                                        break
-                                    }
-                                    failure is CloudFailure.CreditsExhausted -> {
-                                        skipInference = true
-                                        advanceModel = true
-                                    }
-                                    failure.advanceModel -> advanceModel = true
-                                    failure.retryVariants && index < variants.lastIndex -> Unit
-                                    else -> advanceModel = true
+                                CloudOutputValidator.validate(bytes)?.let {
+                                    throw CloudFailureException(CloudFailure.BadOutput)
                                 }
+                                io.downloadResult(
+                                    "data:image/png;base64,${Base64.encode(bytes)}",
+                                )
                             }
+                            CloudPlatform.HF_SPACE -> {
+                                val data = resolveImageSpacePayload(
+                                    candidate,
+                                    variant,
+                                    referenceDataUrl,
+                                )
+                                val result = hf.predict(
+                                    candidate.endpoint,
+                                    CloudModelContracts.effectiveApiName(candidate),
+                                    data,
+                                    settings.hfToken.value,
+                                    maxPolls = budget.maxPolls(),
+                                    wakeRetries = 1,
+                                )
+                                val url = GradioOutput.extractMediaRef(result)
+                                emit(GenerativeState.Running(0.85f, "Downloading…"))
+                                io.downloadResult(url, spaceHost = candidate.endpoint)
+                            }
+                            else -> throw CloudFailureException(
+                                CloudFailure.Unknown("Unsupported platform for images: ${candidate.platform}"),
+                            )
+                        }
+                        usage.record(
+                            candidate,
+                            success = true,
+                            note = "Image · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
+                        )
+                        health.recordSuccess(candidate.id)
+                        emit(GenerativeState.ImageReady(path, candidate.id))
+                        return@flow
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        val failure = CloudFailureClassifier.from(e)
+                        lastFailure = failure
+                        health.recordFailure(candidate.id)
+                        when {
+                            failure is CloudFailure.Offline -> {
+                                offline = true
+                                break
+                            }
+                            failure is CloudFailure.CreditsExhausted -> {
+                                skipInference = true
+                                advanceModel = true
+                            }
+                            failure.advanceModel -> advanceModel = true
+                            failure.retryVariants && index < variants.lastIndex -> Unit
+                            else -> advanceModel = true
                         }
                     }
-                    if (!delivered) throw CloudFailureException(lastFailure)
                 }
-            } catch (e: TimeoutCancellationException) {
-                usage.record(
-                    attempted,
-                    success = false,
-                    note = CloudModelContracts.usageFailureNote(attempted, "timeout"),
-                )
-                emit(GenerativeState.Failed(CloudFailure.Timeout.toUserHint()))
-                return@flow
             }
-            if (delivered) return@flow
             throw CloudFailureException(lastFailure)
         } catch (e: CancellationException) {
             throw e
