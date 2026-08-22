@@ -32,6 +32,7 @@
 | Plan completion (Claude + follow-up) | [`docs/plans/COMPLETION.md`](plans/COMPLETION.md) — **~95%** in-repo |
 | Live model health UI + blank-frame reject | ✅ **v3.0.5** |
 | Settings C4 split + durable CTA on download | ✅ **v3.0.6** |
+| Auto crash troubleshooting (append-only logs) | ✅ **v3.0.9** |
 
 ## Build
 
