@@ -86,6 +86,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class SettingsSection {
+    HUB,
+    CLOUD,
+    ENGINES,
+    APPEARANCE,
+    ALL,
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -99,7 +107,21 @@ fun SettingsScreen(
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onBack: () -> Unit,
+    section: SettingsSection = SettingsSection.ALL,
+    onNavigateSection: ((SettingsSection) -> Unit)? = null,
 ) {
+    if (section == SettingsSection.HUB) {
+        SettingsHubScreen(
+            onBack = onBack,
+            onOpenCloud = { onNavigateSection?.invoke(SettingsSection.CLOUD) },
+            onOpenEngines = { onNavigateSection?.invoke(SettingsSection.ENGINES) },
+            onOpenAppearance = { onNavigateSection?.invoke(SettingsSection.APPEARANCE) },
+            onOpenUsage = onOpenUsage,
+            onOpenHelp = onOpenHelp,
+            onOpenPrivacy = onOpenPrivacy,
+        )
+        return
+    }
     val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
     val appearance by appSettings.appearanceMode.collectAsState()
@@ -123,6 +145,7 @@ fun SettingsScreen(
     var groqInput by remember(groqKey) { mutableStateOf(groqKey.orEmpty()) }
     var openRouterInput by remember(openRouterKey) { mutableStateOf(openRouterKey.orEmpty()) }
     var keysSavedFlash by remember { mutableStateOf(false) }
+    var showTokenWizard by remember { mutableStateOf(false) }
     var confirmClearTokens by remember { mutableStateOf(false) }
     var clearingCache by remember { mutableStateOf(false) }
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
@@ -186,6 +209,20 @@ fun SettingsScreen(
                 Toast.LENGTH_LONG,
             ).show()
         }
+        scope.launch {
+            runCatching { freeCloudDiscovery.refreshRouterDiscovery(appSettings) }
+        }
+        if (hfInput.isNotBlank()) showTokenWizard = true
+    }
+
+    if (showTokenWizard) {
+        TokenSetupWizard(
+            onDismiss = { showTokenWizard = false },
+            onOpenPortal = { openPortal(it) },
+            hfConfigured = hfInput.isNotBlank(),
+            groqConfigured = groqInput.isNotBlank(),
+            openRouterConfigured = openRouterInput.isNotBlank(),
+        )
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -926,10 +963,10 @@ private fun CloudCapabilityDropdown(
     val hfToken by appSettings.hfToken.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
     val openRouterKey by appSettings.openRouterApiKey.collectAsState()
-    // Recompute when any token changes
-    val tokenEpoch = "${hfToken.orEmpty()}|${groqKey.orEmpty()}|${openRouterKey.orEmpty()}"
+    val discovered by appSettings.discoveredProviders.collectAsState()
+    val tokenEpoch = "${hfToken.orEmpty()}|${groqKey.orEmpty()}|${openRouterKey.orEmpty()}|${discovered.size}"
 
-    val usable = remember(tokenEpoch, capability) { discovery.curatedUsable(appSettings, capability) }
+    val usable = remember(tokenEpoch, capability) { discovery.selectable(appSettings, capability) }
     val locked = remember(tokenEpoch, capability) { discovery.curatedLocked(appSettings, capability) }
     val unsupported = remember(capability) { discovery.curatedUnsupported(capability) }
     val options = usable

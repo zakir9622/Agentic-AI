@@ -155,6 +155,6 @@ class GenerativeCloudServiceTest {
         val states = service.generateCode("hello world").toList()
         val ready = states.filterIsInstance<GenerativeState.CodeReady>().single()
         assertEquals("hf", modelSeen)
-        assertEquals("qwen25-coder-hf", ready.providerId)
+        assertEquals("qwen25-coder-7b-hf", ready.providerId)
     }
 }

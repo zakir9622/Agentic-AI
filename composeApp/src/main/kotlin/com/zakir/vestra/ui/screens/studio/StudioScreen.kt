@@ -128,8 +128,18 @@ fun StudioScreen(
     )
 
     val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
+    val hfReady = !appSettings.hfToken.value.isNullOrBlank()
+    val liteReady = packStates["lite-v1"]?.status == PackStatus.INSTALLED
     val statusLine = buildString {
-        append(if (proReady) "Pro on-device" else "Lite pack · cloud available")
+        append(
+            when {
+                proReady -> "Pro ready"
+                liteReady -> "Lite ready"
+                else -> "Lite needs download"
+            },
+        )
+        append("  ·  ")
+        append(if (hfReady) "Cloud token set" else "Cloud needs HF token")
         append("  ·  ")
         append(if (online) "Online" else "Offline")
         append("  ·  ")

@@ -31,6 +31,7 @@ import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
 import com.zakir.vestra.ui.screens.person.PersonSourceScreen
 import com.zakir.vestra.ui.screens.result.ResultScreen
+import com.zakir.vestra.ui.screens.settings.SettingsSection
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.studio.StudioScreen
 import com.zakir.vestra.ui.screens.usage.UsageScreen
@@ -49,6 +50,9 @@ object Routes {
     const val RESULT = "result"
     const val WARDROBE = "wardrobe"
     const val SETTINGS = "settings"
+    const val SETTINGS_CLOUD = "settings/cloud"
+    const val SETTINGS_ENGINES = "settings/engines"
+    const val SETTINGS_APPEARANCE = "settings/appearance"
     const val PACKS = "packs"
     const val CREATE = "create"
     const val CODE = "code"
@@ -258,6 +262,7 @@ fun VestraNavHost(
         ) {
             UsageScreen(
                 usage = usageLedger,
+                appSettings = appSettings,
                 onBack = { navController.popBackStack() },
                 onOpenCreate = {
                     generativeViewModel.prepareStudio(resetIfIdle = true)
@@ -315,6 +320,62 @@ fun VestraNavHost(
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
                 onBack = { navController.popBackStack() },
+                section = SettingsSection.HUB,
+                onNavigateSection = { target ->
+                    navController.navigate(
+                        when (target) {
+                            SettingsSection.CLOUD -> Routes.SETTINGS_CLOUD
+                            SettingsSection.ENGINES -> Routes.SETTINGS_ENGINES
+                            SettingsSection.APPEARANCE -> Routes.SETTINGS_APPEARANCE
+                            else -> Routes.SETTINGS
+                        },
+                    )
+                },
+            )
+        }
+        composable(Routes.SETTINGS_CLOUD) {
+            SettingsScreen(
+                appSettings = appSettings,
+                engineRouter = engineRouter,
+                packManager = packManager,
+                freeCloudDiscovery = freeCloudDiscovery,
+                usageLedger = usageLedger,
+                onOpenPacks = { navController.navigate(Routes.PACKS) },
+                onOpenUsage = { navController.navigate(Routes.USAGE) },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
+                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onBack = { navController.popBackStack() },
+                section = SettingsSection.ALL,
+            )
+        }
+        composable(Routes.SETTINGS_ENGINES) {
+            SettingsScreen(
+                appSettings = appSettings,
+                engineRouter = engineRouter,
+                packManager = packManager,
+                freeCloudDiscovery = freeCloudDiscovery,
+                usageLedger = usageLedger,
+                onOpenPacks = { navController.navigate(Routes.PACKS) },
+                onOpenUsage = { navController.navigate(Routes.USAGE) },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
+                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onBack = { navController.popBackStack() },
+                section = SettingsSection.ALL,
+            )
+        }
+        composable(Routes.SETTINGS_APPEARANCE) {
+            SettingsScreen(
+                appSettings = appSettings,
+                engineRouter = engineRouter,
+                packManager = packManager,
+                freeCloudDiscovery = freeCloudDiscovery,
+                usageLedger = usageLedger,
+                onOpenPacks = { navController.navigate(Routes.PACKS) },
+                onOpenUsage = { navController.navigate(Routes.USAGE) },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
+                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onBack = { navController.popBackStack() },
+                section = SettingsSection.ALL,
             )
         }
         composable(

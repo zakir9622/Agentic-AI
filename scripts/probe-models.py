@@ -22,7 +22,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -89,6 +89,7 @@ SPACE_CASES = [
 ]
 
 LLM_CASES = [
+    ("qwen25-coder-7b-hf", "HF_INFERENCE", "Qwen/Qwen2.5-Coder-7B-Instruct", "lookbook.hf.token"),
     ("qwen25-coder-hf", "HF_INFERENCE", "Qwen/Qwen2.5-Coder-32B-Instruct", "lookbook.hf.token"),
     ("openrouter-free", "OPENROUTER", "openrouter/free", "lookbook.openrouter.token"),
     ("llama33-70b-groq", "GROQ", "llama-3.3-70b-versatile", "lookbook.groq.token"),
@@ -205,6 +206,45 @@ def probe_inference_image(model: str, token: str) -> str:
         return f"FAIL: {e}"
 
 
+def probe_inference_edit(model: str, token: str) -> str:
+    payload = json.dumps({
+        "response_format": "b64_json",
+        "prompt": "make it blue",
+        "model": model,
+        "size": "512x512",
+        "image": PNG_B64,
+    }).encode()
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    try:
+        req = urllib.request.Request(
+            "https://router.huggingface.co/nscale/v1/images/edits",
+            data=payload,
+            headers=headers,
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            body = json.loads(resp.read())
+            b64 = body["data"][0]["b64_json"]
+            return f"OK ({len(b64)} b64 chars)"
+    except Exception as e:
+        detail = str(e)
+        if "402" in detail:
+            return f"WARN: {detail[:120]}"
+        return f"FAIL: {detail[:180]}"
+
+
+def probe_router_models(token: str) -> str:
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        req = urllib.request.Request("https://router.huggingface.co/v1/models", headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.loads(resp.read())
+            models = body.get("data") or []
+            ids = [m.get("id", "") for m in models[:5]]
+            return f"OK ({len(models)} models; sample: {', '.join(ids)})"
+    except Exception as e:
+        return f"FAIL: {e}"
+
+
 def classify_space(detail: str, required: bool, strict: bool) -> str:
     if detail.startswith("OK"):
         return "OK"
@@ -233,6 +273,22 @@ def main() -> int:
         status = classify_space(detail, required, args.strict)
         results.append(Result(mid, status, detail, time.time() - t0))
 
+    if hf:
+        t0 = time.time()
+        detail = probe_inference_image("black-forest-labs/FLUX.1-schnell", hf)
+        status = "OK" if detail.startswith("OK") else ("WARN" if "402" in detail else "FAIL")
+        results.append(Result("flux-schnell-inference", status, detail, time.time() - t0))
+
+        t0 = time.time()
+        detail = probe_inference_edit("timbrooks/instruct-pix2pix", hf)
+        status = "OK" if detail.startswith("OK") else ("WARN" if detail.startswith("WARN") else "FAIL")
+        results.append(Result("instruct-pix2pix-inference", status, detail, time.time() - t0))
+
+        t0 = time.time()
+        detail = probe_router_models(hf)
+        status = "OK" if detail.startswith("OK") else "FAIL"
+        results.append(Result("hf-router-models", status, detail, time.time() - t0))
+
     for mid, platform, model, prop_key in LLM_CASES:
         token = props.get(prop_key)
         if not token:
@@ -240,7 +296,7 @@ def main() -> int:
             continue
         t0 = time.time()
         detail = probe_llm(platform, model, token)
-        status = "OK" if detail.startswith("OK") else "FAIL"
+        status = "OK" if detail.startswith("OK") else ("WARN" if "402" in detail else "FAIL")
         results.append(Result(mid, status, detail, time.time() - t0))
 
     print(f"{'MODEL':32s} {'STATUS':6s} DETAIL")
@@ -256,9 +312,8 @@ def main() -> int:
     if args.json:
         Path(args.json).write_text(json.dumps([r.__dict__ for r in results], indent=2))
 
-    # Required: at least one LLM OK, FLUX OK or WARN (quota)
-    llm_ok = any(r.model_id in {c[0] for c in LLM_CASES} and r.status == "OK" for r in results)
-    flux = next((r for r in results if r.model_id == "flux-schnell-hf"), None)
+    llm_ok = any(r.model_id in {c[0] for c in LLM_CASES} and r.status in ("OK", "WARN") for r in results)
+    flux = next((r for r in results if r.model_id in ("flux-schnell-hf", "flux-schnell-inference")), None)
     flux_okish = flux and flux.status in ("OK", "WARN")
 
     if fails or not llm_ok:

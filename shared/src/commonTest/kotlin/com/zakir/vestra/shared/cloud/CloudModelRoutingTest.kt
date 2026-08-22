@@ -85,7 +85,27 @@ class CloudModelRoutingTest {
             settings,
         )
         assertTrue(chain.none { it.platform == CloudPlatform.GROQ })
-        assertEquals("qwen25-coder-hf", chain.first().id)
+        assertEquals("qwen25-coder-7b-hf", chain.first().id)
+    }
+
+    @Test
+    fun codeFallbackPrefersOpenRouterThenGroqThenHf7b() {
+        val settings = AppSettings(MemorySettings()).apply {
+            setHfToken("hf_test")
+            setGroqApiKey("gsk_test")
+            setOpenRouterApiKey("sk-or-test")
+        }
+        val chain = CloudModelRouting.codeFallbackChain(
+            CloudModelCatalog.byId("qwen25-coder-hf")!!,
+            settings,
+        )
+        val platforms = chain.map { it.platform }
+        val openRouterIdx = platforms.indexOf(CloudPlatform.OPENROUTER)
+        val groqIdx = platforms.indexOf(CloudPlatform.GROQ)
+        val hf7bIdx = chain.indexOfFirst { it.id == "qwen25-coder-7b-hf" }
+        assertTrue(openRouterIdx >= 0 && groqIdx >= 0 && hf7bIdx >= 0)
+        assertTrue(openRouterIdx < groqIdx)
+        assertTrue(groqIdx < hf7bIdx)
     }
 
     @Test

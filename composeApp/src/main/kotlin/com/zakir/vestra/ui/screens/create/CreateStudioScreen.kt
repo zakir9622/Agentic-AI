@@ -69,6 +69,8 @@ fun CreateStudioScreen(
     val selectedId = if (capability == AiCapability.IMAGE_EDIT) imageEditId else imageGenId
     val provider = viewModel.appSettings.selectedProvider(capability)
     val estimate = viewModel.usage.estimateNext(provider)
+    val preflightChip = viewModel.preflightLabel(capability)
+    val lastUsedId by viewModel.lastUsedProviderId.collectAsState()
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     val assistCount = listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
     var showModelPicker by remember { mutableStateOf(false) }
@@ -90,6 +92,20 @@ fun CreateStudioScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (preflightChip != null && preflight == null) {
+            Spacer(Modifier.height(6.dp))
+            GlassPill(text = preflightChip)
+        }
+        lastUsedId?.let { id ->
+            CloudModelCatalog.byId(id)?.let { used ->
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Last run: ${used.displayName}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = VestraColors.Accent,
+                )
+            }
+        }
         Spacer(Modifier.height(12.dp))
 
         PromptComposer(

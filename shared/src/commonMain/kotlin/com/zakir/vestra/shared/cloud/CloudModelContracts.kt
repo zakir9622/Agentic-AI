@@ -101,6 +101,20 @@ object CloudModelContracts {
 
         // ── Image gen / edit ────────────────────────────────────────────
         CloudModelContract(
+            providerId = "sdxl-turbo-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "prompt"),
+            schemaNote = "nscale text-to-image · stabilityai/sdxl-turbo",
+            failureHint = "SDXL Turbo via HF Inference failed. Try FLUX Inference or a Space model.",
+        ),
+        CloudModelContract(
+            providerId = "instruct-pix2pix-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "reference image", "prompt"),
+            schemaNote = "nscale/fal image-to-image · timbrooks/instruct-pix2pix",
+            failureHint = "HF Inference edit failed. Check HF token or pick Qwen/InstructPix2Pix Space.",
+        ),
+        CloudModelContract(
             providerId = "flux-schnell-inference",
             support = ModelSupportLevel.READY,
             requiredInputs = listOf("HF token with Inference Providers", "prompt"),

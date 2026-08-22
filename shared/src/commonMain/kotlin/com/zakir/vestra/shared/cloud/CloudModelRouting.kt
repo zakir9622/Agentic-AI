@@ -49,11 +49,22 @@ object CloudModelRouting {
                 candidate.id != selected.id &&
                     CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED
             }
-            .sortedWith(modelPriority().then(compareByDescending { it.speedScore }))
+            .sortedWith(codePlatformPriority().then(modelPriority()).then(compareByDescending { it.speedScore }))
         return (listOf(selected) + alternates)
             .filter { isUsable(it, settings) }
             .distinctBy { it.id }
     }
+
+    private fun codePlatformPriority(): Comparator<CloudModelProvider> =
+        compareBy<CloudModelProvider> { provider ->
+            when (provider.platform) {
+                CloudPlatform.OPENROUTER -> 0
+                CloudPlatform.GROQ -> 1
+                CloudPlatform.HF_INFERENCE ->
+                    if (provider.endpoint.contains("7B", ignoreCase = true)) 2 else 3
+                else -> 4
+            }
+        }
 
     private fun isUsable(candidate: CloudModelProvider, settings: AppSettings): Boolean =
         !candidate.requiresApiKey || !settings.apiKeyFor(candidate).isNullOrBlank()

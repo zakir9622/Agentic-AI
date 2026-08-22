@@ -1,5 +1,7 @@
 package com.zakir.vestra.shared.cloud
 
+import com.zakir.vestra.shared.safety.InputSafetyGate
+import com.zakir.vestra.shared.safety.SafetyVerdict
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import io.ktor.client.HttpClient
@@ -47,6 +49,10 @@ class GenerativeCloudService(
         var attempted = provider
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
+            when (val safety = InputSafetyGate.checkPrompt(prompt)) {
+                is SafetyVerdict.Blocked -> error(safety.reason)
+                is SafetyVerdict.Ok -> Unit
+            }
             CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
             requireKeyIfNeeded(provider)
             require(settings.networkLikelyAvailable()) { "No internet connection" }
@@ -77,11 +83,29 @@ class GenerativeCloudService(
                     try {
                         when (candidate.platform) {
                             CloudPlatform.HF_INFERENCE -> {
-                                if (referenceDataUrl != null) {
-                                    error("HF Inference edit is not supported yet — pick a Space model for edits.")
-                                }
                                 val token = settings.hfToken.value
                                     ?: error("Add your HF token in Settings for Inference Providers.")
+                                if (referenceDataUrl != null) {
+                                    emit(GenerativeState.Running(0.5f, "Editing via HF Inference…"))
+                                    val refBytes = io.loadImageBytes(referenceUri!!)
+                                        ?: error("Couldn't read the reference image")
+                                    val bytes = hfInference.imageToImage(
+                                        modelId = candidate.endpoint,
+                                        prompt = variant,
+                                        imageBytes = refBytes,
+                                        hfToken = token,
+                                    )
+                                    val path = io.downloadResult(
+                                        "data:image/png;base64,${Base64.encode(bytes)}",
+                                    )
+                                    usage.record(
+                                        candidate,
+                                        success = true,
+                                        note = "Image edit · Inference · ${prompt.take(80)}",
+                                    )
+                                    emit(GenerativeState.ImageReady(path, candidate.id))
+                                    return@flow
+                                }
                                 emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
                                 val bytes = hfInference.textToImage(
                                     modelId = candidate.endpoint,
@@ -153,6 +177,14 @@ class GenerativeCloudService(
         }
     }
 
+    private fun Exception.isMonthlyCreditsExhausted(): Boolean {
+        val msg = message.orEmpty()
+        return msg.contains("402", ignoreCase = true) ||
+            msg.contains("depleted your monthly", ignoreCase = true) ||
+            msg.contains("Inference Providers monthly credits", ignoreCase = true) ||
+            msg.contains("monthly credits are used up", ignoreCase = true)
+    }
+
     private fun Exception.isAccountQuotaExhausted(): Boolean {
         val msg = message.orEmpty()
         return msg.contains("quota exceeded", ignoreCase = true) ||
@@ -176,6 +208,10 @@ class GenerativeCloudService(
         var attempted = provider
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
+            when (val safety = InputSafetyGate.checkPrompt(prompt)) {
+                is SafetyVerdict.Blocked -> error(safety.reason)
+                is SafetyVerdict.Ok -> Unit
+            }
             require(settings.networkLikelyAvailable()) { "No internet connection" }
             val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
             val system = buildCodeSystem(assists)
@@ -207,6 +243,7 @@ class GenerativeCloudService(
                 }
                 val key = settings.apiKeyFor(candidate) ?: error("API key required for ${candidate.displayName}")
                 var result: LlmResult? = null
+                var quotaExhausted = false
                 for ((i, attempt) in attempts.withIndex()) {
                     if (i > 0) emit(GenerativeState.Running(0.35f + i * 0.1f, "Retrying…"))
                     try {
@@ -216,8 +253,13 @@ class GenerativeCloudService(
                         throw e
                     } catch (e: Exception) {
                         lastError = e
+                        if (e.isMonthlyCreditsExhausted()) {
+                            quotaExhausted = true
+                            break
+                        }
                     }
                 }
+                if (quotaExhausted && modelIndex < candidates.lastIndex) continue
                 if (result != null) {
                     usage.record(
                         candidate,
@@ -251,6 +293,10 @@ class GenerativeCloudService(
         var attempted = provider
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
+            when (val safety = InputSafetyGate.checkPrompt(prompt)) {
+                is SafetyVerdict.Blocked -> error(safety.reason)
+                is SafetyVerdict.Ok -> Unit
+            }
             require(settings.networkLikelyAvailable()) { "No internet connection" }
             require(provider.platform == CloudPlatform.HF_SPACE) {
                 "Only free Hugging Face Spaces are supported for video"

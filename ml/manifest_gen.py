@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-DEFAULT_BASE_URL = "https://huggingface.co/datasets/REPLACE_ME/vestra-packs/resolve/main"
+DEFAULT_BASE_URL = "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main"
 
 
 def sha256_of(path: Path) -> str:

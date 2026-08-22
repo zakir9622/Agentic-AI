@@ -147,6 +147,32 @@ object CloudModelCatalog {
 
         // ── Image generation / recreate (free HF) ───────────────────────
         CloudModelProvider(
+            id = "sdxl-turbo-inference",
+            displayName = "SDXL Turbo (HF Inference)",
+            description = "Fast text-to-image via HF Inference Providers (nscale).",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_GEN,
+            endpoint = "stabilityai/sdxl-turbo",
+            license = "OpenRAIL++",
+            requiresApiKey = true,
+            qualityScore = 87,
+            speedScore = 96,
+            usageNote = "Ready · HF Inference Providers (nscale). Needs HF token.",
+        ),
+        CloudModelProvider(
+            id = "instruct-pix2pix-inference",
+            displayName = "InstructPix2Pix (HF Inference)",
+            description = "Edit images with natural language via HF Inference Providers.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_EDIT,
+            endpoint = "timbrooks/instruct-pix2pix",
+            license = "MIT",
+            requiresApiKey = true,
+            qualityScore = 84,
+            speedScore = 80,
+            usageNote = "Ready · HF Inference edit. Needs HF token + reference image.",
+        ),
+        CloudModelProvider(
             id = "flux-schnell-inference",
             displayName = "FLUX.1 Schnell (HF Inference)",
             description = "OpenCode-style HF Inference Providers — uses monthly HF credits, not ZeroGPU.",

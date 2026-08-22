@@ -19,6 +19,11 @@ class OrtGraph(modelPath: String) : AutoCloseable {
         OrtSession.SessionOptions().apply {
             setIntraOpNumThreads(4)
             setInterOpNumThreads(2)
+            // Prefer Qualcomm QNN on Snapdragon NPUs, then NNAPI (Tensor G4), then XNNPACK.
+            runCatching {
+                val qnnOptions = mutableMapOf<String, String>()
+                addQnn(qnnOptions)
+            }
             runCatching { addNnapi() }
             runCatching { addXnnpack(emptyMap()) }
         },

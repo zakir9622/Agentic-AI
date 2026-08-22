@@ -31,6 +31,34 @@ class HfInferenceClient(
     private val http: HttpClient,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
+    suspend fun imageToImage(
+        modelId: String,
+        prompt: String,
+        imageBytes: ByteArray,
+        hfToken: String,
+        width: Int = 512,
+        height: Int = 512,
+    ): ByteArray {
+        require(hfToken.isNotBlank()) { "HF token required for Inference Providers" }
+        require(prompt.isNotBlank()) { "Prompt is empty" }
+        require(imageBytes.isNotEmpty()) { "Reference image is empty" }
+        val imageB64 = Base64.encode(imageBytes)
+        var lastError: Exception? = null
+        for (route in editRoutesFor(modelId)) {
+            try {
+                return when (route.kind) {
+                    RouteKind.NSCALE_EDIT -> postNscaleEdit(route.providerModelId, prompt, imageB64, hfToken, width, height)
+                    RouteKind.FAL_QUEUE_EDIT -> postFalEdit(route.providerModelId, prompt, imageB64, hfToken, width, height)
+                    else -> error("Unsupported edit route for $modelId")
+                }
+            } catch (e: Exception) {
+                lastError = e
+                if (e.isNonRetryableInferenceError()) throw e
+            }
+        }
+        throw lastError ?: IllegalStateException("HF Inference edit failed for $modelId")
+    }
+
     suspend fun textToImage(
         modelId: String,
         prompt: String,
@@ -46,6 +74,8 @@ class HfInferenceClient(
                 return when (route.kind) {
                     RouteKind.NSCALE -> postNscale(route.providerModelId, prompt, hfToken, width, height)
                     RouteKind.FAL_QUEUE -> postFalQueue(route.providerModelId, prompt, hfToken, width, height)
+                    RouteKind.NSCALE_EDIT, RouteKind.FAL_QUEUE_EDIT ->
+                        error("Edit route in textToImage — use imageToImage()")
                 }
             } catch (e: Exception) {
                 lastError = e
@@ -155,7 +185,106 @@ class HfInferenceClient(
         return imageResponse.readRawBytes()
     }
 
+    private suspend fun postNscaleEdit(
+        providerModelId: String,
+        prompt: String,
+        imageB64: String,
+        hfToken: String,
+        width: Int,
+        height: Int,
+    ): ByteArray {
+        val body = buildJsonObject {
+            put("response_format", "b64_json")
+            put("prompt", prompt)
+            put("model", providerModelId)
+            put("size", "${width}x$height")
+            put("image", imageB64)
+        }
+        val response = http.post("https://router.huggingface.co/nscale/v1/images/edits") {
+            header("Authorization", "Bearer $hfToken")
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        val raw = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            throw inferenceHttpError(response.status.value, raw, providerModelId)
+        }
+        val b64 = json.parseToJsonElement(raw).jsonObject["data"]
+            ?.jsonArray?.firstOrNull()
+            ?.jsonObject?.get("b64_json")
+            ?.jsonPrimitive?.content
+            ?: error("HF Inference edit ($providerModelId) returned no image data")
+        return Base64.decode(b64)
+    }
+
+    private suspend fun postFalEdit(
+        providerModelId: String,
+        prompt: String,
+        imageB64: String,
+        hfToken: String,
+        width: Int,
+        height: Int,
+    ): ByteArray {
+        val submitBody = buildJsonObject {
+            put("prompt", prompt)
+            put("image_url", "data:image/png;base64,$imageB64")
+            put("image_size", buildJsonObject {
+                put("width", width)
+                put("height", height)
+            })
+        }
+        val submit = http.post(
+            "https://router.huggingface.co/fal-ai/$providerModelId?_subdomain=queue",
+        ) {
+            header("Authorization", "Bearer $hfToken")
+            contentType(ContentType.Application.Json)
+            setBody(submitBody)
+        }
+        val submitRaw = submit.bodyAsText()
+        if (!submit.status.isSuccess()) {
+            throw inferenceHttpError(submit.status.value, submitRaw, providerModelId)
+        }
+        val submitJson = json.parseToJsonElement(submitRaw).jsonObject
+        val statusUrl = submitJson["status_url"]?.jsonPrimitive?.content
+            ?: error("Fal edit queue did not return status_url")
+        val resultUrl = submitJson["response_url"]?.jsonPrimitive?.content
+            ?: error("Fal edit queue did not return response_url")
+
+        repeat(120) {
+            val statusResponse = http.get(statusUrl) {
+                header("Authorization", "Bearer $hfToken")
+            }
+            val statusRaw = statusResponse.bodyAsText()
+            if (!statusResponse.status.isSuccess()) {
+                throw inferenceHttpError(statusResponse.status.value, statusRaw, providerModelId)
+            }
+            val status = json.parseToJsonElement(statusRaw).jsonObject["status"]?.jsonPrimitive?.content
+            if (status == "COMPLETED") {
+                val resultResponse = http.get(resultUrl) {
+                    header("Authorization", "Bearer $hfToken")
+                }
+                if (!resultResponse.status.isSuccess()) {
+                    throw inferenceHttpError(resultResponse.status.value, resultResponse.bodyAsText(), providerModelId)
+                }
+                return extractFalImageBytes(resultResponse.bodyAsText())
+            }
+            delay(1_000)
+        }
+        error("Timed out waiting for Fal Inference edit ($providerModelId)")
+    }
+
+    private fun editRoutesFor(modelId: String): List<ProviderRoute> = when (modelId) {
+        "timbrooks/instruct-pix2pix" -> listOf(
+            ProviderRoute(RouteKind.NSCALE_EDIT, "timbrooks/instruct-pix2pix"),
+            ProviderRoute(RouteKind.FAL_QUEUE_EDIT, "fal-ai/instruct-pix2pix"),
+        )
+        else -> listOf(ProviderRoute(RouteKind.NSCALE_EDIT, modelId))
+    }
+
     private fun routesFor(modelId: String): List<ProviderRoute> = when (modelId) {
+        "stabilityai/sdxl-turbo" -> listOf(
+            ProviderRoute(RouteKind.NSCALE, "stabilityai/sdxl-turbo"),
+        )
         "black-forest-labs/FLUX.1-schnell" -> listOf(
             ProviderRoute(RouteKind.NSCALE, "black-forest-labs/FLUX.1-schnell"),
             ProviderRoute(RouteKind.FAL_QUEUE, "fal-ai/flux/schnell"),
@@ -204,7 +333,7 @@ class HfInferenceClient(
             msg.contains("403", ignoreCase = true)
     }
 
-    private enum class RouteKind { NSCALE, FAL_QUEUE }
+    private enum class RouteKind { NSCALE, FAL_QUEUE, NSCALE_EDIT, FAL_QUEUE_EDIT }
 
     private data class ProviderRoute(val kind: RouteKind, val providerModelId: String)
 }

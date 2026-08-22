@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.CloudModelContracts
+import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.usage.displayLabel
 import com.zakir.vestra.ui.components.GlassCard
@@ -26,6 +27,7 @@ import java.util.Locale
 @Composable
 fun UsageScreen(
     usage: UsageLedger,
+    appSettings: AppSettings? = null,
     onBack: () -> Unit,
     onOpenCreate: (() -> Unit)? = null,
 ) {
@@ -98,6 +100,21 @@ fun UsageScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+        if (appSettings != null) {
+            GlassCard {
+                GlassSectionLabel("MODEL HEALTH")
+                AiCapability.entries.filter { it != AiCapability.TRY_ON }.forEach { cap ->
+                    val provider = appSettings.selectedProvider(cap)
+                    val status = CloudModelContracts.statusLabel(provider)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "${cap.name.replace('_', ' ')} · ${provider.displayName} · $status",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
         GlassCard {
             GlassSectionLabel("RECENT")
             if (events.isEmpty()) {
