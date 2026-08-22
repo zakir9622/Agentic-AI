@@ -1,8 +1,9 @@
 # Big release R2 — True limits (v3.1.0)
 
-**Status:** **v3.1.0-rc1 shipped** (APK on GitHub Releases) · tip may include post-tag harness hardening  
+**Status:** **R2.0 shipped** — `v3.1.0-rc1` (ATR + Loom Ink + Txt2Img scaffold) · tip **`v3.1.0-rc2`** (Audio Studio add-on)  
 **Baseline:** v3.0.16 (`041ab40`)  
-**APK:** https://github.com/zakir9622/Agentic-AI/releases/download/v3.1.0-rc1/the-lookbook-v3.1.0-rc1.apk  
+**APK (R2.0):** https://github.com/zakir9622/Agentic-AI/releases/download/v3.1.0-rc1/the-lookbook-v3.1.0-rc1.apk  
+**APK (Audio tip):** https://github.com/zakir9622/Agentic-AI/releases/download/v3.1.0-rc2/the-lookbook-v3.1.0-rc2.apk  
 **PR:** https://github.com/zakir9622/Agentic-AI/pull/50  
 **Goal:** Ship the largest honest release yet — full ATR Auto on Try-on, real-input classification harness, atelier UI overhaul, and on-device Create Studio **scaffolding that is ready the day HF weights land**.
 
@@ -26,7 +27,8 @@
 
 | Train | Version | Scope | Gate |
 |-------|---------|-------|------|
-| **R2.0** | **3.1.0-rc1** | ATR taxonomy + Auto + full chips + unit + fixture harness + UI overhaul + Txt2Img scaffold | Unit tests + ATR script green; APK assembles |
+| **R2.0** | **3.1.0-rc1** ✅ | ATR taxonomy + Auto + full chips + unit + fixture harness + UI overhaul + Txt2Img scaffold | Unit tests + ATR script green; APK on Releases |
+| **R2.0+** | **3.1.0-rc2** | Audio Studio: personas, voice-changer knobs, cloud TTS, on-device DSP | Tip CI + Release APK |
 | **R2.1** | 3.1.0 | Device soak (Pixel): Lite Auto on real worn photos; sideload update from 3.0.16 | Manual device matrix |
 | **R2.2** | 3.1.x | HF unlock: flip `local-sdturbo-v1` / `pro-v2-int8` runnable when weights land | Pack size + airplane Create Studio proof |
 
@@ -98,12 +100,12 @@ manual chip   →  skip classify; atrClassIds() for mask only
 
 ## Version / ship
 
-| Field | Value |
-|-------|-------|
-| versionName | `3.1.0-rc1` |
-| versionCode | `59` |
-| Tag | `v3.1.0-rc1` |
-| APK | GitHub Release asset via `release-apk.yml` |
+| Field | R2.0 (shipped) | Tip (Audio) |
+|-------|-----------------|-------------|
+| versionName | `3.1.0-rc1` | `3.1.0-rc2` |
+| versionCode | `59` | `60` |
+| Tag | `v3.1.0-rc1` | `v3.1.0-rc2` |
+| APK | GitHub Release via `release-apk.yml` | same |
 
 Sideload note (from 3.0.16): stable keystore — updates install in place. Pre-3.0.16 still needs one uninstall.
 
