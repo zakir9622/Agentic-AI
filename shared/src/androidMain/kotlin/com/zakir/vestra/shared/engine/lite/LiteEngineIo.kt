@@ -13,7 +13,7 @@ import java.io.FileOutputStream
 /**
  * Image IO for the Lite engine. The AI-model base images are resolved through
  * [aiModelResolver] because the gallery (and its drawables) live in the app
- * module; user photos come from the content resolver.
+ * module; user photos come from the content resolver or app-private file paths.
  */
 class LiteEngineIo(
     private val context: Context,
@@ -26,7 +26,20 @@ class LiteEngineIo(
     }
 
     fun loadBitmap(uri: String): Bitmap? = runCatching {
-        val parsed = Uri.parse(uri)
+        when {
+            uri.startsWith("/") -> decodeScaledFile(uri)
+            else -> {
+                val parsed = Uri.parse(uri)
+                when (parsed.scheme) {
+                    "file" -> decodeScaledFile(parsed.path ?: return@runCatching null)
+                    null -> if (File(uri).exists()) decodeScaledFile(uri) else decodeFromContentUri(parsed)
+                    else -> decodeFromContentUri(parsed)
+                }
+            }
+        }
+    }.getOrNull()
+
+    private fun decodeFromContentUri(parsed: Uri): Bitmap? {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -35,11 +48,19 @@ class LiteEngineIo(
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
         val decoded = resolver.openInputStream(parsed)?.use {
             BitmapFactory.decodeStream(it, null, options)
-        } ?: return@runCatching null
-        // Real shop photos are frequently shot sideways; honor the EXIF
-        // orientation so the model and garment aren't fed a rotated image.
-        applyExifOrientation(resolver, parsed, decoded)
-    }.getOrNull()
+        } ?: return null
+        return applyExifOrientation(resolver, parsed, decoded)
+    }
+
+    private fun decodeScaledFile(path: String): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_DIMENSION) sample *= 2
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        val decoded = BitmapFactory.decodeFile(path, options) ?: return null
+        return applyExifOrientationFile(path, decoded)
+    }
 
     private fun applyExifOrientation(
         resolver: android.content.ContentResolver,
@@ -54,7 +75,20 @@ class LiteEngineIo(
                 )
             }
         }.getOrNull() ?: ExifInterface.ORIENTATION_NORMAL
+        return rotateBitmap(bitmap, orientation)
+    }
 
+    private fun applyExifOrientationFile(path: String, bitmap: Bitmap): Bitmap {
+        val orientation = runCatching {
+            ExifInterface(path).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL,
+            )
+        }.getOrNull() ?: ExifInterface.ORIENTATION_NORMAL
+        return rotateBitmap(bitmap, orientation)
+    }
+
+    private fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {
         val matrix = Matrix()
         when (orientation) {
             ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)

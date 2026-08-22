@@ -80,8 +80,20 @@ class LiteEngine(
 
         try {
             emit(GenerationState.Running(0.15f, "Extracting garment"))
-            val garmentCut = OrtModel("$packDir/garment_seg.onnx").use { model ->
-                extractGarment(model, garment)
+            val garmentCut = runCatching {
+                OrtModel("$packDir/garment_seg.onnx").use { model ->
+                    extractGarment(model, garment)
+                }
+            }.getOrElse { error ->
+                emit(
+                    GenerationState.Failed(
+                        TryOnError.Internal(
+                            error.message?.take(120)
+                                ?: "Lite segmentation model failed — re-download lite-v1 in Settings → Model packs.",
+                        ),
+                    ),
+                )
+                return@flow
             }
 
             // Auto mode: infer the category from the cutout's geometry so abayas,

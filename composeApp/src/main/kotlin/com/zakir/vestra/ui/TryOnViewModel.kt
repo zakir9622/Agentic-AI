@@ -11,6 +11,7 @@ import com.zakir.vestra.shared.domain.GarmentImage
 import com.zakir.vestra.shared.domain.GenerationState
 import com.zakir.vestra.shared.domain.PersonSource
 import com.zakir.vestra.shared.domain.ShootState
+import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import com.zakir.vestra.shared.domain.TryOnResult
 import com.zakir.vestra.shared.domain.BodyType
@@ -181,13 +182,24 @@ class TryOnViewModel(
             when (terminal) {
                 is GenerationState.Complete -> {
                     lastResult = terminal.result
-                    currentPerson = PersonSource.UserPhoto("file://${terminal.result.imagePath}")
+                    // Absolute path — LiteEngineIo reads app-private generation files directly.
+                    currentPerson = PersonSource.UserPhoto(terminal.result.imagePath)
                 }
                 is GenerationState.Failed -> {
                     _shoot.value = ShootState(shotIndex, totalShots, terminal, completed)
                     return null
                 }
-                else -> Unit
+                else -> {
+                    _shoot.value = ShootState(
+                        shotIndex,
+                        totalShots,
+                        GenerationState.Failed(
+                            TryOnError.Internal("Generation interrupted — tap Retry to try again."),
+                        ),
+                        completed,
+                    )
+                    return null
+                }
             }
         }
         return lastResult

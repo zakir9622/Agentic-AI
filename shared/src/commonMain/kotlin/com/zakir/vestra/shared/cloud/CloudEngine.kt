@@ -16,8 +16,6 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Free-tier cloud try-on via Hugging Face Spaces only.
@@ -115,13 +113,9 @@ class CloudEngine(
                     throw e
                 } catch (e: Exception) {
                     lastError = e
-                    if (
-                        e.message.orEmpty().contains("quota exceeded", ignoreCase = true) ||
-                        e.message.orEmpty().contains("ZeroGPU quota", ignoreCase = true) ||
-                        e.message.orEmpty().contains("exceeded your free ZeroGPU", ignoreCase = true) ||
-                        e.message.orEmpty().contains("0s left", ignoreCase = true)
-                    ) {
-                        throw e
+                    if (e.isAccountQuotaExhausted()) {
+                        // ZeroGPU is account-wide — try remaining Spaces, then fail with guidance.
+                        continue
                     }
                 }
             }
@@ -160,21 +154,16 @@ class CloudEngine(
             data = SpacePayloads.forTryOn(provider.id, person, garment, category),
             hfToken = settings.hfToken.value,
         )
-        return extractImageRef(result)
+        return GradioOutput.extractMediaRef(result)
     }
+}
 
-    private fun extractImageRef(element: kotlinx.serialization.json.JsonElement): String {
-        return when (element) {
-            is JsonPrimitive -> element.content
-            is kotlinx.serialization.json.JsonObject -> {
-                element["url"]?.jsonPrimitive?.content
-                    ?: element["path"]?.jsonPrimitive?.content
-                    ?: element["image"]?.jsonPrimitive?.content
-                    ?: error("Unrecognized cloud output format")
-            }
-            else -> error("Unrecognized cloud output format")
-        }
-    }
+private fun Exception.isAccountQuotaExhausted(): Boolean {
+    val msg = message.orEmpty()
+    return msg.contains("quota exceeded", ignoreCase = true) ||
+        msg.contains("ZeroGPU quota", ignoreCase = true) ||
+        msg.contains("exceeded your free ZeroGPU", ignoreCase = true) ||
+        msg.contains("0s left", ignoreCase = true)
 }
 
 /** Platform seam for loading/saving images for cloud engines. */

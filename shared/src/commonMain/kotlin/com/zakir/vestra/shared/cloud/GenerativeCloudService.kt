@@ -135,7 +135,7 @@ class GenerativeCloudService(
                                     data,
                                     settings.hfToken.value,
                                 )
-                                val url = extractRef(result)
+                                val url = GradioOutput.extractMediaRef(result)
                                 emit(GenerativeState.Running(0.85f, "Downloading…"))
                                 val path = io.downloadResult(url, spaceHost = candidate.endpoint)
                                 usage.record(
@@ -423,14 +423,6 @@ class GenerativeCloudService(
         }
     }
 
-    private fun extractRef(element: kotlinx.serialization.json.JsonElement): String = when (element) {
-        is JsonPrimitive -> element.content
-        is kotlinx.serialization.json.JsonObject ->
-            element["url"]?.jsonPrimitive?.content
-                ?: element["path"]?.jsonPrimitive?.content
-                ?: element["video"]?.jsonPrimitive?.content
-                ?: element["image"]?.jsonPrimitive?.content
-                ?: error("Unrecognized generative output")
-        else -> error("Unrecognized generative output")
-    }
+    private fun extractRef(element: kotlinx.serialization.json.JsonElement): String =
+        GradioOutput.extractMediaRef(element)
 }

@@ -2,7 +2,6 @@ package com.zakir.vestra.shared.engine.lite
 
 import android.graphics.Bitmap
 import com.zakir.vestra.shared.domain.GarmentCategory
-import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 
 /**
@@ -70,7 +69,7 @@ class HumanParsing(private val packs: ModelPackManager) {
         } ?: false
 
     private inline fun <T> withHumanParseModel(block: (OrtModel) -> T): T? {
-        if (packs.verifyStatus(LiteEngine.PACK_ID) != PackVerifyStatus.VERIFIED) return null
+        if (!packs.isReady(LiteEngine.PACK_ID)) return null
         val packDir = packs.installedDir(LiteEngine.PACK_ID) ?: return null
         return runCatching {
             OrtModel("$packDir/human_parse.onnx").use { block(it) }

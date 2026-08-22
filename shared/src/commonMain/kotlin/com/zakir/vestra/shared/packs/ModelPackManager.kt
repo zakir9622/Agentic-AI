@@ -6,8 +6,6 @@ import com.zakir.vestra.shared.domain.PackVerifyStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import io.ktor.client.HttpClient
@@ -44,8 +42,8 @@ class ModelPackManager(
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError
 
-    /** Serializes ONNX verification so parallel callers cannot OOM the process. */
-    private val verifyMutex = Mutex()
+    /** Serializes ONNX verification (install + startup) so parallel callers cannot OOM. */
+    private val integrityLock = Any()
 
     /** Loads the last manifest fetched (offline start), then refreshes over the network. */
     suspend fun refresh(networkAllowed: Boolean = true) {
@@ -94,8 +92,8 @@ class ModelPackManager(
      * Re-validates an installed pack (files + ONNX). Updates [states] with
      * [PackVerifyStatus.VERIFIED] or [PackVerifyStatus.FAILED].
      */
-    suspend fun verifyInstalled(id: String): Boolean = verifyMutex.withLock {
-        withContext(Dispatchers.Default) {
+    suspend fun verifyInstalled(id: String): Boolean = withContext(Dispatchers.Default) {
+        synchronized(integrityLock) {
             val state = _states.value[id] ?: return@withContext false
             if (state.status != PackStatus.INSTALLED) return@withContext false
             val dir = installedDir(id) ?: return@withContext false
@@ -112,8 +110,8 @@ class ModelPackManager(
     }
 
     /** Verifies every installed pack; call after [refresh] on startup. */
-    suspend fun verifyAllInstalled() = verifyMutex.withLock {
-        withContext(Dispatchers.Default) {
+    suspend fun verifyAllInstalled() = withContext(Dispatchers.Default) {
+        synchronized(integrityLock) {
             _states.value.values
                 .filter { it.status == PackStatus.INSTALLED }
                 .forEach { state ->
@@ -178,9 +176,11 @@ class ModelPackManager(
                 return false
             }
         }
-        runIntegrityChecks(pack, stagingDir)?.let {
-            markFailed(id)
-            return false
+        synchronized(integrityLock) {
+            runIntegrityChecks(pack, stagingDir)?.let {
+                markFailed(id)
+                return false
+            }
         }
         val target = versionDir(pack)
         fs.delete(target)
@@ -209,7 +209,9 @@ class ModelPackManager(
      */
     fun commitVerifiedInstall(id: String, sourceDir: String): Boolean {
         val pack = pack(id) ?: return false
-        runIntegrityChecks(pack, sourceDir)?.let { return false }
+        synchronized(integrityLock) {
+            runIntegrityChecks(pack, sourceDir)?.let { return false }
+        }
         val target = versionDir(pack)
         if (target != sourceDir) {
             fs.delete(target)

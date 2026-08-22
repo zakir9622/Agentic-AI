@@ -14,6 +14,7 @@ import com.zakir.vestra.shared.domain.TryOnResult
 import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
+import com.zakir.vestra.shared.engine.lite.GarmentClassifier
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
 import com.zakir.vestra.shared.engine.lite.Watermark
 import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
@@ -105,7 +106,8 @@ class DiffusionEngine(
         }
 
         try {
-            val category = request.garment.category?.effectiveCategory() ?: GarmentCategory.DRESS
+            val category = request.garment.category?.effectiveCategory()
+                ?: GarmentClassifier.classify(garment)
             val promptSpec = com.zakir.vestra.shared.engine.pipeline.PromptSpec(
                 positive = CastingPromptBuilder.buildPositive(request.casting, category),
                 negative = CastingPromptBuilder.buildNegative(),
