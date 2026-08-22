@@ -24,12 +24,14 @@ class OrtGraph(modelPath: String) : AutoCloseable {
         OrtSession.SessionOptions().apply {
             setIntraOpNumThreads(4)
             setInterOpNumThreads(2)
-            // Best-effort QNN (usually no-op without QNN EP package), then NNAPI, then XNNPACK.
+            // Best-effort QNN (usually no-op without QNN EP package), then optional NNAPI, then XNNPACK.
             runCatching {
                 val qnnOptions = mutableMapOf<String, String>()
                 addQnn(qnnOptions)
             }
-            runCatching { addNnapi() }
+            if (com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi) {
+                runCatching { addNnapi() }
+            }
             runCatching { addXnnpack(emptyMap()) }
         },
     )

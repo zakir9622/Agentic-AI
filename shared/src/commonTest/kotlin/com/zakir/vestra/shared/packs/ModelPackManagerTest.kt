@@ -442,7 +442,8 @@ class ModelPackManagerTest {
         manager.completeInstall("lite-v1", staging)
         verifyCount = 0
         manager.verifyAllInstalled()
-        assertEquals(1, verifyCount)
+        // Already verified at install — startup path is files-only (no ONNX session create).
+        assertEquals(0, verifyCount)
         assertTrue(manager.isReady("lite-v1"))
     }
 

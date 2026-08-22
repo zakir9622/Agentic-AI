@@ -1,6 +1,7 @@
 package com.zakir.vestra.ui.screens.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +10,11 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.content.LookbookCopy
@@ -54,6 +59,26 @@ internal fun LazyListScope.settingsEnginesSection(
                 },
                 onSelect = appSettings::setEngineTier,
             )
+            Spacer(Modifier.height(12.dp))
+            val preferNnapi by appSettings.preferNnapi.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Prefer NNAPI", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Off by default — safer on Pixel. Turn on only if try-on is stable.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = preferNnapi,
+                    onCheckedChange = appSettings::setPreferNnapi,
+                )
+            }
         }
         Spacer(Modifier.height(14.dp))
     }

@@ -87,6 +87,14 @@ class VestraApp : Application() {
         com.zakir.vestra.diagnostics.CrashReporter.install(this)
         val prefs = SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE))
         appSettings = AppSettings(prefs)
+        // CPU-only ORT by default; Engines toggle can opt into NNAPI.
+        com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi = appSettings.preferNnapi.value
+        appScope.launch {
+            appSettings.preferNnapi.collect { enabled ->
+                com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi = enabled
+                com.zakir.vestra.shared.engine.lite.OrtSessionCache.clearAll()
+            }
+        }
         appSettings.networkProbe = { isNetworkAvailable(this) }
         usageLedger = UsageLedger(prefs)
         deviceProbe = AndroidDeviceProbe(this)

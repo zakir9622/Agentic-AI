@@ -36,6 +36,13 @@ class AppSettings(private val settings: Settings) {
     private val _onboardingComplete = MutableStateFlow(settings.getBoolean(KEY_ONBOARDED, false))
     val onboardingComplete: StateFlow<Boolean> = _onboardingComplete
 
+    /**
+     * When true, ONNX Runtime may attach NNAPI. Default false — NNAPI session
+     * create has killed the process on Pixel 9 during lite pack load/verify.
+     */
+    private val _preferNnapi = MutableStateFlow(settings.getBoolean(KEY_PREFER_NNAPI, false))
+    val preferNnapi: StateFlow<Boolean> = _preferNnapi
+
     private val _cloudProviderId = MutableStateFlow(migrateProviderId(KEY_CLOUD_PROVIDER, AiCapability.TRY_ON))
     val cloudProviderId: StateFlow<String> = _cloudProviderId
 
@@ -71,6 +78,11 @@ class AppSettings(private val settings: Settings) {
     fun setAppearanceMode(mode: AppearanceMode) {
         settings.putString(KEY_APPEARANCE, mode.name)
         _appearanceMode.value = mode
+    }
+
+    fun setPreferNnapi(enabled: Boolean) {
+        settings.putBoolean(KEY_PREFER_NNAPI, enabled)
+        _preferNnapi.value = enabled
     }
 
     fun clearApiTokens() {
@@ -295,6 +307,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_OPENROUTER_KEY = "openrouter_api_key"
         const val KEY_REPLICATE_TOKEN = "replicate_token"
         const val KEY_FAL_KEY = "fal_api_key"
+        const val KEY_PREFER_NNAPI = "prefer_nnapi"
     }
 }
 

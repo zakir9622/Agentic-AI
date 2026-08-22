@@ -10,15 +10,22 @@ import java.nio.FloatBuffer
  * Thin wrapper around an ONNX Runtime session for single-input image models.
  * Input geometry is read from the model itself so exports can change size
  * without touching app code.
+ *
+ * Defaults to CPU. NNAPI is opt-in via [OrtEpPolicy.preferNnapi] — opportunistic
+ * NNAPI previously caused native process deaths during pack verify on Pixel 9.
  */
-class OrtModel(modelPath: String) : AutoCloseable {
+class OrtModel(
+    modelPath: String,
+    useNnapi: Boolean = OrtEpPolicy.preferNnapi,
+) : AutoCloseable {
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
     private val session: OrtSession = env.createSession(
         modelPath,
         OrtSession.SessionOptions().apply {
-            // NNAPI is attempted opportunistically; CPU is the guaranteed path.
-            runCatching { addNnapi() }
+            if (useNnapi) {
+                runCatching { addNnapi() }
+            }
         },
     )
 

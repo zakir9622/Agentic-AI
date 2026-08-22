@@ -137,7 +137,13 @@ class ModelPackManager(
         }
     }
 
-    /** Verifies every installed pack; call after [refresh] on startup. */
+    /**
+     * Re-checks installed packs after [refresh] on startup.
+     *
+     * Already-[PackVerifyStatus.VERIFIED] packs only re-check file sizes (no ONNX
+     * session create) to avoid a verify→native-kill→restart storm on Pixel-class devices.
+     * Unverified / failed packs still run the full integrity path once.
+     */
     suspend fun verifyAllInstalled() = withContext(Dispatchers.Default) {
         synchronized(integrityLock) {
             _states.value.values
@@ -145,11 +151,20 @@ class ModelPackManager(
                 .forEach { state ->
                     val dir = installedDir(state.pack.id) ?: return@forEach
                     markVerifying(state.pack.id)
-                    val error = runIntegrityChecks(state.pack, dir)
-                    if (error == null) {
+                    val fileError = integrityChecker.verifyFiles(state.pack, dir)
+                    if (fileError != null) {
+                        markVerifyFailed(state.pack.id, fileError)
+                        return@forEach
+                    }
+                    if (state.verifyStatus == PackVerifyStatus.VERIFIED) {
+                        markVerified(state.pack.id)
+                        return@forEach
+                    }
+                    val onnxError = integrityChecker.verifyOnnx(state.pack, dir)
+                    if (onnxError == null) {
                         markVerified(state.pack.id)
                     } else {
-                        markVerifyFailed(state.pack.id, error)
+                        markVerifyFailed(state.pack.id, onnxError)
                     }
                 }
         }
@@ -219,6 +234,7 @@ class ModelPackManager(
         fs.mkdirs(parentOf(target))
         fs.move(stagingDir, target)
         fs.writeText("$target/$COMPLETE_MARKER", pack.version.toString())
+        fs.writeText("$target/$ONNX_OK_MARKER", "ok")
         // Older versions of this pack are dead weight now.
         fs.listFiles(packRoot)
             .filter { it != target }
@@ -259,6 +275,7 @@ class ModelPackManager(
             }
         }
         fs.writeText("$target/$COMPLETE_MARKER", pack.version.toString())
+        fs.writeText("$target/$ONNX_OK_MARKER", "ok")
         updateStatus(id) {
             it.copy(
                 status = PackStatus.INSTALLED,
@@ -314,6 +331,9 @@ class ModelPackManager(
                 verifiedAtMs = EpochClock.System.nowMs(),
             )
         }
+        installedDir(id)?.let { dir ->
+            runCatching { fs.writeText("$dir/$ONNX_OK_MARKER", "ok") }
+        }
     }
 
     private fun markVerifyFailed(id: String, error: String) {
@@ -323,6 +343,10 @@ class ModelPackManager(
                 verifyError = error,
                 verifiedAtMs = null,
             )
+        }
+        installedDir(id)?.let { dir ->
+            val marker = "$dir/$ONNX_OK_MARKER"
+            if (fs.exists(marker)) runCatching { fs.delete(marker) }
         }
     }
 
@@ -351,6 +375,7 @@ class ModelPackManager(
                 status != PackStatus.INSTALLED -> PackVerifyStatus.UNKNOWN
                 prior?.pack?.version == pack.version &&
                     prior.verifyStatus == PackVerifyStatus.VERIFIED -> PackVerifyStatus.VERIFIED
+                fs.exists("$dir/$ONNX_OK_MARKER") -> PackVerifyStatus.VERIFIED
                 else -> PackVerifyStatus.UNKNOWN
             }
             val progress = when (status) {
@@ -417,6 +442,8 @@ class ModelPackManager(
 
     companion object {
         const val COMPLETE_MARKER = ".complete"
+        /** Written after a successful ONNX (or light) verify so cold starts skip session create. */
+        const val ONNX_OK_MARKER = ".onnx_ok"
 
         /** Catalog entries for packs installed outside the published manifest. */
         const val BUNDLED_MANIFEST = "manifest.bundled.json"

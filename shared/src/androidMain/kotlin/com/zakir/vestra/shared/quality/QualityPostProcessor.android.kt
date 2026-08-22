@@ -64,7 +64,9 @@ internal class QualityOnnxUpscaler(private val modelPath: String) {
     fun upscale(rgba: ByteArray, width: Int, height: Int): ProcessedImage? = runCatching {
         val env = OrtEnvironment.getEnvironment()
         OrtSession.SessionOptions().use { opts ->
-            runCatching { opts.addNnapi() }
+            if (com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi) {
+                runCatching { opts.addNnapi() }
+            }
             env.createSession(modelPath, opts).use { session ->
                 val inH = height.coerceIn(64, 512)
                 val inW = width.coerceIn(64, 512)

@@ -359,7 +359,10 @@ object CrashReporter {
                     level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
                 ) {
                     markLowMemory(label)
-                    w("Mem", "onTrimMemory $label ($level)")
+                    runCatching {
+                        com.zakir.vestra.shared.engine.lite.OrtSessionCache.clearAll()
+                    }
+                    w("Mem", "onTrimMemory $label ($level) — cleared ORT session cache")
                 } else if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
                     w("Mem", "onTrimMemory $label ($level)")
                 }
