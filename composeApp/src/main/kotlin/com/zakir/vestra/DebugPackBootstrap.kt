@@ -22,10 +22,18 @@ object DebugPackBootstrap {
 
     /**
      * Copies ~68 MB, so it must never run on the main thread — doing so ANRs startup and
-     * leaves a half-written pack that later looks installed.
+     * leaves a half-written pack that later looks installed. [onSeeded] runs once the files
+     * land, because the pack manager reads its catalog long before that.
      */
-    fun seedLitePackAsync(context: Context, packsRoot: File = File(context.filesDir, "packs")) {
-        Thread({ seedLitePack(context, packsRoot) }, "lite-pack-seed").apply {
+    fun seedLitePackAsync(
+        context: Context,
+        packsRoot: File = File(context.filesDir, "packs"),
+        onSeeded: () -> Unit = {},
+    ) {
+        Thread({
+            seedLitePack(context, packsRoot)
+            onSeeded()
+        }, "lite-pack-seed").apply {
             priority = Thread.MIN_PRIORITY
             isDaemon = true
         }.start()

@@ -27,8 +27,14 @@ import com.zakir.vestra.shared.wardrobe.AndroidTextFileStore
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.storage.TokenSidecar
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class VestraApp : Application() {
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     lateinit var appSettings: AppSettings
         private set
@@ -79,7 +85,9 @@ class VestraApp : Application() {
             manifestUrl = PACKS_MANIFEST_URL,
         )
         PackDownloadWorker.dependencies = { packManager }
-        DebugPackBootstrap.seedLitePackAsync(this, DurableStorage.resolvePacksRoot(this))
+        DebugPackBootstrap.seedLitePackAsync(this, DurableStorage.resolvePacksRoot(this)) {
+            appScope.launch { packManager.refresh(networkAllowed = false) }
+        }
         studioModels = StudioModelRepository(this, packManager)
 
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
