@@ -332,7 +332,10 @@ class GenerativeCloudService(
                         }
                     }
                 }
-                if (quotaExhausted && modelIndex < candidates.lastIndex) continue
+                if (quotaExhausted && modelIndex < candidates.lastIndex) {
+                    health.recordFailure(candidate.id)
+                    continue
+                }
                 if (result != null) {
                     usage.record(
                         candidate,
@@ -341,9 +344,11 @@ class GenerativeCloudService(
                         success = true,
                         note = "Code · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
                     )
+                    health.recordSuccess(candidate.id)
                     emit(GenerativeState.CodeReady(result.text, result.tokensIn, result.tokensOut, candidate.id))
                     return@flow
                 }
+                health.recordFailure(candidate.id)
             }
             throw lastError ?: IllegalStateException("Empty LLM response")
         } catch (e: CancellationException) {
@@ -354,6 +359,7 @@ class GenerativeCloudService(
                 success = false,
                 note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
+            health.recordFailure(attempted.id)
             emit(GenerativeState.Failed(
                 CloudModelContracts.friendlyFailure(
                     attempted,
@@ -423,12 +429,14 @@ class GenerativeCloudService(
                             success = true,
                             note = "Video · ${CloudModelContracts.statusLabel(candidate)} · ${prompt.take(80)}",
                         )
+                        health.recordSuccess(candidate.id)
                         emit(GenerativeState.VideoReady(path, candidate.id))
                         return@flow
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         lastError = e
+                        health.recordFailure(candidate.id)
                         if (e.isAccountQuotaExhausted()) throw e
                     }
                 }
@@ -442,6 +450,7 @@ class GenerativeCloudService(
                 success = false,
                 note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
+            health.recordFailure(attempted.id)
             emit(GenerativeState.Failed(
                 CloudModelContracts.friendlyFailure(
                     attempted,

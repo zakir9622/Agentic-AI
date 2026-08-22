@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
+import com.zakir.vestra.shared.cloud.ModelHealthTracker
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.quality.QualityRating
 import com.zakir.vestra.ui.theme.VestraColors
@@ -64,12 +65,13 @@ fun ModelPickerSheet(
     onSelect: (CloudModelProvider) -> Unit,
     onDismiss: () -> Unit,
     onDeviceEntries: List<OnDevicePickerEntry> = emptyList(),
+    health: ModelHealthTracker? = null,
 ) {
     var query by remember { mutableStateOf("") }
     val selectable = remember(models) {
         models.filter { CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED }
     }
-    val filtered = remember(selectable, query) {
+    val filtered = remember(selectable, query, health) {
         val q = query.trim().lowercase()
         val list = if (q.isEmpty()) {
             selectable
@@ -83,7 +85,7 @@ fun ModelPickerSheet(
         }
         list.sortedWith(
             compareByDescending<CloudModelProvider> {
-                when (CloudModelContracts.forProvider(it).support) {
+                when (health?.effectiveSupport(it) ?: CloudModelContracts.forProvider(it).support) {
                     ModelSupportLevel.READY -> 3
                     ModelSupportLevel.DEGRADED -> 2
                     ModelSupportLevel.UNSUPPORTED -> 0
@@ -152,7 +154,7 @@ fun ModelPickerSheet(
             ) {
                 if (query.isNotBlank()) {
                     items(filtered, key = { it.id }) { model ->
-                        ModelPickerRow(model, selectedId, onSelect, onDismiss)
+                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health)
                     }
                 } else {
                     if (onDeviceEntries.isNotEmpty()) {
@@ -178,7 +180,7 @@ fun ModelPickerSheet(
                             )
                         }
                         items(models, key = { it.id }) { model ->
-                            ModelPickerRow(model, selectedId, onSelect, onDismiss)
+                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health)
                         }
                     }
                 }
@@ -242,9 +244,10 @@ private fun ModelPickerRow(
     selectedId: String,
     onSelect: (CloudModelProvider) -> Unit,
     onDismiss: () -> Unit,
+    health: ModelHealthTracker?,
 ) {
     val selected = model.id == selectedId
-    val support = CloudModelContracts.forProvider(model).support
+    val support = health?.effectiveSupport(model) ?: CloudModelContracts.forProvider(model).support
     val blocked = support == ModelSupportLevel.UNSUPPORTED
     Row(
         Modifier
@@ -298,7 +301,7 @@ private fun ModelPickerRow(
                 buildString {
                     append(QualityRating.label(model))
                     append(" · ")
-                    append(CloudModelContracts.statusLabel(model))
+                    append(CloudModelContracts.liveStatusLabel(model, health))
                     append(" · ")
                     append(model.platform.name.replace('_', ' ').lowercase())
                     if (blocked) append(" · not selectable")

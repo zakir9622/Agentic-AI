@@ -1076,7 +1076,7 @@ private fun CloudCapabilityDropdown(
                         text = {
                             Column {
                                 Text(
-                                    "${provider.displayName} · ${CloudModelContracts.statusLabel(provider)}",
+                                    "${provider.displayName} · ${CloudModelContracts.liveStatusLabel(provider, appSettings.modelHealth)}",
                                     color = VestraColors.Ink,
                                 )
                                 Text(

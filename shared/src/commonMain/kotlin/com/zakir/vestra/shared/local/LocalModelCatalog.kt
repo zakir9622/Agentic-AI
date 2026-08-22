@@ -84,7 +84,7 @@ object LocalModelCatalog {
             license = "OpenRAIL-M / Apache-2.0 (weights TBD)",
             approxSizeLabel = "~1–1.5 GB",
             runnable = false,
-            testingNote = "Pack export via ml/export_image_gen_pack.py — flip runnable when on HF manifest.",
+            testingNote = "Pack export via ml/export_image_gen_pack.py — LocalImageGenerator scaffolded; flip runnable when weights on HF.",
         ),
         LocalModelEntry(
             id = "local-coder-planned",

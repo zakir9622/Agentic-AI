@@ -5,7 +5,8 @@ package com.zakir.vestra.shared.cloud
  * instead of surfacing a blank result as success.
  */
 object CloudOutputValidator {
-    private const val MIN_IMAGE_BYTES = 1_024
+    /** Plan M2: reject tiny / truncated downloads (~2 KB floor). */
+    private const val MIN_IMAGE_BYTES = 2_048
     private const val MIN_DIMENSION = 64
     private const val MIN_VIDEO_BYTES = 8_192
 

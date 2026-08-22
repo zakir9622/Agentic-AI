@@ -1,5 +1,12 @@
 # Changelog — The Lookbook
 
+## 3.0.5
+- **Live model health UI:** picker, Usage, Settings, and preflight show cooldown / verified labels from `ModelHealthTracker` (not static Ready)
+- Health records success/failure for **code + video** as well as image
+- **Blank-frame reject:** Android luminance MAD check after download; image size floor raised to 2 KB
+- Scaffold `LocalImageGenerator` for M4 offline Create Studio (still `runnable = false` until weights)
+- Unit tests: `ModelHealthTrackerTest`, validator 2 KB floor
+
 ## 3.0.4
 - **Quality pack integration:** Real-ESRGAN runner feeds FP16 `input` + `denoise_strength` (was silent no-op via single float32 OrtModel)
 - BiRefNet matte applies **sigmoid** on logits before resize (was min–max normalize)

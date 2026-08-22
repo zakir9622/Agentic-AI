@@ -94,19 +94,19 @@ python3 scripts/integration-local-models.py
 
 Close the remaining plan gates so offline + cloud feel “perfect,” not just “honest.”
 
-| Priority | Item | Closes |
-|----------|------|--------|
-| P0 | Ship `local-sdturbo-v1` weights + `LocalImageEngine` + airplane Create Studio proof | M4, E4 |
-| P0 | Publish `pro-v2-int8` to HF (or remove contradictory download copy) | A6, cycle2 |
-| P1 | Model picker / Usage show `ModelHealthTracker.observedLabel` + cooldown | M2 UI |
-| P1 | Blank-frame / low-variance reject in `CloudOutputValidator` | M2 |
-| P1 | Commit `docs/screenshots/baseline/` + `visual-verify.sh --compare` green on Pixel | M5, D2 |
-| P1 | accesslint full sweep on `accesslint.config.json` routes | D1 |
-| P2 | Optional `lite-v2` on manifest | B1 |
-| P2 | Finish SettingsScreen split; durable-storage CTA clarity | C4 |
-| P2 | Doc matrix: minSdk 35 (Android 15) everywhere; drop “Android 8+” claims | M6 / N |
-| Stretch | Gemma LiteRT-LM prototype | E3 |
-| Stretch | GFPGAN pack | expansion |
+| Priority | Item | Closes | Status |
+|----------|------|--------|--------|
+| P0 | Ship `local-sdturbo-v1` weights + `LocalImageEngine` + airplane Create Studio proof | M4, E4 | Scaffold `LocalImageGenerator` @ 3.0.5; weights TBD |
+| P0 | Publish `pro-v2-int8` to HF (or remove contradictory download copy) | A6, cycle2 | Copy prefers pro-v1 @ 3.0.4; HF upload TBD |
+| P1 | Model picker / Usage show `ModelHealthTracker.observedLabel` + cooldown | M2 UI | **DONE @ 3.0.5** |
+| P1 | Blank-frame / low-variance reject in download path | M2 | **DONE @ 3.0.5** |
+| P1 | Commit `docs/screenshots/baseline/` + `visual-verify.sh --compare` green on Pixel | M5, D2 | Open (needs device) |
+| P1 | accesslint full sweep on `accesslint.config.json` routes | D1 | Open |
+| P2 | Optional `lite-v2` on manifest | B1 | Open |
+| P2 | Finish SettingsScreen split; durable-storage CTA clarity | C4 | Open |
+| P2 | Doc matrix: minSdk 35 (Android 15) everywhere | M6 / N | Partial @ 3.0.4 |
+| Stretch | Gemma LiteRT-LM prototype | E3 | Open |
+| Stretch | GFPGAN pack | expansion | Open |
 
 **R1 exit criteria**
 - Airplane mode: Create Studio still produces an image from local pack

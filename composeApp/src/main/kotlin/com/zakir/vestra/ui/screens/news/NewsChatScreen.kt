@@ -196,6 +196,7 @@ fun NewsChatScreen(
             title = "Chat models",
             models = pickerModels,
             selectedId = codeId,
+            health = appSettings.modelHealth,
             onSelect = { chosen -> appSettings.setCodeProvider(chosen.id) },
             onDismiss = { showModelPicker = false },
         )

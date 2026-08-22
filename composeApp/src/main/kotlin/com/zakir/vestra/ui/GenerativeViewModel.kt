@@ -153,7 +153,7 @@ class GenerativeViewModel(
     fun preflightLabel(capability: AiCapability): String? {
         return when (val check = appSettings.preflight(capability)) {
             is PreflightResult.Blocked -> check.reason
-            is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.statusLabel(check.provider)}"
+            is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.liveStatusLabel(check.provider, appSettings.modelHealth)}"
         }
     }
 

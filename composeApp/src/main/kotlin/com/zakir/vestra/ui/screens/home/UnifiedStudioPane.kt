@@ -313,6 +313,7 @@ fun UnifiedStudioPane(
             models = pickerModels,
             selectedId = selectedId,
             onDeviceEntries = onDeviceEntries,
+            health = viewModel.appSettings.modelHealth,
             onSelect = { chosen ->
                 when (effectiveCapability) {
                     AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)

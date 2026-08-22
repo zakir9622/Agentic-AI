@@ -237,6 +237,10 @@ object CloudModelContracts {
         ModelSupportLevel.UNSUPPORTED -> "Unsupported"
     }
 
+    /** Prefer live cooldown / verified labels from [health] when available. */
+    fun liveStatusLabel(provider: CloudModelProvider, health: ModelHealthTracker?): String =
+        health?.observedLabel(provider.id) ?: statusLabel(provider)
+
     fun settingsSupportingText(provider: CloudModelProvider): String {
         val c = forProvider(provider)
         val status = statusLabel(provider)

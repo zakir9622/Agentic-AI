@@ -1,6 +1,6 @@
 # The Lookbook — Project Status
 
-> Modest-wear AI studio for Android. Last updated: 2026-08-22 (**v3.0.4**).
+> Modest-wear AI studio for Android. Last updated: 2026-08-22 (**v3.0.5**).
 
 ## What this app is
 
@@ -27,7 +27,8 @@
 | Quality pack runners + local crash hardening | ✅ **v3.0.4** |
 | pro-v2-int8 HF manifest | ⏳ export ready; app prefers pro-v1 until upload |
 | Offline Create Studio (SD-Turbo pack) | ⏳ scaffold only — Track R1 |
-| Stable release checklist | [`docs/plans/stable-release/PLAN.md`](plans/stable-release/PLAN.md) — **R0 shipped** |
+| Stable release checklist | [`docs/plans/stable-release/PLAN.md`](plans/stable-release/PLAN.md) — **R0 shipped**; R1 in progress @ 3.0.5 |
+| Live model health UI + blank-frame reject | ✅ **v3.0.5** |
 
 ## Build
 

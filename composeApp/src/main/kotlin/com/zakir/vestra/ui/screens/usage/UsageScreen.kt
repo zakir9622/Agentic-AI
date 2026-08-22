@@ -81,7 +81,9 @@ fun UsageScreen(
                 summary.byProvider.values.sortedByDescending { it.requests }.forEach { p ->
                     Spacer(Modifier.height(8.dp))
                     val catalog = CloudModelCatalog.byId(p.providerId)
-                    val status = catalog?.let { CloudModelContracts.statusLabel(it) }
+                    val status = catalog?.let {
+                        CloudModelContracts.liveStatusLabel(it, appSettings?.modelHealth)
+                    }
                     Text(
                         buildString {
                             append(p.displayName)
@@ -153,7 +155,7 @@ fun UsageScreen(
                 GlassSectionLabel("MODEL HEALTH")
                 AiCapability.entries.filter { it != AiCapability.TRY_ON }.forEach { cap ->
                     val provider = appSettings.selectedProvider(cap)
-                    val status = CloudModelContracts.statusLabel(provider)
+                    val status = CloudModelContracts.liveStatusLabel(provider, appSettings.modelHealth)
                     Spacer(Modifier.height(6.dp))
                     Text(
                         "${cap.name.replace('_', ' ')} · ${provider.displayName} · $status",

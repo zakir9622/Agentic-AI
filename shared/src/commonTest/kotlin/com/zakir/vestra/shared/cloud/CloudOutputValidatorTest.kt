@@ -23,8 +23,22 @@ class CloudOutputValidatorTest {
             0x00, 0x00, 0x00, 0x40, // width 64
             0x00, 0x00, 0x00, 0x40, // height 64
             0x08, 0x02, 0x00, 0x00, 0x00,
-        ) + ByteArray(1100)
+        ) + ByteArray(2_100)
         assertNull(CloudOutputValidator.validate(png))
+    }
+
+    @Test
+    fun rejectsBelowTwoKilobyteFloor() {
+        val png = byteArrayOf(
+            0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte(),
+            0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            'I'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'R'.code.toByte(),
+            0x00, 0x00, 0x00, 0x40,
+            0x00, 0x00, 0x00, 0x40,
+            0x08, 0x02, 0x00, 0x00, 0x00,
+        ) + ByteArray(1_500)
+        assertNotNull(CloudOutputValidator.validate(png))
     }
 
     @Test
