@@ -117,6 +117,29 @@ class ModelPackManagerTest {
     }
 
     @Test
+    fun bundledPackSurvivesARefreshThatOmitsIt() = runTest {
+        // The published catalog only lists pro-v1 and lite-v1; a sideloaded pack that is not
+        // in it must still be reported as installed rather than disappearing on refresh.
+        val fs = FakeFs()
+        fs.files["/packs/${ModelPackManager.BUNDLED_MANIFEST}"] = """
+            {"schemaVersion":1,"packs":[
+              {"id":"lite-bundled","version":1,"tier":"LITE","displayName":"Bundled Lite",
+               "description":"d","totalBytes":10,
+               "files":[{"path":"a.onnx","url":"bundled","sha256":"bundled","bytes":10}],
+               "minSpec":{"minRamMb":0,"requiresNpu":false,"minSdk":26}}
+            ]}
+        """.trimIndent()
+        fs.files["/packs/lite-bundled/1/${ModelPackManager.COMPLETE_MARKER}"] = "1"
+
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+
+        assertTrue(manager.isInstalled("lite-bundled"))
+        assertEquals(PackStatus.INSTALLED, manager.states.value.getValue("lite-bundled").status)
+        assertTrue(manager.states.value.containsKey("pro-v1"), "remote packs are still listed")
+    }
+
+    @Test
     fun completeInstallVerifiesChecksumsAndCommitsAtomically() = runTest {
         val fs = FakeFs()
         val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")

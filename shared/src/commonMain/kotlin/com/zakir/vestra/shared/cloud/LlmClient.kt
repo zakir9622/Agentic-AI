@@ -95,6 +95,7 @@ class LlmClient(
                 when (httpResponse.status.value) {
                     401, 403 -> "HF/API token rejected (${httpResponse.status.value}). Use a classic Read/Write token (not fine-grained without Inference), then Save in Settings."
                     404 -> "Model not available on free $platform: $model. Switch model in Settings."
+                    402 -> "HF Inference monthly credits used up. Wait for reset or add Groq/OpenRouter in Settings."
                     429 -> "Free-tier rate limit on $platform. Wait a minute or switch model."
                     else -> {
                         val msg = detail.orEmpty()
@@ -114,6 +115,8 @@ class LlmClient(
         }
 
         val content = extractMessageContent(response)
+            ?.takeIf { it.isNotBlank() }
+            ?: extractReasoningContent(response)
             ?.takeIf { it.isNotBlank() }
             ?: run {
                 val err = extractErrorMessage(response)
@@ -150,6 +153,26 @@ class LlmClient(
             }.joinToString("").ifBlank { null }
             else -> null
         }
+    }
+
+    private fun extractReasoningContent(response: JsonObject): String? {
+        val message = response["choices"]
+            ?.jsonArray
+            ?.firstOrNull()
+            ?.jsonObject
+            ?.get("message")
+            ?.jsonObject
+            ?: return null
+        message["reasoning"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }?.let { return it }
+        val details = message["reasoning_details"]?.jsonArray ?: return null
+        return details.mapNotNull { part ->
+            when (part) {
+                is JsonObject -> part["text"]?.jsonPrimitive?.contentOrNull
+                    ?: part["content"]?.jsonPrimitive?.contentOrNull
+                is JsonPrimitive -> part.contentOrNull
+                else -> null
+            }
+        }.joinToString("").trim().ifBlank { null }
     }
 
     private fun extractErrorMessage(response: JsonObject?): String? {

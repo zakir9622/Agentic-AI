@@ -1,0 +1,80 @@
+package com.zakir.vestra.shared.cloud
+
+import com.zakir.vestra.shared.settings.AppSettings
+
+/**
+ * Orders free models for automatic fallback when the selected Space is busy,
+ * out of ZeroGPU quota, or offline.
+ */
+object CloudModelRouting {
+
+    fun fallbackChain(
+        selected: CloudModelProvider,
+        capability: AiCapability,
+        settings: AppSettings? = null,
+    ): List<CloudModelProvider> {
+        val allowDegradedAlternates =
+            CloudModelContracts.forProvider(selected).support == ModelSupportLevel.DEGRADED
+        val spaceAlternates = CloudModelCatalog.forCapability(capability)
+            .filter { candidate ->
+                candidate.id != selected.id &&
+                    candidate.platform == CloudPlatform.HF_SPACE &&
+                    CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED &&
+                    (allowDegradedAlternates ||
+                        CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.DEGRADED) &&
+                    (settings == null || isUsable(candidate, settings))
+            }
+            .sortedWith(modelPriority())
+        val inferenceAlternates = CloudModelCatalog.forCapability(capability)
+            .filter { candidate ->
+                candidate.id != selected.id &&
+                    candidate.platform == CloudPlatform.HF_INFERENCE &&
+                    CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED &&
+                    (settings == null || isUsable(candidate, settings))
+            }
+            .sortedWith(modelPriority())
+        val head = listOf(selected)
+        return when (selected.platform) {
+            CloudPlatform.HF_INFERENCE -> head + inferenceAlternates + spaceAlternates
+            else -> head + spaceAlternates + inferenceAlternates
+        }.distinctBy { it.id }
+    }
+
+    fun codeFallbackChain(
+        selected: CloudModelProvider,
+        settings: AppSettings,
+    ): List<CloudModelProvider> {
+        val alternates = CloudModelCatalog.forCapability(AiCapability.CODE)
+            .filter { candidate ->
+                candidate.id != selected.id &&
+                    CloudModelContracts.forProvider(candidate).support != ModelSupportLevel.UNSUPPORTED
+            }
+            .sortedWith(codePlatformPriority().then(modelPriority()).then(compareByDescending { it.speedScore }))
+        return (listOf(selected) + alternates)
+            .filter { isUsable(it, settings) }
+            .distinctBy { it.id }
+    }
+
+    private fun codePlatformPriority(): Comparator<CloudModelProvider> =
+        compareBy<CloudModelProvider> { provider ->
+            when (provider.platform) {
+                CloudPlatform.OPENROUTER -> 0
+                CloudPlatform.GROQ -> 1
+                CloudPlatform.HF_INFERENCE ->
+                    if (provider.endpoint.contains("7B", ignoreCase = true)) 2 else 3
+                else -> 4
+            }
+        }
+
+    private fun isUsable(candidate: CloudModelProvider, settings: AppSettings): Boolean =
+        !candidate.requiresApiKey || !settings.apiKeyFor(candidate).isNullOrBlank()
+
+    private fun modelPriority(): Comparator<CloudModelProvider> =
+        compareByDescending<CloudModelProvider> { provider ->
+            when (CloudModelContracts.forProvider(provider).support) {
+                ModelSupportLevel.READY -> 3
+                ModelSupportLevel.DEGRADED -> 2
+                ModelSupportLevel.UNSUPPORTED -> 0
+            }
+        }.thenByDescending { it.qualityScore }
+}

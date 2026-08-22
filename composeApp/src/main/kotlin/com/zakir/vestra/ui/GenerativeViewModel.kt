@@ -3,6 +3,7 @@ package com.zakir.vestra.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.GenerativeAssists
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.cloud.GenerativeState
@@ -39,6 +40,9 @@ class GenerativeViewModel(
 
     private val _preflightMessage = MutableStateFlow<String?>(null)
     val preflightMessage: StateFlow<String?> = _preflightMessage
+
+    private val _lastUsedProviderId = MutableStateFlow<String?>(null)
+    val lastUsedProviderId: StateFlow<String?> = _lastUsedProviderId
 
     private val _creativeMode = MutableStateFlow(false)
     val creativeMode: StateFlow<Boolean> = _creativeMode
@@ -116,6 +120,13 @@ class GenerativeViewModel(
         _preflightMessage.value = null
         _prompt.value = ""
         _referenceUri.value = null
+    }
+
+    fun preflightLabel(capability: AiCapability): String? {
+        return when (val check = appSettings.preflight(capability)) {
+            is PreflightResult.Blocked -> check.reason
+            is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.statusLabel(check.provider)}"
+        }
     }
 
     fun generateImage() {
@@ -206,10 +217,17 @@ class GenerativeViewModel(
                 block().collect { next ->
                     if (epoch != generationEpoch) return@collect
                     _state.value = next
-                    if (next is GenerativeState.ImageReady) {
-                        ingestCreateImage(next.path, label = "Create")
-                    } else if (next is GenerativeState.VideoReady) {
-                        ingestCreateImage(next.path, label = "Video")
+                    when (next) {
+                        is GenerativeState.ImageReady -> {
+                            _lastUsedProviderId.value = next.providerId
+                            ingestCreateImage(next.path, label = "Create")
+                        }
+                        is GenerativeState.VideoReady -> {
+                            _lastUsedProviderId.value = next.providerId
+                            ingestCreateImage(next.path, label = "Video")
+                        }
+                        is GenerativeState.CodeReady -> _lastUsedProviderId.value = next.providerId
+                        else -> Unit
                     }
                 }
             } catch (_: CancellationException) {

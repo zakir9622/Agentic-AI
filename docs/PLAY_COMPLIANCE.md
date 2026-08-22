@@ -14,10 +14,9 @@ for the owner; ☑ are implemented in the codebase.
 - ☑ **Likeness consent**: first use of a personal photo requires an explicit
   acknowledgement (`PersonSourceScreen` consent dialog, persisted in settings).
 - ☐ **Input safety classifier**: v1 mitigations are the consent gate, the
-  report loop, and (cloud tier) Replicate's own content moderation. Before
-  wide launch, add an on-device NSFW/minor-detection classifier as a small
-  model in the Lite pack and gate all engines on it. The engine contract
-  already reserves `TryOnError.SafetyBlocked` for this.
+  report loop, prompt-level [InputSafetyGate] (blocks explicit NSFW prompts),
+  and (cloud tier) provider content moderation. Before wide launch, add an
+  on-device NSFW/minor-detection classifier as a small model in the Lite pack.
 - ☐ Complete the Play Console "AI-Generated Content" declaration form.
 
 ## Data safety form (answers as implemented)

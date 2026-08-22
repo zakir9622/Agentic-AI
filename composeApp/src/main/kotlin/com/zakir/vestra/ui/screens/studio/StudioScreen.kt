@@ -128,8 +128,19 @@ fun StudioScreen(
     )
 
     val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
+    val hfToken by appSettings.hfToken.collectAsState()
+    val hfReady = !hfToken.isNullOrBlank()
+    val liteReady = packStates["lite-v1"]?.status == PackStatus.INSTALLED
     val statusLine = buildString {
-        append(if (proReady) "Pro on-device" else "Lite pack · cloud available")
+        append(
+            when {
+                proReady -> "Pro ready"
+                liteReady -> "Lite ready"
+                else -> "Lite needs download"
+            },
+        )
+        append("  ·  ")
+        append(if (hfReady) "Cloud token set" else "Cloud needs HF token")
         append("  ·  ")
         append(if (online) "Online" else "Offline")
         append("  ·  ")
@@ -218,57 +229,47 @@ fun StudioScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                item(key = "hero") {
-                    Box(Modifier.padding(bottom = heroLift.dp)) {
-                        AtelierHero(
-                            brand = LookbookCopy.PRODUCT_NAME,
-                            headline = "Creativity for modest wear",
-                            support = "Cast abaya, hijab, and shalwar looks on-device — or open free cloud studios for stills, video, and code.",
-                            cta = LookbookCopy.ACTION_START_TRY_ON,
-                            onCta = onNewLook,
-                            statusLine = statusLine,
-                        )
-                    }
-                    Spacer(Modifier.height(20.dp))
+                item(key = "do-label") {
+                    GlassSectionLabel("WHAT WOULD YOU LIKE TO DO")
+                    Text(
+                        "Pick a studio — same chat composer, searchable models inside the prompt bar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VestraColors.InkMuted,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
                 }
 
-                item(key = "studios-label") {
-                    GlassSectionLabel("CREATE")
-                }
-
-                item(key = "mosaic") {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        CapabilityTile(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Outlined.Image,
-                            title = "Image",
-                            body = "Stills · recreate",
-                            accent = VestraColors.Accent,
-                            onClick = onOpenCreate,
-                        )
-                        CapabilityTile(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Outlined.Videocam,
-                            title = "Video",
-                            body = "Free cloud clips",
-                            accent = VestraColors.SaffronDeep,
-                            onClick = onOpenVideo,
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
+                item(key = "action-list") {
+                    CapabilityTile(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Outlined.Image,
+                        title = LookbookCopy.STUDIO_IMAGE,
+                        body = "Generate or edit stills · pick models in chat",
+                        accent = VestraColors.Accent,
+                        onClick = onOpenCreate,
+                        compact = true,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    CapabilityTile(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Outlined.Videocam,
+                        title = LookbookCopy.STUDIO_VIDEO,
+                        body = "Free cloud clips · model search in composer",
+                        accent = VestraColors.SaffronDeep,
+                        onClick = onOpenVideo,
+                        compact = true,
+                    )
+                    Spacer(Modifier.height(10.dp))
                     CapabilityTile(
                         modifier = Modifier.fillMaxWidth(),
                         icon = Icons.Outlined.Code,
-                        title = "Code",
+                        title = LookbookCopy.STUDIO_CODE,
                         body = "Groq · Hugging Face · OpenRouter",
                         accent = VestraColors.AccentSoft,
                         onClick = onOpenCode,
                         compact = true,
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
                     CapabilityTile(
                         modifier = Modifier.fillMaxWidth(),
                         icon = Icons.Outlined.Insights,
@@ -278,7 +279,7 @@ fun StudioScreen(
                         onClick = onOpenUsage,
                         compact = true,
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
                     CapabilityTile(
                         modifier = Modifier.fillMaxWidth(),
                         icon = Icons.AutoMirrored.Outlined.HelpOutline,
@@ -288,6 +289,22 @@ fun StudioScreen(
                         onClick = onOpenHelp,
                         compact = true,
                     )
+                    Spacer(Modifier.height(22.dp))
+                }
+
+                item(key = "hero") {
+                    GlassSectionLabel("CORE TRY-ON")
+                    Box(Modifier.padding(bottom = heroLift.dp)) {
+                        AtelierHero(
+                            brand = LookbookCopy.PRODUCT_NAME,
+                            headline = "Cast the look",
+                            support = "Abaya, hijab, and shalwar on-device with Lite or Pro — center of the atelier.",
+                            cta = LookbookCopy.ACTION_START_TRY_ON,
+                            onCta = onNewLook,
+                            statusLine = statusLine,
+                        )
+                    }
+                    Spacer(Modifier.height(20.dp))
                 }
 
                 if (!proReady) {

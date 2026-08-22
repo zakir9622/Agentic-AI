@@ -29,7 +29,7 @@ object CloudModelContracts {
         // ── Try-on ──────────────────────────────────────────────────────
         CloudModelContract(
             providerId = "idm-vton-hf",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf(
                 "ImageEditor(person+auto-mask)",
                 "Image(garment)",
@@ -39,8 +39,8 @@ object CloudModelContracts {
                 "Number(steps)",
                 "Number(seed)",
             ),
-            schemaNote = "tryon · 7 args (ImageEditor + garment + auto-mask)",
-            failureHint = "IDM-VTON needs a reachable ZeroGPU Space. Retry off-peak or switch to OOTDiffusion.",
+            schemaNote = "tryon · 7 args (ImageEditor + garment FileData); host returns session errors",
+            failureHint = "IDM-VTON's Space is returning session errors. Switch to OOTDiffusion in Settings.",
         ),
         CloudModelContract(
             providerId = "ootd-hf",
@@ -53,12 +53,12 @@ object CloudModelContracts {
                 "Slider(guidance)",
                 "Slider(seed)",
             ),
-            schemaNote = "process_hd · model + garment + images/steps/guidance/seed",
-            failureHint = "OOTDiffusion queue is often full. Retry later or use IDM-VTON.",
+            schemaNote = "process_hd · FileData model + garment + images/steps/guidance/seed",
+            failureHint = "OOTDiffusion needs a clear full-body photo. Retry off-peak or use CatVTON.",
         ),
         CloudModelContract(
             providerId = "catvton-hf",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf(
                 "ImageEditor(person)",
                 "Image(garment)",
@@ -68,8 +68,8 @@ object CloudModelContracts {
                 "Slider(seed)",
                 "Radio(show type)",
             ),
-            schemaNote = "submit_function · ImageEditor person + cloth type",
-            failureHint = "CatVTON failed — try IDM-VTON (more reliable auto-mask path).",
+            schemaNote = "submit_function · ImageEditor person + cloth type; host rejects queued runs",
+            failureHint = "CatVTON is rejecting runs right now. Use OOTDiffusion.",
         ),
         CloudModelContract(
             providerId = "fitdit-hf",
@@ -101,6 +101,41 @@ object CloudModelContracts {
 
         // ── Image gen / edit ────────────────────────────────────────────
         CloudModelContract(
+            providerId = "sdxl-turbo-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "prompt"),
+            schemaNote = "nscale text-to-image · stabilityai/sdxl-turbo",
+            failureHint = "SDXL Turbo via HF Inference failed. Try FLUX Inference or a Space model.",
+        ),
+        CloudModelContract(
+            providerId = "instruct-pix2pix-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "reference image", "prompt"),
+            schemaNote = "nscale/fal image-to-image · timbrooks/instruct-pix2pix",
+            failureHint = "HF Inference edit failed. Check HF token or pick Qwen/InstructPix2Pix Space.",
+        ),
+        CloudModelContract(
+            providerId = "flux-schnell-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "prompt"),
+            schemaNote = "nscale/fal-ai text-to-image · black-forest-labs/FLUX.1-schnell",
+            failureHint = "HF Inference credits exhausted or token missing. Add HF token in Settings or wait for monthly reset.",
+        ),
+        CloudModelContract(
+            providerId = "z-image-turbo-inference",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "prompt"),
+            schemaNote = "fal-ai text-to-image · Tongyi-MAI/Z-Image-Turbo",
+            failureHint = "Z-Image Turbo via HF Inference failed. Check HF token or try FLUX Inference.",
+        ),
+        CloudModelContract(
+            providerId = "qwen25-coder-7b-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token with Inference Providers", "chat messages"),
+            schemaNote = "HF Inference chat · Qwen/Qwen2.5-Coder-7B-Instruct",
+            failureHint = "HF Inference rejected the 7B coder. Try 32B, Groq, or OpenRouter.",
+        ),
+        CloudModelContract(
             providerId = "flux-schnell-hf",
             support = ModelSupportLevel.READY,
             requiredInputs = listOf("prompt", "seed", "randomize", "width", "height", "steps"),
@@ -109,10 +144,10 @@ object CloudModelContracts {
         ),
         CloudModelContract(
             providerId = "sdxl-lightning-hf",
-            support = ModelSupportLevel.READY,
+            support = ModelSupportLevel.DEGRADED,
             requiredInputs = listOf("prompt", "steps dropdown"),
-            schemaNote = "generate_image · prompt + 1/2/4/8-Step",
-            failureHint = "SDXL Lightning failed — retry or switch to FLUX Schnell.",
+            schemaNote = "generate_image · Gradio 4 /call route; Space currently errors on every run",
+            failureHint = "SDXL Lightning's Space is failing upstream. Use FLUX Schnell.",
         ),
         CloudModelContract(
             providerId = "qwen-image-edit-hf",
@@ -120,8 +155,9 @@ object CloudModelContracts {
             requiredInputs = listOf(
                 "image", "prompt", "seed", "randomize", "guidance", "steps", "rewrite",
             ),
-            schemaNote = "infer · reference image + prompt + seed/guidance/steps",
-            failureHint = "Qwen Image Edit failed — ensure a reference image is attached.",
+            schemaNote = "infer · FileData image + prompt + seed/guidance/steps",
+            failureHint = "Qwen Image Edit is out of free ZeroGPU quota or waking. " +
+                "The app retries and falls back to InstructPix2Pix automatically.",
         ),
         CloudModelContract(
             providerId = "instruct-pix2pix-hf",
@@ -129,8 +165,8 @@ object CloudModelContracts {
             requiredInputs = listOf(
                 "image", "instruction", "steps", "seed mode", "seed", "cfg mode", "text cfg", "image cfg",
             ),
-            schemaNote = "generate · image + edit instruction + CFG/seed controls",
-            failureHint = "InstructPix2Pix failed — rephrase the edit instruction or attach a clearer photo.",
+            schemaNote = "generate · FileData image + instruction + CFG/seed (image is output 4)",
+            failureHint = "InstructPix2Pix failed — wait ~30s and retry, or switch model in the composer.",
         ),
 
         // ── Code LLMs ───────────────────────────────────────────────────
@@ -227,6 +263,14 @@ object CloudModelContracts {
             msg.contains("sufficient permissions", ignoreCase = true) ||
                 msg.contains("Inference Providers", ignoreCase = true) ->
                 "Your HF token cannot call Inference Providers. Create a token with Inference permission (classic Read/Write), Save in Settings, or switch Code to Groq."
+            // ZeroGPU minutes are billed to the Hugging Face account, not the Space, so
+            // switching models cannot help until the daily allowance refills.
+            msg.contains("402") || msg.contains("depleted your monthly", ignoreCase = true) ->
+                "Your Hugging Face Inference Providers monthly credits are used up. Credits reset each month. " +
+                    "Add a Groq or OpenRouter key in Settings, or wait for the allowance to refill."
+            msg.contains("quota exceeded", ignoreCase = true) || msg.contains("ZeroGPU quota", ignoreCase = true) ->
+                "Your Hugging Face account is out of free ZeroGPU minutes. The allowance refills " +
+                    "daily — retry later, use a different HF token, or run try-on locally with Lite/Pro."
             msg.contains("401") || msg.contains("Unauthorized", ignoreCase = true) ->
                 "API key rejected for ${provider.displayName}. Re-save the free token in Settings."
             msg.contains("429") || msg.contains("rate", ignoreCase = true) ->
@@ -239,6 +283,13 @@ object CloudModelContracts {
                 "${provider.displayName} Space looks offline (404). Switch model in Settings."
             msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true) ->
                 "$label timed out on ${provider.displayName}. Retry off-peak or pick a faster free model."
+            msg.contains("waking", ignoreCase = true) ||
+                msg.contains("restarting", ignoreCase = true) ||
+                msg.contains("empty error", ignoreCase = true) ||
+                (msg.contains("event: error", ignoreCase = true) && msg.contains("null", ignoreCase = true)) ->
+                "${provider.displayName} is out of free GPU quota or waking up. " +
+                    "Free ZeroGPU quota refills after a while — retry later or pick another model. " +
+                    "(${c.failureHint})"
             msg.contains("NSFW", ignoreCase = true) ||
                 msg.contains("safety", ignoreCase = true) ||
                 msg.contains("content policy", ignoreCase = true) ||

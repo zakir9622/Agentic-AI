@@ -25,6 +25,15 @@ enum class AiCapability {
 }
 
 /**
+ * Visual capabilities are executed by the Gradio Space client, so only [CloudPlatform.HF_SPACE]
+ * providers can serve them. Text capabilities use the chat clients and accept any free platform.
+ */
+fun AiCapability.requiresSpace(): Boolean = when (this) {
+    AiCapability.TRY_ON, AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> true
+    AiCapability.CODE -> false
+}
+
+/**
  * Curated **free** open-source cloud models. Every entry must be usable without payment.
  * Cost estimates are always 0; token estimates help Usage tracking for LLMs.
  */
@@ -62,7 +71,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 95,
             speedScore = 60,
-            usageNote = "Ready · tryon ImageEditor+garment+auto-mask. Free ZeroGPU.",
+            usageNote = "Degraded · host returns session errors (Aug 2026). Prefer OOTDiffusion.",
         ),
         CloudModelProvider(
             id = "leffa-hf",
@@ -90,7 +99,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 50,
-            usageNote = "Ready · process_hd model+garment+steps/guidance/seed. Queues at peak.",
+            usageNote = "Ready · process_hd verified end-to-end. Best free try-on right now.",
         ),
         CloudModelProvider(
             id = "fitdit-hf",
@@ -118,7 +127,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 86,
             speedScore = 80,
-            usageNote = "Ready · ImageEditor person + cloth type. Prefer IDM if busy.",
+            usageNote = "Degraded · host often rejects queued runs. Prefer OOTDiffusion.",
         ),
         CloudModelProvider(
             id = "catvton-flux-hf",
@@ -137,6 +146,58 @@ object CloudModelCatalog {
         // Kolors Space no longer exposes tryon API — removed.
 
         // ── Image generation / recreate (free HF) ───────────────────────
+        CloudModelProvider(
+            id = "sdxl-turbo-inference",
+            displayName = "SDXL Turbo (HF Inference)",
+            description = "Fast text-to-image via HF Inference Providers (nscale).",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_GEN,
+            endpoint = "stabilityai/sdxl-turbo",
+            license = "OpenRAIL++",
+            requiresApiKey = true,
+            qualityScore = 87,
+            speedScore = 96,
+            usageNote = "Ready · HF Inference Providers (nscale). Needs HF token.",
+        ),
+        CloudModelProvider(
+            id = "instruct-pix2pix-inference",
+            displayName = "InstructPix2Pix (HF Inference)",
+            description = "Edit images with natural language via HF Inference Providers.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_EDIT,
+            endpoint = "timbrooks/instruct-pix2pix",
+            license = "MIT",
+            requiresApiKey = true,
+            qualityScore = 84,
+            speedScore = 80,
+            usageNote = "Ready · HF Inference edit. Needs HF token + reference image.",
+        ),
+        CloudModelProvider(
+            id = "flux-schnell-inference",
+            displayName = "FLUX.1 Schnell (HF Inference)",
+            description = "OpenCode-style HF Inference Providers — uses monthly HF credits, not ZeroGPU.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_GEN,
+            endpoint = "black-forest-labs/FLUX.1-schnell",
+            license = "Apache 2.0",
+            requiresApiKey = true,
+            qualityScore = 94,
+            speedScore = 90,
+            usageNote = "Ready · HF Inference Providers (nscale/fal). Needs HF token.",
+        ),
+        CloudModelProvider(
+            id = "z-image-turbo-inference",
+            displayName = "Z-Image Turbo (HF Inference)",
+            description = "Fast text-to-image via HF Inference Providers when Spaces are down.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.IMAGE_GEN,
+            endpoint = "Tongyi-MAI/Z-Image-Turbo",
+            license = "Apache 2.0",
+            requiresApiKey = true,
+            qualityScore = 90,
+            speedScore = 95,
+            usageNote = "Ready · HF Inference Providers (fal-ai). Needs HF token.",
+        ),
         CloudModelProvider(
             id = "flux-schnell-hf",
             displayName = "FLUX.1 Schnell",
@@ -163,7 +224,7 @@ object CloudModelCatalog {
             requiresApiKey = false,
             qualityScore = 88,
             speedScore = 92,
-            usageNote = "Ready · generate_image prompt + 4-Step dropdown.",
+            usageNote = "Degraded · Space errors on every run. Prefer FLUX Schnell.",
         ),
         CloudModelProvider(
             id = "qwen-image-edit-hf",
@@ -171,12 +232,15 @@ object CloudModelCatalog {
             description = "Recreate / edit an input image from a text prompt.",
             platform = CloudPlatform.HF_SPACE,
             capability = AiCapability.IMAGE_EDIT,
-            endpoint = "qwen-qwen-image-edit.hf.space",
+            // The official Qwen Space rejects every REST /call instantly; this distilled
+            // mirror accepts the same schema and needs 8 steps instead of 50, so it fits
+            // inside the free ZeroGPU allowance.
+            endpoint = "multimodalart-qwen-image-edit-fast.hf.space",
             apiName = "infer",
             license = "Apache 2.0",
             requiresApiKey = false,
             qualityScore = 90,
-            speedScore = 70,
+            speedScore = 85,
             usageNote = "Ready · infer reference image + prompt + guidance/steps.",
         ),
         CloudModelProvider(
@@ -195,6 +259,20 @@ object CloudModelCatalog {
         ),
 
         // ── Coding LLMs (free tiers) ────────────────────────────────────
+        CloudModelProvider(
+            id = "qwen25-coder-7b-hf",
+            displayName = "Qwen2.5-Coder 7B (HF)",
+            description = "Faster coding model via HF Inference Providers — lower credit use.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.CODE,
+            endpoint = "Qwen/Qwen2.5-Coder-7B-Instruct",
+            license = "Apache 2.0",
+            requiresApiKey = true,
+            qualityScore = 86,
+            speedScore = 92,
+            estTokensPerRequest = 1500,
+            usageNote = "Ready · HF Inference Providers. Good when 32B is rate-limited.",
+        ),
         CloudModelProvider(
             id = "qwen25-coder-hf",
             displayName = "Qwen2.5-Coder 32B",
@@ -308,9 +386,9 @@ object CloudModelCatalog {
         return byId(preferredId) ?: forCapability(capability).first()
     }
 
-    val defaultTryOnId: String = "idm-vton-hf"
+    val defaultTryOnId: String = "ootd-hf"
     val defaultImageGenId: String = "flux-schnell-hf"
-    val defaultImageEditId: String = "instruct-pix2pix-hf"
+    val defaultImageEditId: String = "qwen-image-edit-hf"
     val defaultCodeId: String = "llama33-70b-groq"
     val defaultVideoId: String = "ltx-zerogpu-hf"
     val defaultId: String = defaultTryOnId

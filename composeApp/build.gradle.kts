@@ -14,11 +14,12 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 26
-        versionName = "2.8.0"
+        versionCode = 33
+        versionName = "2.9.6"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
         buildConfigField("String", "DEFAULT_HF_TOKEN", "\"\"")
         buildConfigField("String", "DEFAULT_OPENROUTER_TOKEN", "\"\"")
+        buildConfigField("String", "DEFAULT_GROQ_TOKEN", "\"\"")
     }
 
     flavorDimensions += "distribution"
@@ -58,8 +59,12 @@ android {
             val orDefault = (localProps.getProperty("lookbook.openrouter.token")
                 ?: System.getenv("LOOKBOOK_OPENROUTER_TOKEN")
                 ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
+            val groqDefault = (localProps.getProperty("lookbook.groq.token")
+                ?: System.getenv("LOOKBOOK_GROQ_TOKEN")
+                ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
             buildConfigField("String", "DEFAULT_HF_TOKEN", "\"$hfDefault\"")
             buildConfigField("String", "DEFAULT_OPENROUTER_TOKEN", "\"$orDefault\"")
+            buildConfigField("String", "DEFAULT_GROQ_TOKEN", "\"$groqDefault\"")
         }
         release {
             isMinifyEnabled = true
@@ -73,6 +78,7 @@ android {
             } ?: signingConfigs.getByName("debug")
             buildConfigField("String", "DEFAULT_HF_TOKEN", "\"\"")
             buildConfigField("String", "DEFAULT_OPENROUTER_TOKEN", "\"\"")
+            buildConfigField("String", "DEFAULT_GROQ_TOKEN", "\"\"")
         }
     }
 

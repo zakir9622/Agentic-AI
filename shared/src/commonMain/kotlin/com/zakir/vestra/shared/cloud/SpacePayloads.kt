@@ -11,6 +11,10 @@ import kotlinx.serialization.json.put
 /**
  * Typed Gradio `data` arrays matched to live Space `/info` schemas (Aug 2026).
  * Wrong apiName / shape was the root cause of empty/failed generations.
+ *
+ * Every image argument must be a [fileData] object. Gradio validates image inputs as
+ * `ImageData`/`FileData`, so a bare data-URL string fails validation before the model runs
+ * and streams back an empty error instead of a message.
  */
 object SpacePayloads {
 
@@ -33,9 +37,9 @@ object SpacePayloads {
     fun forImageEdit(providerId: String, prompt: String, imageDataUrl: String): List<JsonElement> =
         when (providerId) {
             "instruct-pix2pix-hf" -> listOf(
-                JsonPrimitive(imageDataUrl),
+                fileData(imageDataUrl),
                 JsonPrimitive(prompt),
-                JsonPrimitive(50), // steps
+                JsonPrimitive(8), // steps — lower to fit free ZeroGPU seconds
                 JsonPrimitive("Randomize Seed"),
                 JsonPrimitive(42),
                 JsonPrimitive("Fix CFG"),
@@ -43,15 +47,15 @@ object SpacePayloads {
                 JsonPrimitive(1.5),
             )
             "qwen-image-edit-hf" -> listOf(
-                JsonPrimitive(imageDataUrl),
+                fileData(imageDataUrl),
                 JsonPrimitive(prompt),
-                JsonPrimitive(0),
-                JsonPrimitive(true),
-                JsonPrimitive(4.0),
-                JsonPrimitive(50),
-                JsonPrimitive(true),
+                JsonPrimitive(0), // seed
+                JsonPrimitive(true), // randomize seed
+                JsonPrimitive(1.0), // true guidance scale
+                JsonPrimitive(8), // steps
+                JsonPrimitive(false), // enhance prompt — off avoids extra HF Inference call
             )
-            else -> listOf(JsonPrimitive(imageDataUrl), JsonPrimitive(prompt))
+            else -> listOf(fileData(imageDataUrl), JsonPrimitive(prompt))
         }
 
     fun forVideo(providerId: String, prompt: String): List<JsonElement> = when (providerId) {
@@ -67,17 +71,17 @@ object SpacePayloads {
         )
         "ltx-zerogpu-hf" -> listOf(
             JsonPrimitive(prompt),
-            JsonPrimitive("blurry, low quality, distorted, watermark, text"),
-            JsonPrimitive(""), // image_n unused for t2v
-            JsonPrimitive(""), // video_n unused for t2v
+            JsonPrimitive("worst quality, inconsistent motion, blurry, jittery, distorted, watermark, text"),
+            JsonNull, // image_n — must be null for text-to-video, not ""
+            JsonNull, // video_n
             JsonPrimitive(512), // height
-            JsonPrimitive(768), // width
+            JsonPrimitive(704), // width (live Space default)
             JsonPrimitive("text-to-video"),
-            JsonPrimitive(3.0), // duration seconds
-            JsonPrimitive(0), // frames from input video
+            JsonPrimitive(2.0), // duration seconds (live default)
+            JsonPrimitive(9), // frames from input video
             JsonPrimitive(42), // seed
             JsonPrimitive(true), // randomize
-            JsonPrimitive(3.0), // cfg
+            JsonPrimitive(1.0), // cfg (live default)
             JsonPrimitive(true), // improve texture
             JsonPrimitive(false), // slow motion
         )
@@ -101,7 +105,7 @@ object SpacePayloads {
         return when (providerId) {
             "idm-vton-hf" -> listOf(
                 imageEditor(personDataUrl),
-                JsonPrimitive(garmentDataUrl),
+                fileData(garmentDataUrl),
                 JsonPrimitive(category.idmGarmentDesc()),
                 JsonPrimitive(true), // auto-generated mask
                 JsonPrimitive(false), // auto-crop
@@ -109,8 +113,8 @@ object SpacePayloads {
                 JsonPrimitive(42), // seed
             )
             "ootd-hf" -> listOf(
-                JsonPrimitive(personDataUrl),
-                JsonPrimitive(garmentDataUrl),
+                fileData(personDataUrl),
+                fileData(garmentDataUrl),
                 JsonPrimitive(1), // number of images
                 JsonPrimitive(20), // steps
                 JsonPrimitive(2.0), // guidance
@@ -118,7 +122,7 @@ object SpacePayloads {
             )
             "catvton-hf" -> listOf(
                 imageEditor(personDataUrl),
-                JsonPrimitive(garmentDataUrl),
+                fileData(garmentDataUrl),
                 JsonPrimitive(category.catvtonClothType()),
                 JsonPrimitive(50), // inference steps
                 JsonPrimitive(2.5), // cfg
@@ -126,29 +130,50 @@ object SpacePayloads {
                 JsonPrimitive("result only"),
             )
             "leffa-hf" -> listOf(
-                JsonPrimitive(personDataUrl),
-                JsonPrimitive(garmentDataUrl),
+                fileData(personDataUrl),
+                fileData(garmentDataUrl),
                 JsonPrimitive("vton"),
                 JsonPrimitive(1.0),
             )
             "catvton-flux-hf" -> listOf(
                 imageEditor(personDataUrl),
-                JsonPrimitive(garmentDataUrl),
+                fileData(garmentDataUrl),
                 JsonPrimitive(category.catvtonClothType()),
                 JsonPrimitive(28),
                 JsonPrimitive(3.5),
                 JsonPrimitive(42),
                 JsonPrimitive("result only"),
             )
-            else -> listOf(JsonPrimitive(personDataUrl), JsonPrimitive(garmentDataUrl))
+            else -> listOf(fileData(personDataUrl), fileData(garmentDataUrl))
         }
     }
 
     /** Gradio ImageEditor value for auto-mask Spaces (background only, empty layers). */
     fun imageEditor(backgroundDataUrl: String): JsonElement = buildJsonObject {
-        put("background", backgroundDataUrl)
+        put("background", fileData(backgroundDataUrl))
         put("layers", buildJsonArray { })
         put("composite", JsonNull)
+    }
+
+    /**
+     * Gradio `FileData` for an inline image. Gradio accepts a base64 data URL in `url`,
+     * which is how the app avoids a separate upload round-trip.
+     */
+    fun fileData(dataUrl: String): JsonElement {
+        require(dataUrl.startsWith("data:") || dataUrl.startsWith("http")) {
+            "Reference image must be a data URL or https URL"
+        }
+        val mime = dataUrl.substringAfter("data:", "").substringBefore(";", "")
+            .takeIf { it.isNotBlank() } ?: "image/jpeg"
+        return buildJsonObject {
+            put("path", JsonNull)
+            put("url", dataUrl)
+            put("size", JsonNull)
+            put("orig_name", if (mime.endsWith("png")) "input.png" else "input.jpg")
+            put("mime_type", mime)
+            put("is_stream", false)
+            put("meta", buildJsonObject { put("_type", "gradio.FileData") })
+        }
     }
 }
 

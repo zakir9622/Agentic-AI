@@ -1,0 +1,220 @@
+package com.zakir.vestra.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.cloud.CloudModelContracts
+import com.zakir.vestra.shared.cloud.CloudModelProvider
+import com.zakir.vestra.shared.cloud.ModelSupportLevel
+import com.zakir.vestra.ui.theme.VestraColors
+
+/**
+ * In-composer searchable model list — chat-bar model pill opens this sheet.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ModelPickerSheet(
+    title: String = "Available models",
+    models: List<CloudModelProvider>,
+    selectedId: String,
+    onSelect: (CloudModelProvider) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val selectable = remember(models) {
+        models.filter { CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED }
+    }
+    val filtered = remember(selectable, query) {
+        val q = query.trim().lowercase()
+        val list = if (q.isEmpty()) {
+            selectable
+        } else {
+            selectable.filter {
+                it.displayName.lowercase().contains(q) ||
+                    it.id.lowercase().contains(q) ||
+                    it.platform.name.lowercase().contains(q) ||
+                    (it.endpoint?.lowercase()?.contains(q) == true)
+            }
+        }
+        list.sortedWith(
+            compareByDescending<CloudModelProvider> {
+                when (CloudModelContracts.forProvider(it).support) {
+                    ModelSupportLevel.READY -> 3
+                    ModelSupportLevel.DEGRADED -> 2
+                    ModelSupportLevel.UNSUPPORTED -> 0
+                }
+            }.thenBy { it.displayName.lowercase() },
+        )
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = VestraColors.SurfaceRaised,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = VestraColors.InkMuted,
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Outlined.Search, contentDescription = null, tint = VestraColors.Accent)
+                },
+                placeholder = { Text("Search by name…") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
+                    unfocusedBorderColor = VestraColors.GlassBorder,
+                    focusedContainerColor = VestraColors.GlassFill,
+                    unfocusedContainerColor = VestraColors.GlassFill,
+                ),
+                shape = RoundedCornerShape(16.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            LazyColumn(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items(filtered, key = { it.id }) { model ->
+                    val selected = model.id == selectedId
+                    val support = CloudModelContracts.forProvider(model).support
+                    val blocked = support == ModelSupportLevel.UNSUPPORTED
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
+                            )
+                            .border(
+                                1.dp,
+                                if (selected) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
+                                RoundedCornerShape(16.dp),
+                            )
+                            .clickable(enabled = !blocked) {
+                                onSelect(model)
+                                onDismiss()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(VestraColors.Accent.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when (support) {
+                                            ModelSupportLevel.READY -> VestraColors.Accent
+                                            ModelSupportLevel.DEGRADED -> VestraColors.AccentSoft
+                                            ModelSupportLevel.UNSUPPORTED -> VestraColors.InkMuted
+                                        },
+                                    ),
+                            )
+                        }
+                        Spacer(Modifier.size(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                model.displayName,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = if (blocked) VestraColors.InkMuted else VestraColors.Ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                buildString {
+                                    append(CloudModelContracts.statusLabel(model))
+                                    append(" · ")
+                                    append(model.platform.name.replace('_', ' ').lowercase())
+                                    if (blocked) append(" · not selectable")
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = VestraColors.InkMuted,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (selected) {
+                            Icon(
+                                Icons.Outlined.Check,
+                                contentDescription = "Selected",
+                                tint = VestraColors.Accent,
+                            )
+                        } else if (!blocked) {
+                            Text(
+                                "Use",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = VestraColors.Accent,
+                            )
+                        }
+                    }
+                }
+                if (filtered.isEmpty()) {
+                    item {
+                        Text(
+                            "No models match “$query”.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = VestraColors.InkMuted,
+                            modifier = Modifier.padding(vertical = 16.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

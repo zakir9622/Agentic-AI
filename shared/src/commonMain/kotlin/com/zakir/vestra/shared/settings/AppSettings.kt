@@ -7,6 +7,7 @@ import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
+import com.zakir.vestra.shared.cloud.requiresSpace
 import com.zakir.vestra.shared.domain.EngineTier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -106,13 +107,25 @@ class AppSettings(private val settings: Settings) {
 
     fun resolveProvider(id: String, capability: AiCapability): CloudModelProvider =
         CloudModelCatalog.byId(id)
-            ?.takeIf {
-                it.capability == capability &&
-                    it.freeTier &&
-                    CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED
-            }
-            ?: _discoveredProviders.value.firstOrNull { it.id == id && it.capability == capability && it.freeTier }
+            ?.takeIf { it.usableFor(capability) }
+            ?: _discoveredProviders.value.firstOrNull { it.id == id && it.usableFor(capability) }
             ?: CloudModelCatalog.defaultFor(capability)
+
+    /**
+     * Visual capabilities run through the Gradio Space client, so an HF Inference model can
+     * never satisfy them — selecting one only produces "Only free Hugging Face Spaces are
+     * supported for images" at generation time.
+     */
+    private fun CloudModelProvider.usableFor(capability: AiCapability): Boolean =
+        this.capability == capability &&
+            freeTier &&
+            estCostUsd <= 0.0 &&
+            CloudModelContracts.forProvider(this).support != ModelSupportLevel.UNSUPPORTED &&
+            when {
+                !capability.requiresSpace() -> true
+                platform == CloudPlatform.HF_SPACE || platform == CloudPlatform.HF_INFERENCE -> true
+                else -> false
+            }
 
     fun selectedCloudProvider(): CloudModelProvider =
         resolveProvider(_cloudProviderId.value, AiCapability.TRY_ON)
@@ -138,7 +151,29 @@ class AppSettings(private val settings: Settings) {
             }
             return curated
         }
-        return resolveProvider(id, capability)
+        val resolved = resolveProvider(id, capability)
+        // Persist the correction so a stale Inference stub cannot come back on the next launch.
+        if (resolved.id != id) {
+            keyFor(capability)?.let { key -> settings.putString(key, resolved.id) }
+            flowFor(capability)?.let { flow -> flow.value = resolved.id }
+        }
+        return resolved
+    }
+
+    private fun keyFor(capability: AiCapability): String? = when (capability) {
+        AiCapability.TRY_ON -> KEY_CLOUD_PROVIDER
+        AiCapability.IMAGE_GEN -> KEY_IMAGE_GEN
+        AiCapability.IMAGE_EDIT -> KEY_IMAGE_EDIT
+        AiCapability.CODE -> KEY_CODE
+        AiCapability.VIDEO -> KEY_VIDEO
+    }
+
+    private fun flowFor(capability: AiCapability): MutableStateFlow<String>? = when (capability) {
+        AiCapability.TRY_ON -> _cloudProviderId
+        AiCapability.IMAGE_GEN -> _imageGenProviderId
+        AiCapability.IMAGE_EDIT -> _imageEditProviderId
+        AiCapability.CODE -> _codeProviderId
+        AiCapability.VIDEO -> _videoProviderId
     }
 
     fun apiKeyFor(provider: CloudModelProvider): String? = when (provider.platform) {
@@ -178,13 +213,38 @@ class AppSettings(private val settings: Settings) {
 
     private fun migrateProviderId(key: String, capability: AiCapability): String {
         val stored = settings.getStringOrNull(key)
-        val resolved = stored?.let { CloudModelCatalog.byId(it) }
-            ?.takeIf {
-                it.capability == capability &&
-                    it.freeTier &&
-                    it.estCostUsd <= 0.0 &&
-                    CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED
+        // One-time: InstructPix2Pix was the default edit model but its Space often returns
+        // empty Gradio errors — prefer Qwen Image Edit unless the user re-selects it later.
+        if (capability == AiCapability.IMAGE_EDIT && stored == "instruct-pix2pix-hf") {
+            val curated = CloudModelCatalog.defaultFor(capability)
+            settings.putString(key, curated.id)
+            return curated.id
+        }
+        // When HF token is configured, prefer Inference Providers for image gen (OpenCode-style).
+        if (capability == AiCapability.IMAGE_GEN &&
+            !settings.getStringOrNull(KEY_HF_TOKEN).isNullOrBlank()
+        ) {
+            val stored = settings.getStringOrNull(key)
+            if (stored == null || stored == "flux-schnell-hf" || stored == "sdxl-lightning-hf") {
+                settings.putString(key, "flux-schnell-inference")
+                return "flux-schnell-inference"
             }
+        }
+        if (capability == AiCapability.CODE && stored == "llama33-70b-groq" &&
+            settings.getStringOrNull(KEY_GROQ_KEY).isNullOrBlank()
+        ) {
+            val fallback = when {
+                !settings.getStringOrNull(KEY_HF_TOKEN).isNullOrBlank() -> "qwen25-coder-hf"
+                !settings.getStringOrNull(KEY_OPENROUTER_KEY).isNullOrBlank() -> "openrouter-free"
+                else -> stored
+            }
+            if (fallback != null && fallback != stored) {
+                settings.putString(key, fallback)
+                return fallback
+            }
+        }
+        val resolved = stored?.let { CloudModelCatalog.byId(it) }
+            ?.takeIf { it.usableFor(capability) }
             ?: CloudModelCatalog.defaultFor(capability)
         if (stored != resolved.id) settings.putString(key, resolved.id)
         // Drop legacy paid keys if present

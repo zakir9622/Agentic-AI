@@ -56,8 +56,9 @@ class DiffusionEngine(
                 Availability.Unavailable(UnavailableReason.DEVICE_NOT_CAPABLE)
             !packs.isInstalled(packId) ->
                 Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
+            // Pro masks the person with the Lite pack's parser, so Lite must be installed too.
             !packs.isInstalled(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID) ->
-                Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
+                Availability.Unavailable(UnavailableReason.COMPANION_PACK_MISSING)
             else -> Availability.Ready
         }
     }
@@ -165,7 +166,11 @@ class DiffusionEngine(
                 // ── Stage 3: SYNTHESIS — diffuse under structure + texture +
                 // PromptStyle guidance (CFG 7.0, 20–25 steps, mobile-safe).
                 val scheduler = DdimScheduler()
-                val steps = config.inferenceSteps
+                val steps = if (config.lcmDistilled) {
+                    minOf(8, maxOf(4, config.inferenceSteps / 4))
+                } else {
+                    config.inferenceSteps
+                }
                 val cfg = config.guidanceScale
                 val timesteps = scheduler.timesteps(steps)
                 val random = request.seed?.let { Random(it) } ?: Random(System.nanoTime())
@@ -253,6 +258,8 @@ data class ProPackConfig(
     // Photorealism defaults (PromptStyle): CFG 7.0, 22 steps. A pack tuned for a
     // low-CFG model (e.g. CatVTON) may override both in its config.json.
     val inferenceSteps: Int = com.zakir.vestra.shared.engine.pipeline.PromptStyle.STEPS,
+    /** When true, use LCM/Hyper-SD distilled step count (4–8) instead of full diffusion. */
+    val lcmDistilled: Boolean = false,
     val guidanceScale: Float = com.zakir.vestra.shared.engine.pipeline.PromptStyle.CFG_SCALE,
     val vaeScale: Float = 0.18215f,
     /** "width" or "height" — axis the garment latent is concatenated along (legacy CatVTON path). */

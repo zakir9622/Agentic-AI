@@ -42,7 +42,8 @@ class ModelPackManager(
     /** Loads the last manifest fetched (offline start), then refreshes over the network. */
     suspend fun refresh(networkAllowed: Boolean = true) {
         withContext(Dispatchers.Default) {
-            cachedManifest()?.let { rebuildStates(it) }
+            // Runs even without a cached catalog so bundled packs are still discovered.
+            rebuildStates(cachedManifest() ?: PackManifest(schemaVersion = 1, packs = emptyList()))
         }
         if (!networkAllowed) return
         runCatching {
@@ -145,7 +146,7 @@ class ModelPackManager(
 
     private fun rebuildStates(manifest: PackManifest) {
         val previous = _states.value
-        _states.value = manifest.packs.associate { pack ->
+        _states.value = withBundledPacks(manifest.packs).associate { pack ->
             val dir = versionDir(pack)
             val installedAnyVersion = fs.listFiles("${fs.packsRoot()}/${pack.id}")
                 .any { fs.exists("$it/$COMPLETE_MARKER") }
@@ -181,6 +182,19 @@ class ModelPackManager(
             runCatching { json.decodeFromString<PackManifest>(cached) }.getOrNull()
         }
 
+    /**
+     * Packs that shipped with the build or were sideloaded are not in the published catalog,
+     * so a remote refresh would otherwise drop them and report an installed pack as missing.
+     */
+    private fun withBundledPacks(remote: List<ModelPack>): List<ModelPack> {
+        val bundled = fs.readText(bundledPath())
+            ?.let { runCatching { json.decodeFromString<PackManifest>(it) }.getOrNull() }
+            ?.packs
+            .orEmpty()
+        val remoteIds = remote.map { it.id }.toSet()
+        return remote + bundled.filter { it.id !in remoteIds }
+    }
+
     private fun updateStatus(id: String, transform: (PackState) -> PackState) {
         val current = _states.value[id] ?: return
         _states.value = _states.value + (id to transform(current))
@@ -191,10 +205,15 @@ class ModelPackManager(
 
     private fun cachePath(): String = "${fs.packsRoot()}/manifest.cache.json"
 
+    private fun bundledPath(): String = "${fs.packsRoot()}/$BUNDLED_MANIFEST"
+
     private fun parentOf(path: String): String = path.substringBeforeLast('/')
 
     companion object {
         const val COMPLETE_MARKER = ".complete"
+
+        /** Catalog entries for packs installed outside the published manifest. */
+        const val BUNDLED_MANIFEST = "manifest.bundled.json"
         private const val SPACE_MARGIN_BYTES = 500L * 1024 * 1024
     }
 }

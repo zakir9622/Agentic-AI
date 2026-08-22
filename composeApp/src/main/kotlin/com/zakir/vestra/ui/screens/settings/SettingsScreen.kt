@@ -86,6 +86,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class SettingsSection {
+    HUB,
+    CLOUD,
+    ENGINES,
+    APPEARANCE,
+    ALL,
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -99,7 +107,21 @@ fun SettingsScreen(
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onBack: () -> Unit,
+    section: SettingsSection = SettingsSection.ALL,
+    onNavigateSection: ((SettingsSection) -> Unit)? = null,
 ) {
+    if (section == SettingsSection.HUB) {
+        SettingsHubScreen(
+            onBack = onBack,
+            onOpenCloud = { onNavigateSection?.invoke(SettingsSection.CLOUD) },
+            onOpenEngines = { onNavigateSection?.invoke(SettingsSection.ENGINES) },
+            onOpenAppearance = { onNavigateSection?.invoke(SettingsSection.APPEARANCE) },
+            onOpenUsage = onOpenUsage,
+            onOpenHelp = onOpenHelp,
+            onOpenPrivacy = onOpenPrivacy,
+        )
+        return
+    }
     val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
     val appearance by appSettings.appearanceMode.collectAsState()
@@ -123,6 +145,7 @@ fun SettingsScreen(
     var groqInput by remember(groqKey) { mutableStateOf(groqKey.orEmpty()) }
     var openRouterInput by remember(openRouterKey) { mutableStateOf(openRouterKey.orEmpty()) }
     var keysSavedFlash by remember { mutableStateOf(false) }
+    var showTokenWizard by remember { mutableStateOf(false) }
     var confirmClearTokens by remember { mutableStateOf(false) }
     var clearingCache by remember { mutableStateOf(false) }
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
@@ -186,6 +209,20 @@ fun SettingsScreen(
                 Toast.LENGTH_LONG,
             ).show()
         }
+        scope.launch {
+            runCatching { freeCloudDiscovery.refreshRouterDiscovery(appSettings) }
+        }
+        if (hfInput.isNotBlank()) showTokenWizard = true
+    }
+
+    if (showTokenWizard) {
+        TokenSetupWizard(
+            onDismiss = { showTokenWizard = false },
+            onOpenPortal = { openPortal(it) },
+            hfConfigured = hfInput.isNotBlank(),
+            groqConfigured = groqInput.isNotBlank(),
+            openRouterConfigured = openRouterInput.isNotBlank(),
+        )
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -206,7 +243,23 @@ fun SettingsScreen(
 
     val localPackChoices = remember { LocalModelCatalog.entries.filter { it.packId != null && it.runnable } }
     var selectedPackId by remember {
-        mutableStateOf(localPackChoices.firstOrNull()?.packId.orEmpty())
+        val preferred = when (appSettings.engineTier.value) {
+            EngineTier.LITE -> localPackChoices.firstOrNull { it.engineTier == EngineTier.LITE }?.packId
+            EngineTier.PRO -> localPackChoices.firstOrNull { it.engineTier == EngineTier.PRO }?.packId
+            EngineTier.AUTO, EngineTier.CLOUD -> null
+        }
+        mutableStateOf(preferred ?: localPackChoices.firstOrNull()?.packId.orEmpty())
+    }
+    // Keep pack dropdown aligned when engine tier changes elsewhere.
+    LaunchedEffect(selectedTier) {
+        val match = when (selectedTier) {
+            EngineTier.LITE -> localPackChoices.firstOrNull { it.engineTier == EngineTier.LITE }?.packId
+            EngineTier.PRO -> localPackChoices.firstOrNull { it.engineTier == EngineTier.PRO }?.packId
+            else -> null
+        }
+        if (match != null && selectedPackId != match) {
+            selectedPackId = match
+        }
     }
 
     if (confirmClearTokens) {
@@ -516,7 +569,13 @@ fun SettingsScreen(
                     PackDropdown(
                         choices = localPackChoices.map { it.packId!! to "${it.displayName} · ${it.approxSizeLabel}" },
                         selectedId = selectedPackId,
-                        onSelect = { selectedPackId = it },
+                        onSelect = { id ->
+                            selectedPackId = id
+                            LocalModelCatalog.entries
+                                .firstOrNull { it.packId == id }
+                                ?.engineTier
+                                ?.let { appSettings.setEngineTier(it) }
+                        },
                     )
                     val status = packStates[selectedPackId]?.status
                     val progress = packStates[selectedPackId]?.progress ?: 0f
@@ -824,7 +883,7 @@ private fun EngineDropdown(
         ) {
             options.forEach { tier ->
                 val avail = availability(tier)
-                val enabled = avail == Availability.Ready || tier == EngineTier.CLOUD || tier == EngineTier.AUTO
+                val enabled = true // Always selectable; pack download is the recovery path for Lite/Pro.
                 DropdownMenuItem(
                     text = {
                         Column {
@@ -904,21 +963,13 @@ private fun CloudCapabilityDropdown(
     val hfToken by appSettings.hfToken.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
     val openRouterKey by appSettings.openRouterApiKey.collectAsState()
-    // Recompute when any token changes
-    val tokenEpoch = "${hfToken.orEmpty()}|${groqKey.orEmpty()}|${openRouterKey.orEmpty()}"
+    val discovered by appSettings.discoveredProviders.collectAsState()
+    val tokenEpoch = "${hfToken.orEmpty()}|${groqKey.orEmpty()}|${openRouterKey.orEmpty()}|${discovered.size}"
 
-    var discovered by remember(capability) { mutableStateOf<List<CloudModelProvider>>(emptyList()) }
-    var discovering by remember { mutableStateOf(false) }
-    var discoverError by remember { mutableStateOf<String?>(null) }
-    var discoverInfo by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-
-    val usable = remember(tokenEpoch, capability) { discovery.curatedUsable(appSettings, capability) }
+    val usable = remember(tokenEpoch, capability) { discovery.selectable(appSettings, capability) }
     val locked = remember(tokenEpoch, capability) { discovery.curatedLocked(appSettings, capability) }
     val unsupported = remember(capability) { discovery.curatedUnsupported(capability) }
-    val options = remember(usable, discovered) {
-        (usable + discovered).distinctBy { it.id }
-    }
+    val options = usable
 
     var expanded by remember { mutableStateOf(false) }
     val selected = options.firstOrNull { it.id == selectedId }
@@ -1028,61 +1079,22 @@ private fun CloudCapabilityDropdown(
         }
         if (unsupported.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
+            // Nothing is wrong with the user's setup here — these are models the app cannot
+            // drive yet — so this reads as a footnote rather than an error.
             Text(
-                "Not selectable (schema gap): " +
-                    unsupported.joinToString { it.displayName } +
-                    " — " +
-                    (unsupported.firstOrNull()?.let { CloudModelContracts.forProvider(it).failureHint } ?: ""),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        Spacer(Modifier.height(4.dp))
-        // HF Inference discovery only applies to gen/edit/code — try-on & video use curated Spaces.
-        val discoverySupported = capability == AiCapability.IMAGE_GEN ||
-            capability == AiCapability.IMAGE_EDIT ||
-            capability == AiCapability.CODE
-        if (discoverySupported) {
-            TextButton(
-                onClick = {
-                    discovering = true
-                    discoverError = null
-                    discoverInfo = null
-                    scope.launch {
-                        val token = appSettings.hfToken.value
-                        if (token.isNullOrBlank()) {
-                            discoverError = "Save an HF token above, then refresh"
-                            discovering = false
-                            return@launch
-                        }
-                        discovered = discovery.discoverHf(token, capability)
-                        appSettings.rememberDiscovered(discovered)
-                        discovering = false
-                        if (discovered.isEmpty()) {
-                            // Curated catalog is the source of truth — empty discovery is not a failure.
-                            discoverInfo = "No extra warm HF Inference models right now. Curated free models above still work."
-                        } else {
-                            discoverInfo = "Added ${discovered.size} warm HF Inference model(s)"
-                        }
-                    }
-                },
-                enabled = !discovering,
-            ) {
-                Text(if (discovering) "Refreshing HF free models…" else "Refresh free HF models from token")
-            }
-        } else {
-            Text(
-                "Uses curated free HF Spaces / APIs — live Inference discovery isn’t needed here.",
+                "Not selectable yet: " + unsupported.joinToString { it.displayName },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        discoverError?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-        }
-        discoverInfo?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Spacer(Modifier.height(4.dp))
+        // Warm HF Inference auto-listing is disabled: image/video need Gradio Spaces, and
+        // CODE uses curated Groq/HF/OpenRouter chat routes only.
+        Text(
+            "Uses curated free HF Spaces / APIs — live Inference discovery isn’t needed here.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -1130,6 +1142,8 @@ private fun EngineTier.description(availability: Availability): String {
         Availability.Ready -> base
         is Availability.Unavailable -> when (availability.reason) {
             UnavailableReason.PACK_NOT_INSTALLED -> "$base Model pack not installed."
+            UnavailableReason.COMPANION_PACK_MISSING ->
+                "$base Pro also needs the Lite pack — install Lite to enable it."
             UnavailableReason.DEVICE_NOT_CAPABLE -> "$base Device doesn’t meet RAM requirements."
             UnavailableReason.OFFLINE -> "$base No internet connection."
             UnavailableReason.NOT_CONFIGURED -> "$base Add the required free API key above."

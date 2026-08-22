@@ -27,8 +27,14 @@ import com.zakir.vestra.shared.wardrobe.AndroidTextFileStore
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.storage.TokenSidecar
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class VestraApp : Application() {
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     lateinit var appSettings: AppSettings
         private set
@@ -69,6 +75,7 @@ class VestraApp : Application() {
         // Optional sideload seed from local.properties / LOOKBOOK_HF_TOKEN (gitignored).
         TokenSidecar.applyDefaultHfIfBlank(appSettings, BuildConfig.DEFAULT_HF_TOKEN)
         TokenSidecar.applyDefaultOpenRouterIfBlank(appSettings, BuildConfig.DEFAULT_OPENROUTER_TOKEN)
+        TokenSidecar.applyDefaultGroqIfBlank(appSettings, BuildConfig.DEFAULT_GROQ_TOKEN)
         if (DurableStorage.hasAllFilesAccess()) {
             TokenSidecar.autoFetchFromDocuments(appSettings, overwriteExisting = false)
         }
@@ -79,7 +86,9 @@ class VestraApp : Application() {
             manifestUrl = PACKS_MANIFEST_URL,
         )
         PackDownloadWorker.dependencies = { packManager }
-        DebugPackBootstrap.seedLitePack(this, DurableStorage.resolvePacksRoot(this))
+        DebugPackBootstrap.seedLitePackAsync(this, DurableStorage.resolvePacksRoot(this)) {
+            appScope.launch { packManager.refresh(networkAllowed = false) }
+        }
         studioModels = StudioModelRepository(this, packManager)
 
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
