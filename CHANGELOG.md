@@ -1,5 +1,10 @@
 # Changelog — The Lookbook
 
+## 3.0.9
+- **Auto-troubleshooting:** uncaught crashes append to `diagnostics/crash_log.txt` (never auto-cleared) with classified `likelyCause`
+- Continuous `app_trace.log` breadcrumbs (screen route) + rotating size cap
+- Diagnostics: last-crash card, **Share troubleshooting bundle**, manual clear only for crash/trace
+
 ## 3.0.8
 - Diagnostics export includes **logcat snippet** (warnings+) + app version in the JSON bundle
 - Plan **COMPLETION.md** scorecard for Claude expansion + v3 follow-up (~95% in-repo done)

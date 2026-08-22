@@ -2,6 +2,7 @@ package com.zakir.vestra.data
 
 import android.content.Context
 import com.zakir.vestra.BuildConfig
+import com.zakir.vestra.diagnostics.CrashReporter
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.usage.UsageLedger
 import java.io.File
@@ -17,19 +18,41 @@ object DiagnosticsExport {
         usage: UsageLedger? = null,
     ): File {
         val dir = File(context.filesDir, "diagnostics").apply { mkdirs() }
+        val logcat = captureLogcatSnippet()
         val bundle = diagnostics.exportBundle(
             usage = usage?.summary?.value,
-            logcatSnippet = captureLogcatSnippet(),
+            logcatSnippet = logcat,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         )
         val history = File(dir, "run_history.json")
         history.writeText(bundle)
-        val dated = File(
-            dir,
-            "lookbook-diagnostics-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.json",
-        )
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+        val dated = File(dir, "lookbook-diagnostics-$stamp.json")
         dated.writeText(bundle)
+        // Append-friendly full text bundle for crash triage (does not clear crash_log).
+        File(dir, "troubleshooting-$stamp.txt").writeText(
+            CrashReporter.troubleshootingText(
+                runHistoryJson = bundle,
+                logcatSnippet = logcat,
+            ),
+        )
         return dated
+    }
+
+    fun shareTroubleshootingText(
+        diagnostics: RunDiagnostics,
+        usage: UsageLedger?,
+    ): String {
+        val logcat = captureLogcatSnippet()
+        val bundle = diagnostics.exportBundle(
+            usage = usage?.summary?.value,
+            logcatSnippet = logcat,
+            appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        )
+        return CrashReporter.troubleshootingText(
+            runHistoryJson = bundle,
+            logcatSnippet = logcat,
+        )
     }
 
     /**

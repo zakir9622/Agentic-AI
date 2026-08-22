@@ -83,6 +83,8 @@ class VestraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Install BEFORE other init so early crashes are captured and logs append forever.
+        com.zakir.vestra.diagnostics.CrashReporter.install(this)
         val prefs = SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE))
         appSettings = AppSettings(prefs)
         appSettings.networkProbe = { isNetworkAvailable(this) }

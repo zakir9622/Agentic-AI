@@ -1,6 +1,7 @@
 package com.zakir.vestra.ui.screens.settings
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.BuildConfig
 import com.zakir.vestra.data.DiagnosticsExport
+import com.zakir.vestra.diagnostics.CrashReporter
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.diagnostics.RunRecord
@@ -31,6 +33,7 @@ import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
 @Composable
 fun DiagnosticsScreen(
     diagnostics: RunDiagnostics,
@@ -42,17 +45,49 @@ fun DiagnosticsScreen(
     val usageSummary by usage?.summary?.collectAsState() ?: remember { mutableStateOf(null) }
     val context = LocalContext.current
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
+    var crashTick by remember { mutableStateOf(0) }
+    val pendingCrash = remember(crashTick) { CrashReporter.hasPendingCrash() }
+    val crashSummary = remember(crashTick) { CrashReporter.lastCrashSummary() }
 
     GlassScreen(
         title = "Run diagnostics",
-        subtitle = "Local + cloud generation history",
+        subtitle = "Crashes · runs · auto-troubleshooting",
         onBack = onBack,
     ) {
+        GlassCard {
+            GlassSectionLabel("AUTO TROUBLESHOOTING")
+            Text(
+                "Crashes and app traces append to files and are never cleared automatically. " +
+                    "After a crash, reopen the app → Diagnostics to see the likely cause and share the bundle.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+
+        if (pendingCrash && crashSummary != null) {
+            GlassCard {
+                GlassSectionLabel("LAST CRASH")
+                Text(
+                    crashSummary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VestraColors.Accent,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    CrashReporter.lastCrashLikelyCause().orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
         GlassCard {
             GlassSectionLabel("HOW IT WORKS")
             Text(
                 "Lite segments and warps on-device; Pro runs diffusion; cloud uses HF Spaces. " +
-                    "Each run records stage timings you can export when reporting issues.",
+                    "Each run records stage timings. Fatal crashes write to crash_log.txt with a classified cause.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -81,11 +116,27 @@ fun DiagnosticsScreen(
         GlassCard {
             GlassSectionLabel("EXPORT")
             Text(
-                "Share the last ${records.size.coerceAtMost(100)} runs as JSON (includes usage ledger + recent logcat when available).",
+                "Share runs + crash log + app trace + logcat. Crash history is append-only until you clear it here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = {
+                    DiagnosticsExport.writeToFilesDir(context, diagnostics, usage)
+                    val text = DiagnosticsExport.shareTroubleshootingText(diagnostics, usage)
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    context.startActivity(Intent.createChooser(send, "Share troubleshooting bundle"))
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Share troubleshooting bundle")
+            }
+            Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = {
                     DiagnosticsExport.writeToFilesDir(context, diagnostics, usage)
@@ -104,7 +155,7 @@ fun DiagnosticsScreen(
                 enabled = records.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Share diagnostics JSON")
+                Text("Share run history JSON only")
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
@@ -112,7 +163,29 @@ fun DiagnosticsScreen(
                 enabled = records.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Clear history")
+                Text("Clear run history")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    CrashReporter.clearCrashHistory()
+                    crashTick++
+                    Toast.makeText(context, "Crash log cleared", Toast.LENGTH_SHORT).show()
+                },
+                enabled = pendingCrash || CrashReporter.readCrashLog(64).isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Clear crash log (manual)")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    CrashReporter.clearAppTrace()
+                    Toast.makeText(context, "App trace cleared", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Clear app trace (manual)")
             }
         }
         Spacer(Modifier.height(24.dp))

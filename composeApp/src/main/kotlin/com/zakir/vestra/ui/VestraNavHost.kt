@@ -15,11 +15,13 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.zakir.vestra.data.NewsFeedConfig
 import android.content.Intent
+import com.zakir.vestra.diagnostics.CrashReporter
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.engine.EngineRouter
@@ -132,6 +134,12 @@ fun VestraNavHost(
 
     // Instant transitions — AnimatedContent measure of heavy screens (Settings)
     // was ANRing the main thread on mid/low devices and looking like a crash.
+    val navEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(navEntry?.destination?.route) {
+        val route = navEntry?.destination?.route ?: "unknown"
+        val tab = navEntry?.arguments?.getString("tab")
+        CrashReporter.breadcrumb(if (tab != null) "$route#$tab" else route)
+    }
     NavHost(
         navController = navController,
         startDestination = start,
