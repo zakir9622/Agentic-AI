@@ -1,5 +1,23 @@
 # Changelog — The Lookbook
 
+## 2.9.1
+- Fixed image generation and editing against live Hugging Face Spaces: image
+  arguments are now sent as Gradio `FileData` objects, so Qwen Image Edit and
+  InstructPix2Pix no longer fail validation with an empty `event: error` /
+  `data: null` response
+- Support Spaces on Gradio 4 (`/call`) as well as Gradio 5 (`/gradio_api/call`)
+- Read the result image from anywhere in a Space's output, fixing
+  InstructPix2Pix (image is the 4th output) and OOTDiffusion (gallery)
+- Retry Spaces that are waking or restarting, then fall back to another free
+  Space when the selected one is out of ZeroGPU quota
+- Report out-of-quota and rate-limited Spaces in plain language instead of raw
+  Gradio errors
+- Only Hugging Face Spaces can serve try-on, image and video; a stored HF
+  Inference model is migrated to a curated Space and the correction is saved
+- Default try-on is now OOTDiffusion (verified end-to-end); IDM-VTON, CatVTON
+  and SDXL Lightning are marked degraded after live failures
+- Settings names the Lite pack as the reason Pro try-on is unavailable
+
 ## 2.9.0
 - Home: “What would you like to do” action list first; Core Try-on centered below
 - Image / Video / Code studios: searchable in-composer model picker (name search)

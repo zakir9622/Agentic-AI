@@ -37,6 +37,9 @@ class GenerativeCloudService(
     ): Flow<GenerativeState> = flow {
         val capability = if (referenceUri.isNullOrBlank()) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
         val provider = settings.selectedProvider(capability)
+        // Errors are reported against the model that actually ran, which is not the selected
+        // one once the fallback chain kicks in.
+        var attempted = provider
         emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
             CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
@@ -55,6 +58,7 @@ class GenerativeCloudService(
             val variants = visualPromptVariants(prompt, assists)
             var lastError: Exception? = null
             for ((modelIndex, candidate) in candidates.withIndex()) {
+                attempted = candidate
                 if (modelIndex > 0) {
                     emit(
                         GenerativeState.Running(
@@ -104,11 +108,15 @@ class GenerativeCloudService(
             throw e
         } catch (e: Exception) {
             usage.record(
-                provider,
+                attempted,
                 success = false,
-                note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()),
+                note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
             )
-            emit(GenerativeState.Failed(CloudModelContracts.friendlyFailure(provider, e.message.orEmpty(), "Image generation")))
+            emit(
+                GenerativeState.Failed(
+                    CloudModelContracts.friendlyFailure(attempted, e.message.orEmpty(), "Image generation"),
+                ),
+            )
         }
     }
 
