@@ -58,8 +58,16 @@ def smoke_test(model: Path, input_hw: int) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=Path("exports/lite-v1"))
+    parser.add_argument(
+        "--pack-id",
+        choices=("lite-v1", "lite-v2"),
+        default="lite-v1",
+        help="Pack directory name (lite-v2 reserved for improved seg export)",
+    )
     args = parser.parse_args()
     out: Path = args.out
+    if args.pack_id == "lite-v2" and str(out) == "exports/lite-v1":
+        out = Path("exports/lite-v2")
     out.mkdir(parents=True, exist_ok=True)
 
     print("Fetching + quantizing garment segmentation (u2netp)…")

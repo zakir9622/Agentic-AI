@@ -65,9 +65,9 @@ fun NewsChatScreen(
     var showModelPicker by remember { mutableStateOf(false) }
 
     val codeId by appSettings?.codeProviderId?.collectAsState()
-        ?: remember { mutableStateOf(CloudModelCatalog.defaultCode().id) }
+        ?: remember { mutableStateOf(CloudModelCatalog.defaultFor(AiCapability.CODE).id) }
     val chatProvider = appSettings?.selectedProvider(AiCapability.CODE)
-        ?: CloudModelCatalog.defaultCode()
+        ?: CloudModelCatalog.defaultFor(AiCapability.CODE)
     val pickerModels = remember(freeCloudDiscovery, appSettings) {
         if (appSettings != null && freeCloudDiscovery != null) {
             freeCloudDiscovery.selectable(appSettings, AiCapability.CODE)

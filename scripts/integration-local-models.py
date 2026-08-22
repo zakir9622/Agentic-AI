@@ -98,7 +98,15 @@ def test_hf_manifest_and_download() -> None:
             dest.write_bytes(data)
             smoke_onnx(dest, h, w, f"HF {onnx_name}")
 
-    # Pro pack: verify config.json reachable without downloading multi-GB ONNX.
+    # pro-v2-int8: optional until published to HF manifest
+    if "pro-v2-int8" in packs:
+        print(f"  OK  manifest lists pro-v2-int8 v{packs['pro-v2-int8']['version']}")
+    else:
+        print("  … pro-v2-int8 not on manifest yet (pro-v1 preferred in app)")
+
+    for optional in ("birefnet-v1", "realesrgan-v1", "lite-v2"):
+        if optional in packs:
+            print(f"  OK  optional pack {optional} listed")
     pro = packs["pro-v1"]
     config = next((f for f in pro["files"] if f["path"] == "config.json"), None)
     if config is None:

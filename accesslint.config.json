@@ -1,0 +1,20 @@
+{
+  "targets": {
+    "dev": {
+      "url": "http://localhost:8080",
+      "description": "Local sideload debug — start app then adb reverse"
+    }
+  },
+  "defaultTarget": "dev",
+  "routes": [
+    "studio/tryon",
+    "studio/image",
+    "studio/video",
+    "studio/code",
+    "studio/news",
+    "settings",
+    "settings/diagnostics",
+    "usage",
+    "garment"
+  ]
+}

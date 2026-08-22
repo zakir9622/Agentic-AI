@@ -1,0 +1,40 @@
+package com.zakir.vestra.shared.diagnostics
+
+import com.russhwolf.settings.MapSettings
+import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.usage.UsageSummary
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class RunDiagnosticsTest {
+
+    @Test
+    fun appendAndExportRoundTrip() {
+        val diag = RunDiagnostics(MapSettings())
+        val builder = diag.startRun(
+            capability = RunCapability.IMAGE_GEN,
+            tier = EngineTier.CLOUD,
+            modelLabel = "FLUX",
+            deviceRamMb = 8192,
+        )
+        builder.stage("connect", 120)
+        builder.stage("generate", 3400)
+        builder.complete(success = true, note = "flux-schnell-hf")
+        val records = diag.records.value
+        assertEquals(1, records.size)
+        assertTrue(records[0].success)
+        assertEquals(2, records[0].stages.size)
+        assertTrue(diag.exportJson().contains("IMAGE_GEN"))
+    }
+
+    @Test
+    fun exportBundleIncludesUsageLedger() {
+        val diag = RunDiagnostics(MapSettings())
+        diag.startRun(RunCapability.CHAT, modelLabel = "Groq").complete(success = true)
+        val usage = UsageSummary(totalRequests = 3, successCount = 2)
+        val bundle = diag.exportBundle(usage)
+        assertTrue(bundle.contains("usageLedger"))
+        assertTrue(bundle.contains("totalRequests"))
+    }
+}

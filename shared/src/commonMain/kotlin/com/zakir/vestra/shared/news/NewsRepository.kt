@@ -48,9 +48,6 @@ class NewsRepository(
         _error.value = if (merged.isEmpty()) lastError else null
     }
 
-    fun headlineContext(max: Int = 5): String =
-        _items.value.take(max).joinToString("\n") { "• ${it.title} (${it.source})" }
-
     private fun parseRss(xml: String, source: String): List<NewsItem> {
         val items = mutableListOf<NewsItem>()
         val chunks = xml.split("<item>").drop(1)
@@ -66,6 +63,16 @@ class NewsRepository(
             )
         }
         return items
+    }
+
+    fun headlineContext(max: Int = 5): String =
+        _items.value.take(max).joinToString("\n") { "• ${it.title} (${it.source})" }
+
+    /** Visible for unit tests. */
+    internal fun parseRssForTest(xml: String, source: String): List<NewsItem> = parseRss(xml, source)
+
+    internal fun seedItemsForTest(items: List<NewsItem>) {
+        _items.value = items
     }
 
     private fun tagValue(xml: String, tag: String): String? {

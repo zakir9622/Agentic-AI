@@ -4,22 +4,22 @@ overview: 'A phased roadmap to expand The Lookbook with more working cloud/local
 todos:
   - id: cycle1-inference-discovery
     content: Enable HF router model discovery + inference image-edit; expand probe script and catalog
-    status: pending
+    status: completed
   - id: cycle2-quality-packs
     content: Build and ship BiRefNet + Real-ESRGAN packs; publish pro-v2-int8 to HF manifest
-    status: pending
+    status: in_progress
   - id: cycle3-ui-settings
     content: 'Split Settings, add model health UI, generation feedback, token wizard'
-    status: pending
+    status: completed
   - id: cycle4-speed-compliance
     content: QNN EP + LCM distillation; safety classifier; docs refresh and UI tests
-    status: pending
+    status: in_progress
 isProject: false
 ---
 # The Lookbook — Models, Tools, UI & Deep-Dive Roadmap
 
 > **Location:** `docs/plans/claude-code-expansion/PLAN.md` (Claude Code improvement plan).  
-> **Note:** Baseline v2.9.5 when authored. v3 shipped `HomeScreen` + settings hub — replace `StudioScreen` / `CreateStudioScreen` references with home pager + `UnifiedStudioPane`. Overlaps with [`../lookbook-v3-followup/PLAN.md`](../lookbook-v3-followup/PLAN.md) on packs and settings.
+> **Note:** Baseline v2.9.5 when authored. v3.0.0 shipped `HomeScreen` + settings hub — replace `StudioScreen` / `CreateStudioScreen` references with home pager + `UnifiedStudioPane`. Overlaps with [`../lookbook-v3-followup/PLAN.md`](../lookbook-v3-followup/PLAN.md) on packs and settings.
 
 ## What this app is (deep understanding)
 

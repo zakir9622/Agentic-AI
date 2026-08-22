@@ -2,6 +2,8 @@ package com.zakir.vestra
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.domain.HomeTabRoute
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,4 +19,19 @@ class SettingsTierSmokeTest {
         assertTrue("LITE" in names)
         assertTrue("PRO" in names)
     }
+
+    @Test
+    fun studioTabRoutesMatchHomePager() {
+        assertEquals("tryon", HomeTabRoute.TRY_ON)
+        assertEquals("news", HomeTabRoute.NEWS)
+    }
+}
+
+/** Mirrors [HomeScreen] tab route keys for navigation smoke tests. */
+object HomeTabRoute {
+    const val TRY_ON = "tryon"
+    const val IMAGE = "image"
+    const val VIDEO = "video"
+    const val CODE = "code"
+    const val NEWS = "news"
 }

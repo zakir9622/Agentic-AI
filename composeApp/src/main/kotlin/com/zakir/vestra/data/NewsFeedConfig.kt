@@ -19,13 +19,6 @@ object NewsFeedConfig {
                 json.decodeFromString<List<NewsFeedEntry>>(reader.readText())
                     .map { it.source to it.url }
             }
-        }.getOrElse { NewsRepositoryDefaults.FEEDS }
+        }.getOrElse { com.zakir.vestra.shared.news.NewsRepository.DEFAULT_FEEDS }
 
-    /** Fallback when assets are missing (tests / previews). */
-    object NewsRepositoryDefaults {
-        val FEEDS = listOf(
-            "BBC Tech" to "https://feeds.bbci.co.uk/news/technology/rss.xml",
-            "Hugging Face" to "https://huggingface.co/blog/feed.xml",
-        )
-    }
 }
