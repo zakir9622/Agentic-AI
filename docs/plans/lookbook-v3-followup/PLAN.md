@@ -192,7 +192,7 @@ Use these as the canonical follow-up todo list:
 - [x] **E1** Continuous JSON diagnostics persistence (filesDir/run_history.json)
 - [x] **E2** In-app pipeline explainer (Diagnostics → Help)
 - [ ] **E3** Gemma 3 / LiteRT-LM prototype (research only)
-- [~] **E4** SD-Turbo scaffold (`local-sdturbo-v1` + export script); weights pending
+- [~] **E4** SD-Turbo: `AndroidLocalImageGenerator` + export scaffold @ 3.0.7; weights pending
 
 ---
 
