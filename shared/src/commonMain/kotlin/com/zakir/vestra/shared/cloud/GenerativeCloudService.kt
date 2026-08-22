@@ -3,6 +3,9 @@ package com.zakir.vestra.shared.cloud
 import com.zakir.vestra.shared.safety.InputSafetyGate
 import com.zakir.vestra.shared.safety.SafetyVerdict
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.engine.local.LocalImageGenerator
+import com.zakir.vestra.shared.engine.local.LocalImageResult
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
 import com.zakir.vestra.shared.usage.UsageLedger
 import io.ktor.client.HttpClient
 import kotlin.io.encoding.Base64
@@ -24,7 +27,8 @@ sealed interface GenerativeState {
 
 /**
  * Free-tier generative service: HF Spaces + HF Inference Providers for image/video,
- * Groq/HF/OpenRouter for code.
+ * Groq/HF/OpenRouter for code. Optional [localImage] is tried first for text-to-image
+ * when the on-device pack is ready.
  */
 class GenerativeCloudService(
     private val http: HttpClient,
@@ -32,6 +36,7 @@ class GenerativeCloudService(
     private val settings: AppSettings,
     private val usage: UsageLedger,
     private val health: ModelHealthTracker = settings.modelHealth,
+    private val localImage: LocalImageGenerator = UnimplementedLocalImageGenerator,
 ) {
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
@@ -52,6 +57,24 @@ class GenerativeCloudService(
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
+            }
+            // Offline Create Studio (M4): try local pack before requiring network.
+            if (referenceUri.isNullOrBlank() && localImage.isReady()) {
+                emit(GenerativeState.Running(0.08f, "Generating on-device…"))
+                when (val local = localImage.generate(prompt.trim(), assists.seed)) {
+                    is LocalImageResult.Ok -> {
+                        emit(GenerativeState.ImageReady(local.imagePath, "local-sdturbo-v1"))
+                        return@flow
+                    }
+                    is LocalImageResult.Unavailable -> {
+                        emit(
+                            GenerativeState.Running(
+                                0.1f,
+                                "Local pack unavailable — trying cloud…",
+                            ),
+                        )
+                    }
+                }
             }
             require(settings.networkLikelyAvailable()) {
                 throw CloudFailureException(CloudFailure.Offline)

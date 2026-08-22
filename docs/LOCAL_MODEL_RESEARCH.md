@@ -2,13 +2,15 @@
 
 Open-source models evaluated for on-device use in The Lookbook.
 
+**Device floor:** app `minSdk = 35` (Android 15+).
+
 ## Try-on (shipping)
 
 | Pack | Role | Size | Status |
 |------|------|------|--------|
 | `lite-v1` | Garment seg + human parse (ONNX) | ~68 MB | **Required** — masks for Lite and Pro |
-| `pro-v1` | SD1.5 FP16 + ControlNet | ~4.3 GB | Shipping on HF manifest |
-| `pro-v2-int8` | SD1.5 INT8 | ~2 GB | Shipping — Pixel-class 8 GB+ RAM |
+| `pro-v1` | SD1.5 FP16 + ControlNet | ~4.3 GB | **On HF manifest** (preferred Pro download) |
+| `pro-v2-int8` | SD1.5 INT8 | ~2 GB | Export ready; HF upload pending |
 
 **Constraint:** Pro cannot run without `lite-v1` human parsing. Do not remove lite pack until a replacement mask pipeline ships.
 
@@ -16,19 +18,19 @@ Open-source models evaluated for on-device use in The Lookbook.
 
 | Pack | Model | Status |
 |------|-------|--------|
-| `birefnet-v1` | BiRefNet matting | ONNX export pending — wired, inactive |
-| `realesrgan-v1` | Real-ESRGAN 2×/4× | ONNX export pending — wired, inactive |
+| `birefnet-v1` | BiRefNet matting | **On HF** · runners fixed @ v3.0.4 |
+| `realesrgan-v1` | Real-ESRGAN upscale | **On HF** · FP16 runner @ v3.0.4 |
 | `gfpgan-v1` | GFPGAN face restore | Planned |
 
 ## Create / Code / Video (not local yet)
 
 | Direction | Candidates | Blocker |
 |-----------|------------|---------|
-| Image gen | FLUX Schnell, SD Turbo, LCM | 1–3 GB + NNAPI/DSP variance on Android |
-| Code LLM | Qwen2.5-Coder 1.5B, Gemma 2B | ExecuTorch / MediaPipe integration not in build |
+| Image gen | SD-Turbo / LCM (`local-sdturbo-v1`) | Weights + ONNX runner — `LocalImageGenerator` / `PackAwareLocalImageGenerator` scaffolded @ v3.0.5 |
+| Code LLM | Qwen2.5-Coder 1.5B, Gemma 2B | ExecuTorch / MediaPipe / LiteRT-LM not in build |
 | Video | — | Not practical on phones; cloud LTX-Video only |
 
-**Current approach:** Hide non-runnable catalog entries from pickers; use cloud HF / Groq / OpenRouter for Create Studio.
+**Current approach:** Hide non-runnable catalog entries from pickers; use cloud HF / Groq / OpenRouter for Create Studio until local packs are ready.
 
 ## Google open-source models on Android (Aug 2026)
 

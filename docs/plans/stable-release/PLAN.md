@@ -96,7 +96,7 @@ Close the remaining plan gates so offline + cloud feel “perfect,” not just �
 
 | Priority | Item | Closes | Status |
 |----------|------|--------|--------|
-| P0 | Ship `local-sdturbo-v1` weights + `LocalImageEngine` + airplane Create Studio proof | M4, E4 | Scaffold `LocalImageGenerator` @ 3.0.5; weights TBD |
+| P0 | Ship `local-sdturbo-v1` weights + `LocalImageEngine` + airplane Create Studio proof | M4, E4 | Scaffold + pack-aware hook in `GenerativeCloudService` @ 3.0.5; weights TBD |
 | P0 | Publish `pro-v2-int8` to HF (or remove contradictory download copy) | A6, cycle2 | Copy prefers pro-v1 @ 3.0.4; HF upload TBD |
 | P1 | Model picker / Usage show `ModelHealthTracker.observedLabel` + cooldown | M2 UI | **DONE @ 3.0.5** |
 | P1 | Blank-frame / low-variance reject in download path | M2 | **DONE @ 3.0.5** |

@@ -18,7 +18,7 @@ An Android app that turns a garment photo into a photorealistic model wearing it
 | Tier | Where | Devices | Pack |
 |---|---|---|---|
 | **Pro** | On-device diffusion | 10 GB+ RAM (Pixel 9) | `pro-v2-int8` (~2 GB) or `pro-v1` (~4.3 GB FP16) |
-| **Lite** | On-device compositor | All phones | ~270 MB |
+| **Lite** | On-device compositor | Android 15+ (`minSdk 35`) | `lite-v1` (~68 MB) |
 | **Auto** | Best installed on-device | — | Never uses network |
 
 ## Build & install (Pixel 9)

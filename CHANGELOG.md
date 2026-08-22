@@ -4,7 +4,7 @@
 - **Live model health UI:** picker, Usage, Settings, and preflight show cooldown / verified labels from `ModelHealthTracker` (not static Ready)
 - Health records success/failure for **code + video** as well as image
 - **Blank-frame reject:** Android luminance MAD check after download; image size floor raised to 2 KB
-- Scaffold `LocalImageGenerator` for M4 offline Create Studio (still `runnable = false` until weights)
+- Scaffold `LocalImageGenerator` + pack-aware wiring in Create Studio (still `runnable = false` until weights)
 - Unit tests: `ModelHealthTrackerTest`, validator 2 KB floor
 
 ## 3.0.4

@@ -146,7 +146,15 @@ class VestraApp : Application() {
             http,
             applyVisibleWatermark = true, // always stamp AI provenance on cloud outputs
         )
-        generative = GenerativeCloudService(http, cloudIo, appSettings, usageLedger)
+        generative = GenerativeCloudService(
+            http,
+            cloudIo,
+            appSettings,
+            usageLedger,
+            localImage = com.zakir.vestra.shared.engine.local.PackAwareLocalImageGenerator {
+                packManager.isReady("local-sdturbo-v1")
+            },
+        )
 
         engineRouter = EngineRouter(
             listOf(

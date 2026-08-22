@@ -25,3 +25,25 @@ object UnimplementedLocalImageGenerator : LocalImageGenerator {
                 "or use cloud Create Studio.",
         )
 }
+
+/**
+ * Ready when the pack is installed + verified. Generation still returns
+ * [LocalImageResult.Unavailable] until the ONNX runner is implemented — callers
+ * fall through to cloud without claiming a false success.
+ */
+class PackAwareLocalImageGenerator(
+    private val packReady: () -> Boolean,
+) : LocalImageGenerator {
+    override fun isReady(): Boolean = packReady()
+
+    override fun generate(prompt: String, seed: Long?): LocalImageResult {
+        if (!isReady()) {
+            return LocalImageResult.Unavailable(
+                "Local image pack not ready — install local-sdturbo-v1 from Model packs.",
+            )
+        }
+        return LocalImageResult.Unavailable(
+            "Local SD-Turbo runner not wired yet — using cloud Create Studio.",
+        )
+    }
+}
