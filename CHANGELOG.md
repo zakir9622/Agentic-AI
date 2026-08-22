@@ -1,5 +1,12 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc2
+- **Audio Studio:** new home tab — cloud TTS (MMS-TTS Inference, Kokoro Space, Edge/OpenVoice Space)
+- **Voice personas:** Amina, Noor, Layla, Yasir, Omar, Sam, Rana, Kai (named varieties)
+- **Local voice changer:** on-device DSP knobs — pitch, speed, formant, warmth, clarity (no pack required)
+- **Local TTS scaffold:** `local-tts-v1` + `LocalAudioGenerator` (`TTS_RUNNER_WIRED=false` until weights)
+- Honest Settings / model picker entries for audio
+
 ## 3.1.0-rc1
 - **Big release R2 (true limits):** full ATR Auto classification for all garment categories; single-pass human parse on generate
 - **Garment chips:** complete taxonomy (Abaya, Jilbab, Kaftan, Hijab, Niqab, Dupatta, Headscarf, Shalwar, Kurta, Lehenga, Dress, Upper, Trousers, Full coverage) + Auto
