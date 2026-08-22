@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.engine.lite
 
 import android.graphics.Bitmap
 import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.engine.atr.AtrTaxonomy
 import com.zakir.vestra.shared.packs.ModelPackManager
 
 /**
@@ -14,8 +15,11 @@ import com.zakir.vestra.shared.packs.ModelPackManager
  */
 class HumanParsing(private val packs: ModelPackManager) {
 
-    /** Null when the Lite pack isn't ready or no person was found. */
-    fun analyze(person: Bitmap, category: GarmentCategory): TargetRegion? =
+    /**
+     * One ORT forward pass. Prefer this when Auto needs both classify + region
+     * so we do not load `human_parse.onnx` twice.
+     */
+    fun parse(person: Bitmap): PersonParse? =
         withHumanParseModel { model ->
             val (h, w) = model.inputSize(defaultSize = 512)
             val (logits, shape) = model.run(ImageOps.toNormalizedChw(person, h, w), h, w)
@@ -23,19 +27,36 @@ class HumanParsing(private val packs: ModelPackManager) {
             val outH = shape.getOrNull(2)?.toInt() ?: h
             val outW = shape.getOrNull(3)?.toInt() ?: w
             val classMap = ImageOps.argmax(logits, classes, outH * outW)
-
-            val wanted = category.atrClassIds()
-            val regionMask = BooleanArray(outH * outW) { classMap[it] in wanted }
-            // Fall back to "anything person-shaped" when the exact classes are
-            // absent (e.g. parsing a bare-torso photo for a dress).
-            val effective = if (regionMask.none { it }) {
-                BooleanArray(outH * outW) { classMap[it] != 0 }
-            } else {
-                regionMask
-            }
-            val box = ImageOps.boundingBox(effective, outW, outH) ?: return@withHumanParseModel null
-            TargetRegion.fromMask(effective, outW, outH, box, person)
+            PersonParse(classMap = classMap, width = outW, height = outH)
         }
+
+    /** Null when the Lite pack isn't ready or no person was found. */
+    fun analyze(person: Bitmap, category: GarmentCategory): TargetRegion? {
+        val parsed = parse(person) ?: return null
+        return regionFrom(parsed, person, category)
+    }
+
+    fun regionFrom(parsed: PersonParse, person: Bitmap, category: GarmentCategory): TargetRegion? {
+        val wanted = category.atrClassIds()
+        val regionMask = BooleanArray(parsed.classMap.size) { parsed.classMap[it] in wanted }
+        val effective = if (regionMask.none { it }) {
+            BooleanArray(parsed.classMap.size) { parsed.classMap[it] != 0 }
+        } else {
+            regionMask
+        }
+        val box = ImageOps.boundingBox(effective, parsed.width, parsed.height) ?: return null
+        return TargetRegion.fromMask(effective, parsed.width, parsed.height, box, person)
+    }
+
+    /**
+     * Auto classify from a worn person photo via ATR histogram.
+     * Null when parse is unavailable (no pack / no person).
+     */
+    fun classifyWorn(person: Bitmap): GarmentCategory? {
+        val parsed = parse(person) ?: return null
+        if (parsed.classMap.none { it != 0 }) return null
+        return AtrTaxonomy.classify(parsed.classMap)
+    }
 
     /**
      * True when the image looks like a photo of a *person wearing* the outfit
@@ -44,7 +65,7 @@ class HumanParsing(private val packs: ModelPackManager) {
      * Uses a cheap bitmap heuristic only — never opens `human_parse.onnx` here.
      * Loading that ~67 MB graph on garment pick caused native process deaths on
      * Pixel 9 (see troubleshooting bundles @ v3.0.13). Full ATR parsing still
-     * runs at generate time via [analyze].
+     * runs at generate time via [parse] / [analyze].
      */
     fun looksLikeWornPhoto(image: Bitmap): Boolean =
         runCatching { looksLikeWornPhotoHeuristic(image) }.getOrDefault(false)
@@ -94,6 +115,26 @@ class HumanParsing(private val packs: ModelPackManager) {
         return runCatching {
             OrtSessionCache.open("$packDir/human_parse.onnx").let { block(it) }
         }.getOrNull()
+    }
+}
+
+/** Result of one human-parse forward pass. */
+data class PersonParse(
+    val classMap: IntArray,
+    val width: Int,
+    val height: Int,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is PersonParse) return false
+        return width == other.width && height == other.height && classMap.contentEquals(other.classMap)
+    }
+
+    override fun hashCode(): Int {
+        var result = classMap.contentHashCode()
+        result = 31 * result + width
+        result = 31 * result + height
+        return result
     }
 }
 

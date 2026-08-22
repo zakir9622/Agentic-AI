@@ -353,11 +353,17 @@ fun GarmentScreen(
 
 private val categoryChips = listOf(
     GarmentCategory.ABAYA to "Abaya",
+    GarmentCategory.JILBAB to "Jilbab",
+    GarmentCategory.KAFTAN to "Kaftan",
     GarmentCategory.HIJAB to "Hijab",
     GarmentCategory.NIQAB to "Niqab",
+    GarmentCategory.DUPATTA to "Dupatta",
+    GarmentCategory.HEADSCARF to "Headscarf",
     GarmentCategory.SHALWAR_KAMEEZ to "Shalwar kameez",
     GarmentCategory.KURTA to "Kurta",
-    GarmentCategory.DUPATTA to "Dupatta",
-    GarmentCategory.KAFTAN to "Kaftan",
+    GarmentCategory.LEHENGA to "Lehenga",
+    GarmentCategory.DRESS to "Dress",
+    GarmentCategory.UPPER_BODY to "Upper body",
     GarmentCategory.LOWER_BODY to "Trousers",
+    GarmentCategory.FULL_COVERAGE to "Full coverage",
 )

@@ -2,16 +2,19 @@ package com.zakir.vestra.shared.engine.lite
 
 import android.graphics.Bitmap
 import com.zakir.vestra.shared.domain.GarmentCategory
+import com.zakir.vestra.shared.engine.atr.AtrTaxonomy
 
 /**
- * Heuristic garment categorization from the segmentation cutout's geometry.
- * Used when the user leaves the category on Auto; a trained classifier can
- * replace this without touching callers (same signature, better priors).
+ * Garment categorization for Auto mode.
  *
- * Signals: aspect ratio of the opaque bounding box, and how much of the box
- * the garment fills (scarves are thin/hollow, abayas are tall solid columns).
+ * Prefer [classifyFromAtr] when a person parse map is available (generate-time).
+ * [classify] uses cutout geometry only — safe at garment-pick time and when
+ * `human_parse.onnx` is missing.
  */
 object GarmentClassifier {
+
+    fun classifyFromAtr(classMap: IntArray): GarmentCategory =
+        AtrTaxonomy.classify(classMap)
 
     fun classify(garmentCutout: Bitmap): GarmentCategory {
         val width = garmentCutout.width
@@ -51,10 +54,23 @@ object GarmentClassifier {
         val splitFraction = if (measuredRows == 0) 0f else splitRows.toFloat() / measuredRows
 
         return when {
-            fill < 0.30f && aspect < 1.4f -> GarmentCategory.HIJAB
-            splitFraction > 0.45f && aspect > 1.1f -> GarmentCategory.LOWER_BODY
-            aspect > 1.8f && fill > 0.45f -> GarmentCategory.ABAYA
-            aspect > 1.25f -> GarmentCategory.DRESS
+            // Thin / hollow — scarves and drapes.
+            fill < 0.22f && aspect < 1.25f -> GarmentCategory.DUPATTA
+            fill < 0.30f && aspect < 1.45f -> GarmentCategory.HIJAB
+            // Two-column lower body.
+            splitFraction > 0.45f && aspect > 1.05f -> GarmentCategory.LOWER_BODY
+            // Tall solid columns — modest outerwear family.
+            aspect > 2.05f && fill > 0.48f -> GarmentCategory.ABAYA
+            aspect > 1.85f && fill > 0.42f -> GarmentCategory.JILBAB
+            aspect > 1.65f && fill > 0.38f -> GarmentCategory.KAFTAN
+            // Split torso + legs → shalwar set.
+            aspect > 1.25f && splitFraction > 0.22f && fill > 0.32f ->
+                GarmentCategory.SHALWAR_KAMEEZ
+            // Long one-piece.
+            aspect > 1.35f && fill > 0.35f && splitFraction < 0.18f -> GarmentCategory.DRESS
+            // Short / wide torso piece.
+            aspect < 1.15f && fill > 0.34f -> GarmentCategory.UPPER_BODY
+            aspect > 1.20f -> GarmentCategory.KURTA
             else -> GarmentCategory.KURTA
         }
     }

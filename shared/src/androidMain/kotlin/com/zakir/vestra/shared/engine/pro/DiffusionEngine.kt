@@ -47,6 +47,7 @@ class DiffusionEngine(
     private val device: DeviceProbe,
     private val io: LiteEngineIo,
     private val masker: PersonMasker,
+    private val parsing: com.zakir.vestra.shared.engine.lite.HumanParsing,
     private val applyWatermark: Boolean = false,
     private val quality: QualityPostProcessor = NoOpQualityPostProcessor,
 ) : TryOnEngine {
@@ -112,7 +113,9 @@ class DiffusionEngine(
                 return@flow
             }
 
+            // Auto: ATR on person when Lite parse is available; else garment geometry.
             val category = request.garment.category?.effectiveCategory()
+                ?: parsing.classifyWorn(person)
                 ?: GarmentClassifier.classify(garment)
             val promptSpec = com.zakir.vestra.shared.engine.pipeline.PromptSpec(
                 positive = CastingPromptBuilder.buildPositive(request.casting, category),

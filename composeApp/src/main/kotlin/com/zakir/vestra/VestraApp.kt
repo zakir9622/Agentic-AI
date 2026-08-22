@@ -175,6 +175,7 @@ class VestraApp : Application() {
                     device = deviceProbe,
                     io = liteEngineIo,
                     masker = { person, category -> humanParsing.analyze(person, category.effectiveCategory())?.mask },
+                    parsing = humanParsing,
                     applyWatermark = BuildConfig.APPLY_WATERMARK,
                     quality = quality,
                 ),

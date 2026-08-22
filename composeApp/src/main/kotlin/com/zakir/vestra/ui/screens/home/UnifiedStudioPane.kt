@@ -198,11 +198,11 @@ fun UnifiedStudioPane(
         Text(
             when (capability) {
                 AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
-                    "Cloud free models. On-device Lite/Pro packs power Try-on — local Create Studio ships when SD-Turbo weights publish."
+                    "Cloud free models. Try-on Lite/Pro are on-device. Create Studio unlocks when local-sdturbo-v1 weights + sampler ship (R2.2)."
                 AiCapability.VIDEO ->
-                    "Cloud HF Spaces only for now — no on-device video pack yet."
+                    "Cloud HF Spaces only — on-device video is out of scope for v3.1."
                 AiCapability.CODE ->
-                    "Cloud LLMs (Groq / OpenRouter / HF). No on-device coding model in this build."
+                    "Cloud LLMs (Groq / OpenRouter / HF). On-device Gemma is stretch / not in this build."
                 else -> estimate
             },
             style = MaterialTheme.typography.bodySmall,

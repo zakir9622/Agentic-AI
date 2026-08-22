@@ -31,6 +31,7 @@ Requires JDK 17+, Android SDK (platform 36), and a device/emulator on **Android 
 ./gradlew :composeApp:assembleSideloadRelease
 
 # Install / update on Pixel 9 (after v3.0.16, no uninstall needed between builds)
+# Latest RC: https://github.com/zakir9622/Agentic-AI/releases/download/v3.1.0-rc1/the-lookbook-v3.1.0-rc1.apk
 adb install -r composeApp/build/outputs/apk/sideload/release/*.apk
 ```
 

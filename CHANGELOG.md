@@ -1,5 +1,31 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc1
+- **Big release R2 (true limits):** full ATR Auto classification for all garment categories; single-pass human parse on generate
+- **Garment chips:** complete taxonomy (Abaya, Jilbab, Kaftan, Hijab, Niqab, Dupatta, Headscarf, Shalwar, Kurta, Lehenga, Dress, Upper, Trousers, Full coverage) + Auto
+- **Real-input harness:** `scripts/test_atr_classify.py` + `scripts/fixtures/atr/*.json` (12 worn-photo shapes); Kotlin `AtrTaxonomyTest` mirrors fixtures
+- **UI — Loom Ink:** cool mist + brass + teal-ink atelier; stronger brand hero; less card clutter on Packs intro
+- **On-device Create Studio:** `Txt2ImgPipeline` scaffold (`SAMPLER_WIRED=false`); honest cloud-only Image/Video/Code until HF weights
+- Plan: `docs/plans/big-release-r2/`
+
+## 3.0.16
+- Stable sideload keystore + soft network preflight (stop false offline blocks)
+
+## 3.0.15
+- Live gen console + ticking countdown; diagnostics share off main thread
+
+## 3.0.14
+- Garment pick no longer loads `human_parse.onnx`; connection-abort UX ≠ offline
+
+## 3.0.13
+- Offline ≠ Cooling down; Lite soft verify; trim-memory no longer clears ORT on UI_HIDDEN
+
+## 3.0.12
+- ORT CPU default; soft startup verify; Prefer NNAPI toggle (off)
+
+## 3.0.11
+- Abrupt-exit session watchdog; low-memory + logcat FATAL scrape
+
 ## 3.0.10
 - **ZeroGPU UX:** account quota no longer shows misleading “Cooling down · 1m” — chip says **ZeroGPU empty · refills daily**
 - After account ZeroGPU fail, skip other HF Spaces and try Inference fallbacks; error CTA becomes **Choose model**

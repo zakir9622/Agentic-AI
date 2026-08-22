@@ -10,6 +10,7 @@ import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import com.zakir.vestra.shared.domain.TryOnResult
+import com.zakir.vestra.shared.domain.effectiveCategory
 import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
@@ -108,14 +109,25 @@ class LiteEngine(
             }
             DiagnosticsHook.stage(diag, "garment_seg", t0)
 
-            // Auto mode: infer the category from the cutout's geometry so abayas,
-            // scarves, and trousers each land on the right body region.
-            val category = request.garment.category ?: GarmentClassifier.classify(garmentCut)
-
             emit(GenerationState.Running(0.45f, "Reading the body"))
             t0 = EpochClock.System.nowMs()
-            val region = parsing.analyze(person, category)
-            DiagnosticsHook.stage(diag, "human_parse", t0, category.name)
+            // Auto: one ATR pass on the person → full taxonomy; reuse map for region.
+            // Manual chip: skip classify; still one parse for the mask.
+            val parsed = parsing.parse(person)
+            val category = request.garment.category?.effectiveCategory()
+                ?: parsed?.let { GarmentClassifier.classifyFromAtr(it.classMap) }
+                ?: GarmentClassifier.classify(garmentCut)
+            val region = if (parsed != null) {
+                parsing.regionFrom(parsed, person, category)
+            } else {
+                null
+            }
+            DiagnosticsHook.stage(
+                diag,
+                "human_parse",
+                t0,
+                "${category.name}${if (request.garment.category == null) "+auto" else ""}",
+            )
             if (region == null) {
                 DiagnosticsHook.completeTryOn(diag, false, "No person detected")
                 emit(
