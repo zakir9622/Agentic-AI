@@ -17,6 +17,7 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import com.zakir.vestra.shared.time.EpochClock
 
 /**
  * Free-tier cloud try-on via Hugging Face Spaces only.
@@ -48,7 +49,7 @@ class CloudEngine(
 
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
         val provider = settings.selectedCloudProvider()
-        val startedAt = System.currentTimeMillis()
+        val startedAt = EpochClock.System.nowMs()
         val diag = DiagnosticsHook.startTryOn(EngineTier.CLOUD, modelLabel = provider.displayName)
 
         CloudModelContracts.preflightOrNull(provider)?.let { blocked ->
@@ -58,17 +59,17 @@ class CloudEngine(
                 note = CloudModelContracts.usageFailureNote(provider, blocked),
             )
             emit(GenerationState.Failed(TryOnError.Internal(blocked)))
-            DiagnosticsHook.completeTryOn(false, blocked)
+            DiagnosticsHook.completeTryOn(diag, false, blocked)
             return@flow
         }
 
         emit(GenerationState.Preparing("Connecting to ${provider.displayName}"))
-        var t0 = System.currentTimeMillis()
+        var t0 = EpochClock.System.nowMs()
         val personBytes = io.loadImageBytes(request.person)
         val garmentBytes = io.loadImageBytes(request.garment.uri)
         DiagnosticsHook.stage(diag, "load_images", t0)
         if (personBytes == null || garmentBytes == null) {
-            DiagnosticsHook.completeTryOn(false, "Couldn't read images")
+            DiagnosticsHook.completeTryOn(diag, false, "Couldn't read images")
             emit(GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")))
             return@flow
         }
@@ -96,11 +97,11 @@ class CloudEngine(
                     )
                 }
                 try {
-                    t0 = System.currentTimeMillis()
+                    t0 = EpochClock.System.nowMs()
                     val resultUrlOrPath = runHfSpace(candidate, personDataUrl, garmentDataUrl, category)
                     DiagnosticsHook.stage(diag, "space_predict", t0, candidate.displayName)
                     emit(GenerationState.Running(0.85f, "Downloading result…"))
-                    t0 = System.currentTimeMillis()
+                    t0 = EpochClock.System.nowMs()
                     val outPath = io.downloadResult(resultUrlOrPath, spaceHost = candidate.endpoint)
                     DiagnosticsHook.stage(diag, "download", t0)
                     usage?.record(
@@ -108,13 +109,13 @@ class CloudEngine(
                         success = true,
                         note = "Try-on · ${candidate.displayName} · ${CloudModelContracts.statusLabel(candidate)}",
                     )
-                    DiagnosticsHook.completeTryOn(success = true, note = candidate.displayName)
+                    DiagnosticsHook.completeTryOn(diag, success = true, note = candidate.displayName)
                     emit(
                         GenerationState.Complete(
                             TryOnResult(
                                 imagePath = outPath,
                                 executedTier = EngineTier.CLOUD,
-                                durationMillis = System.currentTimeMillis() - startedAt,
+                                durationMillis = EpochClock.System.nowMs() - startedAt,
                                 watermarked = false,
                             ),
                         ),
@@ -149,7 +150,7 @@ class CloudEngine(
             } else {
                 TryOnError.Internal(friendly)
             }
-            DiagnosticsHook.completeTryOn(false, friendly)
+            DiagnosticsHook.completeTryOn(diag, false, friendly)
             emit(GenerationState.Failed(error))
         }
     }

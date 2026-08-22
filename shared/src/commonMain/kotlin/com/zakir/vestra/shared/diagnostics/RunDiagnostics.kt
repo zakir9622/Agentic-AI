@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.zakir.vestra.shared.time.EpochClock
 
 @Serializable
 data class RunStage(
@@ -101,7 +102,7 @@ class RunDiagnostics(
             DiagnosticsExportBundle(
                 runs = _records.value,
                 usageLedger = usage,
-                exportedAtMs = System.currentTimeMillis(),
+                exportedAtMs = EpochClock.System.nowMs(),
             ),
         )
 
@@ -129,7 +130,7 @@ class RunDiagnostics(
         private val deviceRamMb: Long?,
         private val onComplete: (RunRecord) -> Unit,
     ) {
-        private val startedAt = System.currentTimeMillis()
+        private val startedAt = EpochClock.System.nowMs()
         private val stages = mutableListOf<RunStage>()
 
         fun stage(name: String, durationMs: Long, detail: String = "") {
@@ -146,7 +147,7 @@ class RunDiagnostics(
                     modelId = modelId,
                     modelLabel = modelLabel,
                     success = success,
-                    totalDurationMs = System.currentTimeMillis() - startedAt,
+                    totalDurationMs = EpochClock.System.nowMs() - startedAt,
                     stages = stages.toList(),
                     error = error,
                     deviceRamMb = deviceRamMb,

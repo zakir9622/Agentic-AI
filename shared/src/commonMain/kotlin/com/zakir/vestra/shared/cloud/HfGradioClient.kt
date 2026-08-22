@@ -34,6 +34,7 @@ class HfGradioClient(
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     /** Remembers which queue prefix a host answered on, so we probe at most once per host. */
+    private val prefixLock = Any()
     private val prefixCache = mutableMapOf<String, String>()
 
     suspend fun predict(
@@ -41,10 +42,10 @@ class HfGradioClient(
         apiName: String,
         data: List<JsonElement>,
         hfToken: String?,
-        maxPolls: Int = 90,
+        maxPolls: Int = 45,
         pollDelayMs: Long = 2_000,
-        wakeRetries: Int = 2,
-        wakeDelayMs: Long = 12_000,
+        wakeRetries: Int = 1,
+        wakeDelayMs: Long = 8_000,
     ): JsonElement {
         require(spaceHost.isNotBlank()) { "Space host is empty" }
         require(apiName.isNotBlank()) { "Gradio api name is empty" }
@@ -113,7 +114,9 @@ class HfGradioClient(
             put("data", buildJsonArray { data.forEach { add(it) } })
         }
 
-        val prefixes = prefixCache[spaceHost]?.let { listOf(it) } ?: QUEUE_PREFIXES
+        val prefixes = synchronized(prefixLock) {
+            prefixCache[spaceHost]?.let { listOf(it) } ?: QUEUE_PREFIXES
+        }
         var eventId: String? = null
         var usedPrefix = prefixes.first()
         var lastFailure: String? = null
@@ -145,7 +148,7 @@ class HfGradioClient(
         }
 
         val id = eventId ?: error(lastFailure ?: "Hugging Face Space $spaceHost/$apiName is unreachable")
-        prefixCache[spaceHost] = usedPrefix
+        synchronized(prefixLock) { prefixCache[spaceHost] = usedPrefix }
 
         repeat(maxPolls) {
             val poll = http.get("$base$usedPrefix/call/$apiName/$id") {

@@ -43,8 +43,12 @@ class HfInferenceClient(
         require(prompt.isNotBlank()) { "Prompt is empty" }
         require(imageBytes.isNotEmpty()) { "Reference image is empty" }
         val imageB64 = Base64.encode(imageBytes)
+        val routes = editRoutesFor(modelId)
+        if (routes.isEmpty()) {
+            throw CloudFailureException(CloudFailure.RouteUnsupported)
+        }
         var lastError: Exception? = null
-        for (route in editRoutesFor(modelId)) {
+        for (route in routes) {
             try {
                 return when (route.kind) {
                     RouteKind.NSCALE_EDIT -> postNscaleEdit(route.providerModelId, prompt, imageB64, hfToken, width, height)
@@ -68,8 +72,12 @@ class HfInferenceClient(
     ): ByteArray {
         require(hfToken.isNotBlank()) { "HF token required for Inference Providers" }
         require(prompt.isNotBlank()) { "Prompt is empty" }
+        val routes = routesFor(modelId)
+        if (routes.isEmpty()) {
+            throw CloudFailureException(CloudFailure.RouteUnsupported)
+        }
         var lastError: Exception? = null
-        for (route in routesFor(modelId)) {
+        for (route in routes) {
             try {
                 return when (route.kind) {
                     RouteKind.NSCALE -> postNscale(route.providerModelId, prompt, hfToken, width, height)
@@ -278,10 +286,7 @@ class HfInferenceClient(
             ProviderRoute(RouteKind.FAL_QUEUE_EDIT, "fal-ai/instruct-pix2pix"),
             ProviderRoute(RouteKind.NSCALE_EDIT, "timbrooks/instruct-pix2pix"),
         )
-        else -> listOf(
-            ProviderRoute(RouteKind.FAL_QUEUE_EDIT, modelId),
-            ProviderRoute(RouteKind.NSCALE_EDIT, modelId),
-        )
+        else -> emptyList()
     }
 
     private fun routesFor(modelId: String): List<ProviderRoute> = when (modelId) {
@@ -295,7 +300,7 @@ class HfInferenceClient(
         "Tongyi-MAI/Z-Image-Turbo" -> listOf(
             ProviderRoute(RouteKind.FAL_QUEUE, "fal-ai/z-image/turbo"),
         )
-        else -> listOf(ProviderRoute(RouteKind.NSCALE, modelId))
+        else -> emptyList() // unknown models are RouteUnsupported — do not guess nscale (finding F)
     }
 
     private fun inferenceHttpError(status: Int, raw: String, modelId: String): Throwable {

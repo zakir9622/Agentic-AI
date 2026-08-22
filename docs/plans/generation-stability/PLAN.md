@@ -2,7 +2,7 @@
 
 > **Baseline:** v2.9.16 (versionCode 41). Source audited at `06a24f1`; re-checked against
 > `5ad009b` — the commits in between are documentation only, so every finding still stands.
-> **Status:** M1 + M2 partial complete @ v3.0.1 (typed failures, fallback fix, model health, output validation). M3–M6 pending.
+> **Status:** M1–M6 substantially complete @ v3.0.2 (deadline, schema client, harness scripts, EpochClock, DiagnosticsHook handles). HF pack publish + full local image weights still blocked.
 > Read-only review — no source file was changed by this document.
 >
 > **Overlaps** [`../lookbook-v3-followup/`](../lookbook-v3-followup/) on model health, quality
@@ -255,11 +255,11 @@ before you touch it.
 ## Milestone progress (@ v3.0.1)
 
 - [x] **M1** Typed failures + correct fallback (A, B, E partial, G, J partial)
-- [x] **M2** Live model health + output validation (C, I partial; deadline pending)
-- [ ] **M3** Self-healing Space contracts (F)
-- [ ] **M4** Local image generation pack (L)
-- [ ] **M5** Test + visual harness (O)
-- [ ] **M6** Cleanup and portability (H, M, N, P, Q)
+- [x] **M2** Live model health + output validation + generation deadline
+- [x] **M3** Self-healing Space contracts (GradioSchemaClient + discovery allowlist)
+- [~] **M4** Local image generation pack (scaffold `local-sdturbo-v1` + export script; weights/HF publish pending)
+- [x] **M5** Test + visual harness (compare mode, verify-all-models, e2e-matrix scripts)
+- [x] **M6** Cleanup and portability (EpochClock, DiagnosticsHook handles, token migration, CHANGELOG; minSdk docs agree on 35)
 
 ## Milestones
 
