@@ -1,0 +1,646 @@
+package com.zakir.vestra.ui.screens.home
+
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.outlined.Checkroom
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import com.zakir.vestra.media.MediaExport
+import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.content.LookbookCopy
+import com.zakir.vestra.shared.domain.PackStatus
+import com.zakir.vestra.shared.news.NewsItem
+import com.zakir.vestra.shared.news.NewsRepository
+import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.wardrobe.WardrobeRepository
+import com.zakir.vestra.ui.GenerativeViewModel
+import com.zakir.vestra.ui.components.AtelierHero
+import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.util.rememberReduceMotion
+import java.io.File
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private enum class HomeTab(val label: String) {
+    TRY_ON("Try-on"),
+    IMAGE("Image"),
+    VIDEO("Video"),
+    CODE("Code"),
+    NEWS("News"),
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun HomeScreen(
+    appSettings: AppSettings,
+    wardrobe: WardrobeRepository,
+    packManager: ModelPackManager,
+    generativeViewModel: GenerativeViewModel,
+    newsRepository: NewsRepository? = null,
+    onNewLook: () -> Unit,
+    onOpenWardrobe: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenPacks: () -> Unit,
+    onOpenHelp: () -> Unit,
+    onOpenNewsChat: (headline: String?) -> Unit = {},
+) {
+    val context = LocalContext.current
+    val recent by wardrobe.entries.collectAsState()
+    val packStates by packManager.states.collectAsState()
+    LaunchedEffect(Unit) {
+        packManager.refresh()
+    }
+    val proReady = listOf("pro-v2-int8", "pro-v1").any { id ->
+        packStates[id]?.isReady() == true
+    }
+
+    var online by remember { mutableStateOf(appSettings.networkLikelyAvailable()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            online = appSettings.networkLikelyAvailable()
+            delay(2_500)
+        }
+    }
+
+    var appeared by remember { mutableStateOf(false) }
+    val reduceMotion = rememberReduceMotion()
+    LaunchedEffect(Unit) { appeared = true }
+    val fade by animateFloatAsState(
+        targetValue = if (appeared || reduceMotion) 1f else 0f,
+        animationSpec = if (reduceMotion) tween(0) else tween(640),
+        label = "homeFade",
+    )
+    val heroLift by animateFloatAsState(
+        targetValue = if (appeared || reduceMotion) 0f else 18f,
+        animationSpec = if (reduceMotion) tween(0) else spring(stiffness = Spring.StiffnessMediumLow),
+        label = "heroLift",
+    )
+
+    val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
+    val hfToken by appSettings.hfToken.collectAsState()
+    val hfReady = !hfToken.isNullOrBlank()
+    val liteReady = packStates["lite-v1"]?.isReady() == true
+    val liteState = packStates["lite-v1"]
+    val statusLine = buildString {
+        append(
+            when {
+                proReady -> "Pro verified"
+                liteReady -> "Lite verified"
+                liteState?.status == PackStatus.INSTALLED -> "Lite verifying…"
+                else -> "Lite needs download"
+            },
+        )
+        append("  ·  ")
+        append(if (hfReady) "Cloud token set" else "Cloud needs HF token")
+        append("  ·  ")
+        append(if (online) "Online" else "Offline")
+        append("  ·  ")
+        append(tryOnModel)
+    }
+
+    val tabs = HomeTab.entries
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val scope = rememberCoroutineScope()
+
+    fun openNewsChat(headline: String?) {
+        headline?.let {
+            generativeViewModel.setPrompt(
+                "Discuss this headline for modest fashion and on-device AI: $it",
+            )
+        }
+        onOpenNewsChat(headline)
+        scope.launch {
+            pagerState.animateScrollToPage(HomeTab.CODE.ordinal)
+        }
+    }
+
+    SpatialBackground {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .alpha(fade),
+        ) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        LookbookCopy.PRODUCT_NAME,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = VestraColors.Ink,
+                    )
+                    Text(
+                        LookbookCopy.STUDIO_HOME,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = VestraColors.Accent,
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(VestraColors.SaffronDeep, VestraColors.Accent),
+                                ),
+                            )
+                            .clickable(onClick = onOpenPacks)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            if (proReady) "Pro" else "Lite",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                        )
+                    }
+                    IconButton(onClick = onOpenHelp) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.HelpOutline,
+                            contentDescription = LookbookCopy.STUDIO_HELP,
+                            tint = VestraColors.Ink,
+                        )
+                    }
+                    IconButton(onClick = onOpenWardrobe) {
+                        Icon(
+                            Icons.Outlined.Checkroom,
+                            contentDescription = LookbookCopy.STUDIO_WARDROBE,
+                            tint = VestraColors.Ink,
+                        )
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Box(
+                            Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(VestraColors.GlassFillStrong)
+                                .border(1.5.dp, VestraColors.Accent.copy(alpha = 0.7f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Outlined.Settings,
+                                contentDescription = LookbookCopy.STUDIO_SETTINGS,
+                                tint = VestraColors.Accent,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = Color.Transparent,
+                contentColor = VestraColors.Ink,
+                edgePadding = 12.dp,
+                divider = {},
+                indicator = {},
+            ) {
+                tabs.forEachIndexed { index, tab ->
+                    val selected = pagerState.currentPage == index
+                    Tab(
+                        selected = selected,
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        text = {
+                            Text(
+                                tab.label,
+                                color = if (selected) VestraColors.Accent else VestraColors.InkMuted,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        },
+                    )
+                }
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
+            ) { page ->
+                when (tabs[page]) {
+                    HomeTab.TRY_ON -> TryOnPage(
+                        statusLine = statusLine,
+                        proReady = proReady,
+                        heroLift = heroLift,
+                        recent = recent,
+                        onNewLook = onNewLook,
+                        onOpenWardrobe = onOpenWardrobe,
+                        onOpenPacks = onOpenPacks,
+                    )
+                    HomeTab.IMAGE -> UnifiedStudioPane(
+                        capability = AiCapability.IMAGE_GEN,
+                        viewModel = generativeViewModel,
+                        onOpenSettings = onOpenSettings,
+                    )
+                    HomeTab.VIDEO -> UnifiedStudioPane(
+                        capability = AiCapability.VIDEO,
+                        viewModel = generativeViewModel,
+                        onOpenSettings = onOpenSettings,
+                    )
+                    HomeTab.CODE -> UnifiedStudioPane(
+                        capability = AiCapability.CODE,
+                        viewModel = generativeViewModel,
+                        onOpenSettings = onOpenSettings,
+                    )
+                    HomeTab.NEWS -> NewsPage(
+                        newsRepository = newsRepository,
+                        onOpenNewsChat = ::openNewsChat,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TryOnPage(
+    statusLine: String,
+    proReady: Boolean,
+    heroLift: Float,
+    recent: List<com.zakir.vestra.shared.wardrobe.WardrobeEntry>,
+    onNewLook: () -> Unit,
+    onOpenWardrobe: () -> Unit,
+    onOpenPacks: () -> Unit,
+) {
+    val context = LocalContext.current
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 18.dp, top = 8.dp, end = 18.dp, bottom = 24.dp),
+    ) {
+        item(key = "hero") {
+            GlassSectionLabel("CORE TRY-ON")
+            Box(Modifier.padding(bottom = heroLift.dp)) {
+                AtelierHero(
+                    brand = LookbookCopy.PRODUCT_NAME,
+                    headline = "Start try-on shoot",
+                    support = "Abaya, hijab, and shalwar on-device with Lite or Pro — center of the atelier.",
+                    cta = LookbookCopy.ACTION_START_TRY_ON,
+                    onCta = onNewLook,
+                    statusLine = statusLine,
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+
+        if (!proReady) {
+            item(key = "pro-cta") {
+                GlassCard(onClick = onOpenPacks) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(VestraColors.GlassFillStrong)
+                                .border(1.dp, VestraColors.Accent.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Outlined.Cloud,
+                                contentDescription = null,
+                                tint = VestraColors.Accent,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text("Install Pro pack", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "One download. Fully offline after. Free cloud try-on stays in Settings.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(22.dp))
+            }
+        }
+
+        item(key = "recent-header") {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlassSectionLabel("RECENT LOOKS")
+                if (recent.isNotEmpty()) {
+                    Text(
+                        "Open gallery",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = VestraColors.Accent,
+                        modifier = Modifier
+                            .padding(bottom = 8.dp)
+                            .clickable(onClick = onOpenWardrobe),
+                    )
+                }
+            }
+        }
+
+        item(key = "recent") {
+            if (recent.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(recent.take(12), key = { it.id }) { entry ->
+                        val file = File(entry.imagePath)
+                        Box(
+                            Modifier
+                                .width(148.dp)
+                                .aspectRatio(0.72f)
+                                .clip(RoundedCornerShape(24.dp))
+                                .border(
+                                    1.dp,
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            VestraColors.GlassHighlight,
+                                            VestraColors.Accent.copy(alpha = 0.35f),
+                                        ),
+                                    ),
+                                    RoundedCornerShape(24.dp),
+                                )
+                                .combinedClickable(
+                                    onClick = onOpenWardrobe,
+                                    onLongClick = {
+                                        if (file.exists()) {
+                                            MediaExport.share(context, file, "Share look")
+                                        }
+                                    },
+                                ),
+                        ) {
+                            AsyncImage(
+                                model = file,
+                                contentDescription = "Recent look ${entry.personLabel}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                Color.Transparent,
+                                                VestraColors.AtelierCanvas.copy(alpha = 0.8f),
+                                            ),
+                                        ),
+                                    ),
+                            )
+                            Text(
+                                entry.personLabel.ifBlank { "Look" },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = VestraColors.Ivory,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(start = 12.dp, end = 44.dp, bottom = 12.dp),
+                            )
+                            IconButton(
+                                onClick = {
+                                    if (file.exists()) {
+                                        MediaExport.share(context, file, LookbookCopy.ACTION_SHARE)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(4.dp)
+                                    .semantics {
+                                        contentDescription = LookbookCopy.ACTION_SHARE
+                                    },
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Share,
+                                    contentDescription = null,
+                                    tint = VestraColors.Ivory,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(148.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(VestraColors.GlassFill)
+                        .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(24.dp))
+                        .clickable(onClick = onNewLook),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Tap to cast your first look",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NewsPage(
+    newsRepository: NewsRepository?,
+    onOpenNewsChat: (String?) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val newsItems by newsRepository?.items?.collectAsState() ?: remember { mutableStateOf(emptyList<NewsItem>()) }
+    val newsError by newsRepository?.error?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(newsRepository) {
+        if (newsRepository != null) {
+            refreshing = true
+            newsRepository.refresh()
+            refreshing = false
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlassSectionLabel("NEWS & CHAT")
+            if (newsRepository != null) {
+                IconButton(
+                    onClick = {
+                        refreshing = true
+                        scope.launch {
+                            newsRepository.refresh()
+                            refreshing = false
+                        }
+                    },
+                    enabled = !refreshing,
+                ) {
+                    Icon(
+                        Icons.Outlined.Refresh,
+                        contentDescription = "Refresh news",
+                        tint = VestraColors.Accent,
+                    )
+                }
+            }
+        }
+        Text(
+            "Fashion and AI headlines — discuss any story in Code chat.",
+            style = MaterialTheme.typography.bodySmall,
+            color = VestraColors.InkMuted,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
+
+        if (newsRepository == null) {
+            GlassCard(onClick = { onOpenNewsChat(null) }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Outlined.Article,
+                        contentDescription = null,
+                        tint = VestraColors.Accent,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("News chat coming soon", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Tap to open Code chat with headline context.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = VestraColors.InkMuted,
+                        )
+                    }
+                }
+            }
+            return@Column
+        }
+
+        if (newsError != null && newsItems.isEmpty()) {
+            GlassCard {
+                Text(
+                    newsError ?: "Could not load headlines.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VestraColors.InkMuted,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        if (newsItems.isEmpty() && !refreshing) {
+            GlassCard(onClick = { onOpenNewsChat(null) }) {
+                Text(
+                    "No headlines yet — tap to open chat or refresh.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VestraColors.InkMuted,
+                )
+            }
+        } else {
+            newsItems.take(12).forEach { item ->
+                Spacer(Modifier.height(8.dp))
+                GlassCard(onClick = { onOpenNewsChat(item.title) }) {
+                    Text(
+                        item.source,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = VestraColors.Accent,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = VestraColors.Ink,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        GlassCard(onClick = { onOpenNewsChat(null) }) {
+            Text(
+                "Open news chat",
+                style = MaterialTheme.typography.titleMedium,
+                color = VestraColors.Accent,
+            )
+            Text(
+                "Switch to Code tab with a prompt seeded from headlines.",
+                style = MaterialTheme.typography.bodySmall,
+                color = VestraColors.InkMuted,
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}

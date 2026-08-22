@@ -4,6 +4,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
@@ -33,7 +34,9 @@ import com.zakir.vestra.ui.screens.person.PersonSourceScreen
 import com.zakir.vestra.ui.screens.result.ResultScreen
 import com.zakir.vestra.ui.screens.settings.SettingsSection
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
-import com.zakir.vestra.ui.screens.studio.StudioScreen
+import com.zakir.vestra.ui.screens.home.HomeScreen
+import com.zakir.vestra.shared.news.NewsRepository
+import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.ui.screens.usage.UsageScreen
 import com.zakir.vestra.ui.screens.video.VideoStudioScreen
 import com.zakir.vestra.ui.screens.help.HelpScreen
@@ -142,30 +145,20 @@ fun VestraNavHost(
             route = Routes.STUDIO,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.STUDIO) }),
         ) {
-            StudioScreen(
+            val newsRepository = remember { NewsRepository(platformHttpClient()) }
+            HomeScreen(
                 appSettings = appSettings,
                 wardrobe = wardrobe,
                 packManager = packManager,
+                generativeViewModel = generativeViewModel,
+                newsRepository = newsRepository,
                 onNewLook = {
                     tryOnViewModel.resetSession()
                     navController.navigate(Routes.GARMENT)
                 },
-                onOpenCreate = {
-                    generativeViewModel.prepareStudio(resetIfIdle = true)
-                    navController.navigate(Routes.CREATE)
-                },
-                onOpenCode = {
-                    generativeViewModel.prepareStudio(resetIfIdle = true)
-                    navController.navigate(Routes.CODE)
-                },
-                onOpenVideo = {
-                    generativeViewModel.prepareStudio(resetIfIdle = true)
-                    navController.navigate(Routes.VIDEO)
-                },
                 onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
             )
         }
