@@ -56,8 +56,9 @@ class DiffusionEngine(
                 Availability.Unavailable(UnavailableReason.DEVICE_NOT_CAPABLE)
             !packs.isInstalled(packId) ->
                 Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
+            // Pro masks the person with the Lite pack's parser, so Lite must be installed too.
             !packs.isInstalled(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID) ->
-                Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
+                Availability.Unavailable(UnavailableReason.COMPANION_PACK_MISSING)
             else -> Availability.Ready
         }
     }

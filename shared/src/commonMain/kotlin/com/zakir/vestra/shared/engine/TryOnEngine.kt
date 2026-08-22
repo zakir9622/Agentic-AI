@@ -25,6 +25,12 @@ sealed interface Availability {
 
 enum class UnavailableReason {
     PACK_NOT_INSTALLED,
+
+    /**
+     * The tier's own pack is installed but a pack it depends on is not — Pro reads the person
+     * mask from the Lite pack, so Pro alone cannot run.
+     */
+    COMPANION_PACK_MISSING,
     DEVICE_NOT_CAPABLE,
     OFFLINE,
     NOT_CONFIGURED,

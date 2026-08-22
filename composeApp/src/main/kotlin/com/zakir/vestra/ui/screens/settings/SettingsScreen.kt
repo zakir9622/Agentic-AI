@@ -1106,6 +1106,8 @@ private fun EngineTier.description(availability: Availability): String {
         Availability.Ready -> base
         is Availability.Unavailable -> when (availability.reason) {
             UnavailableReason.PACK_NOT_INSTALLED -> "$base Model pack not installed."
+            UnavailableReason.COMPANION_PACK_MISSING ->
+                "$base Pro also needs the Lite pack — install Lite to enable it."
             UnavailableReason.DEVICE_NOT_CAPABLE -> "$base Device doesn’t meet RAM requirements."
             UnavailableReason.OFFLINE -> "$base No internet connection."
             UnavailableReason.NOT_CONFIGURED -> "$base Add the required free API key above."

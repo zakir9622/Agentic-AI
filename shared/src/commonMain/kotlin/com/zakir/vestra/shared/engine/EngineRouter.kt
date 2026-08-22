@@ -41,6 +41,8 @@ class EngineRouter(private val engines: List<TryOnEngine>) {
 
 private fun UnavailableReason.toError(): TryOnError = when (this) {
     UnavailableReason.PACK_NOT_INSTALLED -> TryOnError.ModelPackMissing
+    UnavailableReason.COMPANION_PACK_MISSING ->
+        TryOnError.Internal("Pro needs the Lite pack too — install Lite in Settings.")
     UnavailableReason.DEVICE_NOT_CAPABLE -> TryOnError.DeviceNotCapable
     UnavailableReason.OFFLINE -> TryOnError.NetworkUnavailable
     UnavailableReason.NOT_CONFIGURED -> TryOnError.Internal("Engine not configured — check Settings")

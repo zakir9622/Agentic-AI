@@ -187,7 +187,6 @@ class HfGradioClient(
                 }
             }
             is JsonArray -> element.firstNotNullOfOrNull { firstMediaElement(it, depth + 1) }
-            else -> null
         }
     }
 
