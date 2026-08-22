@@ -17,7 +17,7 @@ class HumanParsing(private val packs: ModelPackManager) {
     /** Null when the Lite pack isn't ready or no person was found. */
     fun analyze(person: Bitmap, category: GarmentCategory): TargetRegion? =
         withHumanParseModel { model ->
-            val (h, w) = model.inputSize(defaultSize = 473)
+            val (h, w) = model.inputSize(defaultSize = 512)
             val (logits, shape) = model.run(ImageOps.toNormalizedChw(person, h, w), h, w)
             val classes = shape.getOrNull(1)?.toInt() ?: return@withHumanParseModel null
             val outH = shape.getOrNull(2)?.toInt() ?: h
@@ -46,7 +46,7 @@ class HumanParsing(private val packs: ModelPackManager) {
      */
     fun looksLikeWornPhoto(image: Bitmap): Boolean =
         withHumanParseModel { model ->
-            val (h, w) = model.inputSize(defaultSize = 473)
+            val (h, w) = model.inputSize(defaultSize = 512)
             val (logits, shape) = model.run(ImageOps.toNormalizedChw(image, h, w), h, w)
             val classes = shape.getOrNull(1)?.toInt() ?: return@withHumanParseModel false
             val outH = shape.getOrNull(2)?.toInt() ?: h

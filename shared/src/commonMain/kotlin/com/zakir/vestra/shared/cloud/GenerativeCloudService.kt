@@ -95,6 +95,7 @@ class GenerativeCloudService(
                                         imageBytes = refBytes,
                                         hfToken = token,
                                     )
+                                    CloudOutputValidator.validate(bytes)?.let { error(it) }
                                     val path = io.downloadResult(
                                         "data:image/png;base64,${Base64.encode(bytes)}",
                                     )
@@ -112,6 +113,7 @@ class GenerativeCloudService(
                                     prompt = variant,
                                     hfToken = token,
                                 )
+                                CloudOutputValidator.validate(bytes)?.let { error(it) }
                                 val path = io.downloadResult(
                                     "data:image/png;base64,${Base64.encode(bytes)}",
                                 )
@@ -429,20 +431,61 @@ class GenerativeCloudService(
         system: String,
         capability: AiCapability = AiCapability.CODE,
         temperature: Double = 0.4,
-    ): LlmResult {
+    ): LlmResult = chatWithFallback(prompt, system, capability, temperature).first
+
+    /**
+     * Chat with the same fallback chain as [generateCode] — tries Groq, OpenRouter,
+     * and HF Inference when the selected model is unavailable or rate-limited.
+     */
+    suspend fun chatWithFallback(
+        prompt: String,
+        system: String,
+        capability: AiCapability = AiCapability.CODE,
+        temperature: Double = 0.4,
+        assists: GenerativeAssists = GenerativeAssists(),
+    ): Pair<LlmResult, CloudModelProvider> {
         val provider = settings.selectedProvider(capability)
-        requireKeyIfNeeded(provider)
         require(settings.networkLikelyAvailable()) { "No internet connection" }
-        CloudModelContracts.preflightOrNull(provider)?.let { error(it) }
-        val key = settings.apiKeyFor(provider) ?: error("API key required for ${provider.displayName}")
-        return llm.chat(
-            platform = provider.platform,
-            model = provider.endpoint,
-            prompt = prompt,
-            apiKey = key,
-            system = system,
-            temperature = temperature,
-        )
+        val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
+        val effectiveSystem = buildCodeSystem(assists).let { base ->
+            if (system.isBlank()) base else "$base\n\n$system"
+        }
+        val effectiveTemp = when {
+            assists.creative && assists.pragmatic -> temperature.coerceAtLeast(0.45)
+            assists.creative -> temperature.coerceAtLeast(0.5)
+            else -> temperature
+        }
+        var lastError: Exception? = null
+        for (candidate in candidates) {
+            if (CloudModelContracts.preflightOrNull(candidate) != null) continue
+            requireKeyIfNeeded(candidate)
+            val key = settings.apiKeyFor(candidate) ?: continue
+            try {
+                val result = llm.chat(
+                    platform = candidate.platform,
+                    model = candidate.endpoint,
+                    prompt = prompt,
+                    apiKey = key,
+                    system = effectiveSystem,
+                    temperature = effectiveTemp,
+                )
+                if (result.text.isBlank()) error("Empty LLM response")
+                usage.record(
+                    candidate,
+                    tokensIn = result.tokensIn,
+                    tokensOut = result.tokensOut,
+                    success = true,
+                    note = "Chat · ${CloudModelContracts.statusLabel(candidate)}",
+                )
+                return result to candidate
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+                if (e.isMonthlyCreditsExhausted()) continue
+            }
+        }
+        throw lastError ?: IllegalStateException("Chat failed — add Groq, OpenRouter, or HF token in Settings")
     }
 
     private fun extractRef(element: kotlinx.serialization.json.JsonElement): String =

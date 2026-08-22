@@ -92,7 +92,15 @@ class AppSettings(private val settings: Settings) {
     fun setCodeProvider(id: String) = setProvider(KEY_CODE, id, AiCapability.CODE, _codeProviderId)
     fun setVideoProvider(id: String) = setProvider(KEY_VIDEO, id, AiCapability.VIDEO, _videoProviderId)
 
-    fun setHfToken(token: String?) = putSecret(KEY_HF_TOKEN, token, _hfToken)
+    fun setHfToken(token: String?) {
+        putSecret(KEY_HF_TOKEN, token, _hfToken)
+        if (!token.isNullOrBlank()) {
+            val imageGen = _imageGenProviderId.value
+            if (imageGen == "flux-schnell-hf" || imageGen == "sdxl-lightning-hf") {
+                setImageGenProvider("flux-schnell-inference")
+            }
+        }
+    }
     fun setGroqApiKey(key: String?) = putSecret(KEY_GROQ_KEY, key, _groqApiKey)
     fun setOpenRouterApiKey(key: String?) = putSecret(KEY_OPENROUTER_KEY, key, _openRouterApiKey)
 

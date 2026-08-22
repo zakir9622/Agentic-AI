@@ -95,14 +95,17 @@ class ChatViewModel(
         job?.cancel()
         job = viewModelScope.launch {
             try {
-                val result = generative.chat(
+                val (result, used) = generative.chatWithFallback(
                     prompt = composedPrompt,
                     system = system,
                     capability = AiCapability.CODE,
                     temperature = 0.4,
                 )
-                chat.append("assistant", result.text, provider.id)
-                builder?.complete(success = true, note = "tokens ${result.tokensIn}+${result.tokensOut}")
+                chat.append("assistant", result.text, used.id)
+                builder?.complete(
+                    success = true,
+                    note = "${used.id} · tokens ${result.tokensIn}+${result.tokensOut}",
+                )
             } catch (e: Exception) {
                 val msg = e.message?.take(280) ?: "Chat failed"
                 _error.value = msg

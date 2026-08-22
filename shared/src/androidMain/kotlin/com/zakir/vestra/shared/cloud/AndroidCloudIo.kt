@@ -50,10 +50,16 @@ class AndroidCloudIo(
                 else error("Cannot fetch result: $urlOrPath")
             }
         }
+        val isVideo = resolved.contains(".mp4", ignoreCase = true) ||
+            resolved.contains(".webm", ignoreCase = true) ||
+            bytesIsMp4(bytes)
+        CloudOutputValidator.validate(bytes, isVideo = isVideo)?.let { reason ->
+            error(reason)
+        }
         val dir = File(context.filesDir, "generations").apply { mkdirs() }
         val ext = when {
-            resolved.contains(".mp4", ignoreCase = true) || bytesIsMp4(bytes) -> "mp4"
-            resolved.contains(".webm", ignoreCase = true) -> "webm"
+            isVideo && (resolved.contains(".webm", ignoreCase = true) || isWebm(bytes)) -> "webm"
+            isVideo -> "mp4"
             resolved.contains(".png", ignoreCase = true) -> "png"
             else -> "jpg"
         }
@@ -113,7 +119,12 @@ class AndroidCloudIo(
     }
 
     private fun bytesIsMp4(bytes: ByteArray): Boolean =
-        bytes.size > 8 && bytes[4] == 'f'.code.toByte() && bytes[5] == 't'.code.toByte()
+        bytes.size > 8 && bytes[4] == 'f'.code.toByte() && bytes[5] == 't'.code.toByte() &&
+            bytes[6] == 'y'.code.toByte() && bytes[7] == 'p'.code.toByte()
+
+    private fun isWebm(bytes: ByteArray): Boolean =
+        bytes.size >= 4 && bytes[0] == 0x1A.toByte() && bytes[1] == 0x45.toByte() &&
+            bytes[2] == 0xDF.toByte() && bytes[3] == 0xA3.toByte()
 
     private fun Bitmap.toJpegBytes(): ByteArray {
         val stream = ByteArrayOutputStream()

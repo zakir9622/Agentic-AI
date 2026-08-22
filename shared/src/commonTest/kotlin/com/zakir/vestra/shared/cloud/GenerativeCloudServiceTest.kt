@@ -66,7 +66,7 @@ class GenerativeCloudServiceTest {
             hostsCalled += request.url.host
             when {
                 request.url.host.contains("router.huggingface.co") -> respond(
-                    """{"data":[{"b64_json":"aGVsbG8="}]}""",
+                    """{"data":[{"b64_json":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}]}""",
                     HttpStatusCode.OK,
                     headersOf(HttpHeaders.ContentType, "application/json"),
                 )
@@ -156,5 +156,35 @@ class GenerativeCloudServiceTest {
         val ready = states.filterIsInstance<GenerativeState.CodeReady>().single()
         assertEquals("hf", modelSeen)
         assertEquals("qwen25-coder-7b-hf", ready.providerId)
+    }
+
+    @Test
+    fun chatWithFallbackUsesNextProviderWhenGroqMissing() = runTest {
+        var modelSeen = ""
+        val engine = MockEngine { request ->
+            val body = (request.body as? TextContent)?.text.orEmpty()
+            modelSeen = when {
+                body.contains("llama-3.3-70b") -> "groq"
+                body.contains("openrouter/free") -> "openrouter"
+                else -> "other"
+            }
+            respond(
+                """{"choices":[{"message":{"content":"Hello from chat"}}],"usage":{"prompt_tokens":2,"completion_tokens":3}}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val http = HttpClient(engine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setCodeProvider("llama33-70b-groq")
+            setOpenRouterApiKey("sk-or-test")
+        }
+        val service = GenerativeCloudService(http, FakeIo(), settings, UsageLedger(TestMemorySettings()))
+        val (result, provider) = service.chatWithFallback("hi", system = "Be brief.")
+        assertEquals("openrouter", modelSeen)
+        assertEquals("openrouter-free", provider.id)
+        assertTrue(result.text.contains("Hello"))
     }
 }

@@ -60,7 +60,7 @@ class GenerativeViewModel(
     private val _fashionContext = MutableStateFlow(true)
     val fashionContext: StateFlow<Boolean> = _fashionContext
 
-    private val _bypassFilter = MutableStateFlow(false)
+    private val _bypassFilter = MutableStateFlow(true)
     val bypassFilter: StateFlow<Boolean> = _bypassFilter
 
     private val _qualityGuard = MutableStateFlow(true)

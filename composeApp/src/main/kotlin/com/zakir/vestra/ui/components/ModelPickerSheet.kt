@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.CloudModelProvider
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
+import com.zakir.vestra.shared.quality.QualityRating
 import com.zakir.vestra.ui.theme.VestraColors
 
 /**
@@ -78,7 +79,8 @@ fun ModelPickerSheet(
                     ModelSupportLevel.DEGRADED -> 2
                     ModelSupportLevel.UNSUPPORTED -> 0
                 }
-            }.thenBy { it.displayName.lowercase() },
+            }.thenByDescending { it.qualityScore }
+                .thenBy { it.displayName.lowercase() },
         )
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -178,6 +180,8 @@ fun ModelPickerSheet(
                             )
                             Text(
                                 buildString {
+                                    append(QualityRating.label(model))
+                                    append(" · ")
                                     append(CloudModelContracts.statusLabel(model))
                                     append(" · ")
                                     append(model.platform.name.replace('_', ' ').lowercase())

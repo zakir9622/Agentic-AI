@@ -1,5 +1,14 @@
 # Changelog — The Lookbook
 
+## 2.9.14
+- Quality plan: `QualityRating` maps catalog scores to 1–5★ (5★ = READY + score ≥ 90)
+- Cloud downloads validated (reject empty/corrupt images and videos; retry fallback chain)
+- News chat uses the same LLM fallback chain as Code studio (Groq → OpenRouter → HF)
+- Bypass filter assist on by default for Image/Video (fewer false safety blocks)
+- Lite try-on applies BiRefNet matte refinement when `birefnet-v1` pack is installed
+- Human parse uses declared 512×512 input; model picker shows star rating + sorts by quality
+- Saving HF token migrates image gen to FLUX Inference when Space defaults were selected
+
 ## 2.9.3
 - Model fallback chains for video, cloud try-on, and code (tries the next free model when one is busy or missing a key)
 - LTX-Video payload aligned to live Space schema (null image fields, 704×512, 2s / CFG 1)

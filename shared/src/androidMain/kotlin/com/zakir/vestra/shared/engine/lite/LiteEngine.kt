@@ -155,7 +155,13 @@ class LiteEngine(
         val plane = output.copyOfRange(0, maskH * maskW)
         val mask = ImageOps.normalizeAndResizeMask(plane, maskW, maskH, garment.width, garment.height)
         val cut = ImageOps.applyAlphaMask(garment, mask)
-        return cropToAlpha(cut)
+        return refineGarmentMatte(cropToAlpha(cut))
+    }
+
+    private fun refineGarmentMatte(cut: Bitmap): Bitmap {
+        val (rgba, width, height) = ImageOps.toRgba(cut)
+        val refined = quality.refineMatteIfAvailable(rgba, width, height) ?: return cut
+        return cropToAlpha(ImageOps.fromRgba(refined, width, height))
     }
 
     private fun cropToAlpha(bitmap: Bitmap): Bitmap {
