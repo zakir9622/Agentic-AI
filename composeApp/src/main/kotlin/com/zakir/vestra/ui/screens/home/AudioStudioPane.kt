@@ -1,5 +1,9 @@
 package com.zakir.vestra.ui.screens.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,7 +28,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import com.zakir.vestra.shared.audio.AndroidMicRecorder
 import com.zakir.vestra.shared.audio.VoiceCatalog
 import com.zakir.vestra.shared.audio.VoiceKnobs
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -43,9 +51,10 @@ import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
 import com.zakir.vestra.ui.theme.VestraColors
+import java.io.File
 
 /**
- * Audio Studio — TTS with voice personas + local voice-changer knobs.
+ * Audio Studio — TTS with voice personas + local voice-changer knobs + mic record.
  * Cloud TTS by default; local TTS pack scaffolded; DSP knobs always on-device.
  */
 @Composable
@@ -66,6 +75,7 @@ fun AudioStudioPane(
     val preflight by viewModel.preflightMessage.collectAsState()
     val personaId by viewModel.voicePersonaId.collectAsState()
     val knobs by viewModel.voiceKnobs.collectAsState()
+    val reference by viewModel.referenceUri.collectAsState()
     val audioId by viewModel.appSettings.audioProviderId.collectAsState()
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
@@ -74,12 +84,69 @@ fun AudioStudioPane(
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
     var showModelPicker by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val micRecorder = remember {
+        AndroidMicRecorder(File(context.cacheDir, "audio_recordings").also { it.mkdirs() })
+    }
+    var isRecording by remember { mutableStateOf(false) }
+    var recordHint by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (micRecorder.isRecording) micRecorder.stop()
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            if (micRecorder.start()) {
+                isRecording = true
+                recordHint = "Recording… tap Stop when done (max 15s)"
+            } else {
+                recordHint = micRecorder.lastFailure ?: "Could not start recording"
+            }
+        } else {
+            recordHint = "Microphone permission is required to record voice."
+        }
+    }
+
+    fun toggleMic() {
+        if (busy) return
+        if (isRecording) {
+            val path = micRecorder.stop()
+            isRecording = false
+            if (path != null) {
+                viewModel.setReference(path)
+                recordHint = "Clip saved — adjust knobs, then Apply voice change"
+            } else {
+                recordHint = micRecorder.lastFailure ?: "Recording failed"
+            }
+        } else {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (granted) {
+                if (micRecorder.start()) {
+                    isRecording = true
+                    recordHint = "Recording… tap Stop when done (max 15s)"
+                } else {
+                    recordHint = micRecorder.lastFailure ?: "Could not start recording"
+                }
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
     val pickerModels = remember(freeCloudDiscovery) {
         freeCloudDiscovery?.selectable(viewModel.appSettings, AiCapability.AUDIO)
             ?: CloudModelCatalog.forCapability(AiCapability.AUDIO)
     }
     val onDeviceEntries = remember(packStates) {
-        LocalModelCatalog.forCapability(AiCapability.AUDIO).map { entry ->
+        LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { entry ->
             val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
             val ready = entry.runnable && (entry.packId == null || packReady)
             OnDevicePickerEntry(
@@ -87,11 +154,7 @@ fun AudioStudioPane(
                 displayName = entry.displayName,
                 detail = entry.testingNote,
                 ready = ready,
-                statusLabel = when {
-                    ready -> "Ready offline"
-                    entry.packId != null -> "Download in Settings"
-                    else -> "Coming soon"
-                },
+                statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
             )
         }
     }
@@ -104,14 +167,18 @@ fun AudioStudioPane(
     ) {
         GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase())
         Text(
-            "Cloud TTS with named voices. Local voice-changer knobs always run on-device. " +
-                "On-device TTS unlocks when local-tts-v1 weights ship.",
+            "Cloud TTS with named voices. Record a clip and apply local voice-changer knobs offline. " +
+                "On-device TTS stays scaffolded until local-tts-v1 weights ship.",
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,
         )
         if (preflight != null) {
             Spacer(Modifier.height(6.dp))
             GlassPill(text = preflight!!, active = true)
+        }
+        if (recordHint != null) {
+            Spacer(Modifier.height(6.dp))
+            GlassPill(text = recordHint!!, active = isRecording || reference != null)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -132,6 +199,51 @@ fun AudioStudioPane(
             color = VestraColors.InkMuted,
             modifier = Modifier.padding(top = 4.dp),
         )
+
+        Spacer(Modifier.height(14.dp))
+        Text("LIVE VOICE CHANGE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+            "Record → apply knobs → play. Continuous streaming DSP is not in this build.",
+            style = MaterialTheme.typography.labelSmall,
+            color = VestraColors.InkMuted,
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AtelierFilterChip(
+                selected = isRecording,
+                onClick = { toggleMic() },
+                label = { Text(if (isRecording) "Stop mic" else "Record mic") },
+            )
+            AtelierFilterChip(
+                selected = false,
+                onClick = {
+                    if (!busy && reference != null) viewModel.applyVoiceChange()
+                },
+                label = { Text("Apply voice change") },
+            )
+            if (reference != null) {
+                AtelierFilterChip(
+                    selected = false,
+                    onClick = {
+                        viewModel.setReference(null)
+                        micRecorder.clear()
+                        recordHint = null
+                    },
+                    label = { Text("Clear clip") },
+                )
+            }
+        }
+        if (reference != null) {
+            Text(
+                "Clip ready · ${reference!!.substringAfterLast('/')}",
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.Accent,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
 
         Spacer(Modifier.height(14.dp))
         Text("VOICE CHANGER", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -180,8 +292,14 @@ fun AudioStudioPane(
             modelLabel = provider.displayName,
             onModelClick = { showModelPicker = true },
             busy = busy,
-            enabled = prompt.isNotBlank(),
-            onSend = viewModel::generateAudio,
+            enabled = prompt.isNotBlank() || reference != null,
+            onSend = {
+                if (reference != null && (prompt.isBlank() || prompt.equals("voice-change", true))) {
+                    viewModel.applyVoiceChange()
+                } else {
+                    viewModel.generateAudio()
+                }
+            },
             onStop = viewModel::cancel,
             placeholder = "Script for ${VoiceCatalog.byId(personaId).displayName}…",
         )
@@ -189,7 +307,13 @@ fun AudioStudioPane(
         ResultPane(
             state = state,
             liveLog = liveLog,
-            onRetry = viewModel::generateAudio,
+            onRetry = {
+                if (reference != null && prompt.equals("voice-change", true)) {
+                    viewModel.applyVoiceChange()
+                } else {
+                    viewModel.generateAudio()
+                }
+            },
             onDismiss = { viewModel.forceStop(showStopped = false) },
             retryLabel = "Speak again",
         )

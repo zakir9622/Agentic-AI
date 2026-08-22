@@ -4,10 +4,26 @@ import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.domain.EngineTier
 
 /**
+ * How a local entry appears in Create / Audio Studio model pickers.
+ * Quality packs run as post-steps, not as txt2img / TTS generators.
+ */
+enum class LocalModelPickerRole {
+    /** Offered in the studio ON-DEVICE list for this capability. */
+    STUDIO_GENERATOR,
+    /** Settings / packs only — never a Create Studio generator. */
+    QUALITY_POST,
+    /** Gallery / casting assets — try-on adjacent, not generation. */
+    ASSET,
+}
+
+/**
  * Catalog of open-source models that run on-device (your phone as a local AI device).
  * Packs are downloaded once from Hugging Face and then work fully offline.
  *
  * This is separate from [com.zakir.vestra.shared.cloud.CloudModelCatalog] — those need network.
+ *
+ * Honesty: full offline Image / Video / TTS / Code generation needs published weights.
+ * Until then, entries stay `runnable = false` with clear scaffold / coming-soon labels.
  */
 data class LocalModelEntry(
     val id: String,
@@ -24,6 +40,7 @@ data class LocalModelEntry(
     /** Ready to run in this app build once the pack is installed. */
     val runnable: Boolean,
     val testingNote: String,
+    val pickerRole: LocalModelPickerRole = LocalModelPickerRole.STUDIO_GENERATOR,
 )
 
 object LocalModelCatalog {
@@ -74,6 +91,7 @@ object LocalModelCatalog {
             approxSizeLabel = "~50–200 MB",
             runnable = true,
             testingNote = "Optional. Improves casting variety for local shoots.",
+            pickerRole = LocalModelPickerRole.ASSET,
         ),
         LocalModelEntry(
             id = "local-sdturbo-v1",
@@ -84,7 +102,7 @@ object LocalModelCatalog {
             license = "OpenRAIL-M / Apache-2.0 (weights TBD)",
             approxSizeLabel = "~1–1.5 GB",
             runnable = false,
-            testingNote = "Pack export via ml/export_image_gen_pack.py — LocalImageGenerator scaffolded; flip runnable when weights on HF.",
+            testingNote = "Scaffold only — weights not published. Use cloud Image models until local-sdturbo-v1 ships.",
         ),
         LocalModelEntry(
             id = "local-coder-planned",
@@ -118,7 +136,7 @@ object LocalModelCatalog {
             approxSizeLabel = "N/A",
             runnable = false,
             offlineAfterInstall = false,
-            testingNote = "Cloud video only. Local packs not offered.",
+            testingNote = "No local video weights — cloud LTX / Wan2 only.",
         ),
         LocalModelEntry(
             id = "local-tts-v1",
@@ -129,7 +147,7 @@ object LocalModelCatalog {
             license = "Apache-2.0 (planned)",
             approxSizeLabel = "~80–300 MB",
             runnable = false,
-            testingNote = "LocalAudioGenerator scaffolded; flip runnable when local-tts-v1 weights publish. Voice knobs work offline via DSP changer.",
+            testingNote = "Scaffold — weights not published. Use cloud TTS; voice knobs + mic record work offline via DSP.",
         ),
         LocalModelEntry(
             id = "local-voice-changer",
@@ -140,7 +158,7 @@ object LocalModelCatalog {
             license = "App DSP",
             approxSizeLabel = "0 (built-in)",
             runnable = true,
-            testingNote = "AndroidLocalVoiceChanger applies knobs to WAV/PCM clips after cloud or local TTS.",
+            testingNote = "Record with the mic or use cloud TTS, then apply knobs on-device.",
         ),
         LocalModelEntry(
             id = "local-quality-birefnet",
@@ -152,33 +170,52 @@ object LocalModelCatalog {
             approxSizeLabel = "~224 MB",
             runnable = true,
             testingNote = "Optional · download birefnet-v1 from Model packs — post-step activates when installed.",
+            pickerRole = LocalModelPickerRole.QUALITY_POST,
         ),
         LocalModelEntry(
             id = "local-quality-realesrgan",
             displayName = "Real-ESRGAN upscale",
             description = "Open 2×/4× upscaler for listing-ready stills after try-on or Create.",
-            capability = AiCapability.IMAGE_GEN,
+            capability = AiCapability.TRY_ON,
             packId = "realesrgan-v1",
             license = "BSD-3-Clause",
             approxSizeLabel = "~5 MB",
             runnable = true,
-            testingNote = "Optional · download realesrgan-v1 — auto-upscale when pack is installed and valid.",
+            testingNote = "Optional quality pack — not an Image Create generator. Auto-upscale when installed.",
+            pickerRole = LocalModelPickerRole.QUALITY_POST,
         ),
         LocalModelEntry(
             id = "local-quality-gfpgan",
             displayName = "GFPGAN face restore (planned)",
             description = "Open face restoration for shopper selfies and creator casting stills.",
-            capability = AiCapability.IMAGE_EDIT,
+            capability = AiCapability.TRY_ON,
             packId = null,
             license = "Apache-2.0 (planned)",
             approxSizeLabel = "~100–350 MB",
             runnable = false,
-            testingNote = "Quality pack reserved: gfpgan-v1. Optional post-step after diffusion.",
+            testingNote = "Quality pack reserved: gfpgan-v1. Optional post-step after diffusion — not Image Edit.",
+            pickerRole = LocalModelPickerRole.QUALITY_POST,
         ),
     )
 
     fun runnable(): List<LocalModelEntry> = entries.filter { it.runnable }
 
+    /** All catalog rows tagged with [capability] (Settings / Usage). */
     fun forCapability(capability: AiCapability): List<LocalModelEntry> =
         entries.filter { it.capability == capability }
+
+    /**
+     * Create / Audio Studio ON-DEVICE list — generators and scaffolds only.
+     * Excludes quality upscalers / matting packs that must not appear as Image models.
+     */
+    fun forStudioPicker(capability: AiCapability): List<LocalModelEntry> =
+        forCapability(capability).filter { it.pickerRole == LocalModelPickerRole.STUDIO_GENERATOR }
+
+    /** Honest short status for picker rows. */
+    fun studioStatusLabel(entry: LocalModelEntry, packReady: Boolean): String = when {
+        entry.runnable && (entry.packId == null || packReady) -> "Ready offline"
+        !entry.runnable && entry.packId != null -> "Scaffold · weights not published"
+        !entry.runnable -> "Coming soon · no on-device weights yet"
+        else -> "Download in Settings"
+    }
 }

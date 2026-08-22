@@ -4,6 +4,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
+import java.io.File
 import java.nio.FloatBuffer
 
 /**
@@ -20,14 +21,7 @@ class OrtModel(
 ) : AutoCloseable {
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
-    private val session: OrtSession = env.createSession(
-        modelPath,
-        OrtSession.SessionOptions().apply {
-            if (useNnapi) {
-                runCatching { addNnapi() }
-            }
-        },
-    )
+    private val session: OrtSession = createSessionSafely(modelPath, useNnapi)
 
     private val inputName: String = session.inputNames.firstOrNull()
         ?: error("ONNX model has no inputs: $modelPath")
@@ -69,7 +63,7 @@ class OrtModel(
     }
 
     override fun close() {
-        session.close()
+        runCatching { session.close() }
     }
 
     companion object {
@@ -85,6 +79,42 @@ class OrtModel(
                 if (acc > Int.MAX_VALUE) return -1
             }
             return acc.toInt()
+        }
+
+        /**
+         * Session create can throw [UnsatisfiedLinkError] / ORT exceptions.
+         * Native SIGSEGV from NNAPI is uncatchable — keep [OrtEpPolicy.preferNnapi] false
+         * unless the user opts in from Settings.
+         */
+        private fun createSessionSafely(modelPath: String, useNnapi: Boolean): OrtSession {
+            val env = OrtEnvironment.getEnvironment()
+            return try {
+                env.createSession(
+                    modelPath,
+                    OrtSession.SessionOptions().apply {
+                        // Never force NNAPI on the generate hot path unless explicitly enabled.
+                        if (useNnapi && OrtEpPolicy.preferNnapi) {
+                            runCatching { addNnapi() }
+                        }
+                    },
+                )
+            } catch (error: UnsatisfiedLinkError) {
+                throw IllegalStateException(
+                    "ONNX Runtime native library failed to load — reinstall the app or re-download lite-v1.",
+                    error,
+                )
+            } catch (error: Exception) {
+                throw IllegalStateException(
+                    "Could not open ONNX session (${File(modelPath).name}): ${error.message?.take(100) ?: "unknown"}",
+                    error,
+                )
+            } catch (error: Error) {
+                // Soft-wrap LinkageError subclasses that are not UnsatisfiedLinkError.
+                throw IllegalStateException(
+                    "Native ONNX failure opening ${File(modelPath).name} — try Lite again or re-download the pack.",
+                    error,
+                )
+            }
         }
     }
 }

@@ -261,13 +261,19 @@ class AppSettings(private val settings: Settings) {
             settings.putString(key, "openrouter-free")
             return "openrouter-free"
         }
+        // Prefer Space TTS — MMS Inference is often rejected on free Inference Providers.
+        if (capability == AiCapability.AUDIO && (stored == null || stored == "mms-tts-eng-hf")) {
+            val curated = CloudModelCatalog.defaultFor(capability)
+            settings.putString(key, curated.id)
+            return curated.id
+        }
         if (capability == AiCapability.CODE && stored == "llama33-70b-groq" &&
             settings.getStringOrNull(KEY_GROQ_KEY).isNullOrBlank()
         ) {
             val fallback = when {
                 !settings.getStringOrNull(KEY_HF_TOKEN).isNullOrBlank() -> "qwen25-coder-hf"
                 !settings.getStringOrNull(KEY_OPENROUTER_KEY).isNullOrBlank() -> "openrouter-free"
-                else -> stored
+                else -> null
             }
             if (fallback != null && fallback != stored) {
                 settings.putString(key, fallback)

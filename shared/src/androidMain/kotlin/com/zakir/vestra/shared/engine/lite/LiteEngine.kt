@@ -89,6 +89,10 @@ class LiteEngine(
                 return@flow
             }
 
+            emit(GenerationState.Running(0.12f, "Loading Lite models…"))
+            // Yield so the UI can paint before heavy ORT session create (Pixel 9 LMK path).
+            kotlinx.coroutines.yield()
+
             emit(GenerationState.Running(0.15f, "Extracting garment"))
             t0 = EpochClock.System.nowMs()
             val garmentCut = runCatching {
@@ -100,7 +104,7 @@ class LiteEngine(
                 emit(
                     GenerationState.Failed(
                         TryOnError.Internal(
-                            error.message?.take(120)
+                            softOrtMessage(error)
                                 ?: "Lite segmentation model failed — re-download lite-v1 in Settings → Model packs.",
                         ),
                     ),
@@ -182,11 +186,33 @@ class LiteEngine(
             throw error
         } catch (error: Exception) {
             DiagnosticsHook.completeTryOn(diag, false, error.message)
-            emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
+            emit(GenerationState.Failed(TryOnError.Internal(softOrtMessage(error) ?: error.message ?: "Generation failed")))
+        } catch (error: Throwable) {
+            // Catch LinkageError / UnsatisfiedLinkError that bypass Exception.
+            DiagnosticsHook.completeTryOn(diag, false, error.message)
+            emit(
+                GenerationState.Failed(
+                    TryOnError.Internal(
+                        softOrtMessage(error)
+                            ?: "On-device try-on crashed in native code — try again, or re-download lite-v1.",
+                    ),
+                ),
+            )
         } finally {
             packs.markPackIdle(PACK_ID)
         }
     }.flowOn(Dispatchers.Default)
+
+    private fun softOrtMessage(error: Throwable): String? {
+        val msg = error.message.orEmpty()
+        return when {
+            error is UnsatisfiedLinkError || error.cause is UnsatisfiedLinkError ->
+                "ONNX Runtime failed to load — reinstall the app or re-download lite-v1."
+            msg.contains("ONNX", ignoreCase = true) || msg.contains("Ort", ignoreCase = true) ->
+                msg.take(160)
+            else -> null
+        }
+    }
 
     private fun extractGarment(model: OrtModel, garment: Bitmap): Bitmap {
         val (h, w) = model.inputSize(defaultSize = 320)

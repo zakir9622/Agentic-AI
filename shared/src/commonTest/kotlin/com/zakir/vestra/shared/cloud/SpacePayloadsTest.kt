@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SpacePayloadsTest {
@@ -170,10 +171,71 @@ class SpacePayloadsTest {
     fun defaultsPointAtModelsVerifiedAgainstLiveSpaces() {
         assertEquals("flux-schnell-hf", CloudModelCatalog.defaultImageGenId)
         assertEquals("ootd-hf", CloudModelCatalog.defaultTryOnId)
-        listOf(CloudModelCatalog.defaultImageGenId, CloudModelCatalog.defaultTryOnId).forEach { id ->
+        assertEquals("ltx-zerogpu-hf", CloudModelCatalog.defaultVideoId)
+        assertEquals("kokoro-tts-hf", CloudModelCatalog.defaultAudioId)
+        listOf(
+            CloudModelCatalog.defaultImageGenId,
+            CloudModelCatalog.defaultTryOnId,
+            CloudModelCatalog.defaultVideoId,
+            CloudModelCatalog.defaultAudioId,
+        ).forEach { id ->
             val provider = CloudModelCatalog.byId(id)!!
             assertEquals(ModelSupportLevel.READY, CloudModelContracts.forProvider(provider).support, id)
         }
+    }
+
+    @Test
+    fun audioHostsUseWorkingSpacesNotOpenVoiceOrHexgradGenerate() {
+        val kokoro = CloudModelCatalog.byId("kokoro-tts-hf")!!
+        assertTrue(kokoro.endpoint.contains("Remsky", ignoreCase = true), kokoro.endpoint)
+        assertEquals("generate_speech_from_ui", CloudModelContracts.effectiveApiName(kokoro))
+        val edge = CloudModelCatalog.byId("edge-tts-hf")!!
+        assertTrue(edge.endpoint.contains("innoai", ignoreCase = true), edge.endpoint)
+        assertEquals("tts_interface", CloudModelContracts.effectiveApiName(edge))
+        assertEquals(
+            ModelSupportLevel.DEGRADED,
+            CloudModelContracts.forProvider(CloudModelCatalog.byId("mms-tts-eng-hf")!!).support,
+        )
+    }
+
+    @Test
+    fun kokoroAudioPayloadUsesVoiceList() {
+        val knobs = com.zakir.vestra.shared.audio.VoiceKnobs.Default
+        val data = SpacePayloads.forAudio("kokoro-tts-hf", "hello", "af_heart", knobs)
+        assertEquals(3, data.size)
+        assertTrue(data[1] is JsonArray, "voice must be a JSON array for Remsky multi-select")
+    }
+
+    @Test
+    fun edgeAudioPayloadUsesFourArgs() {
+        val knobs = com.zakir.vestra.shared.audio.VoiceKnobs.Default.copy(speed = 1.1f)
+        val data = SpacePayloads.forAudio(
+            "edge-tts-hf",
+            "hello",
+            "af_heart",
+            knobs,
+            edgeVoiceLabel = "en-US-JennyNeural - en-US (Female)",
+        )
+        assertEquals(4, data.size)
+        assertEquals("en-US-JennyNeural - en-US (Female)", (data[1] as JsonPrimitive).content)
+    }
+
+    @Test
+    fun friendlyFailure404DoesNotDoubleWordSpace() {
+        val provider = CloudModelCatalog.byId("edge-tts-hf")!!
+        val msg = CloudModelContracts.friendlyFailure(provider, "HTTP 404 Not Found", "Audio")
+        assertTrue(msg.contains("404"), msg)
+        assertFalse(msg.contains("Space Space"), msg)
+        // Display name is "Edge-TTS" → message should say "Edge-TTS Space looks offline"
+        assertTrue(msg.contains("Edge-TTS Space looks offline"), msg)
+    }
+
+    @Test
+    fun friendlyFailure404WithSpaceSuffixStaysSingular() {
+        val provider = CloudModelCatalog.byId("kokoro-tts-hf")!!.copy(displayName = "Kokoro TTS Space")
+        val msg = CloudModelContracts.friendlyFailure(provider, "HTTP 404", "Audio")
+        assertFalse(msg.contains("Space Space"), msg)
+        assertTrue(msg.startsWith("Kokoro TTS Space looks offline"), msg)
     }
 }
 

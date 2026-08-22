@@ -221,7 +221,7 @@ class GenerativeViewModel(
     fun generateAudio() {
         val p = sanitizePrompt(_prompt.value)
         if (p.isEmpty()) {
-            _preflightMessage.value = "Enter text to speak, or attach audio and use voice-change."
+            _preflightMessage.value = "Enter text to speak, or record audio and tap Apply voice change."
             return
         }
         _prompt.value = p
@@ -242,6 +242,25 @@ class GenerativeViewModel(
                 persona = persona,
                 knobs = _voiceKnobs.value,
                 referenceAudioUri = _referenceUri.value,
+            )
+        }
+    }
+
+    /** Offline path: apply local DSP knobs to a recorded / attached WAV clip. */
+    fun applyVoiceChange() {
+        val clip = _referenceUri.value
+        if (clip.isNullOrBlank()) {
+            _preflightMessage.value = "Record or attach audio first, then apply voice knobs."
+            return
+        }
+        _prompt.value = "voice-change"
+        _preflightMessage.value = null
+        startGeneration(RunCapability.AUDIO, "Local voice changer") {
+            generative.generateAudio(
+                prompt = "voice-change",
+                persona = com.zakir.vestra.shared.audio.VoiceCatalog.byId(_voicePersonaId.value),
+                knobs = _voiceKnobs.value,
+                referenceAudioUri = clip,
             )
         }
     }
