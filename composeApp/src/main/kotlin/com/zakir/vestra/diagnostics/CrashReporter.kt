@@ -392,6 +392,8 @@ object CrashReporter {
      * Does not require READ_LOGS for the app's own recent process lines on many devices.
      */
     private fun scrapeFatalLogcatHints(maxChars: Int = 6_000): String {
+        // Never block Application.onCreate / main thread — Diagnostics share captures logcat later.
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) return ""
         val raw = runCatching {
             val proc = ProcessBuilder(
                 "logcat", "-d", "-t", "400",

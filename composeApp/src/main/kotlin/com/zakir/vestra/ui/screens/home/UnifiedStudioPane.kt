@@ -72,6 +72,7 @@ fun UnifiedStudioPane(
     val prompt by viewModel.prompt.collectAsState()
     val reference by viewModel.referenceUri.collectAsState()
     val state by viewModel.state.collectAsState()
+    val liveLog by viewModel.liveLog.collectAsState()
     val preflight by viewModel.preflightMessage.collectAsState()
     val creative by viewModel.creativeMode.collectAsState()
     val pragmatic by viewModel.pragmaticMode.collectAsState()
@@ -126,8 +127,8 @@ fun UnifiedStudioPane(
                 val ready = packReady && entry.runnable
                 val statusLabel = when {
                     ready -> "Ready offline"
-                    !entry.runnable -> "Coming soon · weights not published"
-                    else -> "Download in Settings"
+                    !entry.runnable -> "Coming soon · not for this studio yet"
+                    else -> "Download in Settings · Try-on uses Lite/Pro"
                 }
                 OnDevicePickerEntry(
                     id = entry.id,
@@ -195,8 +196,21 @@ fun UnifiedStudioPane(
     ) {
         GlassSectionLabel(subtitle.uppercase())
         Text(
-            estimate,
+            when (capability) {
+                AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
+                    "Cloud free models. On-device Lite/Pro packs power Try-on — local Create Studio ships when SD-Turbo weights publish."
+                AiCapability.VIDEO ->
+                    "Cloud HF Spaces only for now — no on-device video pack yet."
+                AiCapability.CODE ->
+                    "Cloud LLMs (Groq / OpenRouter / HF). No on-device coding model in this build."
+                else -> estimate
+            },
             style = MaterialTheme.typography.bodySmall,
+            color = VestraColors.InkMuted,
+        )
+        Text(
+            estimate,
+            style = MaterialTheme.typography.labelSmall,
             color = VestraColors.InkMuted,
         )
         if (preflightChip != null && preflight == null) {
@@ -302,6 +316,7 @@ fun UnifiedStudioPane(
             failedMsg.contains("Inference Providers", ignoreCase = true)
         ResultPane(
             state = state,
+            liveLog = liveLog,
             onCancel = { viewModel.forceStop() },
             onRetry = {
                 viewModel.clearResult()

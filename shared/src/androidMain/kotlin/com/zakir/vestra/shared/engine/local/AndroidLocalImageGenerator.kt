@@ -18,7 +18,7 @@ class AndroidLocalImageGenerator(
     private val packId: String = PACK_ID,
 ) : LocalImageGenerator {
 
-    override fun isReady(): Boolean = packGraphsReady()
+    override fun isReady(): Boolean = false
 
     override fun generate(prompt: String, seed: Long?): LocalImageResult {
         if (!packs.isReady(packId)) {
@@ -46,7 +46,8 @@ class AndroidLocalImageGenerator(
         )
     }
 
-    private fun packGraphsReady(): Boolean {
+    /** True when pack graphs look real (for Settings / catalog status only). */
+    fun packGraphsReady(): Boolean {
         if (!packs.isReady(packId)) return false
         val dirPath = packs.installedDir(packId) ?: return false
         val dir = File(dirPath)

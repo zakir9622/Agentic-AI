@@ -54,8 +54,9 @@ object CrashClassifier {
                 hints.contains("debuggee is dying") ->
                 "Native crash (signal) — often ORT/NNAPI; re-download pack or disable NNAPI"
             hints.contains("onnxruntime") || hints.contains("nnapi") ||
-                screen.contains("packs") || screen.contains("engines") ->
-                "Abrupt exit during ONNX/pack work — UncaughtExceptionHandler cannot catch native kills; " +
+                screen.contains("packs") || screen.contains("engines") ||
+                screen.contains("garment") ->
+                "Abrupt exit during ONNX/pack/garment work — UncaughtExceptionHandler cannot catch native kills; " +
                     "retry after reboot or reinstall pack"
             riskyScreen(screen) ->
                 "Abrupt process exit on $breadcrumb — likely native kill; share new troubleshooting bundle"

@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,6 +34,9 @@ import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DiagnosticsScreen(
@@ -44,8 +48,10 @@ fun DiagnosticsScreen(
     val records by diagnostics.records.collectAsState()
     val usageSummary by usage?.summary?.collectAsState() ?: remember { mutableStateOf(null) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val fmt = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
     var crashTick by remember { mutableStateOf(0) }
+    var exporting by remember { mutableStateOf(false) }
     val pendingCrash = remember(crashTick) { CrashReporter.hasPendingCrash() }
     val crashSummary = remember(crashTick) { CrashReporter.lastCrashSummary() }
 
@@ -122,38 +128,55 @@ fun DiagnosticsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
+            if (exporting) {
+                Text(
+                    "Preparing bundle (logcat + crash files)… keep the app open.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VestraColors.Accent,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             OutlinedButton(
                 onClick = {
-                    DiagnosticsExport.writeToFilesDir(context, diagnostics, usage)
-                    val text = DiagnosticsExport.shareTroubleshootingText(diagnostics, usage)
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
-                        putExtra(Intent.EXTRA_TEXT, text)
+                    if (exporting) return@OutlinedButton
+                    exporting = true
+                    scope.launch {
+                        val prepared = withContext(Dispatchers.IO) {
+                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                        }
+                        exporting = false
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
+                            putExtra(Intent.EXTRA_TEXT, prepared.troubleshootingText)
+                        }
+                        context.startActivity(Intent.createChooser(send, "Share troubleshooting bundle"))
                     }
-                    context.startActivity(Intent.createChooser(send, "Share troubleshooting bundle"))
                 },
+                enabled = !exporting,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Share troubleshooting bundle")
+                Text(if (exporting) "Preparing…" else "Share troubleshooting bundle")
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = {
-                    DiagnosticsExport.writeToFilesDir(context, diagnostics, usage)
-                    val bundle = diagnostics.exportBundle(
-                        usage = usageSummary,
-                        logcatSnippet = DiagnosticsExport.captureLogcatSnippet(),
-                        appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                    )
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/json"
-                        putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
-                        putExtra(Intent.EXTRA_TEXT, bundle)
+                    if (exporting) return@OutlinedButton
+                    exporting = true
+                    scope.launch {
+                        val prepared = withContext(Dispatchers.IO) {
+                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                        }
+                        exporting = false
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
+                            putExtra(Intent.EXTRA_TEXT, prepared.runHistoryJson)
+                        }
+                        context.startActivity(Intent.createChooser(send, "Export diagnostics"))
                     }
-                    context.startActivity(Intent.createChooser(send, "Export diagnostics"))
                 },
-                enabled = records.isNotEmpty(),
+                enabled = records.isNotEmpty() && !exporting,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Share run history JSON only")

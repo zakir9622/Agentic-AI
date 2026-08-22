@@ -7,7 +7,7 @@ import com.zakir.vestra.shared.time.EpochClock
  * Default: 120s image, 300s video.
  */
 class GenerationBudget(
-    private val deadlineMs: Long,
+    val deadlineMs: Long,
 ) {
     fun remainingMs(nowMs: Long = EpochClock.System.nowMs()): Long =
         (deadlineMs - nowMs).coerceAtLeast(0)

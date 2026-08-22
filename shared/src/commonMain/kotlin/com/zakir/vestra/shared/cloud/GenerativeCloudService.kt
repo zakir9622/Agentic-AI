@@ -7,6 +7,7 @@ import com.zakir.vestra.shared.engine.local.LocalImageGenerator
 import com.zakir.vestra.shared.engine.local.LocalImageResult
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
 import com.zakir.vestra.shared.usage.UsageLedger
+import com.zakir.vestra.shared.time.EpochClock
 import io.ktor.client.HttpClient
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -18,7 +19,15 @@ import kotlinx.serialization.json.jsonPrimitive
 
 sealed interface GenerativeState {
     data class Preparing(val message: String) : GenerativeState
-    data class Running(val fraction: Float, val stage: String) : GenerativeState
+    /**
+     * @param stage Human-readable activity (no baked-in countdown — UI ticks [deadlineEpochMs]).
+     * @param deadlineEpochMs Wall-clock deadline for remaining-seconds display; null = no timer.
+     */
+    data class Running(
+        val fraction: Float,
+        val stage: String,
+        val deadlineEpochMs: Long? = null,
+    ) : GenerativeState
     data class ImageReady(val path: String, val providerId: String) : GenerativeState
     data class VideoReady(val path: String, val providerId: String) : GenerativeState
     data class CodeReady(val text: String, val tokensIn: Int, val tokensOut: Int, val providerId: String) : GenerativeState
@@ -90,7 +99,14 @@ class GenerativeCloudService(
             var skipSpaces = false
             var offline = false
             val budget = GenerationBudget.forImage()
-            emit(GenerativeState.Running(0.05f, "Budget ${GenerationBudget.IMAGE_DEADLINE_MS / 1000}s…"))
+            val deadline = budget.deadlineMs
+            emit(
+                GenerativeState.Running(
+                    0.05f,
+                    "Queued · ${provider.displayName}",
+                    deadlineEpochMs = deadline,
+                ),
+            )
 
             for ((modelIndex, candidate) in candidates.withIndex()) {
                 budget.throwIfExpired()
@@ -108,6 +124,7 @@ class GenerativeCloudService(
                                 skipSpaces -> "ZeroGPU empty — trying ${candidate.displayName}…"
                                 else -> "${provider.displayName} is busy — trying ${candidate.displayName}…"
                             },
+                            deadlineEpochMs = deadline,
                         ),
                     )
                 }
@@ -116,12 +133,12 @@ class GenerativeCloudService(
                 for ((index, variant) in variants.withIndex()) {
                     if (advanceModel) break
                     budget.throwIfExpired()
-                    val remSec = budget.remainingMs() / 1000
                     emit(
                         GenerativeState.Running(
                             0.2f + index * 0.15f,
-                            if (index == 0) "Generating image… (${remSec}s left)"
-                            else "Retrying with softer prompt… (${remSec}s left)",
+                            if (index == 0) "Submitting to ${candidate.displayName}…"
+                            else "Retrying with softer prompt…",
+                            deadlineEpochMs = deadline,
                         ),
                     )
                     try {
@@ -129,7 +146,13 @@ class GenerativeCloudService(
                             CloudPlatform.HF_INFERENCE -> {
                                 val token = settings.hfToken.value
                                     ?: throw CloudFailureException(CloudFailure.AuthRejected)
-                                emit(GenerativeState.Running(0.5f, "Generating via HF Inference…"))
+                                emit(
+                                    GenerativeState.Running(
+                                        0.5f,
+                                        "HF Inference · ${candidate.displayName}",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
                                 val bytes = if (referenceDataUrl != null) {
                                     val refBytes = io.loadImageBytes(referenceUri!!)
                                         ?: error("Couldn't read the reference image")
@@ -159,6 +182,13 @@ class GenerativeCloudService(
                                     variant,
                                     referenceDataUrl,
                                 )
+                                emit(
+                                    GenerativeState.Running(
+                                        0.35f,
+                                        "Space queue · ${candidate.displayName}",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
                                 val result = hf.predict(
                                     candidate.endpoint,
                                     CloudModelContracts.effectiveApiName(candidate),
@@ -166,9 +196,26 @@ class GenerativeCloudService(
                                     settings.hfToken.value,
                                     maxPolls = budget.maxPolls(),
                                     wakeRetries = 1,
+                                    onPoll = { pollIndex, maxPolls ->
+                                        val frac =
+                                            0.35f + 0.5f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
+                                        emit(
+                                            GenerativeState.Running(
+                                                frac.coerceIn(0.35f, 0.9f),
+                                                "Space poll ${pollIndex + 1}/$maxPolls · ${candidate.displayName}",
+                                                deadlineEpochMs = deadline,
+                                            ),
+                                        )
+                                    },
                                 )
                                 val url = GradioOutput.extractMediaRef(result)
-                                emit(GenerativeState.Running(0.85f, "Downloading…"))
+                                emit(
+                                    GenerativeState.Running(
+                                        0.92f,
+                                        "Downloading image…",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
                                 io.downloadResult(url, spaceHost = candidate.endpoint)
                             }
                             else -> throw CloudFailureException(
@@ -344,6 +391,7 @@ class GenerativeCloudService(
                 "Provide working code for:\n$cleaned\n\nIf anything is unclear, pick sensible defaults and note them.",
             )
             var lastError: Exception? = null
+            val codeDeadline = EpochClock.System.nowMs() + 90_000L
             for ((modelIndex, candidate) in candidates.withIndex()) {
                 attempted = candidate
                 CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
@@ -353,10 +401,17 @@ class GenerativeCloudService(
                         GenerativeState.Running(
                             0.25f,
                             "${provider.displayName} unavailable — trying ${candidate.displayName}…",
+                            deadlineEpochMs = codeDeadline,
                         ),
                     )
                 } else {
-                    emit(GenerativeState.Running(0.3f, "Thinking…"))
+                    emit(
+                        GenerativeState.Running(
+                            0.3f,
+                            "Calling ${candidate.displayName}…",
+                            deadlineEpochMs = codeDeadline,
+                        ),
+                    )
                 }
                 val key = settings.apiKeyFor(candidate) ?: error("API key required for ${candidate.displayName}")
                 var result: LlmResult? = null
@@ -432,8 +487,18 @@ class GenerativeCloudService(
             }
             val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health)
             val variants = visualPromptVariants(prompt, assists)
+            val budget = GenerationBudget.forVideo()
+            val deadline = budget.deadlineMs
             var lastError: Exception? = null
+            emit(
+                GenerativeState.Running(
+                    0.05f,
+                    "Queued · ${provider.displayName}",
+                    deadlineEpochMs = deadline,
+                ),
+            )
             for ((modelIndex, candidate) in candidates.withIndex()) {
+                budget.throwIfExpired()
                 attempted = candidate
                 CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
                 requireKeyIfNeeded(candidate)
@@ -442,18 +507,21 @@ class GenerativeCloudService(
                         GenerativeState.Running(
                             0.2f,
                             "${provider.displayName} is busy — trying ${candidate.displayName}…",
+                            deadlineEpochMs = deadline,
                         ),
                     )
                 }
                 for ((index, variant) in variants.withIndex()) {
+                    budget.throwIfExpired()
                     emit(
                         GenerativeState.Running(
                             0.15f + index * 0.15f,
                             if (index == 0) {
-                                "Rendering video (this can take a minute)…"
+                                "Submitting video job · ${candidate.displayName}"
                             } else {
                                 "Retrying with softer prompt…"
                             },
+                            deadlineEpochMs = deadline,
                         ),
                     )
                     try {
@@ -464,9 +532,26 @@ class GenerativeCloudService(
                             hfToken = settings.hfToken.value,
                             maxPolls = 180,
                             pollDelayMs = 3_000,
+                            onPoll = { pollIndex, maxPolls ->
+                                val frac =
+                                    0.2f + 0.65f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
+                                emit(
+                                    GenerativeState.Running(
+                                        frac.coerceIn(0.2f, 0.9f),
+                                        "Video poll ${pollIndex + 1}/$maxPolls · ${candidate.displayName}",
+                                        deadlineEpochMs = deadline,
+                                    ),
+                                )
+                            },
                         )
                         val url = extractRef(result)
-                        emit(GenerativeState.Running(0.9f, "Downloading video…"))
+                        emit(
+                            GenerativeState.Running(
+                                0.92f,
+                                "Downloading video…",
+                                deadlineEpochMs = deadline,
+                            ),
+                        )
                         val path = io.downloadResult(url, spaceHost = candidate.endpoint)
                         usage.record(
                             candidate,

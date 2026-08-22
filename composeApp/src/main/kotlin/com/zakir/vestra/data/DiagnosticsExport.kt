@@ -12,31 +12,51 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 object DiagnosticsExport {
-    fun writeToFilesDir(
+    data class ShareBundle(
+        val troubleshootingText: String,
+        val runHistoryJson: String,
+        val datedJsonFile: File?,
+    )
+
+    /**
+     * Captures logcat **once**, writes files, and builds share text.
+     * Call from a background dispatcher — logcat wait can ANR the main thread.
+     */
+    fun prepareShareBundle(
         context: Context,
         diagnostics: RunDiagnostics,
         usage: UsageLedger? = null,
-    ): File {
-        val dir = File(context.filesDir, "diagnostics").apply { mkdirs() }
+    ): ShareBundle {
         val logcat = captureLogcatSnippet()
         val bundle = diagnostics.exportBundle(
             usage = usage?.summary?.value,
             logcatSnippet = logcat,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         )
-        val history = File(dir, "run_history.json")
-        history.writeText(bundle)
+        val dir = File(context.filesDir, "diagnostics").apply { mkdirs() }
+        File(dir, "run_history.json").writeText(bundle)
         val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
         val dated = File(dir, "lookbook-diagnostics-$stamp.json")
         dated.writeText(bundle)
-        // Append-friendly full text bundle for crash triage (does not clear crash_log).
-        File(dir, "troubleshooting-$stamp.txt").writeText(
-            CrashReporter.troubleshootingText(
-                runHistoryJson = bundle,
-                logcatSnippet = logcat,
-            ),
+        val text = CrashReporter.troubleshootingText(
+            runHistoryJson = bundle,
+            logcatSnippet = logcat,
         )
-        return dated
+        File(dir, "troubleshooting-$stamp.txt").writeText(text)
+        return ShareBundle(
+            troubleshootingText = text,
+            runHistoryJson = bundle,
+            datedJsonFile = dated,
+        )
+    }
+
+    fun writeToFilesDir(
+        context: Context,
+        diagnostics: RunDiagnostics,
+        usage: UsageLedger? = null,
+    ): File {
+        return prepareShareBundle(context, diagnostics, usage).datedJsonFile
+            ?: File(context.filesDir, "diagnostics/run_history.json")
     }
 
     fun shareTroubleshootingText(
