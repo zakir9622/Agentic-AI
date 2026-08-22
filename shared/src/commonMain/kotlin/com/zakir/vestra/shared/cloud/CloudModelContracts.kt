@@ -228,6 +228,11 @@ object CloudModelContracts {
             msg.contains("sufficient permissions", ignoreCase = true) ||
                 msg.contains("Inference Providers", ignoreCase = true) ->
                 "Your HF token cannot call Inference Providers. Create a token with Inference permission (classic Read/Write), Save in Settings, or switch Code to Groq."
+            // ZeroGPU minutes are billed to the Hugging Face account, not the Space, so
+            // switching models cannot help until the daily allowance refills.
+            msg.contains("quota exceeded", ignoreCase = true) || msg.contains("ZeroGPU quota", ignoreCase = true) ->
+                "Your Hugging Face account is out of free ZeroGPU minutes. The allowance refills " +
+                    "daily — retry later, use a different HF token, or run try-on locally with Lite/Pro."
             msg.contains("401") || msg.contains("Unauthorized", ignoreCase = true) ->
                 "API key rejected for ${provider.displayName}. Re-save the free token in Settings."
             msg.contains("429") || msg.contains("rate", ignoreCase = true) ->

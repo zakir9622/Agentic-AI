@@ -100,6 +100,8 @@ class GenerativeCloudService(
                         throw e
                     } catch (e: Exception) {
                         lastError = e
+                        // The GPU allowance is account-wide, so no other Space can serve this.
+                        if (e.isAccountQuotaExhausted()) throw e
                     }
                 }
             }
@@ -119,6 +121,10 @@ class GenerativeCloudService(
             )
         }
     }
+
+    private fun Exception.isAccountQuotaExhausted(): Boolean =
+        message.orEmpty().contains("quota exceeded", ignoreCase = true) ||
+            message.orEmpty().contains("ZeroGPU quota", ignoreCase = true)
 
     /** Selected model first, then the other healthy free Spaces for the same capability. */
     private fun fallbackChain(

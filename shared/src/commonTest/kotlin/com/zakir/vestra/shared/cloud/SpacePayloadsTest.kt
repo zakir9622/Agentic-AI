@@ -132,6 +132,16 @@ class SpacePayloadsTest {
     }
 
     @Test
+    fun zeroGpuQuotaFailureExplainsTheDailyAllowance() {
+        val provider = CloudModelCatalog.byId("qwen-image-edit-hf")!!
+        val raw = "Hugging Face Space failed: You have exceeded your GPU quota. " +
+            "Subscribe to Hugging Face PRO to get 25 min of ZeroGPU quota a day"
+        val msg = CloudModelContracts.friendlyFailure(provider, raw, "Image generation")
+        assertTrue(msg.contains("ZeroGPU", ignoreCase = true), msg)
+        assertTrue(msg.contains("refills", ignoreCase = true), msg)
+    }
+
+    @Test
     fun onlySpaceProvidersServeVisualCapabilities() {
         listOf(AiCapability.TRY_ON, AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO)
             .forEach { capability ->
