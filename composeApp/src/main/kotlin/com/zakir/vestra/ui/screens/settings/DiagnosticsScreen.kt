@@ -57,8 +57,8 @@ fun DiagnosticsScreen(
         GlassCard {
             GlassSectionLabel("AUTO TROUBLESHOOTING")
             Text(
-                "Crashes and app traces append to files and are never cleared automatically. " +
-                    "After a crash, reopen the app → Diagnostics to see the likely cause and share the bundle.",
+                "Crashes, abrupt process deaths (native/ORT/LMK), and app traces append and are never " +
+                    "cleared automatically. After a death, reopen → Diagnostics to see the likely cause and share the bundle.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -87,7 +87,8 @@ fun DiagnosticsScreen(
             GlassSectionLabel("HOW IT WORKS")
             Text(
                 "Lite segments and warps on-device; Pro runs diffusion; cloud uses HF Spaces. " +
-                    "Each run records stage timings. Fatal crashes write to crash_log.txt with a classified cause.",
+                    "Each run records stage timings. Java fatals and unclean exits (session watchdog) " +
+                    "write to crash_log.txt with a classified cause.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

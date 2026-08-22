@@ -1,7 +1,11 @@
 package com.zakir.vestra.diagnostics
 
+import android.app.Activity
 import android.app.Application
+import android.content.ComponentCallbacks2
+import android.content.res.Configuration
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import com.zakir.vestra.BuildConfig
 import org.json.JSONObject
@@ -11,16 +15,20 @@ import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Auto-troubleshooting: catches fatal crashes, appends them to durable files
- * (never auto-clears), and keeps a rotating app-trace log for context.
+ * Auto-troubleshooting: catches fatal crashes, detects abrupt process deaths
+ * (native OOM / ORT / LMK that bypass UncaughtExceptionHandler), appends to
+ * durable files (never auto-clears), and keeps a rotating app-trace log.
  *
  * Files under `filesDir/diagnostics/`:
  * - `crash_log.txt` — append-only crash dump history
  * - `last_crash.json` — structured latest crash + likelyCause
  * - `app_trace.log` — continuous breadcrumbs / warnings (rotated at ~1.5 MB)
+ * - `session.json` — open-session watchdog for abrupt exits
  */
 object CrashReporter {
     private const val TAG = "LookbookCrash"
@@ -29,12 +37,15 @@ object CrashReporter {
     private const val LAST_CRASH = "last_crash.json"
     private const val APP_TRACE = "app_trace.log"
     private const val APP_TRACE_BAK = "app_trace.log.1"
+    private const val SESSION = "session.json"
     private const val MAX_TRACE_BYTES = 1_500_000L
     private const val MAX_CRASH_LOG_BYTES = 4_000_000L
 
     private val appRef = AtomicReference<Application?>(null)
     private val breadcrumb = AtomicReference("boot")
     private val lock = Any()
+    private val startedActivities = AtomicInteger(0)
+    private var lowMemorySeen = false
 
     fun install(app: Application) {
         appRef.set(app)
@@ -43,15 +54,18 @@ object CrashReporter {
             runCatching { recordFatal(thread, throwable) }
             previous?.uncaughtException(thread, throwable)
                 ?: run {
-                    // No prior handler — terminate after flush.
                     try {
                         android.os.Process.killProcess(android.os.Process.myPid())
                     } catch (_: Throwable) {
                     }
                 }
         }
+        // Detect prior unclean exit BEFORE opening a new session.
+        runCatching { detectAbruptExit() }
+        openSession()
+        registerLifecycle(app)
+        registerMemoryCallbacks(app)
         i("CrashReporter", "installed v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-        // Note a prior crash on cold start (do not clear).
         lastCrashJson()?.let { json ->
             val cause = json.optString("likelyCause", "unknown")
             val at = json.optString("isoTime", "?")
@@ -61,6 +75,7 @@ object CrashReporter {
 
     fun breadcrumb(screen: String) {
         breadcrumb.set(screen)
+        updateSessionBreadcrumb(screen)
         i("Nav", "screen=$screen")
     }
 
@@ -166,6 +181,238 @@ object CrashReporter {
         }
     }
 
+    // ── session watchdog ───────────────────────────────────────────────────
+
+    private fun detectAbruptExit() {
+        val session = readSession() ?: return
+        if (!session.optBoolean("open", false)) return
+        if (session.optBoolean("recordedFatal", false)) return
+        // Clean finish already closed the session.
+        if (session.optBoolean("clean", false)) return
+
+        val lastScreen = session.optString("breadcrumb", breadcrumb.get()).ifBlank { "unknown" }
+        val lowMem = session.optBoolean("lowMemorySeen", false)
+        val logcatHints = scrapeFatalLogcatHints()
+        val cause = CrashClassifier.classifyAbrupt(lastScreen, logcatHints, lowMem)
+        val actionable = CrashClassifier.abruptIsActionable(lastScreen, logcatHints, lowMem)
+        val iso = isoNow()
+        if (!actionable) {
+            w(
+                "CrashReporter",
+                "Unclean prior session (likely background LMK) · screen=$lastScreen — not elevating to LAST CRASH",
+            )
+            return
+        }
+        val block = buildString {
+            appendLine()
+            appendLine("======== ABRUPT_EXIT $iso ========")
+            appendLine("version=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine("priorPid=${session.optInt("pid", -1)}")
+            appendLine("priorVersion=${session.optString("version", "?")}")
+            appendLine("breadcrumb=$lastScreen")
+            appendLine("lowMemorySeen=$lowMem")
+            appendLine("likelyCause=$cause")
+            appendLine("actionable=$actionable")
+            if (logcatHints.isNotBlank()) {
+                appendLine("--- logcat hints ---")
+                appendLine(logcatHints.take(8_000))
+            }
+            appendLine("======== END ========")
+        }
+        synchronized(lock) {
+            val dir = diagDir() ?: return
+            val crashLog = File(dir, CRASH_LOG)
+            rotateIfHuge(crashLog, MAX_CRASH_LOG_BYTES)
+            crashLog.appendText(block)
+            File(dir, LAST_CRASH).writeText(
+                JSONObject()
+                    .put("isoTime", iso)
+                    .put("fatal", true)
+                    .put("abrupt", true)
+                    .put("thread", "process")
+                    .put("breadcrumb", lastScreen)
+                    .put("exception", "AbruptProcessExit")
+                    .put("message", "No Java stack — process died (native/LMK/ORT)")
+                    .put("likelyCause", cause)
+                    .put("lowMemorySeen", lowMem)
+                    .put("logcatHints", logcatHints.take(2_000))
+                    .put("stackTop", "ABRUPT_EXIT (session watchdog)")
+                    .put("version", BuildConfig.VERSION_NAME)
+                    .put("versionCode", BuildConfig.VERSION_CODE)
+                    .toString(2),
+            )
+        }
+        w("CrashReporter", "Detected abrupt exit · screen=$lastScreen · $cause")
+    }
+
+    private fun openSession() {
+        val dir = diagDir() ?: return
+        synchronized(lock) {
+            File(dir, SESSION).writeText(
+                JSONObject()
+                    .put("open", true)
+                    .put("clean", false)
+                    .put("recordedFatal", false)
+                    .put("pid", android.os.Process.myPid())
+                    .put("startedAt", isoNow())
+                    .put("breadcrumb", breadcrumb.get())
+                    .put("lowMemorySeen", false)
+                    .put("version", BuildConfig.VERSION_NAME)
+                    .put("versionCode", BuildConfig.VERSION_CODE)
+                    .toString(2),
+            )
+        }
+    }
+
+    private fun markSessionClean() {
+        mutateSession { json ->
+            json.put("open", false)
+            json.put("clean", true)
+            json.put("closedAt", isoNow())
+        }
+        i("CrashReporter", "session closed cleanly")
+    }
+
+    private fun markSessionFatalRecorded() {
+        mutateSession { json ->
+            json.put("recordedFatal", true)
+            json.put("open", false)
+            json.put("clean", false)
+        }
+    }
+
+    private fun updateSessionBreadcrumb(screen: String) {
+        mutateSession { json ->
+            json.put("breadcrumb", screen)
+            json.put("breadcrumbAt", isoNow())
+        }
+    }
+
+    private fun markLowMemory(level: String) {
+        lowMemorySeen = true
+        mutateSession { json ->
+            json.put("lowMemorySeen", true)
+            json.put("lastTrim", level)
+            json.put("lastTrimAt", isoNow())
+        }
+    }
+
+    private fun mutateSession(block: (JSONObject) -> Unit) {
+        synchronized(lock) {
+            val dir = diagDir() ?: return
+            val file = File(dir, SESSION)
+            val json = if (file.isFile) {
+                runCatching { JSONObject(file.readText()) }.getOrElse { JSONObject() }
+            } else {
+                JSONObject()
+            }
+            block(json)
+            file.writeText(json.toString(2))
+        }
+    }
+
+    private fun readSession(): JSONObject? {
+        val f = sessionFile() ?: return null
+        if (!f.isFile) return null
+        return runCatching { JSONObject(f.readText()) }.getOrNull()
+    }
+
+    private fun registerLifecycle(app: Application) {
+        app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityStarted(activity: Activity) {
+                startedActivities.incrementAndGet()
+            }
+
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityStopped(activity: Activity) {
+                val left = startedActivities.decrementAndGet()
+                // Last activity finishing → user left the app intentionally.
+                if (left <= 0 && activity.isFinishing) {
+                    runCatching { markSessionClean() }
+                }
+            }
+
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {
+                if (activity.isFinishing && startedActivities.get() <= 0) {
+                    runCatching { markSessionClean() }
+                }
+            }
+        })
+    }
+
+    private fun registerMemoryCallbacks(app: Application) {
+        app.registerComponentCallbacks(object : ComponentCallbacks2 {
+            override fun onConfigurationChanged(newConfig: Configuration) {}
+
+            override fun onLowMemory() {
+                markLowMemory("onLowMemory")
+                w("Mem", "onLowMemory — process may be killed soon")
+            }
+
+            @Suppress("DEPRECATION")
+            override fun onTrimMemory(level: Int) {
+                val label = trimLabel(level)
+                if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+                    level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+                ) {
+                    markLowMemory(label)
+                    w("Mem", "onTrimMemory $label ($level)")
+                } else if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+                    w("Mem", "onTrimMemory $label ($level)")
+                }
+            }
+        })
+    }
+
+    @Suppress("DEPRECATION")
+    private fun trimLabel(level: Int): String = when (level) {
+        ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE -> "RUNNING_MODERATE"
+        ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> "RUNNING_LOW"
+        ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> "RUNNING_CRITICAL"
+        ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> "UI_HIDDEN"
+        ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> "BACKGROUND"
+        ComponentCallbacks2.TRIM_MEMORY_MODERATE -> "MODERATE"
+        ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> "COMPLETE"
+        else -> "level=$level"
+    }
+
+    /**
+     * Best-effort scrape for native death lines still in the log buffer after restart.
+     * Does not require READ_LOGS for the app's own recent process lines on many devices.
+     */
+    private fun scrapeFatalLogcatHints(maxChars: Int = 6_000): String {
+        val raw = runCatching {
+            val proc = ProcessBuilder(
+                "logcat", "-d", "-t", "400",
+                "*:W",
+            ).redirectErrorStream(true).start()
+            val finished = proc.waitFor(3, TimeUnit.SECONDS)
+            if (!finished) {
+                proc.destroyForcibly()
+                return@runCatching null
+            }
+            proc.inputStream.bufferedReader().use { it.readText() }
+        }.getOrNull() ?: return ""
+
+        val keys = listOf(
+            "fatal", "fatal signal", "signal 11", "signal 6", "sigsegv", "sigabrt",
+            "tombstone", "lowmemorykiller", "killed process", "out of memory",
+            "outofmemory", "onnxruntime", "nnapi", "debuggee is dying",
+            "has died", "crash_dump", BuildConfig.APPLICATION_ID,
+        )
+        return raw.lineSequence()
+            .filter { line ->
+                val lower = line.lowercase()
+                keys.any { lower.contains(it.lowercase()) }
+            }
+            .take(80)
+            .joinToString("\n")
+            .take(maxChars)
+    }
+
     // ── internals ──────────────────────────────────────────────────────────
 
     private fun recordFatal(thread: Thread, throwable: Throwable) {
@@ -177,6 +424,7 @@ object CrashReporter {
             detail = "",
             fatal = true,
         )
+        runCatching { markSessionFatalRecorded() }
     }
 
     private fun appendCrashFile(
@@ -211,6 +459,7 @@ object CrashReporter {
                     JSONObject()
                         .put("isoTime", iso)
                         .put("fatal", true)
+                        .put("abrupt", false)
                         .put("thread", threadName)
                         .put("breadcrumb", breadcrumb.get())
                         .put("exception", throwable.javaClass.name)
@@ -253,6 +502,7 @@ object CrashReporter {
     private fun crashLogFile(): File? = diagDir()?.let { File(it, CRASH_LOG) }
     private fun lastCrashFile(): File? = diagDir()?.let { File(it, LAST_CRASH) }
     private fun appTraceFile(): File? = diagDir()?.let { File(it, APP_TRACE) }
+    private fun sessionFile(): File? = diagDir()?.let { File(it, SESSION) }
 
     private fun lastCrashJson(): JSONObject? {
         val f = lastCrashFile() ?: return null
