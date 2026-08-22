@@ -19,6 +19,19 @@ object DebugPackBootstrap {
     private const val VERSION = 1
     private val FILES = listOf("garment_seg.onnx" to 1_321_751L, "human_parse.onnx" to 67_287_788L)
 
+    /**
+     * Copies ~68 MB, so it must never run on the main thread — doing so ANRs startup and
+     * leaves a half-written pack that later looks installed.
+     */
+    fun seedLitePackAsync(context: Context, packsRoot: File = File(context.filesDir, "packs")) {
+        val completeMarker = File(packsRoot, "$PACK_ID/$VERSION/.complete")
+        if (completeMarker.exists()) return
+        Thread({ seedLitePack(context, packsRoot) }, "lite-pack-seed").apply {
+            priority = Thread.MIN_PRIORITY
+            isDaemon = true
+        }.start()
+    }
+
     fun seedLitePack(context: Context, packsRoot: File = File(context.filesDir, "packs")) {
         val versionDir = File(packsRoot, "$PACK_ID/$VERSION")
         val completeMarker = File(versionDir, ".complete")
@@ -28,11 +41,20 @@ object DebugPackBootstrap {
             // Probe: absent in release builds → IOException → skip entirely.
             context.assets.open("packs/$PACK_ID/garment_seg.onnx").close()
 
-            versionDir.mkdirs()
+            // Stage beside the target so an interrupted copy can't be mistaken for a pack.
+            val staging = File(packsRoot, "$PACK_ID/.staging-$VERSION")
+            staging.deleteRecursively()
+            staging.mkdirs()
             for ((name, _) in FILES) {
                 context.assets.open("packs/$PACK_ID/$name").use { input ->
-                    File(versionDir, name).outputStream().use { input.copyTo(it) }
+                    File(staging, name).outputStream().use { input.copyTo(it) }
                 }
+            }
+            versionDir.deleteRecursively()
+            versionDir.parentFile?.mkdirs()
+            if (!staging.renameTo(versionDir)) {
+                staging.copyRecursively(versionDir, overwrite = true)
+                staging.deleteRecursively()
             }
             completeMarker.writeText(VERSION.toString())
 

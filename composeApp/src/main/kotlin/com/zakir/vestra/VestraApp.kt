@@ -79,7 +79,7 @@ class VestraApp : Application() {
             manifestUrl = PACKS_MANIFEST_URL,
         )
         PackDownloadWorker.dependencies = { packManager }
-        DebugPackBootstrap.seedLitePack(this, DurableStorage.resolvePacksRoot(this))
+        DebugPackBootstrap.seedLitePackAsync(this, DurableStorage.resolvePacksRoot(this))
         studioModels = StudioModelRepository(this, packManager)
 
         val liteIo = LiteEngineIo(this) { modelId -> studioModels.resolveBitmap(modelId) }
