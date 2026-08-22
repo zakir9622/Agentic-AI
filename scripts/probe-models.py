@@ -229,6 +229,8 @@ def probe_inference_edit(model: str, token: str) -> str:
         detail = str(e)
         if "402" in detail:
             return f"WARN: {detail[:120]}"
+        if "400" in detail:
+            return f"WARN: {detail[:120]}"
         return f"FAIL: {detail[:180]}"
 
 
