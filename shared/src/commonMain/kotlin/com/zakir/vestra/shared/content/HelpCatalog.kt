@@ -15,6 +15,7 @@ object LookbookCopy {
     const val STUDIO_IMAGE = "Image studio"
     const val STUDIO_VIDEO = "Video studio"
     const val STUDIO_CODE = "Code studio"
+    const val STUDIO_AUDIO = "Audio studio"
     const val STUDIO_WARDROBE = "Looks gallery"
     const val STUDIO_PACKS = "Model packs"
     const val STUDIO_USAGE = "Cloud usage"

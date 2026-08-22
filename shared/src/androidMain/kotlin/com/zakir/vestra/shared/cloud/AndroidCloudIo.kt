@@ -50,17 +50,33 @@ class AndroidCloudIo(
                 else error("Cannot fetch result: $urlOrPath")
             }
         }
-        val isVideo = resolved.contains(".mp4", ignoreCase = true) ||
-            resolved.contains(".webm", ignoreCase = true) ||
-            bytesIsMp4(bytes)
-        CloudOutputValidator.validate(bytes, isVideo = isVideo)?.let { reason ->
-            error(reason)
-        }
-        if (!isVideo) {
-            BlankFrameDetector.rejectIfBlank(bytes)?.let { reason -> error(reason) }
+        val isAudio = resolved.startsWith("data:audio/") ||
+            resolved.contains(".wav", ignoreCase = true) ||
+            resolved.contains(".mp3", ignoreCase = true) ||
+            resolved.contains(".flac", ignoreCase = true) ||
+            resolved.contains(".ogg", ignoreCase = true) ||
+            bytesIsWav(bytes) || bytesIsFlac(bytes)
+        val isVideo = !isAudio && (
+            resolved.contains(".mp4", ignoreCase = true) ||
+                resolved.contains(".webm", ignoreCase = true) ||
+                bytesIsMp4(bytes)
+            )
+        if (isAudio) {
+            CloudOutputValidator.validateAudio(bytes)?.let { reason -> error(reason) }
+        } else {
+            CloudOutputValidator.validate(bytes, isVideo = isVideo)?.let { reason ->
+                error(reason)
+            }
+            if (!isVideo) {
+                BlankFrameDetector.rejectIfBlank(bytes)?.let { reason -> error(reason) }
+            }
         }
         val dir = File(context.filesDir, "generations").apply { mkdirs() }
         val ext = when {
+            isAudio && (resolved.contains(".mp3", ignoreCase = true) || bytesIsMp3(bytes)) -> "mp3"
+            isAudio && (resolved.contains(".flac", ignoreCase = true) || bytesIsFlac(bytes)) -> "flac"
+            isAudio && resolved.contains(".ogg", ignoreCase = true) -> "ogg"
+            isAudio -> "wav"
             isVideo && (resolved.contains(".webm", ignoreCase = true) || isWebm(bytes)) -> "webm"
             isVideo -> "mp4"
             resolved.contains(".png", ignoreCase = true) -> "png"
@@ -124,6 +140,20 @@ class AndroidCloudIo(
     private fun bytesIsMp4(bytes: ByteArray): Boolean =
         bytes.size > 8 && bytes[4] == 'f'.code.toByte() && bytes[5] == 't'.code.toByte() &&
             bytes[6] == 'y'.code.toByte() && bytes[7] == 'p'.code.toByte()
+
+    private fun bytesIsWav(bytes: ByteArray): Boolean =
+        bytes.size >= 12 && bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() &&
+            bytes[8] == 'W'.code.toByte() && bytes[9] == 'A'.code.toByte()
+
+    private fun bytesIsFlac(bytes: ByteArray): Boolean =
+        bytes.size >= 4 && bytes[0] == 'f'.code.toByte() && bytes[1] == 'L'.code.toByte() &&
+            bytes[2] == 'a'.code.toByte() && bytes[3] == 'C'.code.toByte()
+
+    private fun bytesIsMp3(bytes: ByteArray): Boolean =
+        bytes.size >= 3 && (
+            (bytes[0] == 0xFF.toByte() && (bytes[1].toInt() and 0xE0) == 0xE0) ||
+                (bytes[0] == 'I'.code.toByte() && bytes[1] == 'D'.code.toByte() && bytes[2] == '3'.code.toByte())
+            )
 
     private fun isWebm(bytes: ByteArray): Boolean =
         bytes.size >= 4 && bytes[0] == 0x1A.toByte() && bytes[1] == 0x45.toByte() &&

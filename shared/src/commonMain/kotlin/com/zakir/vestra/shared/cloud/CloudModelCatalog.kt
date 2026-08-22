@@ -22,15 +22,17 @@ enum class AiCapability {
     IMAGE_EDIT,
     CODE,
     VIDEO,
+    AUDIO,
 }
 
 /**
  * Visual capabilities are executed by the Gradio Space client, so only [CloudPlatform.HF_SPACE]
  * providers can serve them. Text capabilities use the chat clients and accept any free platform.
+ * Audio uses Spaces and/or HF Inference TTS routes.
  */
 fun AiCapability.requiresSpace(): Boolean = when (this) {
     AiCapability.TRY_ON, AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> true
-    AiCapability.CODE -> false
+    AiCapability.CODE, AiCapability.AUDIO -> false
 }
 
 /**
@@ -345,6 +347,49 @@ object CloudModelCatalog {
             speedScore = 70,
             usageNote = "Ready · text_to_video (14 args). Prefer when Wan2 is queued.",
         ),
+
+        // ── Audio / TTS (free HF Inference + Spaces) ────────────────────
+        CloudModelProvider(
+            id = "mms-tts-eng-hf",
+            displayName = "MMS-TTS English",
+            description = "Meta MMS text-to-speech (English) via HF Inference — free with token.",
+            platform = CloudPlatform.HF_INFERENCE,
+            capability = AiCapability.AUDIO,
+            endpoint = "facebook/mms-tts-eng",
+            license = "CC-BY-NC-4.0",
+            requiresApiKey = true,
+            qualityScore = 82,
+            speedScore = 85,
+            usageNote = "Ready · HF Inference TTS. Requires HF token. Persona/knobs applied locally after.",
+        ),
+        CloudModelProvider(
+            id = "kokoro-tts-hf",
+            displayName = "Kokoro TTS Space",
+            description = "Kokoro multi-voice TTS on free HF Space — personas map to built-in speakers.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.AUDIO,
+            endpoint = "hexgrad-Kokoro-TTS.hf.space",
+            apiName = "generate",
+            license = "Apache 2.0",
+            requiresApiKey = false,
+            qualityScore = 88,
+            speedScore = 75,
+            usageNote = "Ready · Gradio generate. Queues at peak; falls back to MMS-TTS.",
+        ),
+        CloudModelProvider(
+            id = "edge-tts-hf",
+            displayName = "Edge-TTS Space",
+            description = "Community Edge-TTS Gradio Space — many neural voices, free ZeroGPU.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.AUDIO,
+            endpoint = "ysharma-OpenVoiceV2.hf.space",
+            apiName = "tts_fn",
+            license = "MIT / upstream",
+            requiresApiKey = false,
+            qualityScore = 80,
+            speedScore = 70,
+            usageNote = "Degraded · schema drifts; app uses live /info when hand-tuned payload missing.",
+        ),
     )
 
     init {
@@ -368,6 +413,7 @@ object CloudModelCatalog {
             AiCapability.IMAGE_EDIT -> defaultImageEditId
             AiCapability.CODE -> defaultCodeId
             AiCapability.VIDEO -> defaultVideoId
+            AiCapability.AUDIO -> defaultAudioId
         }
         return byId(preferredId) ?: forCapability(capability).first()
     }
@@ -377,5 +423,6 @@ object CloudModelCatalog {
     val defaultImageEditId: String = "qwen-image-edit-hf"
     val defaultCodeId: String = "llama33-70b-groq"
     val defaultVideoId: String = "ltx-zerogpu-hf"
+    val defaultAudioId: String = "mms-tts-eng-hf"
     val defaultId: String = defaultTryOnId
 }

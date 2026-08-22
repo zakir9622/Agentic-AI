@@ -121,6 +121,7 @@ fun SettingsScreen(
     val imageEditId by appSettings.imageEditProviderId.collectAsState()
     val codeId by appSettings.codeProviderId.collectAsState()
     val videoId by appSettings.videoProviderId.collectAsState()
+    val audioId by appSettings.audioProviderId.collectAsState()
 
     val hfToken by appSettings.hfToken.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
@@ -366,6 +367,7 @@ fun SettingsScreen(
                     imageEditId = imageEditId,
                     codeId = codeId,
                     videoId = videoId,
+                    audioId = audioId,
                 )
             }
 

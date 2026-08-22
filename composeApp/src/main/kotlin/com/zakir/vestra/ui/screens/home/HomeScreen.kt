@@ -88,6 +88,7 @@ private enum class HomeTab(val label: String, val routeKey: String) {
     TRY_ON("Try-on", "tryon"),
     IMAGE("Image", "image"),
     VIDEO("Video", "video"),
+    AUDIO("Audio", "audio"),
     CODE("Code", "code"),
     NEWS("News", "news"),
     ;
@@ -322,6 +323,12 @@ fun HomeScreen(
                     )
                     HomeTab.VIDEO -> UnifiedStudioPane(
                         capability = AiCapability.VIDEO,
+                        viewModel = generativeViewModel,
+                        onOpenSettings = onOpenSettings,
+                        freeCloudDiscovery = freeCloudDiscovery,
+                        packManager = packManager,
+                    )
+                    HomeTab.AUDIO -> AudioStudioPane(
                         viewModel = generativeViewModel,
                         onOpenSettings = onOpenSettings,
                         freeCloudDiscovery = freeCloudDiscovery,

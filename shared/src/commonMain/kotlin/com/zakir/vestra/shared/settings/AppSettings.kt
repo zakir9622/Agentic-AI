@@ -58,6 +58,9 @@ class AppSettings(private val settings: Settings) {
     private val _videoProviderId = MutableStateFlow(migrateProviderId(KEY_VIDEO, AiCapability.VIDEO))
     val videoProviderId: StateFlow<String> = _videoProviderId
 
+    private val _audioProviderId = MutableStateFlow(migrateProviderId(KEY_AUDIO, AiCapability.AUDIO))
+    val audioProviderId: StateFlow<String> = _audioProviderId
+
     private val _hfToken = MutableStateFlow(settings.getStringOrNull(KEY_HF_TOKEN))
     val hfToken: StateFlow<String?> = _hfToken
 
@@ -106,6 +109,7 @@ class AppSettings(private val settings: Settings) {
     fun setImageEditProvider(id: String) = setProvider(KEY_IMAGE_EDIT, id, AiCapability.IMAGE_EDIT, _imageEditProviderId)
     fun setCodeProvider(id: String) = setProvider(KEY_CODE, id, AiCapability.CODE, _codeProviderId)
     fun setVideoProvider(id: String) = setProvider(KEY_VIDEO, id, AiCapability.VIDEO, _videoProviderId)
+    fun setAudioProvider(id: String) = setProvider(KEY_AUDIO, id, AiCapability.AUDIO, _audioProviderId)
 
     fun setHfToken(token: String?) {
         // Never silently rewrite the user's model selection (finding H).
@@ -155,6 +159,7 @@ class AppSettings(private val settings: Settings) {
             AiCapability.IMAGE_EDIT -> _imageEditProviderId.value
             AiCapability.CODE -> _codeProviderId.value
             AiCapability.VIDEO -> _videoProviderId.value
+            AiCapability.AUDIO -> _audioProviderId.value
         }
         // Legacy auto-listed HF "warm" text models are not Inference Providers chat routes.
         if (capability == AiCapability.CODE && id.startsWith("hf-disc-")) {
@@ -184,6 +189,7 @@ class AppSettings(private val settings: Settings) {
         AiCapability.IMAGE_EDIT -> KEY_IMAGE_EDIT
         AiCapability.CODE -> KEY_CODE
         AiCapability.VIDEO -> KEY_VIDEO
+        AiCapability.AUDIO -> KEY_AUDIO
     }
 
     private fun flowFor(capability: AiCapability): MutableStateFlow<String>? = when (capability) {
@@ -192,6 +198,7 @@ class AppSettings(private val settings: Settings) {
         AiCapability.IMAGE_EDIT -> _imageEditProviderId
         AiCapability.CODE -> _codeProviderId
         AiCapability.VIDEO -> _videoProviderId
+        AiCapability.AUDIO -> _audioProviderId
     }
 
     fun apiKeyFor(provider: CloudModelProvider): String? = when (provider.platform) {
@@ -302,6 +309,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_IMAGE_EDIT = "image_edit_provider_id"
         const val KEY_CODE = "code_provider_id"
         const val KEY_VIDEO = "video_provider_id"
+        const val KEY_AUDIO = "audio_provider_id"
         const val KEY_HF_TOKEN = "hf_token"
         const val KEY_GROQ_KEY = "groq_api_key"
         const val KEY_OPENROUTER_KEY = "openrouter_api_key"

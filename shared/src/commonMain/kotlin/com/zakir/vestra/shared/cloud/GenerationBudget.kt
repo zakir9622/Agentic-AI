@@ -28,11 +28,15 @@ class GenerationBudget(
     companion object {
         const val IMAGE_DEADLINE_MS = 120_000L
         const val VIDEO_DEADLINE_MS = 300_000L
+        const val AUDIO_DEADLINE_MS = 90_000L
 
         fun forImage(nowMs: Long = EpochClock.System.nowMs()): GenerationBudget =
             GenerationBudget(nowMs + IMAGE_DEADLINE_MS)
 
         fun forVideo(nowMs: Long = EpochClock.System.nowMs()): GenerationBudget =
             GenerationBudget(nowMs + VIDEO_DEADLINE_MS)
+
+        fun forAudio(nowMs: Long = EpochClock.System.nowMs()): GenerationBudget =
+            GenerationBudget(nowMs + AUDIO_DEADLINE_MS)
     }
 }

@@ -102,6 +102,7 @@ fun UnifiedStudioPane(
         AiCapability.IMAGE_EDIT -> imageEditId
         AiCapability.CODE -> codeId
         AiCapability.VIDEO -> videoId
+        AiCapability.AUDIO -> provider.id
         else -> provider.id
     }
     val estimate = viewModel.usage.estimateNext(provider)
@@ -185,6 +186,7 @@ fun UnifiedStudioPane(
         AiCapability.IMAGE_GEN -> viewModel.generateImage()
         AiCapability.VIDEO -> viewModel.generateVideo()
         AiCapability.CODE -> viewModel.generateCode()
+        AiCapability.AUDIO -> viewModel.generateAudio()
         else -> Unit
     }
 
@@ -201,6 +203,8 @@ fun UnifiedStudioPane(
                     "Cloud free models. Try-on Lite/Pro are on-device. Create Studio unlocks when local-sdturbo-v1 weights + sampler ship (R2.2)."
                 AiCapability.VIDEO ->
                     "Cloud HF Spaces only — on-device video is out of scope for v3.1."
+                AiCapability.AUDIO ->
+                    "Cloud TTS + local voice-changer knobs. On-device TTS when local-tts-v1 ships."
                 AiCapability.CODE ->
                     "Cloud LLMs (Groq / OpenRouter / HF). On-device Gemma is stretch / not in this build."
                 else -> estimate

@@ -158,6 +158,26 @@ object MediaExport {
         runCatching { context.startActivity(view) }
             .onFailure { share(context, file, "Share video") }
     }
+
+    fun openAudio(context: Context, file: File) {
+        if (!file.exists()) {
+            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val mime = when (file.extension.lowercase()) {
+            "mp3" -> "audio/mpeg"
+            "flac" -> "audio/flac"
+            "ogg" -> "audio/ogg"
+            else -> "audio/wav"
+        }
+        val view = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mime)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { context.startActivity(view) }
+            .onFailure { share(context, file, "Share audio") }
+    }
 }
 
 /** Visible watermark + EXIF provenance for AI outputs (Play AI-content policy). */

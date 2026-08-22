@@ -97,6 +97,29 @@ object SpacePayloads {
     fun hasVideo(providerId: String): Boolean =
         providerId == "wan2-video-hf" || providerId == "ltx-zerogpu-hf"
 
+    fun forAudio(
+        providerId: String,
+        text: String,
+        voiceId: String,
+        knobs: com.zakir.vestra.shared.audio.VoiceKnobs,
+    ): List<JsonElement> = when (providerId) {
+        "kokoro-tts-hf" -> listOf(
+            JsonPrimitive(text),
+            JsonPrimitive(voiceId),
+            JsonPrimitive(knobs.speed.coerceIn(0.5f, 2f).toDouble()),
+        )
+        "edge-tts-hf" -> listOf(
+            JsonPrimitive(text),
+            JsonPrimitive(voiceId),
+            JsonPrimitive(""), // optional ref style
+            JsonPrimitive(knobs.speed.coerceIn(0.5f, 2f).toDouble()),
+        )
+        else -> error("No hand-tuned audio payload for $providerId — use GradioSchemaClient")
+    }
+
+    fun hasAudio(providerId: String): Boolean =
+        providerId == "kokoro-tts-hf" || providerId == "edge-tts-hf"
+
     /**
      * Virtual try-on payloads. Throws with a model-specific message when the
      * selected Space requires mask/pose inputs the app cannot supply.

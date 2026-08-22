@@ -179,6 +179,38 @@ fun ResultPane(
                 )
             }
         }
+        is GenerativeState.AudioReady -> GlassCard {
+            GlassSectionLabel("AUDIO READY")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassPill(text = "AI voice", active = true)
+                GlassPill(text = "Knobs applied locally", active = true, accent = VestraColors.Accent)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Saved on device. Play with the system audio player or share the clip.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(state.path, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                GlassSecondaryButton(
+                    text = "Play",
+                    onClick = { MediaExport.openAudio(context, File(state.path)) },
+                    modifier = Modifier.weight(1f),
+                )
+                GlassSecondaryButton(
+                    text = LookbookCopy.ACTION_SHARE,
+                    onClick = { MediaExport.share(context, File(state.path), "Share audio") },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            GlassSecondaryButton(
+                text = LookbookCopy.ACTION_REPORT,
+                onClick = { reportPath = state.path },
+            )
+        }
         is GenerativeState.CodeReady -> GlassCard {
             GlassSectionLabel("CODE · ${state.tokensIn + state.tokensOut} free tokens")
             Text(

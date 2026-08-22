@@ -213,6 +213,31 @@ object CloudModelContracts {
             schemaNote = "text_to_video · 14 args (not apply_smart_config)",
             failureHint = "LTX text_to_video failed — retry off-peak or use Wan2.",
         ),
+
+        // ── Audio / TTS ─────────────────────────────────────────────────
+        CloudModelContract(
+            providerId = "mms-tts-eng-hf",
+            support = ModelSupportLevel.READY,
+            requiredInputs = listOf("HF token", "text"),
+            schemaNote = "HF Inference TTS · facebook/mms-tts-eng",
+            failureHint = "MMS-TTS failed — check HF token / Inference Providers, or try Kokoro Space.",
+        ),
+        CloudModelContract(
+            providerId = "kokoro-tts-hf",
+            support = ModelSupportLevel.READY,
+            apiNameOverride = "generate",
+            requiredInputs = listOf("text", "voice", "speed"),
+            schemaNote = "Gradio generate · Kokoro multi-voice",
+            failureHint = "Kokoro Space queued or waking — retry or fall back to MMS-TTS.",
+        ),
+        CloudModelContract(
+            providerId = "edge-tts-hf",
+            support = ModelSupportLevel.DEGRADED,
+            apiNameOverride = "tts_fn",
+            requiredInputs = listOf("text", "voice"),
+            schemaNote = "tts_fn · schema drifts; live /info preferred",
+            failureHint = "Edge/OpenVoice Space failed — switch to Kokoro or MMS-TTS.",
+        ),
     ).associateBy { it.providerId }
 
     fun forProvider(provider: CloudModelProvider): CloudModelContract =

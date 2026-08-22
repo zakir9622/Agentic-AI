@@ -6,6 +6,14 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.engine.local.LocalImageGenerator
 import com.zakir.vestra.shared.engine.local.LocalImageResult
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
+import com.zakir.vestra.shared.audio.VoiceCatalog
+import com.zakir.vestra.shared.audio.VoiceKnobs
+import com.zakir.vestra.shared.audio.VoicePersona
+import com.zakir.vestra.shared.engine.local.LocalAudioGenerator
+import com.zakir.vestra.shared.engine.local.LocalAudioResult
+import com.zakir.vestra.shared.engine.local.LocalVoiceChanger
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalAudioGenerator
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalVoiceChanger
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.time.EpochClock
 import io.ktor.client.HttpClient
@@ -30,6 +38,7 @@ sealed interface GenerativeState {
     ) : GenerativeState
     data class ImageReady(val path: String, val providerId: String) : GenerativeState
     data class VideoReady(val path: String, val providerId: String) : GenerativeState
+    data class AudioReady(val path: String, val providerId: String) : GenerativeState
     data class CodeReady(val text: String, val tokensIn: Int, val tokensOut: Int, val providerId: String) : GenerativeState
     data class Failed(val message: String) : GenerativeState
 }
@@ -46,6 +55,8 @@ class GenerativeCloudService(
     private val usage: UsageLedger,
     private val health: ModelHealthTracker = settings.modelHealth,
     private val localImage: LocalImageGenerator = UnimplementedLocalImageGenerator,
+    private val localAudio: LocalAudioGenerator = UnimplementedLocalAudioGenerator,
+    private val localVoiceChanger: LocalVoiceChanger = UnimplementedLocalVoiceChanger,
 ) {
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
@@ -620,6 +631,184 @@ class GenerativeCloudService(
                     selectedDisplayName = provider.displayName,
                 ),
             ))
+        }
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    fun generateAudio(
+        prompt: String,
+        persona: VoicePersona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+        knobs: VoiceKnobs = VoiceKnobs.Default,
+        referenceAudioUri: String? = null,
+    ): Flow<GenerativeState> = flow {
+        val provider = settings.selectedProvider(AiCapability.AUDIO)
+        var attempted = provider
+        val safeKnobs = knobs.sanitized()
+        emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
+        try {
+            when (val safety = InputSafetyGate.checkPrompt(prompt)) {
+                is SafetyVerdict.Blocked -> error(safety.reason)
+                is SafetyVerdict.Ok -> Unit
+            }
+            // Voice-changer-only path: transform an existing clip offline.
+            if (!referenceAudioUri.isNullOrBlank() && prompt.trim().equals("voice-change", ignoreCase = true)) {
+                emit(GenerativeState.Running(0.2f, "Applying local voice knobs…"))
+                when (val changed = localVoiceChanger.transform(referenceAudioUri, safeKnobs)) {
+                    is LocalAudioResult.Ok -> {
+                        emit(GenerativeState.AudioReady(changed.audioPath, "local-voice-changer"))
+                        return@flow
+                    }
+                    is LocalAudioResult.Unavailable -> error(changed.reason)
+                }
+            }
+            if (localAudio.isReady()) {
+                emit(GenerativeState.Running(0.08f, "Generating speech on-device…"))
+                when (val local = localAudio.generate(prompt.trim(), persona, safeKnobs)) {
+                    is LocalAudioResult.Ok -> {
+                        emit(GenerativeState.AudioReady(local.audioPath, "local-tts-v1"))
+                        return@flow
+                    }
+                    is LocalAudioResult.Unavailable -> {
+                        emit(GenerativeState.Running(0.1f, "Local TTS unavailable — using cloud…"))
+                    }
+                }
+            }
+            if (!settings.networkLikelyAvailable()) {
+                emit(
+                    GenerativeState.Running(
+                        0.05f,
+                        "Network probe uncertain — trying cloud TTS anyway…",
+                    ),
+                )
+            }
+            val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.AUDIO, settings, health)
+            val budget = GenerationBudget.forAudio()
+            val deadline = budget.deadlineMs
+            var lastError: Exception? = null
+            emit(
+                GenerativeState.Running(
+                    0.05f,
+                    "Queued · ${provider.displayName} · ${persona.displayName}",
+                    deadlineEpochMs = deadline,
+                ),
+            )
+            for ((modelIndex, candidate) in candidates.withIndex()) {
+                budget.throwIfExpired()
+                attempted = candidate
+                CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
+                requireKeyIfNeeded(candidate)
+                if (modelIndex > 0) {
+                    emit(
+                        GenerativeState.Running(
+                            0.2f,
+                            "${provider.displayName} busy — trying ${candidate.displayName}…",
+                            deadlineEpochMs = deadline,
+                        ),
+                    )
+                }
+                try {
+                    val path = when (candidate.platform) {
+                        CloudPlatform.HF_INFERENCE -> {
+                            val token = settings.hfToken.value
+                                ?: throw CloudFailureException(CloudFailure.AuthRejected)
+                            emit(
+                                GenerativeState.Running(
+                                    0.45f,
+                                    "HF TTS · ${candidate.displayName}",
+                                    deadlineEpochMs = deadline,
+                                ),
+                            )
+                            val bytes = hfInference.textToSpeech(
+                                modelId = candidate.endpoint,
+                                text = prompt.trim(),
+                                hfToken = token,
+                            )
+                            CloudOutputValidator.validateAudio(bytes)?.let {
+                                throw CloudFailureException(CloudFailure.BadOutput)
+                            }
+                            io.downloadResult(
+                                "data:audio/wav;base64,${Base64.encode(bytes)}",
+                            )
+                        }
+                        CloudPlatform.HF_SPACE -> {
+                            val data = SpacePayloads.forAudio(
+                                candidate.id,
+                                prompt.trim(),
+                                persona.cloudVoiceId,
+                                safeKnobs,
+                            )
+                            emit(
+                                GenerativeState.Running(
+                                    0.35f,
+                                    "Space TTS · ${candidate.displayName}",
+                                    deadlineEpochMs = deadline,
+                                ),
+                            )
+                            val result = hf.predict(
+                                spaceHost = candidate.endpoint,
+                                apiName = CloudModelContracts.effectiveApiName(candidate),
+                                data = data,
+                                hfToken = settings.hfToken.value,
+                                maxPolls = 90,
+                                pollDelayMs = 2_000,
+                                onPoll = { pollIndex, maxPolls ->
+                                    val frac =
+                                        0.35f + 0.5f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
+                                    emit(
+                                        GenerativeState.Running(
+                                            frac.coerceIn(0.35f, 0.88f),
+                                            "Audio poll ${pollIndex + 1}/$maxPolls",
+                                            deadlineEpochMs = deadline,
+                                        ),
+                                    )
+                                },
+                            )
+                            val url = extractRef(result)
+                            io.downloadResult(url, spaceHost = candidate.endpoint)
+                        }
+                        else -> error("${candidate.platform} is not supported for Audio")
+                    }
+                    emit(GenerativeState.Running(0.92f, "Applying local voice knobs…"))
+                    val finalPath = if (localVoiceChanger.isReady() && !safeKnobs.isIdentity) {
+                        when (val changed = localVoiceChanger.transform(path, safeKnobs)) {
+                            is LocalAudioResult.Ok -> changed.audioPath
+                            is LocalAudioResult.Unavailable -> path
+                        }
+                    } else {
+                        path
+                    }
+                    usage.record(candidate, success = true, note = "audio · ${persona.id}")
+                    health.recordSuccess(candidate.id)
+                    emit(GenerativeState.AudioReady(finalPath, candidate.id))
+                    return@flow
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    lastError = e
+                    health.recordFailure(candidate.id)
+                    if (e is CloudFailureException && e.failure is CloudFailure.Offline) throw e
+                }
+            }
+            throw lastError ?: IllegalStateException("Audio generation failed")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            usage.record(
+                attempted,
+                success = false,
+                note = CloudModelContracts.usageFailureNote(attempted, e.message.orEmpty()),
+            )
+            health.recordFailure(attempted.id)
+            emit(
+                GenerativeState.Failed(
+                    CloudModelContracts.friendlyFailure(
+                        attempted,
+                        e.message.orEmpty(),
+                        "Audio generation",
+                        selectedDisplayName = provider.displayName,
+                    ),
+                ),
+            )
         }
     }
 

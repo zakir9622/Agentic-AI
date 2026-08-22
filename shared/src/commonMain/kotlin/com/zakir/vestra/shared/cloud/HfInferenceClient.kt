@@ -93,6 +93,48 @@ class HfInferenceClient(
         throw lastError ?: IllegalStateException("HF Inference failed for $modelId")
     }
 
+    /**
+     * Text-to-speech via HF Inference (router). Returns raw WAV/FLAC/MP3 bytes.
+     */
+    suspend fun textToSpeech(
+        modelId: String,
+        text: String,
+        hfToken: String,
+    ): ByteArray {
+        require(hfToken.isNotBlank()) { "HF token required for Inference TTS" }
+        require(text.isNotBlank()) { "Text is empty" }
+        val url = "https://router.huggingface.co/hf-inference/models/$modelId"
+        var lastError: Exception? = null
+        repeat(3) { attempt ->
+            try {
+                val response = http.post(url) {
+                    header("Authorization", "Bearer $hfToken")
+                    contentType(ContentType.Application.Json)
+                    setBody(buildJsonObject { put("inputs", text) }.toString())
+                }
+                if (response.status.value == 503) {
+                    delay(1_500L * (attempt + 1))
+                    lastError = IllegalStateException("TTS model loading")
+                    return@repeat
+                }
+                if (!response.status.isSuccess()) {
+                    val raw = response.bodyAsText()
+                    throw IllegalStateException(
+                        extractErrorMessage(raw) ?: "TTS HTTP ${response.status.value}",
+                    )
+                }
+                val bytes = response.readRawBytes()
+                if (bytes.isEmpty()) error("Empty TTS response")
+                return bytes
+            } catch (e: Exception) {
+                lastError = e
+                if (e.isNonRetryableInferenceError()) throw e
+                delay(800L * (attempt + 1))
+            }
+        }
+        throw lastError ?: IllegalStateException("HF TTS failed for $modelId")
+    }
+
     private suspend fun postNscale(
         providerModelId: String,
         prompt: String,

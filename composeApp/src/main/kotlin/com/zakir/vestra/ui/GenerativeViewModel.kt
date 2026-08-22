@@ -79,6 +79,12 @@ class GenerativeViewModel(
     private val _seed = MutableStateFlow<Long?>(null)
     val seed: StateFlow<Long?> = _seed
 
+    private val _voicePersonaId = MutableStateFlow(com.zakir.vestra.shared.audio.VoiceCatalog.defaultId)
+    val voicePersonaId: StateFlow<String> = _voicePersonaId
+
+    private val _voiceKnobs = MutableStateFlow(com.zakir.vestra.shared.audio.VoiceKnobs.Default)
+    val voiceKnobs: StateFlow<com.zakir.vestra.shared.audio.VoiceKnobs> = _voiceKnobs
+
     private var job: Job? = null
     private var generationEpoch = 0
 
@@ -204,6 +210,42 @@ class GenerativeViewModel(
         }
     }
 
+    fun setVoicePersona(id: String) {
+        _voicePersonaId.value = id
+    }
+
+    fun setVoiceKnobs(knobs: com.zakir.vestra.shared.audio.VoiceKnobs) {
+        _voiceKnobs.value = knobs.sanitized()
+    }
+
+    fun generateAudio() {
+        val p = sanitizePrompt(_prompt.value)
+        if (p.isEmpty()) {
+            _preflightMessage.value = "Enter text to speak, or attach audio and use voice-change."
+            return
+        }
+        _prompt.value = p
+        when (val check = appSettings.preflight(AiCapability.AUDIO)) {
+            is PreflightResult.Blocked -> {
+                // Allow offline voice-changer when reference audio is set.
+                if (_referenceUri.value == null || !p.equals("voice-change", ignoreCase = true)) {
+                    _preflightMessage.value = check.reason
+                    return
+                }
+            }
+            is PreflightResult.Ok -> Unit
+        }
+        val persona = com.zakir.vestra.shared.audio.VoiceCatalog.byId(_voicePersonaId.value)
+        startGeneration(RunCapability.AUDIO, appSettings.selectedProvider(AiCapability.AUDIO).displayName) {
+            generative.generateAudio(
+                prompt = p,
+                persona = persona,
+                knobs = _voiceKnobs.value,
+                referenceAudioUri = _referenceUri.value,
+            )
+        }
+    }
+
     fun generateVideo() {
         val p = sanitizePrompt(_prompt.value)
         if (p.isEmpty()) {
@@ -295,6 +337,11 @@ class GenerativeViewModel(
                             appendLive("Video ready")
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Video")
+                            builder?.complete(success = true, note = next.providerId)
+                        }
+                        is GenerativeState.AudioReady -> {
+                            appendLive("Audio ready")
+                            _lastUsedProviderId.value = next.providerId
                             builder?.complete(success = true, note = next.providerId)
                         }
                         is GenerativeState.CodeReady -> {
