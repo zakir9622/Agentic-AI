@@ -31,7 +31,7 @@ object LocalModelCatalog {
         LocalModelEntry(
             id = "local-lite-tryon",
             displayName = "Fast try-on (ONNX)",
-            description = "Open garment segmentation + human parsing compositor. Works on every Android 8+ phone.",
+            description = "Open garment segmentation + human parsing compositor. Works on Android 15+ (app minSdk).",
             capability = AiCapability.TRY_ON,
             packId = "lite-v1",
             engineTier = EngineTier.LITE,

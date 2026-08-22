@@ -300,13 +300,13 @@ class DiffusionEngine(
 private fun UnavailableReason.toProError(): TryOnError = when (this) {
     UnavailableReason.PACK_VERIFY_FAILED ->
         TryOnError.Internal(
-            "Pro pack failed verification — open Settings → Model packs and re-download pro-v2-int8 and lite-v1.",
+            "Pro pack failed verification — open Settings → Model packs and re-download pro-v1 (or pro-v2-int8) and lite-v1.",
         )
     UnavailableReason.PACK_VERIFY_PENDING ->
         TryOnError.Internal("Model packs are still verifying — wait a moment and try again.")
     UnavailableReason.PACK_NOT_INSTALLED ->
         TryOnError.Internal(
-            "Pro model pack not installed. Open Settings → Model packs to download pro-v2-int8 (~2 GB) and lite-v1.",
+            "Pro model pack not installed. Open Settings → Model packs to download pro-v1 (~4.3 GB) and lite-v1.",
         )
     UnavailableReason.COMPANION_PACK_MISSING ->
         TryOnError.Internal("Pro needs the Lite pack too — download lite-v1 in Settings → Model packs.")

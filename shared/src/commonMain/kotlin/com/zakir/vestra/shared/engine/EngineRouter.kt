@@ -45,7 +45,7 @@ private fun UnavailableReason.toError(tier: EngineTier): TryOnError = when (this
             when (tier) {
                 EngineTier.PRO ->
                     "Pro pack failed verification — open Settings → Model packs and re-download " +
-                        "pro-v2-int8 and lite-v1."
+                        "pro-v1 (or pro-v2-int8) and lite-v1."
                 EngineTier.LITE ->
                     "Lite pack failed verification — open Settings → Model packs and re-download lite-v1."
                 else ->
@@ -65,8 +65,8 @@ private fun UnavailableReason.toError(tier: EngineTier): TryOnError = when (this
         TryOnError.Internal(
             when (tier) {
                 EngineTier.PRO ->
-                    "Pro model pack not installed. Open Settings → Model packs to download pro-v2-int8 " +
-                        "(~2 GB), and lite-v1 for human parsing."
+                    "Pro model pack not installed. Open Settings → Model packs to download pro-v1 " +
+                        "(~4.3 GB), and lite-v1 for human parsing."
                 EngineTier.LITE ->
                     "Lite model pack not installed. Open Settings → Engines & packs to download lite-v1 " +
                         "(bundled in debug builds), or switch to Cloud try-on with an HF token."

@@ -191,10 +191,10 @@ Use these as the canonical follow-up todo list:
 - [x] **A5** Fix generative RunLog stage timings + UsageLedger in export
 - [x] **A6** pro-v2-int8 de-prefer pro-v1 + docs sync (HF upload still pending)
 - [x] **B1** lite-v2 export flag in export_lite_pack.py (manifest publish blocked)
-- [x] **B2** Ship birefnet-v1 + realesrgan-v1 packs to HF manifest
+- [x] **B2** Ship birefnet-v1 + realesrgan-v1 packs to HF manifest (+ v3.0.4 runners)
 - [x] **B3** Pack smoke tests in integration-local-models.py
 - [x] **B4** Pro lazy UNet load + progress UI
-- [x] **B5** Pack in-use gate during uninstall/update
+- [x] **B5** Pack in-use gate during uninstall/update (+ v3.0.4 refcount / ORT invalidate)
 - [x] **B6** UI copy: Local try-on Fast/Pro
 - [x] **C1** On-device group in ModelPickerSheet
 - [x] **C2** Dynamic advanced panel (CFG/steps/seed)
