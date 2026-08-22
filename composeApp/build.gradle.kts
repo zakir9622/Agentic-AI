@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 36
-        versionName = "2.9.9"
+        versionCode = 37
+        versionName = "2.9.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
