@@ -180,12 +180,15 @@ object CloudModelCatalog {
             description = "Recreate / edit an input image from a text prompt.",
             platform = CloudPlatform.HF_SPACE,
             capability = AiCapability.IMAGE_EDIT,
-            endpoint = "qwen-qwen-image-edit.hf.space",
+            // The official Qwen Space rejects every REST /call instantly; this distilled
+            // mirror accepts the same schema and needs 8 steps instead of 50, so it fits
+            // inside the free ZeroGPU allowance.
+            endpoint = "multimodalart-qwen-image-edit-fast.hf.space",
             apiName = "infer",
             license = "Apache 2.0",
             requiresApiKey = false,
             qualityScore = 90,
-            speedScore = 70,
+            speedScore = 85,
             usageNote = "Ready · infer reference image + prompt + guidance/steps.",
         ),
         CloudModelProvider(

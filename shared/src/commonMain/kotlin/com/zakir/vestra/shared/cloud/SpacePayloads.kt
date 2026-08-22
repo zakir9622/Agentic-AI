@@ -51,8 +51,8 @@ object SpacePayloads {
                 JsonPrimitive(prompt),
                 JsonPrimitive(0), // seed
                 JsonPrimitive(true), // randomize seed
-                JsonPrimitive(4.0), // true guidance scale
-                JsonPrimitive(20), // steps — 50 regularly exceeds the free ZeroGPU budget
+                JsonPrimitive(1.0), // true guidance scale — the distilled mirror's default
+                JsonPrimitive(8), // steps — 50 regularly exceeds the free ZeroGPU budget
                 JsonPrimitive(false), // rewrite prompt (keeps the user's wording)
             )
             else -> listOf(fileData(imageDataUrl), JsonPrimitive(prompt))

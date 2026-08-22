@@ -50,14 +50,26 @@ class HfGradioClient(
         require(apiName.isNotBlank()) { "Gradio api name is empty" }
         require(data.isNotEmpty()) { "Gradio payload is empty" }
 
+        val token = hfToken?.takeIf { it.isNotBlank() }
+        // Curated Spaces are public — the token only buys a larger ZeroGPU allowance. Once that
+        // allowance is spent Hugging Face rejects every tokened call instantly with an empty
+        // error, while the very same anonymous call still runs on the shared quota. So each
+        // wake attempt falls back to an unauthenticated call before giving up.
+        val credentials = if (token == null) listOf(null) else listOf(token, null)
+
         var lastEmptyError: String? = null
         repeat(wakeRetries + 1) { attempt ->
             if (attempt > 0) delay(wakeDelayMs)
-            when (val outcome = attemptPredict(spaceHost, apiName, data, hfToken, maxPolls, pollDelayMs)) {
-                is PredictOutcome.Success -> return outcome.value
-                // An empty error usually means the Space is cold or ZeroGPU is reclaiming the
-                // worker; the same payload frequently succeeds once it has woken up.
-                is PredictOutcome.EmptyError -> lastEmptyError = outcome.message
+            for (credential in credentials) {
+                when (
+                    val outcome =
+                        attemptPredict(spaceHost, apiName, data, credential, maxPolls, pollDelayMs)
+                ) {
+                    is PredictOutcome.Success -> return outcome.value
+                    // An empty error also covers a cold Space or ZeroGPU reclaiming the worker;
+                    // the same payload frequently succeeds once it has woken up.
+                    is PredictOutcome.EmptyError -> lastEmptyError = outcome.message
+                }
             }
         }
         error(lastEmptyError ?: "Hugging Face Space $spaceHost did not return a result")
@@ -241,8 +253,9 @@ class HfGradioClient(
                 "Wait ~30s and retry, or switch model in the composer."
         !detail.isNullOrBlank() -> "Hugging Face Space $spaceHost/$apiName failed: $detail"
         body.isNotBlank() ->
-            "Hugging Face Space $spaceHost is waking or returned an empty error. " +
-                "Wait ~30s, retry, or switch model in the composer."
+            "Hugging Face Space $spaceHost returned an empty error — usually the free ZeroGPU " +
+                "allowance is spent, or the Space is still waking. The daily allowance refills; " +
+                "until then try again later or switch model in the composer."
         else -> "Hugging Face Space $spaceHost/$apiName error: ${body.take(280)}"
     }
 
