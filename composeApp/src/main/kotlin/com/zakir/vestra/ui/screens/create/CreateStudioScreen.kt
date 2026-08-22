@@ -94,7 +94,7 @@ fun CreateStudioScreen(
         )
         if (preflightChip != null && preflight == null) {
             Spacer(Modifier.height(6.dp))
-            GlassPill(text = preflightChip)
+            GlassPill(text = preflightChip, active = true)
         }
         lastUsedId?.let { id ->
             CloudModelCatalog.byId(id)?.let { used ->

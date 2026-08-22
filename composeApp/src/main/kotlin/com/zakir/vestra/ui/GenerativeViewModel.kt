@@ -2,6 +2,7 @@ package com.zakir.vestra.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.GenerativeAssists
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
