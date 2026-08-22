@@ -164,6 +164,7 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
 }
 
 private fun packDownloadErrorMessage(error: String?): String = when (error) {
+    "verify_failed" -> "Model verification failed — files may be corrupt; tap Download again"
     "checksum" -> "Download failed verification — tap Download again or check your connection"
     "no_space" -> "Not enough storage for this pack — free space and retry"
     "unknown_pack" -> "Pack not found in catalog — open Settings and pull to refresh"

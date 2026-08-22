@@ -39,12 +39,15 @@ class LiteEngine(
 
     override val tier: EngineTier = EngineTier.LITE
 
-    override fun isAvailable(): Availability =
-        if (packs.isInstalled(PACK_ID)) {
-            Availability.Ready
-        } else {
+    override fun isAvailable(): Availability = when {
+        !packs.isInstalled(PACK_ID) ->
             Availability.Unavailable(UnavailableReason.PACK_NOT_INSTALLED)
-        }
+        !packs.isReady(PACK_ID) ->
+            Availability.Unavailable(
+                UnavailableReason.PACK_VERIFY_FAILED,
+            )
+        else -> Availability.Ready
+    }
 
     override fun generate(request: TryOnRequest): Flow<GenerationState> = flow {
         val packDir = packs.installedDir(PACK_ID)

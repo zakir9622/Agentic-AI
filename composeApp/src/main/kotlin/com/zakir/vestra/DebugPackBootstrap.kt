@@ -1,6 +1,10 @@
 package com.zakir.vestra
 
 import android.content.Context
+import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.domain.ModelPack
+import com.zakir.vestra.shared.domain.PackFile
+import com.zakir.vestra.shared.packs.AndroidPackIntegrityChecker
 import com.zakir.vestra.shared.packs.ModelPackManager
 import java.io.File
 
@@ -9,7 +13,7 @@ import java.io.File
  * Hugging Face packs repo is set up. The Lite pack is bundled in the debug
  * APK's assets (`src/debug/assets/packs/lite-v1/`); on first launch this copies
  * it into the pack directory and seeds a local manifest so the pack manager
- * reports it INSTALLED.
+ * reports it INSTALLED **after ONNX verification**.
  *
  * In release builds the asset is absent, so [seedLitePack] no-ops — production
  * still downloads packs from Hugging Face as normal.
@@ -19,6 +23,7 @@ object DebugPackBootstrap {
     private const val PACK_ID = "lite-v1"
     private const val VERSION = 1
     private val FILES = listOf("garment_seg.onnx" to 1_321_751L, "human_parse.onnx" to 67_287_788L)
+    private val checker = AndroidPackIntegrityChecker()
 
     /**
      * Copies ~68 MB, so it must never run on the main thread — doing so ANRs startup and
@@ -41,18 +46,20 @@ object DebugPackBootstrap {
 
     fun seedLitePack(context: Context, packsRoot: File = File(context.filesDir, "packs")) {
         val versionDir = File(packsRoot, "$PACK_ID/$VERSION")
-        val completeMarker = File(versionDir, ".complete")
+        val completeMarker = File(versionDir, ModelPackManager.COMPLETE_MARKER)
 
         runCatching {
             // Probe: absent in release builds → IOException → skip entirely.
             context.assets.open("packs/$PACK_ID/garment_seg.onnx").close()
 
-            // An already-seeded pack still needs its catalog entry, which earlier builds
-            // wrote into manifest.cache.json where a remote refresh overwrote it.
             writeBundledManifest(packsRoot)
-            if (completeMarker.exists()) return
 
-            // Stage beside the target so an interrupted copy can't be mistaken for a pack.
+            if (completeMarker.exists()) {
+                // Re-verify on every launch — wipe corrupt installs from interrupted copies.
+                if (verifyDir(versionDir.absolutePath) == null) return
+                versionDir.deleteRecursively()
+            }
+
             val staging = File(packsRoot, "$PACK_ID/.staging-$VERSION")
             staging.deleteRecursively()
             staging.mkdirs()
@@ -67,8 +74,34 @@ object DebugPackBootstrap {
                 staging.copyRecursively(versionDir, overwrite = true)
                 staging.deleteRecursively()
             }
+
+            val verifyError = verifyDir(versionDir.absolutePath)
+            if (verifyError != null) {
+                versionDir.deleteRecursively()
+                return
+            }
             completeMarker.writeText(VERSION.toString())
         }
+    }
+
+    private fun verifyDir(dir: String): String? {
+        val pack = bundledLitePack()
+        return checker.verifyFiles(pack, dir) ?: checker.verifyOnnx(pack, dir)
+    }
+
+    private fun bundledLitePack(): ModelPack {
+        val files = FILES.map { (name, bytes) ->
+            PackFile(path = name, url = "bundled", sha256 = "bundled", bytes = bytes)
+        }
+        return ModelPack(
+            id = PACK_ID,
+            version = VERSION,
+            tier = EngineTier.LITE,
+            displayName = "Lite engine",
+            description = "Bundled for testing.",
+            totalBytes = FILES.sumOf { it.second },
+            files = files,
+        )
     }
 
     /**

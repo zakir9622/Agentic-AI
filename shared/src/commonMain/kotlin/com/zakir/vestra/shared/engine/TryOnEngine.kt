@@ -27,6 +27,12 @@ enum class UnavailableReason {
     PACK_NOT_INSTALLED,
 
     /**
+     * Pack files are on disk but failed integrity / ONNX verification.
+     * User should re-download from Settings → Model packs.
+     */
+    PACK_VERIFY_FAILED,
+
+    /**
      * The tier's own pack is installed but a pack it depends on is not — Pro reads the person
      * mask from the Lite pack, so Pro alone cannot run.
      */

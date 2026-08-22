@@ -18,6 +18,7 @@ import com.zakir.vestra.shared.engine.lite.LiteEngineIo
 import com.zakir.vestra.shared.engine.pro.DiffusionEngine
 import com.zakir.vestra.shared.packs.AndroidDeviceProbe
 import com.zakir.vestra.shared.packs.AndroidPackFileSystem
+import com.zakir.vestra.shared.packs.AndroidPackIntegrityChecker
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.platformHttpClient
@@ -91,12 +92,18 @@ class VestraApp : Application() {
             device = AndroidDeviceProbe(this),
             http = http,
             manifestUrl = PACKS_MANIFEST_URL,
+            integrityChecker = AndroidPackIntegrityChecker(),
         )
         PackDownloadWorker.dependencies = { packManager }
-        // Load bundled lite manifest immediately so Settings/Studio show Lite as available.
-        appScope.launch { packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp)) }
+        appScope.launch {
+            packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp))
+            packManager.verifyAllInstalled()
+        }
         DebugPackBootstrap.seedLitePackAsync(this, DurableStorage.resolvePacksRoot(this)) {
-            appScope.launch { packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp)) }
+            appScope.launch {
+                packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp))
+                packManager.verifyInstalled(LiteEngine.PACK_ID)
+            }
         }
         appScope.launch {
             if (!appSettings.hfToken.value.isNullOrBlank()) {

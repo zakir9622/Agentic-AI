@@ -267,6 +267,7 @@ fun VestraNavHost(
             UsageScreen(
                 usage = usageLedger,
                 appSettings = appSettings,
+                packManager = packManager,
                 onBack = { navController.popBackStack() },
                 onOpenCreate = {
                     generativeViewModel.prepareStudio(resetIfIdle = true)

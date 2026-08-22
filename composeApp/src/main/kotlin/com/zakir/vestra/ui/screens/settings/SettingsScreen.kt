@@ -582,7 +582,8 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         when (status) {
-                            PackStatus.INSTALLED -> "Installed — ready offline"
+                            PackStatus.INSTALLED -> packStates[selectedPackId]?.verifyLabel()
+                                ?: "Installed — verification pending"
                             PackStatus.DOWNLOADING -> "Downloading ${(progress * 100).toInt()}%…"
                             PackStatus.INCOMPATIBLE -> "This device doesn’t meet pack requirements"
                             PackStatus.UPDATE_AVAILABLE -> "Update available"
@@ -1142,6 +1143,8 @@ private fun EngineTier.description(availability: Availability): String {
         Availability.Ready -> base
         is Availability.Unavailable -> when (availability.reason) {
             UnavailableReason.PACK_NOT_INSTALLED -> "$base Model pack not installed."
+            UnavailableReason.PACK_VERIFY_FAILED ->
+                "$base Model pack failed verification — re-download in Model packs."
             UnavailableReason.COMPANION_PACK_MISSING ->
                 "$base Pro also needs the Lite pack — install Lite to enable it."
             UnavailableReason.DEVICE_NOT_CAPABLE -> "$base Device doesn’t meet RAM requirements."

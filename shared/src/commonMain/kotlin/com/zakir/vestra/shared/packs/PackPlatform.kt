@@ -1,5 +1,7 @@
 package com.zakir.vestra.shared.packs
 
+import com.zakir.vestra.shared.domain.ModelPack
+
 /**
  * Platform seams the pack manager needs. Android implementations use
  * java.io/MessageDigest/ActivityManager; iOS will use NSFileManager/CryptoKit.
@@ -27,4 +29,22 @@ interface DeviceProbe {
     fun totalRamMb(): Long
     /** Best-effort: true when an NNAPI/QNN-class accelerator is likely present. */
     fun hasNpu(): Boolean
+}
+
+/**
+ * Optional platform hook for post-download and startup pack verification.
+ * Returns null when checks pass, otherwise a short user-facing error string.
+ */
+interface PackIntegrityChecker {
+    /** Every manifest file exists with the declared byte length. */
+    fun verifyFiles(pack: ModelPack, dir: String): String?
+
+    /** ONNX graphs in [dir] can be loaded by the runtime (session create). */
+    fun verifyOnnx(pack: ModelPack, dir: String): String?
+}
+
+/** Test / iOS stub — skips ONNX load checks. */
+object NoOpPackIntegrityChecker : PackIntegrityChecker {
+    override fun verifyFiles(pack: ModelPack, dir: String): String? = null
+    override fun verifyOnnx(pack: ModelPack, dir: String): String? = null
 }

@@ -55,6 +55,7 @@ fun PacksScreen(
     LaunchedEffect(Unit) {
         durableReady = DurableStorage.hasAllFilesAccess()
         packManager.refresh()
+        packManager.verifyAllInstalled()
     }
 
     GlassScreen(
@@ -210,9 +211,13 @@ private fun PackCard(
             }
             PackStatus.INSTALLED -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Installed",
+                    state.verifyLabel(),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = when {
+                        state.isReady() -> MaterialTheme.colorScheme.primary
+                        state.verifyError != null -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.align(Alignment.CenterVertically),
                 )
                 OutlinedButton(onClick = onUninstall) { Text("Remove") }

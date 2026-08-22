@@ -40,6 +40,18 @@ class EngineRouter(private val engines: List<TryOnEngine>) {
 }
 
 private fun UnavailableReason.toError(tier: EngineTier): TryOnError = when (this) {
+    UnavailableReason.PACK_VERIFY_FAILED ->
+        TryOnError.Internal(
+            when (tier) {
+                EngineTier.PRO ->
+                    "Pro pack failed verification — open Settings → Model packs and re-download " +
+                        "pro-v2-int8 and lite-v1."
+                EngineTier.LITE ->
+                    "Lite pack failed verification — open Settings → Model packs and re-download lite-v1."
+                else ->
+                    "Model pack failed verification — re-download from Settings → Model packs."
+            },
+        )
     UnavailableReason.PACK_NOT_INSTALLED ->
         TryOnError.Internal(
             when (tier) {
