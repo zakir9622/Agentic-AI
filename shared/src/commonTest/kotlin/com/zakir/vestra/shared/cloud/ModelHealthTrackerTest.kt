@@ -74,4 +74,10 @@ class ModelHealthTrackerTest {
             EpochClock.System = previous
         }
     }
+
+    @Test
+    fun observedLabelNullWhenNoHistory() {
+        val tracker = ModelHealthTracker(TestMemorySettings())
+        assertNull(tracker.observedLabel("unknown-model"))
+    }
 }
