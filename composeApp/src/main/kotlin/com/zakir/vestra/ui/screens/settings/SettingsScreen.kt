@@ -1042,13 +1042,12 @@ private fun CloudCapabilityDropdown(
         }
         if (unsupported.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
+            // Nothing is wrong with the user's setup here — these are models the app cannot
+            // drive yet — so this reads as a footnote rather than an error.
             Text(
-                "Not selectable (schema gap): " +
-                    unsupported.joinToString { it.displayName } +
-                    " — " +
-                    (unsupported.firstOrNull()?.let { CloudModelContracts.forProvider(it).failureHint } ?: ""),
+                "Not selectable yet: " + unsupported.joinToString { it.displayName },
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.height(4.dp))
