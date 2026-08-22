@@ -5,32 +5,32 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * Android local Create Studio generator (M4 / E4 / R2).
+ * Android local Create Studio generator.
  *
- * Ready only when `local-sdturbo-v1` graphs are real **and**
- * [Txt2ImgPipeline.SAMPLER_WIRED] is true. Until then [generate] returns
- * [LocalImageResult.Unavailable] with an actionable unlock reason.
- *
- * Pro try-on packs are never used here (different UNet contract).
+ * Ready when `local-sdturbo-v1` graphs are real **and** [Txt2ImgPipeline.SAMPLER_WIRED].
+ * Runs [AndroidTxt2ImgEngine] (4-ch SD-Turbo / LCM) — never Pro try-on packs.
  */
 class AndroidLocalImageGenerator(
     private val packs: ModelPackManager,
+    private val outputDir: File,
     private val packId: String = PACK_ID,
 ) : LocalImageGenerator {
 
-    /**
-     * Product ready = real graphs **and** [Txt2ImgPipeline.SAMPLER_WIRED].
-     * Stays false in R2.0 so Create Studio never claims offline falsely.
-     */
     override fun isReady(): Boolean {
         if (!Txt2ImgPipeline.SAMPLER_WIRED) return false
         return packGraphsReady()
     }
 
     override fun generate(prompt: String, seed: Long?): LocalImageResult {
+        if (!Txt2ImgPipeline.SAMPLER_WIRED) {
+            return LocalImageResult.Unavailable(
+                "On-device Create Studio sampler not wired in this build.",
+            )
+        }
         if (!packs.isReady(packId)) {
             return LocalImageResult.Unavailable(
-                "Local image pack not installed — download $packId when published on Model packs.",
+                "Local image pack not installed — download $packId from Model packs when published " +
+                    "(export via ml/export_image_gen_pack.py / Colab).",
             )
         }
         val dirPath = packs.installedDir(packId)
@@ -47,21 +47,23 @@ class AndroidLocalImageGenerator(
                     "Export real ONNX graphs (see ml/export_image_gen_pack.py) then re-publish.",
             )
         }
-        return Txt2ImgPipeline(dirPath, config).generate(prompt, seed)
+        return AndroidTxt2ImgEngine(dir, config).use { engine ->
+            engine.generate(prompt, seed, outputDir)
+        }
     }
 
-    /** True when pack graphs look real (for Settings / catalog status only). */
     fun packGraphsReady(): Boolean {
         if (!packs.isReady(packId)) return false
         val dirPath = packs.installedDir(packId) ?: return false
         val dir = File(dirPath)
         val config = loadConfig(dir) ?: return false
-        return missingOrTinyGraphs(dir, config).isEmpty()
+        return missingOrTinyGraphs(dir, config).isEmpty() &&
+            File(dir, "vocab.json").isFile &&
+            File(dir, "merges.txt").isFile
     }
 
     companion object {
         const val PACK_ID = "local-sdturbo-v1"
-        /** Below this, treat ONNX as scaffold/placeholder (CI contract only). */
         const val MIN_GRAPH_BYTES = 1_000_000L
 
         private val json = Json { ignoreUnknownKeys = true }

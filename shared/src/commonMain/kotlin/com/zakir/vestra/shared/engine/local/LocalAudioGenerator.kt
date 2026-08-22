@@ -4,8 +4,9 @@ import com.zakir.vestra.shared.audio.VoiceKnobs
 import com.zakir.vestra.shared.audio.VoicePersona
 
 /**
- * On-device TTS / voice pack (Audio Studio).
- * Ready only when `local-tts-v1` graphs ship and [RUNNER_WIRED] is flipped.
+ * On-device TTS / voice (Audio Studio).
+ * Android implements this with **system TTS** (offline today) + optional DSP knobs.
+ * Neural `local-tts-v1` remains optional when [LocalAudioFlags.TTS_RUNNER_WIRED].
  */
 interface LocalAudioGenerator {
     fun isReady(): Boolean
@@ -49,7 +50,7 @@ object UnimplementedLocalVoiceChanger : LocalVoiceChanger {
         LocalAudioResult.Unavailable("Local voice changer not available on this platform.")
 }
 
-/** Flip when Kokoro / Piper / ONNX TTS sampling is productized. */
+/** Neural ONNX TTS pack (Kokoro/Piper) — system TTS is used until this is productized. */
 object LocalAudioFlags {
     const val TTS_RUNNER_WIRED: Boolean = false
     const val NEURAL_VC_WIRED: Boolean = false

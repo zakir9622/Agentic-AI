@@ -167,8 +167,8 @@ fun AudioStudioPane(
     ) {
         GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase())
         Text(
-            "Cloud TTS with named voices. Record a clip and apply local voice-changer knobs offline. " +
-                "On-device TTS stays scaffolded until local-tts-v1 weights ship.",
+            "Device TTS works offline (system voices + knobs). Cloud TTS optional. " +
+                "Neural local-tts-v1 pack is optional when published.",
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,
         )

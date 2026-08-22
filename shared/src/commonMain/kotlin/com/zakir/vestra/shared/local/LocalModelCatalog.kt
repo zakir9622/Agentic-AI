@@ -96,13 +96,13 @@ object LocalModelCatalog {
         LocalModelEntry(
             id = "local-sdturbo-v1",
             displayName = "Local image gen (SD-Turbo)",
-            description = "On-device SD-Turbo / LCM pack for Create Studio offline — reuse Pro OrtGraph stack.",
+            description = "On-device SD-Turbo / LCM via ORT — sampler wired; needs published ONNX pack.",
             capability = AiCapability.IMAGE_GEN,
             packId = "local-sdturbo-v1",
             license = "OpenRAIL-M / Apache-2.0 (weights TBD)",
             approxSizeLabel = "~1–1.5 GB",
             runnable = false,
-            testingNote = "Scaffold only — weights not published. Use cloud Image models until local-sdturbo-v1 ships.",
+            testingNote = "Engine ready · download local-sdturbo-v1 when on Model packs (ml/export_image_gen_pack.py).",
         ),
         LocalModelEntry(
             id = "local-coder-planned",
@@ -139,15 +139,26 @@ object LocalModelCatalog {
             testingNote = "No local video weights — cloud LTX / Wan2 only.",
         ),
         LocalModelEntry(
+            id = "local-tts-system",
+            displayName = "Device TTS (system)",
+            description = "Offline speak via Android Text-to-speech (Google / OEM voices) + optional DSP knobs.",
+            capability = AiCapability.AUDIO,
+            packId = null,
+            license = "Device TTS engine",
+            approxSizeLabel = "0 (built-in)",
+            runnable = true,
+            testingNote = "Ready offline when a TTS language pack is installed on the phone.",
+        ),
+        LocalModelEntry(
             id = "local-tts-v1",
-            displayName = "Local TTS (Kokoro / Piper)",
-            description = "On-device text-to-speech pack for Audio Studio offline — ONNX / ExecuTorch.",
+            displayName = "Local TTS neural (Kokoro / Piper)",
+            description = "On-device neural TTS pack — ONNX / ExecuTorch (optional upgrade over system TTS).",
             capability = AiCapability.AUDIO,
             packId = "local-tts-v1",
             license = "Apache-2.0 (planned)",
             approxSizeLabel = "~80–300 MB",
             runnable = false,
-            testingNote = "Scaffold — weights not published. Use cloud TTS; voice knobs + mic record work offline via DSP.",
+            testingNote = "Scaffold — system TTS works today; neural pack when published.",
         ),
         LocalModelEntry(
             id = "local-voice-changer",
@@ -158,7 +169,7 @@ object LocalModelCatalog {
             license = "App DSP",
             approxSizeLabel = "0 (built-in)",
             runnable = true,
-            testingNote = "Record with the mic or use cloud TTS, then apply knobs on-device.",
+            testingNote = "Record with the mic or use device/cloud TTS, then apply knobs on-device.",
         ),
         LocalModelEntry(
             id = "local-quality-birefnet",
@@ -213,6 +224,8 @@ object LocalModelCatalog {
 
     /** Honest short status for picker rows. */
     fun studioStatusLabel(entry: LocalModelEntry, packReady: Boolean): String = when {
+        entry.id == "local-sdturbo-v1" && !packReady ->
+            "Engine ready · pack weights not on device"
         entry.runnable && (entry.packId == null || packReady) -> "Ready offline"
         !entry.runnable && entry.packId != null -> "Scaffold · weights not published"
         !entry.runnable -> "Coming soon · no on-device weights yet"

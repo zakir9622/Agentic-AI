@@ -193,13 +193,13 @@ fun UnifiedStudioPane(
         Text(
             when (capability) {
                 AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
-                    "Cloud free models. Try-on Lite/Pro are on-device. Create Studio unlocks when local-sdturbo-v1 weights + sampler ship (R2.2)."
+                    "Cloud by default. Local SD-Turbo engine is wired — install local-sdturbo-v1 when published."
                 AiCapability.VIDEO ->
                     "Cloud HF Spaces only — on-device video is out of scope for v3.1."
                 AiCapability.AUDIO ->
-                    "Cloud TTS + local voice-changer knobs. On-device TTS when local-tts-v1 ships."
+                    "Device TTS works offline + voice-changer knobs. Cloud TTS optional."
                 AiCapability.CODE ->
-                    "Cloud LLMs (Groq / OpenRouter / HF). On-device Gemma is stretch / not in this build."
+                    "Cloud LLMs (Groq / OpenRouter / HF). On-device Gemma planned (LiteRT-LM)."
                 else -> estimate
             },
             style = MaterialTheme.typography.bodySmall,

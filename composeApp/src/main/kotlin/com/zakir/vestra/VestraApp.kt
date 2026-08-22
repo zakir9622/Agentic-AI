@@ -164,8 +164,15 @@ class VestraApp : Application() {
             cloudIo,
             appSettings,
             usageLedger,
-            localImage = com.zakir.vestra.shared.engine.local.AndroidLocalImageGenerator(packManager),
-            localAudio = com.zakir.vestra.shared.engine.local.AndroidLocalAudioGenerator(packManager),
+            localImage = com.zakir.vestra.shared.engine.local.AndroidLocalImageGenerator(
+                packManager,
+                outputDir = java.io.File(filesDir, "generations").also { it.mkdirs() },
+            ),
+            localAudio = com.zakir.vestra.shared.engine.local.AndroidLocalAudioGenerator(
+                this,
+                packManager,
+                outputDir = java.io.File(filesDir, "generations").also { it.mkdirs() },
+            ),
             localVoiceChanger = com.zakir.vestra.shared.engine.local.AndroidLocalVoiceChanger(
                 outputDir = java.io.File(filesDir, "generations").also { it.mkdirs() },
             ),

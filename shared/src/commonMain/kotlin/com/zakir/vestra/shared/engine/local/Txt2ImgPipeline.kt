@@ -7,10 +7,10 @@ package com.zakir.vestra.shared.engine.local
  * LatentCodec / scheduler *ideas* once real graphs ship — never the Pro pack
  * files themselves.
  *
- * Unlock checklist (R2.2):
- * 1. Publish `local-sdturbo-v1` with text_encoder / unet / vae_decoder ≥ 1 MB each
- * 2. Flip [SAMPLER_WIRED] after wiring UnetRunner-style denoising
- * 3. Point [AndroidLocalImageGenerator.isReady] at [isRunnable]
+ * Unlock checklist:
+ * 1. Publish `local-sdturbo-v1` with text_encoder / unet / vae_decoder ≥ 1 MB each + CLIP vocab
+ * 2. [SAMPLER_WIRED] is true — AndroidTxt2ImgEngine runs the denoise loop
+ * 3. [AndroidLocalImageGenerator.isReady] requires installed pack with real graphs
  */
 class Txt2ImgPipeline(
     private val packDir: String,
@@ -29,34 +29,32 @@ class Txt2ImgPipeline(
         if (graphs.isEmpty()) {
             missing += "graphs in config.json"
         }
-        // File presence is checked by AndroidLocalImageGenerator (needs java.io.File).
         return missing
     }
 
     fun isRunnable(): Boolean = SAMPLER_WIRED && config.graphs != null
 
     /**
-     * Product sampling entry — not implemented until [SAMPLER_WIRED].
-     * Callers must treat [LocalImageResult.Unavailable] as the success path today.
+     * Common contract stub — Android calls [AndroidTxt2ImgEngine] directly.
      */
     fun generate(prompt: String, seed: Long?): LocalImageResult {
         val missing = missingRequirements()
         if (missing.isNotEmpty()) {
             return LocalImageResult.Unavailable(
                 "On-device Create Studio locked ($packDir): ${missing.joinToString()}. " +
-                    "Export weights via ml/export_image_gen_pack.py, then flip SAMPLER_WIRED.",
+                    "Export weights via ml/export_image_gen_pack.py.",
             )
         }
         return LocalImageResult.Unavailable(
-            "Txt2ImgPipeline runnable but generate() not productized — unexpected state.",
+            "Use AndroidTxt2ImgEngine on device — common stub has no ORT.",
         )
     }
 
     companion object {
         /**
-         * Flip to true only when denoising loop is wired against real ONNX graphs
-         * and airplane-mode Create Studio is proven on a flagship device.
+         * Denoise loop is implemented in [AndroidTxt2ImgEngine].
+         * Product readiness still needs published ONNX graphs on the device.
          */
-        const val SAMPLER_WIRED: Boolean = false
+        const val SAMPLER_WIRED: Boolean = true
     }
 }

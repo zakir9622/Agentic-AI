@@ -1,5 +1,11 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc5
+- **True local Audio:** Android system TTS offline (personas → device voices) + DSP knobs
+- **True local Image engine:** `AndroidTxt2ImgEngine` ORT denoise loop wired (`SAMPLER_WIRED=true`); needs `local-sdturbo-v1` pack weights to run
+- Catalog: `local-tts-system` Ready offline; SD-Turbo status “Engine ready · pack weights not on device”
+- Plan: `docs/plans/true-local/PLAN.md`
+
 ## 3.1.0-rc4
 - **Local model picker honesty:** Create Studio ON-DEVICE list uses `forStudioPicker` — Real-ESRGAN / BiRefNet / GFPGAN quality packs no longer appear as Image generators; SD-Turbo / local TTS / local video show scaffold · weights-not-published status
 - **Audio mic + voice change:** Record short PCM/WAV on-device, apply local DSP knobs (record → transform → play); `RECORD_AUDIO` permission

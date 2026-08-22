@@ -25,13 +25,12 @@ class LocalModelCatalogTest {
     @Test
     fun audioStudioShowsTtsScaffoldAndVoiceChanger() {
         val ids = LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { it.id }
-        assertEquals(listOf("local-tts-v1", "local-voice-changer"), ids)
+        assertEquals(listOf("local-tts-system", "local-tts-v1", "local-voice-changer"), ids)
+        val system = LocalModelCatalog.entries.first { it.id == "local-tts-system" }
+        assertTrue(system.runnable)
+        assertEquals("Ready offline", LocalModelCatalog.studioStatusLabel(system, packReady = false))
         val tts = LocalModelCatalog.entries.first { it.id == "local-tts-v1" }
         assertFalse(tts.runnable)
-        assertEquals(
-            "Scaffold · weights not published",
-            LocalModelCatalog.studioStatusLabel(tts, packReady = false),
-        )
         val changer = LocalModelCatalog.entries.first { it.id == "local-voice-changer" }
         assertTrue(changer.runnable)
         assertEquals("Ready offline", LocalModelCatalog.studioStatusLabel(changer, packReady = false))
@@ -49,13 +48,21 @@ class LocalModelCatalogTest {
     }
 
     @Test
+    fun imageStudioPickerShowsEngineReadyStatusWithoutPack() {
+        val entry = LocalModelCatalog.entries.first { it.id == "local-sdturbo-v1" }
+        assertTrue(
+            LocalModelCatalog.studioStatusLabel(entry, packReady = false)
+                .contains("Engine ready", ignoreCase = true),
+        )
+    }
+
+    @Test
     fun qualityPacksStayInCatalogForSettings() {
         val quality = LocalModelCatalog.entries.filter {
             it.pickerRole == LocalModelPickerRole.QUALITY_POST
         }
         assertTrue(quality.any { it.packId == "realesrgan-v1" })
         assertTrue(quality.any { it.packId == "birefnet-v1" })
-        // Capability must not be IMAGE_GEN / IMAGE_EDIT so Create Studio cannot list them.
         quality.forEach {
             assertTrue(
                 it.capability == AiCapability.TRY_ON,

@@ -4,7 +4,8 @@ Active roadmaps live in separate directories so parallel workstreams do not coll
 
 | Directory | Source | Baseline | Scope | Status |
 |-----------|--------|----------|-------|--------|
-| [`big-release-r2/`](big-release-r2/) | True-limits release (ATR + UI + on-device scaffold) | **v3.1.0-rc1** | Full ATR Auto, fixture harness, Loom Ink UI, Txt2Img unlock path | **Active — use this to ship** |
+| [`true-local/`](true-local/) | Pixel-true offline engines | **v3.1.0-rc5** | System TTS + SD-Turbo ORT engine; pack weights still needed for Image | **Active** |
+| [`big-release-r2/`](big-release-r2/) | True-limits release (ATR + UI + on-device scaffold) | **v3.1.0-rc1…rc4** | Full ATR Auto, fixture harness, Loom Ink UI, Audio Studio | Merged to main |
 | [`stable-release/`](stable-release/) | Cursor plan audit (post v3.0.3) | v3.0.4 → v3.0.16 | Honest stable cut + sideload | R0/R1 done; handoff to R2 |
 | [`lookbook-v3-followup/`](lookbook-v3-followup/) | Cursor Cloud Agent review (post v3 ship) | v2.9.16 → **v3.0.x** | Finish v3 gaps: diagnostics, CI gates, dead-code cleanup, composer depth | Mostly done; E3/E4 open |
 | [`claude-code-expansion/`](claude-code-expansion/) | Claude Code improvement plan | v2.9.5 → **v3.0.x** | Models, tools, UI — HF discovery, quality packs, QNN/LCM, model health | cycle1–3 done; cycle4 partial (QNN/LCM honesty) |
