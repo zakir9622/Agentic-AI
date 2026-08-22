@@ -24,6 +24,7 @@ import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.shared.quality.createQualityPostProcessor
 import com.zakir.vestra.shared.chat.ChatRepository
+import com.zakir.vestra.shared.diagnostics.DiagnosticsHook
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
