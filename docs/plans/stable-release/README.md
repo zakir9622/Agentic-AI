@@ -1,6 +1,6 @@
 # Stable release
 
-**Status:** Track **R0 shipped** ([v3.0.4](https://github.com/zakir9622/Agentic-AI/releases/tag/v3.0.4)) · R1 perfect (v3.1.0) next  
+**Status:** Track **R0 shipped** ([v3.0.4](https://github.com/zakir9622/Agentic-AI/releases/tag/v3.0.4)) · Track **R1 partial** tagged **[v3.0.5](https://github.com/zakir9622/Agentic-AI/releases/tag/v3.0.5)** · remaining R1 = weights / device evidence  
 **Canonical plan:** [`PLAN.md`](PLAN.md)
 
 Verifies all prior plans/cycles against the tree, then defines:

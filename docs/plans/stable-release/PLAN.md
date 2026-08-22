@@ -1,7 +1,7 @@
 # Stable release plan — The Lookbook
 
-**Status:** Track **R0 shipped** as **v3.0.4** · Track R1 (perfect / v3.1.0) next  
-**Baseline:** `main` @ v3.0.3 · tagged release **v3.0.4** from `cursor/quality-pack-integration-367c` (PR #48)  
+**Status:** Track **R0 shipped** as **v3.0.4** · Track **R1 partial** tagged **v3.0.5** (health UI + blank-frame + local scaffold; weights/device still open for v3.1.0)  
+**Baseline:** tagged **v3.0.5** from `cursor/stable-r1-plans-367c` (PR #49)  
 **Goal:** one installable, trustworthy sideload APK that matches the shipped plans, then a short path to “perfect” offline + cloud fluency.
 
 ---
