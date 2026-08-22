@@ -107,6 +107,14 @@ class AtrTaxonomyTest {
     }
 
     @Test
+    fun headscarf_hat_dominant() {
+        assertEquals(
+            GarmentCategory.HEADSCARF,
+            AtrTaxonomy.classifyHistogram(fixture("headscarf_worn")),
+        )
+    }
+
+    @Test
     fun classify_from_class_map_matches_histogram() {
         val map = IntArray(1000) { 0 }
         // Paint abaya-like region.
@@ -220,6 +228,13 @@ class AtrTaxonomyTest {
                     h[AtrTaxonomy.HAIR] = 0.08f
                     h[AtrTaxonomy.LEFT_ARM] = 0.04f
                     h[AtrTaxonomy.PANTS] = 0.03f
+                }
+                "headscarf_worn" -> {
+                    h[AtrTaxonomy.HAT] = 0.18f
+                    h[AtrTaxonomy.HAIR] = 0.10f
+                    h[AtrTaxonomy.FACE] = 0.14f
+                    h[AtrTaxonomy.UPPER] = 0.06f
+                    h[AtrTaxonomy.SCARF] = 0.05f
                 }
                 else -> error("unknown fixture $id")
             }
