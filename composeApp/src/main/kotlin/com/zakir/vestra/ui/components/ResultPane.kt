@@ -225,17 +225,18 @@ fun ResultPane(
                 color = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.height(8.dp))
-            Text(
-                state.text,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            // Segmented output: prose stays readable, each fenced block gets its own language
+            // label and Copy, so pasting code no longer drags the explanation along with it.
+            CodeOutput(
+                text = state.text,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 320.dp)
+                    .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState()),
             )
             Spacer(Modifier.height(10.dp))
             GlassSecondaryButton(
-                text = "Copy code",
+                text = "Copy all",
                 onClick = {
                     val cm = context.getSystemService(ClipboardManager::class.java)
                     cm?.setPrimaryClip(ClipData.newPlainText("lookbook-code", state.text))

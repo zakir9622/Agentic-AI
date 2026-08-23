@@ -210,6 +210,75 @@ class ScreenshotTest {
         }
     }
 
+    /** Code output: prose separated from fenced blocks, each block copyable. */
+    @Test
+    fun codeOutputBlocks() {
+        val answer = """
+            Use a frosted card like this:
+
+            ```kotlin
+            @Composable
+            fun GlassCard(content: @Composable () -> Unit) {
+                Surface(shape = RoundedCornerShape(24.dp)) { content() }
+            }
+            ```
+
+            Then build it:
+
+            ```bash
+            ./gradlew :composeApp:assembleSideloadDebug
+            ```
+        """.trimIndent()
+        shoot("07-code-output-blocks") {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.padding(18.dp),
+            ) {
+                com.zakir.vestra.ui.components.GlassSectionLabel("CODE · 412 free tokens")
+                com.zakir.vestra.ui.components.CodeOutput(text = answer)
+            }
+        }
+    }
+
+    /** Produced-audio list with inline playback controls. */
+    @Test
+    fun audioClipList() {
+        val clips = listOf(
+            com.zakir.vestra.audio.AudioClip(
+                path = "/tmp/voice_1787500000000.wav",
+                kind = com.zakir.vestra.audio.AudioClipKind.CONVERTED,
+                savedAtMs = 1787500000000L,
+                bytes = 1_482_112,
+                durationMs = 14_000,
+            ),
+            com.zakir.vestra.audio.AudioClip(
+                path = "/tmp/mic_1787499000000.wav",
+                kind = com.zakir.vestra.audio.AudioClipKind.RECORDING,
+                savedAtMs = 1787499000000L,
+                bytes = 962_560,
+                durationMs = 9_000,
+            ),
+            com.zakir.vestra.audio.AudioClip(
+                path = "/tmp/sys_tts_1787498000000.wav",
+                kind = com.zakir.vestra.audio.AudioClipKind.SPEECH,
+                savedAtMs = 1787498000000L,
+                bytes = 331_776,
+                durationMs = 3_000,
+            ),
+        )
+        shoot("08-audio-clip-list") {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.padding(18.dp),
+            ) {
+                com.zakir.vestra.ui.components.GlassSectionLabel("CLIPS")
+                com.zakir.vestra.ui.components.AudioClipList(
+                    clips = clips,
+                    onShare = {},
+                    onDelete = {},
+                )
+            }
+        }
+    }
+
     /** The composer as it renders docked at the bottom of the studio. */
     @Test
     fun composerDock() {

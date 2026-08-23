@@ -34,6 +34,10 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.zakir.vestra.shared.audio.AndroidMicRecorder
+import com.zakir.vestra.audio.AudioClip
+import com.zakir.vestra.audio.AudioClipLibrary
+import com.zakir.vestra.ui.components.AudioClipList
+import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.audio.VoiceCatalog
 import com.zakir.vestra.shared.audio.VoiceKnobs
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -148,6 +152,21 @@ fun AudioStudioPane(
         freeCloudDiscovery?.selectable(viewModel.appSettings, AiCapability.AUDIO)
             ?: CloudModelCatalog.forCapability(AiCapability.AUDIO)
     }
+    // Produced-clip list. Rescanned whenever generation state changes so a new recording,
+    // conversion or TTS result appears without the user leaving the tab. The scan reads file
+    // metadata, so it stays off the UI thread.
+    var clips by remember { mutableStateOf<List<AudioClip>>(emptyList()) }
+    LaunchedEffect(state) {
+        clips = withContext(Dispatchers.IO) {
+            AudioClipLibrary.scan(
+                listOf(
+                    File(context.filesDir, "generations"),
+                    File(context.cacheDir, "audio_recordings"),
+                ),
+            )
+        }
+    }
+
     var localAudioReady by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         localAudioReady = withContext(Dispatchers.Default) {
@@ -333,6 +352,25 @@ fun AudioStudioPane(
             onDismiss = { viewModel.forceStop(showStopped = false) },
             onCancel = { viewModel.forceStop() },
             retryLabel = "Speak again",
+        )
+
+        Spacer(Modifier.height(18.dp))
+        GlassSectionLabel("CLIPS")
+        Text(
+            "Recordings, voice-changed results and generated speech — play them here to compare " +
+                "an original against its conversion.",
+            style = MaterialTheme.typography.bodySmall,
+            color = VestraColors.InkMuted,
+        )
+        Spacer(Modifier.height(8.dp))
+        AudioClipList(
+            clips = clips,
+            onShare = { clip ->
+                MediaExport.share(context, File(clip.path), "Share audio")
+            },
+            onDelete = { clip ->
+                if (AudioClipLibrary.delete(clip)) clips = clips.filterNot { it.path == clip.path }
+            },
         )
         Spacer(Modifier.height(24.dp))
     }
