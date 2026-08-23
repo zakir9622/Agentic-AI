@@ -159,7 +159,9 @@ class AndroidTxt2ImgEngine(
         val inputName = textEncoder.inputNames.firstOrNull {
             it.contains("input", ignoreCase = true) || it.contains("ids", ignoreCase = true)
         } ?: textEncoder.inputNames.first()
-        val tensor = textEncoder.longTensor(ids, 1, 77)
+        // Typed from the graph itself: tiny-SD/diffusers exports declare int32 input_ids,
+        // and forcing int64 was what made every on-device generation fail.
+        val tensor = textEncoder.tokenTensor(inputName, ids, 1, 77)
         return textEncoder.runSingle(mapOf(inputName to tensor))
     }
 

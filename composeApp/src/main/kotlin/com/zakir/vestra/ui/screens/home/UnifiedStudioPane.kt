@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -106,6 +109,7 @@ fun UnifiedStudioPane(
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
 
+    val warmup by viewModel.warmup.collectAsState()
     val cloudModelsEnabled by viewModel.appSettings.cloudModelsEnabled.collectAsState()
     val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
     val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
@@ -185,6 +189,11 @@ fun UnifiedStudioPane(
                 statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
             )
         }
+    }
+
+    // Picking a model should load it, not defer the cost to the first prompt.
+    LaunchedEffect(selectedId, effectiveCapability) {
+        viewModel.warmUpLocal(effectiveCapability)
     }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -308,6 +317,51 @@ fun UnifiedStudioPane(
                 )
             }
         }
+        // Model load state, right where the user is looking after picking a model. A multi-GB
+        // pack takes seconds to a minute to initialize; saying so beats an unexplained pause,
+        // which is what the Gallery app gets right and this app did not.
+        when (val w = warmup) {
+            is GenerativeViewModel.Warmup.Loading -> {
+                Spacer(Modifier.height(10.dp))
+                GlassCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = VestraColors.Accent,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "Initializing ${w.label}",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = VestraColors.Ink,
+                            )
+                            Text(
+                                "First load only — this can take up to a minute.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = VestraColors.InkMuted,
+                            )
+                        }
+                    }
+                }
+            }
+            is GenerativeViewModel.Warmup.Ready -> {
+                Spacer(Modifier.height(10.dp))
+                GlassPill(text = "${w.label} · loaded and ready", active = true)
+            }
+            is GenerativeViewModel.Warmup.Failed -> {
+                Spacer(Modifier.height(10.dp))
+                GlassErrorBanner(
+                    message = "${w.label} could not load: ${w.reason}",
+                    onRetry = { viewModel.warmUpLocal(effectiveCapability) },
+                    retryLabel = "Retry load",
+                    onDismiss = null,
+                )
+            }
+            GenerativeViewModel.Warmup.Idle -> Unit
+        }
+
         Spacer(Modifier.height(8.dp))
         AdvancedAssistSection(
             expanded = advancedExpanded,

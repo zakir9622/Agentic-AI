@@ -8,6 +8,16 @@ interface LocalCodeGenerator {
     fun providerId(): String
     fun isReady(): Boolean
     fun generate(prompt: String, system: String = ""): LocalCodeResult
+
+    /**
+     * Loads the model so the first real generation doesn't pay the cold start.
+     *
+     * A multi-GB LiteRT-LM pack takes seconds to a minute to initialize; doing that lazily
+     * inside the first generate() is what made selecting a model feel like nothing happened
+     * and then made the first prompt appear to hang. Called when the user picks the model, on
+     * a background dispatcher. Returns the failure reason, or null on success.
+     */
+    fun warmUp(): String? = if (isReady()) null else "Pack not installed"
 }
 
 sealed class LocalCodeResult {

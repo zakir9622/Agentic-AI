@@ -1,10 +1,13 @@
 package com.zakir.vestra.shared.engine.pro
 
+import ai.onnxruntime.OnnxJavaType
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.TensorInfo
 import com.zakir.vestra.shared.engine.lite.OrtModel
 import java.nio.FloatBuffer
+import java.nio.IntBuffer
 import java.nio.LongBuffer
 
 /**
@@ -24,6 +27,28 @@ class OrtGraph(modelPath: String) : AutoCloseable {
 
     fun longTensor(data: LongArray, vararg shape: Long): OnnxTensor =
         OnnxTensor.createTensor(env, LongBuffer.wrap(data), shape)
+
+    fun intTensor(data: IntArray, vararg shape: Long): OnnxTensor =
+        OnnxTensor.createTensor(env, IntBuffer.wrap(data), shape)
+
+    /**
+     * ONNX element type an input declares, or null when the graph doesn't say.
+     *
+     * Text-encoder exports disagree about token id width: diffusers exports `input_ids` as
+     * int32, others as int64. Hardcoding int64 made every local image generation fail with
+     * `ORT_INVALID_ARGUMENT ... Actual: (tensor(int64)), expected: (tensor(int32))`, so token
+     * tensors are built to match whatever the loaded graph actually declares.
+     */
+    fun inputType(name: String): OnnxJavaType? = runCatching {
+        (session.inputInfo[name]?.info as? TensorInfo)?.type
+    }.getOrNull()
+
+    /** Token-id tensor typed to match [inputName]; falls back to int32, the common export. */
+    fun tokenTensor(inputName: String, ids: LongArray, vararg shape: Long): OnnxTensor =
+        when (inputType(inputName)) {
+            OnnxJavaType.INT64 -> longTensor(ids, *shape)
+            else -> intTensor(IntArray(ids.size) { ids[it].toInt() }, *shape)
+        }
 
     /**
      * Runs the graph and returns each requested output flattened, in order.

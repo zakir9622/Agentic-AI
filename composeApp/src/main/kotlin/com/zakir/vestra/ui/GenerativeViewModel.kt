@@ -2,6 +2,9 @@ package com.zakir.vestra.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zakir.vestra.shared.local.LocalModelCatalog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelContracts
 import com.zakir.vestra.shared.cloud.GenerativeAssists
@@ -307,6 +310,52 @@ class GenerativeViewModel(
         return when (val check = appSettings.preflight(capability)) {
             is PreflightResult.Blocked -> check.reason
             is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.liveStatusLabel(check.provider, appSettings.modelHealth)}"
+        }
+    }
+
+    /** Cold-load state for the selected on-device model. */
+    sealed interface Warmup {
+        data object Idle : Warmup
+        data class Loading(val label: String) : Warmup
+        data class Ready(val label: String) : Warmup
+        data class Failed(val label: String, val reason: String) : Warmup
+    }
+
+    private val _warmup = MutableStateFlow<Warmup>(Warmup.Idle)
+    val warmup: StateFlow<Warmup> = _warmup
+
+    private var warmupJob: Job? = null
+
+    /**
+     * Loads the selected on-device model so it is ready before the first prompt.
+     *
+     * LiteRT-LM has no documented preload call, so this drives a one-token inference: that is
+     * the only way to prove the model genuinely loads rather than merely that its files exist —
+     * the gap that let a pack read "Ready offline" and then fail at generate time.
+     */
+    fun warmUpLocal(capability: AiCapability) {
+        if (!appSettings.prefersLocal(capability)) {
+            _warmup.value = Warmup.Idle
+            return
+        }
+        val id = appSettings.selectionId(capability)
+        val label = LocalModelCatalog.byId(id)?.displayName ?: "On-device model"
+        if ((_warmup.value as? Warmup.Ready)?.label == label) return
+        warmupJob?.cancel()
+        warmupJob = viewModelScope.launch {
+            _warmup.value = Warmup.Loading(label)
+            val failure: String? = withContext(Dispatchers.IO) {
+                try {
+                    generative.warmUpLocalCode()
+                } catch (e: Exception) {
+                    e.message ?: "Model failed to load"
+                }
+            }
+            _warmup.value = if (failure == null) {
+                Warmup.Ready(label)
+            } else {
+                Warmup.Failed(label, failure)
+            }
         }
     }
 

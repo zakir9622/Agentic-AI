@@ -90,6 +90,9 @@ class GenerativeCloudService(
 
     fun localCodeProviderId(): String = localCode.providerId()
 
+    /** Loads the selected on-device code/chat model; returns the failure reason, or null. */
+    fun warmUpLocalCode(): String? = localCode.warmUp()
+
     fun localVideoReady(): Boolean = localVideo.isReady()
 
     fun localVisionReady(): Boolean = localVision.isReady()

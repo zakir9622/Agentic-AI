@@ -25,6 +25,36 @@ class AndroidLiteRtLmCodeGenerator(
     override fun isReady(): Boolean =
         LiteRtLmInference.litertLmReady(packs, packId, primaryFile, minBytes)
 
+    /**
+     * Initializes the engine into the shared cache so the first prompt is already warm.
+     *
+     * Uses the same runText path a real generation takes — a one-token prompt — so this proves
+     * the model genuinely loads rather than only that the files are present, which is the
+     * distinction that let "Ready offline" coexist with a pack that could not run.
+     */
+    override fun warmUp(): String? {
+        if (!isReady()) {
+            return "Download $packId ($downloadHint) from Model packs."
+        }
+        val dir = packs.installedDir(packId) ?: return "$packId pack directory missing."
+        val modelPath = LiteRtLmPackConfig.modelPath(java.io.File(dir), primaryFile)
+            ?: return "$primaryFile missing — re-download $packId."
+        @Suppress("UNCHECKED_CAST")
+        val result = LiteRtLmInference.runText(
+            context = context,
+            packs = packs,
+            packId = packId,
+            modelPath = modelPath,
+            useGpu = useGpu(),
+            tools = tools,
+            prompt = "hi",
+            system = "Reply with one word.",
+            mapOk = { LocalCodeResult.Ok(it.text, it.tokensIn, it.tokensOut) },
+            mapUnavailable = { LocalCodeResult.Unavailable(it) },
+        ) as LocalCodeResult
+        return (result as? LocalCodeResult.Unavailable)?.reason
+    }
+
     override fun generate(prompt: String, system: String): LocalCodeResult {
         if (!isReady()) {
             return LocalCodeResult.Unavailable(
