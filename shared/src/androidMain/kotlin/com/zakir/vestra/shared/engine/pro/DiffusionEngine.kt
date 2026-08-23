@@ -18,6 +18,7 @@ import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.engine.lite.GarmentClassifier
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
+import com.zakir.vestra.shared.engine.lite.OrtSessionCache
 import com.zakir.vestra.shared.engine.lite.Watermark
 import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
 import com.zakir.vestra.shared.packs.DeviceProbe
@@ -101,6 +102,7 @@ class DiffusionEngine(
         }
         packId.let { packs.markPackInUse(it) }
         packs.markPackInUse(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
+        OrtSessionCache.enterInference()
         val startedAt = System.currentTimeMillis()
         val diag = DiagnosticsHook.startTryOn(EngineTier.PRO, modelLabel = packId)
 
@@ -303,6 +305,7 @@ class DiffusionEngine(
             DiagnosticsHook.completeTryOn(diag, false, friendly)
             emit(GenerationState.Failed(TryOnError.Internal(friendly)))
         } finally {
+            OrtSessionCache.leaveInference()
             packId?.let { packs.markPackIdle(it) }
             packs.markPackIdle(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
         }

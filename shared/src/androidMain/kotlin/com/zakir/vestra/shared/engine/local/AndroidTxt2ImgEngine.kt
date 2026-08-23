@@ -10,6 +10,7 @@ import android.graphics.Paint
 import com.zakir.vestra.shared.engine.pro.ClipTokenizer
 import com.zakir.vestra.shared.engine.pro.DdimScheduler
 import com.zakir.vestra.shared.engine.pro.DiffusionSteps
+import com.zakir.vestra.shared.engine.pro.LcmScheduler
 import com.zakir.vestra.shared.engine.pro.OrtGraph
 import java.io.File
 import java.io.FileOutputStream
@@ -83,28 +84,56 @@ class AndroidTxt2ImgEngine(
             val cond = encodeText(trimmed)
             val uncond = if (guidance > 1.01f) encodeText("") else null
 
+            val useLcm = config.lcmDistilled ||
+                config.scheduler?.type.equals("lcm", ignoreCase = true)
+            val timesteps = if (useLcm) {
+                LcmScheduler().timesteps(steps)
+            } else {
+                DdimScheduler().timesteps(steps)
+            }
+
             val sample = if (referenceBitmap != null) {
                 val init = encodeImage(referenceBitmap)
                 val noise = FloatArray(4 * plane) { gaussian(rng) }
-                val t = strength.coerceIn(0.15f, 0.95f)
-                FloatArray(4 * plane) { i -> init[i] * (1f - t) + noise[i] * t }
+                val noiseT = (timesteps.first() * strength.coerceIn(0.15f, 0.95f)).toInt()
+                    .coerceIn(0, timesteps.first())
+                if (useLcm) {
+                    LcmScheduler().addNoise(init, noise, noiseT)
+                } else {
+                    DdimScheduler().addNoise(init, noise, noiseT)
+                }
             } else {
                 FloatArray(4 * plane) { gaussian(rng) }
             }
-            val scheduler = DdimScheduler()
-            val timesteps = scheduler.timesteps(steps)
 
-            for (t in timesteps) {
-                val noiseCond = predictNoise(sample, cond, t)
-                val noisePred = if (uncond != null && guidance > 1.01f) {
-                    val noiseUncond = predictNoise(sample, uncond, t)
-                    FloatArray(noiseCond.size) { i ->
-                        noiseUncond[i] + guidance * (noiseCond[i] - noiseUncond[i])
+            if (useLcm) {
+                val scheduler = LcmScheduler()
+                for (t in timesteps) {
+                    val noiseCond = predictNoise(sample, cond, t)
+                    val noisePred = if (uncond != null && guidance > 1.01f) {
+                        val noiseUncond = predictNoise(sample, uncond, t)
+                        FloatArray(noiseCond.size) { i ->
+                            noiseUncond[i] + guidance * (noiseCond[i] - noiseUncond[i])
+                        }
+                    } else {
+                        noiseCond
                     }
-                } else {
-                    noiseCond
+                    scheduler.step(sample, noisePred, t)
                 }
-                scheduler.step(sample, noisePred, t, steps)
+            } else {
+                val scheduler = DdimScheduler()
+                for (t in timesteps) {
+                    val noiseCond = predictNoise(sample, cond, t)
+                    val noisePred = if (uncond != null && guidance > 1.01f) {
+                        val noiseUncond = predictNoise(sample, uncond, t)
+                        FloatArray(noiseCond.size) { i ->
+                            noiseUncond[i] + guidance * (noiseCond[i] - noiseUncond[i])
+                        }
+                    } else {
+                        noiseCond
+                    }
+                    scheduler.step(sample, noisePred, t, steps)
+                }
             }
 
             val rgb = decodeVae(sample)

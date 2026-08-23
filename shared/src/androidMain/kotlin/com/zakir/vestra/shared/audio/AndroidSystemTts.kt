@@ -34,6 +34,10 @@ class AndroidSystemTts(
     }
 
     fun isReady(): Boolean {
+        // Fast path after init — avoids blocking Compose recomposition on the main thread.
+        if (readyLatch.count == 0L) {
+            return engineOk.get() && tts != null
+        }
         readyLatch.await(4, TimeUnit.SECONDS)
         return engineOk.get() && tts != null
     }

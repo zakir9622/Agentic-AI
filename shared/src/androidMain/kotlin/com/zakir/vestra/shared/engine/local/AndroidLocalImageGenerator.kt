@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.engine.local
 
 import android.graphics.Bitmap
 import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.engine.lite.OrtSessionCache
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -81,10 +82,12 @@ class AndroidLocalImageGenerator(
         }
         return try {
             packs.markPackInUse(packId)
+            OrtSessionCache.enterInference()
             AndroidTxt2ImgEngine(dir, config).use { engine ->
                 engine.generate(prompt, seed, outputDir, referenceBitmap = referenceBitmap)
             }
         } finally {
+            OrtSessionCache.leaveInference()
             packs.markPackIdle(packId)
             if (referenceBitmap != null && !referenceBitmap.isRecycled) {
                 referenceBitmap.recycle()

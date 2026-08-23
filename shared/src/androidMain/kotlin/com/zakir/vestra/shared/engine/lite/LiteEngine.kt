@@ -74,6 +74,7 @@ class LiteEngine(
         }
 
         packs.markPackInUse(PACK_ID)
+        OrtSessionCache.enterInference()
         val diag = DiagnosticsHook.startTryOn(EngineTier.LITE)
         try {
             val startedAt = EpochClock.System.nowMs()
@@ -199,6 +200,7 @@ class LiteEngine(
                 ),
             )
         } finally {
+            OrtSessionCache.leaveInference()
             packs.markPackIdle(PACK_ID)
         }
     }.flowOn(Dispatchers.Default)
