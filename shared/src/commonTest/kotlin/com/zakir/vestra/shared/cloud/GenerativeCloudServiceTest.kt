@@ -401,4 +401,55 @@ class GenerativeCloudServiceTest {
         assertEquals("/tmp/local.mp4", ready.path)
         assertTrue(!httpCalled)
     }
+
+    @Test
+    fun imageGenUsesLocalWhenUserPrefersLocalWhileOnline() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { true }
+            setLocalGenerator(AiCapability.IMAGE_GEN, "local-sdturbo-v1")
+        }
+        assertTrue(settings.prefersLocal(AiCapability.IMAGE_GEN))
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localImage = FakeLocalImage(),
+        )
+        val states = service.generateImage("emerald abaya", referenceUri = null).toList()
+        val ready = states.filterIsInstance<GenerativeState.ImageReady>().single()
+        assertEquals("local-sdturbo-v1", ready.providerId)
+        assertTrue(!httpCalled, "Explicit local pick must skip cloud while pack is ready")
+    }
+
+    @Test
+    fun codeGenUsesLocalWhenUserPrefersLocalWhileOnline() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { true }
+            setLocalGenerator(AiCapability.CODE, "local-gemma-v1")
+        }
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localCode = FakeLocalCode(),
+        )
+        val states = service.generateCode("hello world").toList()
+        val ready = states.filterIsInstance<GenerativeState.CodeReady>().single()
+        assertEquals("local-gemma-v1", ready.providerId)
+        assertTrue(!httpCalled)
+    }
 }

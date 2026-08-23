@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.media.MediaExport
+import com.zakir.vestra.media.MediaThumb
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.wardrobe.WardrobeEntry
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
@@ -161,8 +162,8 @@ fun WardrobeScreen(
                         val file = File(entry.imagePath)
                         val isVideo = file.extension.lowercase() in setOf("mp4", "webm")
                         GlassCard {
-                            AsyncImage(
-                                model = file,
+                            MediaThumb(
+                                file = file,
                                 contentDescription = if (isVideo) {
                                     "Video look ${entry.personLabel}. Opens details."
                                 } else {
@@ -257,8 +258,8 @@ private fun LookDetailDialog(
         title = { Text(entry.personLabel.ifBlank { "Look" }) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                AsyncImage(
-                    model = file,
+                MediaThumb(
+                    file = file,
                     contentDescription = "Look preview",
                     modifier = Modifier
                         .fillMaxWidth()

@@ -300,7 +300,8 @@ object CloudModelContracts {
                 msg.contains("depleted your monthly", ignoreCase = true) ||
                 msg.contains("monthly included credits", ignoreCase = true) ->
                 "Your Hugging Face Inference Providers monthly credits are used up. Credits reset each month. " +
-                    "Switch Image to a free Space (FLUX Schnell) in Settings, or wait for the allowance to refill."
+                    "Prefer a free Image Space (FLUX Schnell) in Settings, use local Create when a pack is installed, " +
+                    "or wait for the allowance to refill."
             msg.contains("sufficient permissions", ignoreCase = true) ||
                 (
                     msg.contains("Inference Providers", ignoreCase = true) &&

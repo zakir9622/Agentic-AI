@@ -100,4 +100,13 @@ class LocalModelCatalogTest {
             )
         }
     }
+
+    @Test
+    fun selectableStudioIdsMatchRunnableGenerators() {
+        assertTrue(LocalModelCatalog.isSelectableStudioId("local-sdturbo-v1", AiCapability.IMAGE_GEN))
+        assertTrue(LocalModelCatalog.isSelectableStudioId("local-gemma-v1", AiCapability.CODE))
+        assertFalse(LocalModelCatalog.isSelectableStudioId("local-quality-realesrgan", AiCapability.TRY_ON))
+        assertFalse(LocalModelCatalog.isSelectableStudioId("flux-schnell-hf", AiCapability.IMAGE_GEN))
+        assertEquals("local-sdturbo-v1", LocalModelCatalog.byId("local-sdturbo-v1")?.id)
+    }
 }

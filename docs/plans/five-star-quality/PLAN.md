@@ -93,7 +93,7 @@ Each cycle:
 
 ---
 
-## Q1 checklist (this branch)
+## Q1 checklist (shipped · rc10)
 
 - [x] U1/U2 — per-studio generative session (no adjacent wipe)
 - [x] S1 — `markPackInUse` on local image/code
@@ -104,6 +104,27 @@ Each cycle:
 - [x] U6 — Prefer local only when offline; honor cloud when online
 - [x] Tests for handshake label + offline local routing
 - [x] Version **3.1.0-rc10**
+
+---
+
+## Q2 checklist (shipped · rc11 · PR #56)
+
+- [x] U3 — Selectable ON-DEVICE picker rows (`setLocalGenerator` / `prefersLocal`)
+- [x] S6 — MediaPipe Gemma generate timeout (90s)
+- [x] U7 — Gallery/wardrobe video frame thumbs (`MediaThumb`)
+- [x] S4 — CrashReporter abrupt logcat scrape off main thread
+- [x] S5 — Code/video fallback skips missing-key candidates (like Image)
+- [x] Pro ORT FP16 / ControlNet soft-fail + AUTO→Lite (device diagnostics)
+- [x] Version **3.1.0-rc11**
+
+---
+
+## Q3 checklist (next · 3.1.0)
+
+- [ ] Run [DEVICE_MATRIX.md](./DEVICE_MATRIX.md) on Pixel 8/9 with `latest` APK
+- [x] Automated routing matrix tests (offline + online `prefersLocal`)
+- [ ] Scorecard ≥4.5 average → tag **3.1.0** (or open Q4 for polish gaps)
+- [ ] Confirm Pro AUTO→Lite on device with installed `pro-v1`
 
 ---
 

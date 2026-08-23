@@ -392,6 +392,17 @@ fun UnifiedStudioPane(
                     else -> Unit
                 }
             },
+            onSelectDevice = { entry ->
+                if (!entry.ready) return@ModelPickerSheet
+                when (effectiveCapability) {
+                    AiCapability.IMAGE_EDIT,
+                    AiCapability.IMAGE_GEN,
+                    AiCapability.VIDEO,
+                    AiCapability.CODE,
+                    -> viewModel.appSettings.setLocalGenerator(effectiveCapability, entry.id)
+                    else -> Unit
+                }
+            },
             onDismiss = { showModelPicker = false },
         )
     }

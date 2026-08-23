@@ -53,6 +53,22 @@ class CloudFailureTest {
     }
 
     @Test
+    fun space404IsHostUnavailable() {
+        val failure = CloudFailureClassifier.fromMessage(
+            "Hugging Face Space black-forest-labs-flux-1-schnell.hf.space/infer HTTP 404: Not Found",
+        )
+        assertEquals(CloudFailure.HostUnavailable, failure)
+        assertTrue(failure.advanceModel)
+        assertTrue(failure.retryable)
+    }
+
+    @Test
+    fun friendlyOffline404StillClassifies() {
+        val failure = CloudFailureClassifier.fromMessage("FLUX.1 Schnell Space looks offline (404). Switch model in Settings.")
+        assertEquals(CloudFailure.HostUnavailable, failure)
+    }
+
+    @Test
     fun unknownSanitizesHostnamesInHint() {
         val failure = CloudFailureClassifier.fromMessage(
             "Gradio error from https://someone-tryon.hf.space/call/predict: boom",

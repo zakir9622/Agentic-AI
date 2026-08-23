@@ -29,6 +29,13 @@ sealed interface CloudFailure {
         override val retryVariants = false
     }
 
+    /** Space / host returned 404 or is unreachable at the API path — try the next model. */
+    data object HostUnavailable : CloudFailure {
+        override val retryable = true
+        override val advanceModel = true
+        override val retryVariants = false
+    }
+
     data object AuthRejected : CloudFailure {
         override val retryable = false
         override val advanceModel = true
@@ -115,6 +122,7 @@ fun CloudFailure.toUserHint(): String = when (this) {
         CloudFailure.QuotaExhausted.Scope.MODEL -> "Model quota exhausted"
     }
     CloudFailure.CreditsExhausted -> "Inference Providers monthly credits used up"
+    CloudFailure.HostUnavailable -> "Model host looks offline (404)"
     CloudFailure.AuthRejected -> "API key rejected"
     CloudFailure.RouteUnsupported -> "Model not supported by provider"
     CloudFailure.SchemaRejected -> "Space schema rejected the request"
@@ -155,6 +163,13 @@ object CloudFailureClassifier {
                 lower.contains("depleted your monthly") ||
                 lower.contains("inference providers monthly credits") ||
                 lower.contains("monthly credits are used up") -> CloudFailure.CreditsExhausted
+
+            // Gradio dialect probes already consume both prefixes; a surviving 404 means
+            // the Space API path is gone — advance to the next candidate.
+            lower.contains("looks offline (404)") ||
+                (lower.contains("404") &&
+                    (lower.contains("space") || lower.contains("gradio") || lower.contains("hf.space") ||
+                        lower.contains("not found"))) -> CloudFailure.HostUnavailable
 
             lower.contains("quota exceeded") ||
                 lower.contains("zerogpu quota") ||

@@ -247,4 +247,14 @@ object LocalModelCatalog {
         entry.runnable && (entry.packId == null || packReady) -> true
         else -> false
     }
+
+    fun byId(id: String): LocalModelEntry? = entries.firstOrNull { it.id == id }
+
+    /** True when [id] is a studio-selectable on-device generator for [capability]. */
+    fun isSelectableStudioId(id: String, capability: AiCapability): Boolean {
+        val entry = byId(id) ?: return false
+        return entry.capability == capability &&
+            entry.pickerRole == LocalModelPickerRole.STUDIO_GENERATOR &&
+            entry.runnable
+    }
 }

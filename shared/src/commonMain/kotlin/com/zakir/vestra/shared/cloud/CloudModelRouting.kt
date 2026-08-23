@@ -16,9 +16,11 @@ object CloudModelRouting {
     ): List<CloudModelProvider> {
         val allowDegradedAlternates =
             CloudModelContracts.forProvider(selected).support == ModelSupportLevel.DEGRADED
+        val skipInferenceForCredits = health != null && inferenceCreditsExhausted(capability, health)
         fun filterCandidate(candidate: CloudModelProvider): Boolean {
             if (candidate.id == selected.id) return true
             if (health?.isInCooldown(candidate.id) == true) return false
+            if (skipInferenceForCredits && candidate.platform == CloudPlatform.HF_INFERENCE) return false
             return true
         }
         val spaceAlternates = CloudModelCatalog.forCapability(capability)
@@ -47,6 +49,14 @@ object CloudModelRouting {
             else -> head + spaceAlternates + inferenceAlternates
         }.distinctBy { it.id }
     }
+
+    /** HF Inference credits are account-wide — one CREDITS cooldown blocks all Inference routes. */
+    fun inferenceCreditsExhausted(capability: AiCapability, health: ModelHealthTracker): Boolean =
+        CloudModelCatalog.forCapability(capability).any { provider ->
+            provider.platform == CloudPlatform.HF_INFERENCE &&
+                health.isInCooldown(provider.id) &&
+                health.failureKind(provider.id) == ModelHealthTracker.FailureKind.CREDITS
+        }
 
     fun codeFallbackChain(
         selected: CloudModelProvider,

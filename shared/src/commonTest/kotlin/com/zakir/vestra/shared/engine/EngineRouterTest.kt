@@ -8,11 +8,13 @@ import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 private class FakeEngine(
     override val tier: EngineTier,
@@ -98,5 +100,60 @@ class EngineRouterTest {
         val router = EngineRouter(emptyList())
         val terminal = router.generate(request(EngineTier.LITE)).last()
         assertIs<GenerationState.Failed>(terminal)
+    }
+
+    @Test
+    fun autoFallsBackToLiteWhenProOrtIncompatible() = runTest {
+        val pro = object : TryOnEngine {
+            override val tier = EngineTier.PRO
+            override fun isAvailable() = Availability.Ready
+            override fun generate(request: TryOnRequest): Flow<GenerationState> = flowOf(
+                GenerationState.Failed(
+                    TryOnError.Internal(
+                        "Pro pack UNet (unet.onnx) is incompatible with this ONNX Runtime " +
+                            "(FP16 type mismatch). Use Lite try-on.",
+                    ),
+                ),
+            )
+        }
+        val lite = object : TryOnEngine {
+            override val tier = EngineTier.LITE
+            override fun isAvailable() = Availability.Ready
+            override fun generate(request: TryOnRequest): Flow<GenerationState> = flowOf(
+                GenerationState.Running(0.5f, "Lite running"),
+                GenerationState.Complete(
+                    com.zakir.vestra.shared.domain.TryOnResult(
+                        imagePath = "/tmp/lite.jpg",
+                        executedTier = EngineTier.LITE,
+                        durationMillis = 10,
+                        watermarked = false,
+                    ),
+                ),
+            )
+        }
+        val router = EngineRouter(listOf(pro, lite))
+        val states = mutableListOf<GenerationState>()
+        router.generate(request(EngineTier.AUTO)).collect { states.add(it) }
+        assertTrue(states.any { it is GenerationState.Running && it.stage.contains("Lite", ignoreCase = true) })
+        val terminal = states.last()
+        assertIs<GenerationState.Complete>(terminal)
+        assertEquals(EngineTier.LITE, terminal.result.executedTier)
+    }
+
+    @Test
+    fun autoDoesNotFallbackWhenProFailsForOtherReasons() = runTest {
+        val pro = object : TryOnEngine {
+            override val tier = EngineTier.PRO
+            override fun isAvailable() = Availability.Ready
+            override fun generate(request: TryOnRequest): Flow<GenerationState> = flowOf(
+                GenerationState.Failed(TryOnError.Internal("Couldn't read the selected images")),
+            )
+        }
+        val lite = FakeEngine(EngineTier.LITE)
+        val router = EngineRouter(listOf(pro, lite))
+        val terminal = router.generate(request(EngineTier.AUTO)).last()
+        val failed = assertIs<GenerationState.Failed>(terminal)
+        val internal = assertIs<TryOnError.Internal>(failed.error)
+        assertEquals(true, internal.message.contains("Couldn't read", ignoreCase = true))
     }
 }
