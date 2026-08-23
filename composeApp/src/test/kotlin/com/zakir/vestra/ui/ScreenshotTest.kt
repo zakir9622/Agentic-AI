@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.activity.ComponentActivity
@@ -274,6 +276,63 @@ class ScreenshotTest {
                     clips = clips,
                     onShare = {},
                     onDelete = {},
+                )
+            }
+        }
+    }
+
+    /** Warm-up states — written but never seen rendered until now. */
+    @Test
+    fun warmupLoading() {
+        shoot("09-warmup-loading") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                com.zakir.vestra.ui.components.GlassCard {
+                    androidx.compose.foundation.layout.Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = androidx.compose.ui.Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = com.zakir.vestra.ui.theme.VestraColors.Accent,
+                        )
+                        androidx.compose.foundation.layout.Spacer(
+                            androidx.compose.ui.Modifier.width(10.dp),
+                        )
+                        androidx.compose.foundation.layout.Column {
+                            androidx.compose.material3.Text(
+                                "Initializing Local Qwen3 0.6B (fast)",
+                                style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+                                color = com.zakir.vestra.ui.theme.VestraColors.Ink,
+                            )
+                            androidx.compose.material3.Text(
+                                "First load only — this can take up to a minute.",
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                color = com.zakir.vestra.ui.theme.VestraColors.InkMuted,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun warmupReadyAndFailed() {
+        shoot("10-warmup-ready-failed") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                com.zakir.vestra.ui.components.GlassPill(
+                    text = "Local Qwen3 0.6B (fast) · loaded and ready",
+                    active = true,
+                )
+                androidx.compose.foundation.layout.Spacer(
+                    androidx.compose.ui.Modifier.height(12.dp),
+                )
+                com.zakir.vestra.ui.components.GlassErrorBanner(
+                    message = "Local image gen (tiny-SD) could not load: Local SD-Turbo weights " +
+                        "incomplete (unet.onnx). Re-download local-sdturbo-v1.",
+                    onRetry = {},
+                    retryLabel = "Retry load",
+                    onDismiss = null,
                 )
             }
         }
