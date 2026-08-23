@@ -31,7 +31,8 @@ class LocalModelCatalogTest {
     @Test
     fun audioStudioShowsTtsScaffoldAndVoiceChanger() {
         val ids = LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { it.id }
-        assertEquals(listOf("local-tts-system", "local-tts-v1", "local-voice-changer"), ids)
+        // Non-runnable scaffolds (local-tts-v1) stay out of the studio picker.
+        assertEquals(listOf("local-tts-system", "local-voice-changer"), ids)
         val system = LocalModelCatalog.entries.first { it.id == "local-tts-system" }
         assertTrue(system.runnable)
         assertEquals("Ready offline", LocalModelCatalog.studioStatusLabel(system, packReady = false))

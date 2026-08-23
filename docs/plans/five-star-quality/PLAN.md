@@ -55,7 +55,7 @@ Glass-card density, hero height, sampler fields only when supported, hide non-ru
 |-------|---------|-------|------|
 | **Q1** | **3.1.0-rc10** | Studio isolation · pack-in-use · OrtGraph soft · MediaCodec PTS · honesty copy · human handshake · honor cloud pick when online | Unit + CI |
 | **Q2** | 3.1.0-rc11 | Selectable local picker · MediaPipe timeout · gallery media types · CrashReporter scrape · code/video key skip | Unit + CI |
-| **Q3** | 3.1.0 | Device matrix soak (Pixel): try-on + local Create/Edit/Video/Code/Audio airplane · cloud fallback matrix | Manual matrix |
+| **Q3** | 3.1.0-rc12 → **3.1.0** | Device matrix soak (Pixel) · hide dead picker rows · audio Cancel · routing tests | Unit + CI + manual matrix |
 | **Q4** | 3.1.x | UI declutter · accesslint · visual baselines | Device evidence |
 
 ---
@@ -123,8 +123,12 @@ Each cycle:
 
 - [ ] Run [DEVICE_MATRIX.md](./DEVICE_MATRIX.md) on Pixel 8/9 with `latest` APK
 - [x] Automated routing matrix tests (offline + online `prefersLocal`)
+- [x] Hide non-runnable scaffolds from studio ON-DEVICE picker
+- [x] Audio ResultPane Cancel during generation
 - [ ] Scorecard ≥4.5 average → tag **3.1.0** (or open Q4 for polish gaps)
 - [ ] Confirm Pro AUTO→Lite on device with installed `pro-v1`
+
+**Interim build:** **3.1.0-rc12** while device soak runs.
 
 ---
 
