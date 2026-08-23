@@ -1,5 +1,37 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc9
+- **Pack device handshake:** Settings → Engines & packs and Model packs gain **Verify link** / **Verify all**
+- Re-checks files + graphs on device and returns `HANDSHAKE_OK` / `HANDSHAKE_FAIL` with wired studios listed
+
+## 3.1.0-rc8
+- **True local for every studio:** Image Create/Edit, Video still-clip, Code (Gemma), Audio (system TTS) — not try-on only
+- **Image Edit offline:** `vae_encoder` img2img via `local-sdturbo-v1` v3+
+- **Video offline:** honest H.264 still-clip from on-device keyframe (`local-stillclip-v1`)
+- **Code offline:** MediaPipe + published `local-gemma-v1` (~530 MB)
+- Catalog / preflight / studio copy updated; airplane-safe generate when local packs ready
+
+## 3.1.0-rc7
+- **True local Image Create:** published `local-sdturbo-v1` (~994 MB tiny-SD ONNX FP16) to HF packs; catalog `runnable=true`
+- Assemble tooling: `scripts/assemble-local-sdturbo-pack.py` (from public tiny-SD ONNX)
+- Studio copy: download pack from Model packs for offline Create
+- Continues rc6: Pixel try-on ORT R8 fix + cloud studio reliability
+
+## 3.1.0-rc6
+- **Try-on crash fix:** R8 keep `ai.onnxruntime.**` — Pixel SIGABRT was `NodeInfo.<init>` NoSuchMethodError during Lite generate
+- **Cloud Image:** Prefer FLUX Schnell Space by default; mark SDXL Lightning unsupported (Space API 404); fix 402 credit copy (was mislabeled as token permissions); capability-aware Inference rejection hints
+- **Cloud Audio:** Default Edge-TTS; budget 45s with budget-aware polls so Kokoro falls back instead of hanging ~90s
+- Continues true-local work from rc5 (system TTS, SD-Turbo engine)
+
+## 3.1.0-rc5
+- **True local Audio:** Android system TTS offline (personas → device voices) + DSP knobs
+- **True local Image engine:** `AndroidTxt2ImgEngine` ORT denoise loop wired (`SAMPLER_WIRED=true`); needs `local-sdturbo-v1` pack weights to run
+- **Airplane-safe studios:** Image/Audio skip cloud API-key preflight when local engines are ready
+- **Honesty:** system TTS reports `local-tts-system`; SD-Turbo picker shows green when pack graphs installed
+- **Pack tooling:** `export_image_gen_pack.py` writes `pack.json` + optional tokenizer copy; `verify-local-sdturbo-pack.py`
+- Catalog: `local-tts-system` Ready offline; SD-Turbo status “Engine ready · pack weights not on device”
+- Plan: `docs/plans/true-local/PLAN.md`
+
 ## 3.1.0-rc4
 - **Local model picker honesty:** Create Studio ON-DEVICE list uses `forStudioPicker` — Real-ESRGAN / BiRefNet / GFPGAN quality packs no longer appear as Image generators; SD-Turbo / local TTS / local video show scaffold · weights-not-published status
 - **Audio mic + voice change:** Record short PCM/WAV on-device, apply local DSP knobs (record → transform → play); `RECORD_AUDIO` permission

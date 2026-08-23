@@ -23,9 +23,16 @@ class QualityRatingTest {
     }
 
     @Test
-    fun degradedHighScoreIsNotFiveStar() {
+    fun unsupportedHighScoreIsNotFiveStar() {
         val sdxl = CloudModelCatalog.byId("sdxl-lightning-hf")!!
         assertFalse(QualityRating.isFiveStar(sdxl))
-        assertTrue(QualityRating.label(sdxl).contains("degraded"))
+        assertTrue(QualityRating.label(sdxl).contains("unsupported"))
+    }
+
+    @Test
+    fun degradedHighScoreIsNotFiveStar() {
+        val mms = CloudModelCatalog.byId("mms-tts-eng-hf")!!
+        assertFalse(QualityRating.isFiveStar(mms))
+        assertTrue(QualityRating.label(mms).contains("degraded"))
     }
 }

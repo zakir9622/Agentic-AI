@@ -448,6 +448,33 @@ class ModelPackManagerTest {
     }
 
     @Test
+    fun handshakeReturnsOkSignalWhenInstalledAndVerified() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+        val result = manager.handshake("lite-v1", nowMs = 42L)
+        assertTrue(result.ok)
+        assertEquals(PackHandshakeResult.SIGNAL_OK, result.signal)
+        assertTrue(result.wires.any { it.contains("Lite") })
+        assertTrue(manager.isReady("lite-v1"))
+    }
+
+    @Test
+    fun handshakeSkipsWhenNotInstalled() = runTest {
+        val manager = ModelPackManager(FakeFs(), FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        val result = manager.handshake("lite-v1")
+        assertFalse(result.ok)
+        assertEquals(PackHandshakeResult.SIGNAL_SKIP, result.signal)
+    }
+
+    @Test
     fun deviceSpecGate() {
         val manager = ModelPackManager(FakeFs(), FakeProbe(ram = 4096, npu = false), manifestClient(), "u")
         assertTrue(manager.deviceMeets(DeviceSpec(minRamMb = 0, requiresNpu = false)))

@@ -154,6 +154,29 @@ class SpacePayloadsTest {
     }
 
     @Test
+    fun friendlyFailureCreditsBeforePermissions() {
+        val provider = CloudModelCatalog.byId("flux-schnell-inference")!!
+        val raw = "HTTP 402: You have depleted your monthly included credits. " +
+            "Purchase pre-paid credits to continue using Inference Providers."
+        val msg = CloudModelContracts.friendlyFailure(provider, raw, "Image generation")
+        assertTrue(msg.contains("credits", ignoreCase = true), msg)
+        assertTrue(msg.contains("Space", ignoreCase = true) || msg.contains("reset", ignoreCase = true), msg)
+        assertTrue(!msg.contains("cannot call Inference", ignoreCase = true), msg)
+    }
+
+    @Test
+    fun friendlyFailureImageInferenceRejectionHintsFluxSpace() {
+        val provider = CloudModelCatalog.byId("sdxl-turbo-inference")!!
+        val msg = CloudModelContracts.friendlyFailure(
+            provider,
+            "Model not supported by provider",
+            "Image generation",
+        )
+        assertTrue(msg.contains("FLUX", ignoreCase = true), msg)
+        assertTrue(!msg.contains("Kokoro", ignoreCase = true), msg)
+    }
+
+    @Test
     fun imageGenAndEditAllowHfInferenceProviders() {
         listOf(AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT).forEach { capability ->
             val hasInference = CloudModelCatalog.forCapability(capability)
@@ -172,7 +195,7 @@ class SpacePayloadsTest {
         assertEquals("flux-schnell-hf", CloudModelCatalog.defaultImageGenId)
         assertEquals("ootd-hf", CloudModelCatalog.defaultTryOnId)
         assertEquals("ltx-zerogpu-hf", CloudModelCatalog.defaultVideoId)
-        assertEquals("kokoro-tts-hf", CloudModelCatalog.defaultAudioId)
+        assertEquals("edge-tts-hf", CloudModelCatalog.defaultAudioId)
         listOf(
             CloudModelCatalog.defaultImageGenId,
             CloudModelCatalog.defaultTryOnId,

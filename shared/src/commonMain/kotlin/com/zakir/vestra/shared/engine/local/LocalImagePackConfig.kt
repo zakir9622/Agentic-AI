@@ -16,9 +16,11 @@ data class LocalImageGraphs(
     val text_encoder: String? = null,
     val unet: String? = null,
     val vae_decoder: String? = null,
+    val vae_encoder: String? = null,
 ) {
     val textEncoder: String? get() = text_encoder
     val vaeDecoder: String? get() = vae_decoder
+    val vaeEncoder: String? get() = vae_encoder
 }
 
 @Serializable

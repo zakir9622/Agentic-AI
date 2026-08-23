@@ -145,15 +145,15 @@ fun AudioStudioPane(
         freeCloudDiscovery?.selectable(viewModel.appSettings, AiCapability.AUDIO)
             ?: CloudModelCatalog.forCapability(AiCapability.AUDIO)
     }
-    val onDeviceEntries = remember(packStates) {
+    val localAudioReady = viewModel.localAudioOfflineReady()
+    val onDeviceEntries = remember(packStates, localAudioReady) {
         LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { entry ->
             val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
-            val ready = entry.runnable && (entry.packId == null || packReady)
             OnDevicePickerEntry(
                 id = entry.id,
                 displayName = entry.displayName,
                 detail = entry.testingNote,
-                ready = ready,
+                ready = LocalModelCatalog.studioEntryReady(entry, packReady),
                 statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
             )
         }
@@ -167,8 +167,8 @@ fun AudioStudioPane(
     ) {
         GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase())
         Text(
-            "Cloud TTS with named voices. Record a clip and apply local voice-changer knobs offline. " +
-                "On-device TTS stays scaffolded until local-tts-v1 weights ship.",
+            "Device TTS works offline (system voices + knobs). Cloud TTS optional. " +
+                "Neural local-tts-v1 pack is optional when published.",
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,
         )
@@ -289,7 +289,7 @@ fun AudioStudioPane(
         PromptComposer(
             prompt = prompt,
             onPromptChange = viewModel::setPrompt,
-            modelLabel = provider.displayName,
+            modelLabel = if (localAudioReady) "Device TTS (offline)" else provider.displayName,
             onModelClick = { showModelPicker = true },
             busy = busy,
             enabled = prompt.isNotBlank() || reference != null,

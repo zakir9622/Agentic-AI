@@ -3,6 +3,17 @@ package com.zakir.vestra.shared.cloud
 import com.russhwolf.settings.Settings
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
+import com.zakir.vestra.shared.audio.VoiceCatalog
+import com.zakir.vestra.shared.audio.VoiceKnobs
+import com.zakir.vestra.shared.engine.local.LocalAudioGenerator
+import com.zakir.vestra.shared.engine.local.LocalAudioResult
+import com.zakir.vestra.shared.engine.local.LocalCodeGenerator
+import com.zakir.vestra.shared.engine.local.LocalCodeResult
+import com.zakir.vestra.shared.engine.local.LocalImageGenerator
+import com.zakir.vestra.shared.engine.local.LocalImageResult
+import com.zakir.vestra.shared.engine.local.LocalVideoGenerator
+import com.zakir.vestra.shared.engine.local.LocalVideoResult
+import com.zakir.vestra.shared.engine.local.LocalVoiceChanger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -198,5 +209,188 @@ class GenerativeCloudServiceTest {
         assertEquals("openrouter", modelSeen)
         assertEquals("openrouter-free", provider.id)
         assertTrue(result.text.contains("Hello"))
+    }
+
+    private class FakeLocalImage(
+        private val path: String = "/tmp/local.png",
+        private val editReady: Boolean = false,
+    ) : LocalImageGenerator {
+        override fun isReady(): Boolean = true
+        override fun isEditReady(): Boolean = editReady
+        override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult =
+            LocalImageResult.Ok(path)
+    }
+
+    private class FakeLocalCode(private val text: String = "fun main() {}") : LocalCodeGenerator {
+        override fun isReady(): Boolean = true
+        override fun generate(prompt: String, system: String): LocalCodeResult =
+            LocalCodeResult.Ok(text, tokensIn = 1, tokensOut = 2)
+    }
+
+    private class FakeLocalVideo(private val path: String = "/tmp/local.mp4") : LocalVideoGenerator {
+        override fun isReady(): Boolean = true
+        override fun generate(prompt: String, seed: Long?): LocalVideoResult =
+            LocalVideoResult.Ok(path)
+    }
+
+    private class FakeLocalAudio(private val path: String = "/tmp/local.wav") : LocalAudioGenerator {
+        override fun isReady(): Boolean = true
+        override fun generate(
+            text: String,
+            persona: com.zakir.vestra.shared.audio.VoicePersona,
+            knobs: VoiceKnobs,
+            seed: Long?,
+        ): LocalAudioResult = LocalAudioResult.Ok(path)
+    }
+
+    private class FakeVoiceChanger(private val path: String = "/tmp/changed.wav") : LocalVoiceChanger {
+        override fun isReady(): Boolean = true
+        override fun transform(inputPath: String, knobs: VoiceKnobs): LocalAudioResult =
+            LocalAudioResult.Ok(path)
+    }
+
+    @Test
+    fun imageGenUsesLocalWhenReadyWithoutHttp() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings())
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localImage = FakeLocalImage(),
+        )
+        val states = service.generateImage("abaya lookbook", referenceUri = null).toList()
+        val ready = states.filterIsInstance<GenerativeState.ImageReady>().single()
+        assertEquals("local-sdturbo-v1", ready.providerId)
+        assertEquals("/tmp/local.png", ready.path)
+        assertTrue(!httpCalled, "Cloud HTTP should not run when local image succeeds")
+    }
+
+    @Test
+    fun audioGenUsesSystemTtsWhenReadyWithoutHttp() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings())
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localAudio = FakeLocalAudio(),
+        )
+        val states = service.generateAudio(
+            prompt = "Hello from device",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+        ).toList()
+        val ready = states.filterIsInstance<GenerativeState.AudioReady>().single()
+        assertEquals("local-tts-system", ready.providerId)
+        assertTrue(!httpCalled, "Cloud HTTP should not run when local TTS succeeds")
+    }
+
+    @Test
+    fun voiceChangeUsesLocalChangerWithoutHttp() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings())
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localVoiceChanger = FakeVoiceChanger(),
+        )
+        val states = service.generateAudio(
+            prompt = "voice-change",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+            referenceAudioUri = "file:///tmp/input.wav",
+        ).toList()
+        val ready = states.filterIsInstance<GenerativeState.AudioReady>().single()
+        assertEquals("local-voice-changer", ready.providerId)
+        assertTrue(!httpCalled, "Cloud HTTP should not run for local voice change")
+    }
+
+    @Test
+    fun imageEditUsesLocalWhenEditReadyWithoutHttp() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings())
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localImage = FakeLocalImage(editReady = true),
+        )
+        val states = service.generateImage(
+            "make it navy silk",
+            referenceUri = "file:///tmp/ref.png",
+        ).toList()
+        val ready = states.filterIsInstance<GenerativeState.ImageReady>().single()
+        assertEquals("local-sdturbo-edit", ready.providerId)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun codeGenUsesLocalWhenReadyWithoutHttp() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings())
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localCode = FakeLocalCode(),
+        )
+        val states = service.generateCode("hello world").toList()
+        val ready = states.filterIsInstance<GenerativeState.CodeReady>().single()
+        assertEquals("local-gemma-v1", ready.providerId)
+        assertEquals("fun main() {}", ready.text)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun videoGenUsesLocalStillClipWhenReadyWithoutHttp() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings())
+        val service = GenerativeCloudService(
+            http,
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localVideo = FakeLocalVideo(),
+        )
+        val states = service.generateVideo("abaya walking").toList()
+        val ready = states.filterIsInstance<GenerativeState.VideoReady>().single()
+        assertEquals("local-stillclip-v1", ready.providerId)
+        assertEquals("/tmp/local.mp4", ready.path)
+        assertTrue(!httpCalled)
     }
 }

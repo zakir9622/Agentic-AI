@@ -1,36 +1,49 @@
 package com.zakir.vestra.shared.engine.local
 
+import android.graphics.Bitmap
 import com.zakir.vestra.shared.packs.ModelPackManager
 import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * Android local Create Studio generator (M4 / E4 / R2).
+ * Android local Create / Edit Studio generator.
  *
- * Ready only when `local-sdturbo-v1` graphs are real **and**
- * [Txt2ImgPipeline.SAMPLER_WIRED] is true. Until then [generate] returns
- * [LocalImageResult.Unavailable] with an actionable unlock reason.
- *
- * Pro try-on packs are never used here (different UNet contract).
+ * Ready when `local-sdturbo-v1` graphs are real **and** [Txt2ImgPipeline.SAMPLER_WIRED].
+ * Edit ready when `vae_encoder.onnx` is also present (pack v3+).
+ * Runs [AndroidTxt2ImgEngine] (4-ch SD-Turbo / LCM) — never Pro try-on packs.
  */
 class AndroidLocalImageGenerator(
     private val packs: ModelPackManager,
+    private val outputDir: File,
+    private val loadReferenceBitmap: (uri: String) -> Bitmap? = { null },
     private val packId: String = PACK_ID,
 ) : LocalImageGenerator {
 
-    /**
-     * Product ready = real graphs **and** [Txt2ImgPipeline.SAMPLER_WIRED].
-     * Stays false in R2.0 so Create Studio never claims offline falsely.
-     */
     override fun isReady(): Boolean {
         if (!Txt2ImgPipeline.SAMPLER_WIRED) return false
         return packGraphsReady()
     }
 
-    override fun generate(prompt: String, seed: Long?): LocalImageResult {
+    override fun isEditReady(): Boolean {
+        if (!isReady()) return false
+        val dirPath = packs.installedDir(packId) ?: return false
+        val dir = File(dirPath)
+        val config = loadConfig(dir) ?: return false
+        val name = config.graphs?.vaeEncoder ?: "vae_encoder.onnx"
+        val enc = File(dir, name)
+        return enc.isFile && enc.length() >= MIN_GRAPH_BYTES
+    }
+
+    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
+        if (!Txt2ImgPipeline.SAMPLER_WIRED) {
+            return LocalImageResult.Unavailable(
+                "On-device Create Studio sampler not wired in this build.",
+            )
+        }
         if (!packs.isReady(packId)) {
             return LocalImageResult.Unavailable(
-                "Local image pack not installed — download $packId when published on Model packs.",
+                "Local image pack not installed — download $packId from Model packs " +
+                    "(~1 GB). Then Create and Edit work offline.",
             )
         }
         val dirPath = packs.installedDir(packId)
@@ -44,25 +57,50 @@ class AndroidLocalImageGenerator(
         if (missing.isNotEmpty()) {
             return LocalImageResult.Unavailable(
                 "Local SD-Turbo weights incomplete (${missing.joinToString()}). " +
-                    "Export real ONNX graphs (see ml/export_image_gen_pack.py) then re-publish.",
+                    "Re-download $packId from Model packs.",
             )
         }
-        return Txt2ImgPipeline(dirPath, config).generate(prompt, seed)
+        val wantsEdit = !referenceImageUri.isNullOrBlank()
+        val referenceBitmap = if (wantsEdit) {
+            loadReferenceBitmap(referenceImageUri!!)
+                ?: return LocalImageResult.Unavailable(
+                    "Couldn't read the reference image for local edit.",
+                )
+        } else {
+            null
+        }
+        if (wantsEdit) {
+            val encName = config.graphs?.vaeEncoder ?: "vae_encoder.onnx"
+            val enc = File(dir, encName)
+            if (!enc.isFile || enc.length() < MIN_GRAPH_BYTES) {
+                referenceBitmap?.recycle()
+                return LocalImageResult.Unavailable(
+                    "Local image edit needs vae_encoder.onnx — re-download $packId (v3+).",
+                )
+            }
+        }
+        return try {
+            AndroidTxt2ImgEngine(dir, config).use { engine ->
+                engine.generate(prompt, seed, outputDir, referenceBitmap = referenceBitmap)
+            }
+        } finally {
+            if (referenceBitmap != null && !referenceBitmap.isRecycled) {
+                referenceBitmap.recycle()
+            }
+        }
     }
 
-    /** True when pack graphs look real (for Settings / catalog status only). */
     fun packGraphsReady(): Boolean {
         if (!packs.isReady(packId)) return false
         val dirPath = packs.installedDir(packId) ?: return false
         val dir = File(dirPath)
         val config = loadConfig(dir) ?: return false
-        return missingOrTinyGraphs(dir, config).isEmpty()
+        return packComplete(dir, config)
     }
 
     companion object {
-        const val PACK_ID = "local-sdturbo-v1"
-        /** Below this, treat ONNX as scaffold/placeholder (CI contract only). */
-        const val MIN_GRAPH_BYTES = 1_000_000L
+        const val PACK_ID = LocalSdturboPackValidator.PACK_ID
+        const val MIN_GRAPH_BYTES = LocalSdturboPackValidator.MIN_GRAPH_BYTES
 
         private val json = Json { ignoreUnknownKeys = true }
 
@@ -72,17 +110,20 @@ class AndroidLocalImageGenerator(
             return runCatching { json.decodeFromString<LocalImagePackConfig>(file.readText()) }.getOrNull()
         }
 
-        internal fun missingOrTinyGraphs(dir: File, config: LocalImagePackConfig): List<String> {
-            val names = listOfNotNull(
-                config.graphs?.textEncoder,
-                config.graphs?.unet,
-                config.graphs?.vaeDecoder,
-            )
-            if (names.isEmpty()) return listOf("graphs")
-            return names.filter { name ->
+        internal fun missingOrTinyGraphs(dir: File, config: LocalImagePackConfig): List<String> =
+            LocalSdturboPackValidator.missingGraphs(config) { name ->
                 val f = File(dir, name)
-                !f.isFile || f.length() < MIN_GRAPH_BYTES
+                if (!f.isFile) null else f.length()
             }
-        }
+
+        internal fun packComplete(dir: File, config: LocalImagePackConfig): Boolean =
+            LocalSdturboPackValidator.isComplete(
+                config,
+                fileBytes = { name ->
+                    val f = File(dir, name)
+                    if (!f.isFile) null else f.length()
+                },
+                fileExists = { name -> File(dir, name).isFile },
+            )
     }
 }

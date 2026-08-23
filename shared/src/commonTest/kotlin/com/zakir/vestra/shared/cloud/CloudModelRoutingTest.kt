@@ -52,8 +52,12 @@ class CloudModelRoutingTest {
     }
 
     @Test
-    fun imageFallbackIncludesReadyWhenUserSelectedDegraded() {
+    fun imageFallbackIncludesReadyWhenUserSelectedUnsupportedLightning() {
         val selected = CloudModelCatalog.byId("sdxl-lightning-hf")!!
+        assertEquals(
+            ModelSupportLevel.UNSUPPORTED,
+            CloudModelContracts.forProvider(selected).support,
+        )
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_GEN)
         assertEquals("sdxl-lightning-hf", chain.first().id)
         assertTrue(chain.any { it.id == "flux-schnell-hf" })

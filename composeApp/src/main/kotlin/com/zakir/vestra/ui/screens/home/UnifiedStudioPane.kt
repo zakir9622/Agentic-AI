@@ -108,6 +108,10 @@ fun UnifiedStudioPane(
     val estimate = viewModel.usage.estimateNext(provider)
     val preflightChip = viewModel.preflightLabel(effectiveCapability)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
+    val localImageReady = viewModel.localImageOfflineReady()
+    val localImageEditReady = viewModel.localImageEditOfflineReady()
+    val localCodeReady = viewModel.localCodeOfflineReady()
+    val localVideoReady = viewModel.localVideoOfflineReady()
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
@@ -120,15 +124,27 @@ fun UnifiedStudioPane(
         freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
             ?: CloudModelCatalog.forCapability(effectiveCapability)
     }
-    val onDeviceEntries = remember(packStates, effectiveCapability) {
+    val onDeviceEntries = remember(
+        packStates,
+        effectiveCapability,
+        localImageReady,
+        localImageEditReady,
+        localCodeReady,
+        localVideoReady,
+    ) {
         LocalModelCatalog.forStudioPicker(effectiveCapability).map { entry ->
-            val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
-            val ready = entry.runnable && (entry.packId == null || packReady)
+            val packReady = when (entry.id) {
+                "local-sdturbo-v1" -> localImageReady
+                "local-sdturbo-edit" -> localImageEditReady
+                "local-stillclip-v1" -> localVideoReady
+                "local-gemma-v1" -> localCodeReady
+                else -> entry.packId?.let { packStates[it]?.isReady() == true } == true
+            }
             OnDevicePickerEntry(
                 id = entry.id,
                 displayName = entry.displayName,
                 detail = entry.testingNote,
-                ready = ready,
+                ready = LocalModelCatalog.studioEntryReady(entry, packReady),
                 statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
             )
         }
@@ -193,13 +209,28 @@ fun UnifiedStudioPane(
         Text(
             when (capability) {
                 AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
-                    "Cloud free models. Try-on Lite/Pro are on-device. Create Studio unlocks when local-sdturbo-v1 weights + sampler ship (R2.2)."
+                    when {
+                        reference != null && localImageEditReady ->
+                            "Local img2img ready offline — Edit runs on-device."
+                        reference == null && localImageReady ->
+                            "Local tiny-SD ready offline — Create Studio runs on-device."
+                        else ->
+                            "Cloud by default. For offline Create/Edit: Settings → Model packs → download local-sdturbo-v1 (~1.06 GB)."
+                    }
                 AiCapability.VIDEO ->
-                    "Cloud HF Spaces only — on-device video is out of scope for v3.1."
+                    if (localVideoReady) {
+                        "Local still-clip ready — short on-device MP4 from tiny-SD (not diffusion video)."
+                    } else {
+                        "Cloud HF Spaces by default. Offline still-clips: download local-sdturbo-v1."
+                    }
                 AiCapability.AUDIO ->
-                    "Cloud TTS + local voice-changer knobs. On-device TTS when local-tts-v1 ships."
+                    "Device TTS works offline + voice-changer knobs. Cloud TTS optional."
                 AiCapability.CODE ->
-                    "Cloud LLMs (Groq / OpenRouter / HF). On-device Gemma is stretch / not in this build."
+                    if (localCodeReady) {
+                        "Local Gemma ready offline — Code Studio runs on-device."
+                    } else {
+                        "Cloud LLMs by default. Offline Code: download local-gemma-v1 (~530 MB)."
+                    }
                 else -> estimate
             },
             style = MaterialTheme.typography.bodySmall,
@@ -229,7 +260,17 @@ fun UnifiedStudioPane(
         PromptComposer(
             prompt = prompt,
             onPromptChange = viewModel::setPrompt,
-            modelLabel = provider.displayName,
+            modelLabel = when {
+                effectiveCapability == AiCapability.IMAGE_GEN && localImageReady && reference == null ->
+                    "Local tiny-SD (offline)"
+                effectiveCapability == AiCapability.IMAGE_EDIT && localImageEditReady ->
+                    "Local img2img (offline)"
+                effectiveCapability == AiCapability.CODE && localCodeReady ->
+                    "Local Gemma (offline)"
+                effectiveCapability == AiCapability.VIDEO && localVideoReady ->
+                    "Local still-clip (offline)"
+                else -> provider.displayName
+            },
             assistCount = assistCount,
             busy = busy,
             enabled = true,
