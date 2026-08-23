@@ -346,7 +346,7 @@ class GenerativeViewModel(
             _warmup.value = Warmup.Loading(label)
             val failure: String? = withContext(Dispatchers.IO) {
                 try {
-                    generative.warmUpLocalCode()
+                    generative.warmUpLocal(capability)
                 } catch (e: Exception) {
                     e.message ?: "Model failed to load"
                 }

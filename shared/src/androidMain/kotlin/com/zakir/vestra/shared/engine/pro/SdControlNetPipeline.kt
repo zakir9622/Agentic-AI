@@ -102,7 +102,7 @@ class SdControlNetPipeline(
             val residuals = control.run(
                 inputs = mapOf(
                     "sample" to control.floatTensor(sample, 1, 4, lat, lat),
-                    "timestep" to control.longTensor(longArrayOf(timestep.toLong()), 1),
+                    "timestep" to control.timestepTensor("timestep", timestep, 1),
                     "encoder_hidden_states" to control.floatTensor(textEmbeds, 1, textSeq, HIDDEN_DIM.toLong()),
                     "controlnet_cond" to control.floatTensor(depthCond, 1, 3, res.toLong(), res.toLong()),
                 ),
@@ -137,7 +137,11 @@ class SdControlNetPipeline(
             LongArray(TEXT_TOKENS)
         }
         val te = graph(textEncoder)
-        return te.runSingle(mapOf(te.inputNames.first() to te.longTensor(tokenIds, 1, TEXT_TOKENS.toLong())))
+        // Typed from the graph. Hardcoding int64 here is the same defect the device reported
+        // as ORT_INVALID_ARGUMENT for local image generation, and would make run() throw on its
+        // first call — silently dropping Pro try-on to the legacy compositor.
+        val teInput = te.inputNames.first()
+        return te.runSingle(mapOf(teInput to te.tokenTensor(teInput, tokenIds, 1, TEXT_TOKENS.toLong())))
     }
 
     private fun graph(relativePath: String?): OrtGraph {
@@ -156,7 +160,7 @@ class SdControlNetPipeline(
         val lat = (res / 8).toLong()
         val base = mutableMapOf(
             "sample" to unet.floatTensor(sample, 1, 4, lat, lat),
-            "timestep" to unet.longTensor(longArrayOf(timestep.toLong()), 1),
+            "timestep" to unet.timestepTensor("timestep", timestep, 1),
             "encoder_hidden_states" to unet.floatTensor(textEmbeds, 1, TEXT_TOKENS.toLong(), HIDDEN_DIM.toLong()),
             // IP-Adapter image embeds are 4-D [batch, num_images, seq, dim];
             // the resampler + attention inside unet.onnx consume them.

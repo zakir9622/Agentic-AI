@@ -52,6 +52,17 @@ class AndroidTxt2ImgEngine(
 
     fun hasEditSupport(): Boolean = vaeEncoder != null
 
+    /**
+     * Touches every graph the pipeline needs so a load failure surfaces at model-selection
+     * time rather than mid-generation. Constructing OrtGraph opens the ONNX session, so
+     * referencing them here is the load.
+     */
+    fun warmUp() {
+        textEncoder.inputNames
+        unet.inputNames
+        vaeDecoder.inputNames
+    }
+
     fun generate(
         prompt: String,
         seed: Long?,
@@ -193,7 +204,7 @@ class AndroidTxt2ImgEngine(
         }
 
         val sampleTensor = unet.floatTensor(sample, 1, 4, latent.toLong(), latent.toLong())
-        val timeTensor = timestepTensor(timestep)
+        val timeTensor = timestepTensor(timestep, timeName)
         val hiddenTensor = hiddenName?.let {
             val seq = if (hidden.size % 768 == 0) hidden.size / 768 else 77
             val dim = if (hidden.size % 768 == 0) 768 else (hidden.size / seq).coerceAtLeast(1)
@@ -215,10 +226,9 @@ class AndroidTxt2ImgEngine(
         return unet.runSingle(inputs)
     }
 
-    private fun timestepTensor(timestep: Int): OnnxTensor {
-        val env = ai.onnxruntime.OrtEnvironment.getEnvironment()
-        return OnnxTensor.createTensor(env, longArrayOf(timestep.toLong()))
-    }
+    /** Typed from the UNet's own declaration — exports use int64, int32 or float32. */
+    private fun timestepTensor(timestep: Int, timeName: String): OnnxTensor =
+        unet.timestepTensor(timeName, timestep)
 
     private fun decodeVae(latentSample: FloatArray): FloatArray {
         val scaled = FloatArray(latentSample.size) { i -> latentSample[i] / vaeScale }

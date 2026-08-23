@@ -51,6 +51,20 @@ class OrtGraph(modelPath: String) : AutoCloseable {
         }
 
     /**
+     * Scalar timestep typed to match [inputName].
+     *
+     * Diffusion exports disagree here too — int64 in some, float32 in others — and the same
+     * ORT_INVALID_ARGUMENT that broke local image generation applies. int64 stays the default
+     * because that is what these packs have historically used.
+     */
+    fun timestepTensor(inputName: String, timestep: Int, vararg shape: Long): OnnxTensor =
+        when (inputType(inputName)) {
+            OnnxJavaType.FLOAT -> floatTensor(floatArrayOf(timestep.toFloat()), *shape)
+            OnnxJavaType.INT32 -> intTensor(intArrayOf(timestep), *shape)
+            else -> longTensor(longArrayOf(timestep.toLong()), *shape)
+        }
+
+    /**
      * Runs the graph and returns each requested output flattened, in order.
      * Input tensors are closed after the run — callers pass freshly-created
      * tensors per invocation (e.g. one per denoise step), so leaving them open

@@ -35,6 +35,35 @@ class AndroidLocalImageGenerator(
         return enc.isFile && enc.length() >= MIN_GRAPH_BYTES
     }
 
+    /**
+     * Constructs the ONNX sessions for the pack, which is what actually proves it can run.
+     * The device reported ORT_INVALID_ARGUMENT on the first real generation while the picker
+     * still showed "Ready offline"; opening the graphs here surfaces that at selection time.
+     */
+    override fun warmUp(): String? {
+        if (!Txt2ImgPipeline.SAMPLER_WIRED) return "On-device sampler not wired in this build."
+        if (!packs.isReady(packId)) {
+            return "Local image pack not installed — download $packId from Model packs."
+        }
+        val dirPath = packs.installedDir(packId) ?: return "Local image pack directory missing."
+        val dir = File(dirPath)
+        val config = loadConfig(dir) ?: return "Pack config.json missing or invalid — re-download $packId."
+        val missing = missingOrTinyGraphs(dir, config)
+        if (missing.isNotEmpty()) {
+            return "Local SD-Turbo weights incomplete (${missing.joinToString()}). Re-download $packId."
+        }
+        return runCatching {
+            packs.markPackInUse(packId)
+            OrtSessionCache.enterInference()
+            AndroidTxt2ImgEngine(dir, config).use { it.warmUp() }
+            null
+        }.getOrElse { it.message ?: "Local image engine failed to load" }
+            .also {
+                OrtSessionCache.leaveInference()
+                packs.markPackIdle(packId)
+            }
+    }
+
     override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
         if (!Txt2ImgPipeline.SAMPLER_WIRED) {
             return LocalImageResult.Unavailable(

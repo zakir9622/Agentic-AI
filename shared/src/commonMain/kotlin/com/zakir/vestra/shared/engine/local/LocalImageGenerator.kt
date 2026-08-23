@@ -10,6 +10,15 @@ interface LocalImageGenerator {
     /** True when VAE encoder is present — enables offline image edit. */
     fun isEditReady(): Boolean = false
     fun generate(prompt: String, seed: Long? = null, referenceImageUri: String? = null): LocalImageResult
+
+    /**
+     * Opens the pack's graphs so a selected model is proven loadable before the first prompt.
+     *
+     * isReady() only stats files, which is how a pack could advertise "Ready offline" and then
+     * fail at generate time with a tensor-type error. This actually constructs the sessions.
+     * Returns the failure reason, or null on success.
+     */
+    fun warmUp(): String? = if (isReady()) null else "Local image pack not installed"
 }
 
 sealed class LocalImageResult {

@@ -93,6 +93,16 @@ class GenerativeCloudService(
     /** Loads the selected on-device code/chat model; returns the failure reason, or null. */
     fun warmUpLocalCode(): String? = localCode.warmUp()
 
+    /** Loads the on-device image pack (also backs Edit and the still-clip video path). */
+    fun warmUpLocalImage(): String? = localImage.warmUp()
+
+    /** Warms whichever on-device engine backs [capability]; null when it loaded cleanly. */
+    fun warmUpLocal(capability: AiCapability): String? = when (capability) {
+        AiCapability.CODE -> localCode.warmUp()
+        AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> localImage.warmUp()
+        else -> null
+    }
+
     fun localVideoReady(): Boolean = localVideo.isReady()
 
     fun localVisionReady(): Boolean = localVision.isReady()
