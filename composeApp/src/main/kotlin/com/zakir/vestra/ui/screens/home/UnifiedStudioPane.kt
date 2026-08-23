@@ -237,20 +237,24 @@ fun UnifiedStudioPane(
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,
         )
-        Text(
-            estimate,
-            style = MaterialTheme.typography.labelSmall,
-            color = VestraColors.InkMuted,
-        )
-        if (preflightChip != null && preflight == null) {
-            Spacer(Modifier.height(6.dp))
-            GlassPill(text = preflightChip, active = true)
-        }
-        lastUsedId?.let { id ->
-            CloudModelCatalog.byId(id)?.let { used ->
-                Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                estimate,
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.InkMuted,
+            )
+            if (preflightChip != null && preflight == null) {
+                GlassPill(text = preflightChip, active = true)
+            }
+            val lastUsedName = lastUsedId?.let { id -> CloudModelCatalog.byId(id)?.displayName }
+            if (lastUsedName != null) {
                 Text(
-                    "Last run: ${used.displayName}",
+                    "Last: $lastUsedName",
                     style = MaterialTheme.typography.labelSmall,
                     color = VestraColors.Accent,
                 )
