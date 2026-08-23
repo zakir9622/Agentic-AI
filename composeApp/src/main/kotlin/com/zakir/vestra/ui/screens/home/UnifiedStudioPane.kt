@@ -514,7 +514,7 @@ private fun AdvancedAssistSection(
                         if (!localVisionReady) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Install local-gemma-4-vision-v1 for offline reference analysis.",
+                                "Install local-gemma-4-e2b-v1 for offline reference analysis.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = VestraColors.InkMuted,
                             )

@@ -137,25 +137,25 @@ object LocalModelCatalog {
         LocalModelEntry(
             id = "local-gemma-4-vision-v1",
             displayName = "Local Gemma 4 vision assist",
-            description = "Offline describe garment / reference photos (Ask Image class). Not image generation.",
+            description = "Offline describe garment / reference photos (Ask Image class). Uses Gemma 4 E2B pack.",
             capability = AiCapability.IMAGE_GEN,
-            packId = "local-gemma-4-vision-v1",
+            packId = "local-gemma-4-e2b-v1",
             license = "Gemma Terms of Use",
-            approxSizeLabel = "~2.6 GB",
+            approxSizeLabel = "~2.6 GB (shared with Code)",
             runnable = true,
-            testingNote = "Optional · toggle Analyze reference in Create. Shares Gemma 4 multimodal weights.",
+            testingNote = "Install local-gemma-4-e2b-v1 once — toggle Analyze reference in Create Advanced.",
             pickerRole = LocalModelPickerRole.QUALITY_POST,
         ),
         LocalModelEntry(
             id = "local-audio-scribe-v1",
             displayName = "Local audio scribe (STT)",
-            description = "Offline speech-to-text — transcribe mic clips without cloud.",
+            description = "Offline speech-to-text via Gemma 4 multimodal audio — shares Code pack.",
             capability = AiCapability.AUDIO,
-            packId = "local-audio-scribe-v1",
-            license = "Apache-2.0 / model card",
-            approxSizeLabel = "~500 MB–1.5 GB",
+            packId = "local-gemma-4-e2b-v1",
+            license = "Gemma Terms of Use",
+            approxSizeLabel = "~2.6 GB (shared with Code)",
             runnable = true,
-            testingNote = "Download local-audio-scribe-v1 for Transcribe mode in Audio Studio.",
+            testingNote = "Install local-gemma-4-e2b-v1 — Transcribe in Audio Studio uses the same pack.",
         ),
         LocalModelEntry(
             id = "local-functiongemma-v1",
@@ -280,9 +280,9 @@ object LocalModelCatalog {
         entry.id == "local-gemma-v1" && packReady -> "Ready offline · legacy Gemma 3"
         entry.id == "local-gemma-v1" && !packReady ->
             "Download local-gemma-v1 in Model packs (~530 MB)"
-        entry.id == "local-audio-scribe-v1" && packReady -> "Ready offline · transcribe"
+        entry.id == "local-audio-scribe-v1" && packReady -> "Ready offline · transcribe (Gemma 4)"
         entry.id == "local-audio-scribe-v1" && !packReady ->
-            "Download local-audio-scribe-v1 in Model packs"
+            "Download local-gemma-4-e2b-v1 in Model packs (~2.6 GB)"
         entry.id == "local-stillclip-v1" && packReady -> "Ready offline (still-clip)"
         entry.id == "local-stillclip-v1" && !packReady ->
             "Download local-sdturbo-v1 for offline still-clips"
@@ -300,6 +300,7 @@ object LocalModelCatalog {
             entry.id == "local-gemma-4-e2b-v1" ||
             entry.id == "local-gemma-v1" ||
             entry.id == "local-audio-scribe-v1" -> packReady
+        entry.id == "local-gemma-4-vision-v1" -> packReady
         entry.runnable && (entry.packId == null || packReady) -> true
         else -> false
     }

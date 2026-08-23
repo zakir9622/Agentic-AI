@@ -3,6 +3,7 @@ package com.zakir.vestra.shared.cloud
 import com.zakir.vestra.shared.safety.InputSafetyGate
 import com.zakir.vestra.shared.safety.SafetyVerdict
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.engine.local.LiteRtLmPacks
 import com.zakir.vestra.shared.engine.local.LocalCodeGenerator
 import com.zakir.vestra.shared.engine.local.LocalCodeResult
 import com.zakir.vestra.shared.engine.local.LocalImageGenerator
@@ -833,7 +834,7 @@ class GenerativeCloudService(
             if (!localTranscriber.isReady()) {
                 emit(
                     GenerativeState.Failed(
-                        "Download local-audio-scribe-v1 from Model packs for offline transcription.",
+                        "Download ${LiteRtLmPacks.GEMMA4_CODE} from Model packs for offline transcription.",
                     ),
                 )
                 return@flow
@@ -844,7 +845,7 @@ class GenerativeCloudService(
                     emit(
                         GenerativeState.TranscribeReady(
                             result.text,
-                            "local-audio-scribe-v1",
+                            LiteRtLmPacks.GEMMA4_CODE,
                         ),
                     )
                 }

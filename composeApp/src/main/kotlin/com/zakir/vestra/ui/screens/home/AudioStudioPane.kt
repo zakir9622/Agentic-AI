@@ -175,7 +175,7 @@ fun AudioStudioPane(
     ) {
         GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase())
         Text(
-            "Device TTS works offline (system voices + knobs). Transcribe needs local-audio-scribe-v1 pack. " +
+            "Device TTS works offline (system voices + knobs). Transcribe uses local-gemma-4-e2b-v1 when installed. " +
                 "Cloud TTS optional.",
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,

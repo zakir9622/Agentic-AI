@@ -14,7 +14,8 @@
 | Image / try-on | ONNX Runtime (`local-sdturbo-v1`, `lite-v1`, `pro-v1`) — **keep** |
 | Audio offline | System TTS + DSP voice changer — **keep** |
 | Pack pipeline | HF manifest → `ModelPackManager` → handshake — **reuse** |
-| Gallery models | Cannot import directly — need `.litertlm` packs + new engine |
+| HF publish | **Live** — `local-gemma-4-e2b-v1` (~2.6 GB) + `local-functiongemma-v1` (~284 MB) on vestra-packs |
+| Gallery models | Published as `.litertlm` packs + LiteRT-LM engine |
 
 ---
 

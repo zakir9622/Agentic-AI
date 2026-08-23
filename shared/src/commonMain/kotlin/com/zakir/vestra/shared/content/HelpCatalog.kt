@@ -106,9 +106,8 @@ object HelpCatalog {
             question = "How do Lite and Pro packs work offline?",
             answer = "Download a pack from Settings → Model packs or All packs. " +
                 "After install, try-on runs on-device with no network. " +
-                "Also download local-sdturbo-v1 (Create/Edit/Clip), local-gemma-4-e2b-v1 (Code), " +
-                    "local-gemma-4-vision-v1 (optional reference analysis), and local-audio-scribe-v1 (Transcribe) " +
-                    "for full offline studios. " +
+                "Also download local-sdturbo-v1 (Create/Edit/Clip) and local-gemma-4-e2b-v1 (Code, vision assist, transcribe). " +
+                    "Optional: local-functiongemma-v1 for debug local tools. " +
                 "Enable durable storage so Documents/TheLookbook/packs survives uninstall.",
         ),
         HelpTopic(

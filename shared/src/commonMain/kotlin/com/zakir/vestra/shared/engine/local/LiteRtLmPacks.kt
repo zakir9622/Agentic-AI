@@ -11,5 +11,5 @@ object LiteRtLmPacks {
     const val GEMMA4_FILE = "gemma-4-E2B-it.litertlm"
     const val LEGACY_GEMMA3_FILE = "gemma3-1b-it-int4.task"
     const val AUDIO_SCRIBE_FILE = "whisper-large-v3-turbo.litertlm"
-    const val FUNCTION_GEMMA_FILE = "functiongemma-270m-it.litertlm"
+    const val FUNCTION_GEMMA_FILE = "mobile-actions_q8_ekv1024.litertlm"
 }

@@ -192,19 +192,15 @@ class VestraApp : Application() {
                     this,
                     packManager,
                     useGpu = { appSettings.preferLiteRtLmGpu.value },
-                    tools = if (BuildConfig.DEBUG) {
-                        listOf(
-                            com.zakir.vestra.shared.engine.local.LookbookStudioToolSet(
-                                onAppendPrompt = { /* studio tools demo — wired in debug */ },
-                            ),
-                        )
-                    } else {
-                        emptyList()
-                    },
                 ),
                 legacyGemma3 = com.zakir.vestra.shared.engine.local.AndroidLegacyMediaPipeCodeGenerator(
                     this,
                     packManager,
+                ),
+                functionGemma = com.zakir.vestra.shared.engine.local.AndroidFunctionGemmaTools(
+                    this,
+                    packManager,
+                    useGpu = { appSettings.preferLiteRtLmGpu.value },
                 ),
             ),
             localVideo = com.zakir.vestra.shared.engine.local.AndroidLocalVideoGenerator(

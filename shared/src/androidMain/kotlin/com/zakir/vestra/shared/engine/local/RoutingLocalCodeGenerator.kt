@@ -11,14 +11,17 @@ class RoutingLocalCodeGenerator(
     private val settings: AppSettings,
     private val gemma4: LocalCodeGenerator,
     private val legacyGemma3: LocalCodeGenerator,
+    private val functionGemma: LocalCodeGenerator? = null,
 ) : LocalCodeGenerator {
 
     private fun delegate(): LocalCodeGenerator = when (settings.selectionId(AiCapability.CODE)) {
         LiteRtLmPacks.LEGACY_GEMMA3 -> legacyGemma3
         LiteRtLmPacks.GEMMA4_CODE -> gemma4
+        LiteRtLmPacks.FUNCTION_GEMMA -> functionGemma ?: gemma4
         else -> when {
             gemma4.isReady() -> gemma4
             legacyGemma3.isReady() -> legacyGemma3
+            functionGemma?.isReady() == true -> functionGemma
             else -> gemma4
         }
     }

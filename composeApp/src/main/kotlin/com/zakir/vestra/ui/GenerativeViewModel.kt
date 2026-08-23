@@ -302,7 +302,7 @@ class GenerativeViewModel(
             return
         }
         if (!generative.localTranscribeReady()) {
-            _preflightMessage.value = "Download local-audio-scribe-v1 from Model packs for offline transcription."
+            _preflightMessage.value = "Download local-gemma-4-e2b-v1 from Model packs for offline transcription."
             return
         }
         _preflightMessage.value = null

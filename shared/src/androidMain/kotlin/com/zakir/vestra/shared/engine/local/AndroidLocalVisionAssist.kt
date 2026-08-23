@@ -7,31 +7,22 @@ import java.io.File
 
 /**
  * Multimodal Gemma 4 vision assist — describe garment / reference photos offline.
+ * Uses [LiteRtLmPacks.GEMMA4_VISION] when installed, else shared [LiteRtLmPacks.GEMMA4_CODE].
  */
 class AndroidLocalVisionAssist(
     private val context: Context,
     private val packs: ModelPackManager,
-    private val packId: String = LiteRtLmPacks.GEMMA4_VISION,
     private val useGpu: () -> Boolean = { false },
 ) : LocalVisionAssist {
 
-    override fun isReady(): Boolean {
-        if (!packs.isReady(packId)) return false
-        val dir = packs.installedDir(packId) ?: return false
-        val path = LiteRtLmPackConfig.modelPath(File(dir), LiteRtLmPacks.GEMMA4_FILE) ?: return false
-        return File(path).length() >= LiteRtLmPackLimits.MIN_GEMMA4_BYTES
-    }
+    override fun isReady(): Boolean = resolveModel() != null
 
     override fun describeImage(imagePath: String, question: String): LocalAssistResult {
-        if (!isReady()) {
-            return LocalAssistResult.Unavailable(
-                "Download $packId from Model packs for offline vision assist.",
+        val resolved = resolveModel()
+            ?: return LocalAssistResult.Unavailable(
+                "Download ${LiteRtLmPacks.GEMMA4_CODE} (~2.6 GB) from Model packs for offline vision assist.",
             )
-        }
-        val dir = packs.installedDir(packId)
-            ?: return LocalAssistResult.Unavailable("Vision pack directory missing.")
-        val modelPath = LiteRtLmPackConfig.modelPath(File(dir), LiteRtLmPacks.GEMMA4_FILE)
-            ?: return LocalAssistResult.Unavailable("Vision .litertlm missing — re-download pack.")
+        val (packId, modelPath) = resolved
         packs.markPackInUse(packId)
         return try {
             LiteRtLmEngine(
@@ -56,5 +47,17 @@ class AndroidLocalVisionAssist(
         } finally {
             packs.markPackIdle(packId)
         }
+    }
+
+    private fun resolveModel(): Pair<String, String>? {
+        val path = LiteRtLmPackResolver.modelPath(
+            packs,
+            LiteRtLmPacks.GEMMA4_VISION,
+            LiteRtLmPacks.GEMMA4_FILE,
+            LiteRtLmPacks.GEMMA4_CODE,
+        ) ?: return null
+        val file = File(path.second)
+        if (file.length() < LiteRtLmPackLimits.MIN_GEMMA4_BYTES) return null
+        return path
     }
 }

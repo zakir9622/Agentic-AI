@@ -64,8 +64,8 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
         }
         val root = File(dir)
         val defaultPrimary = when (packId) {
-            LiteRtLmPacks.GEMMA4_CODE, LiteRtLmPacks.GEMMA4_VISION -> LiteRtLmPacks.GEMMA4_FILE
-            LiteRtLmPacks.AUDIO_SCRIBE -> LiteRtLmPacks.AUDIO_SCRIBE_FILE
+            LiteRtLmPacks.GEMMA4_CODE, LiteRtLmPacks.GEMMA4_VISION, LiteRtLmPacks.AUDIO_SCRIBE ->
+                LiteRtLmPacks.GEMMA4_FILE
             LiteRtLmPacks.FUNCTION_GEMMA -> LiteRtLmPacks.FUNCTION_GEMMA_FILE
             else -> LiteRtLmPacks.GEMMA4_FILE
         }
@@ -78,8 +78,8 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
             return "${cfg.primaryFile} missing — re-download $packId"
         }
         val minBytes = when (packId) {
-            LiteRtLmPacks.AUDIO_SCRIBE -> LiteRtLmPackLimits.MIN_AUDIO_BYTES
             LiteRtLmPacks.FUNCTION_GEMMA -> LiteRtLmPackLimits.MIN_FUNCTION_BYTES
+            LiteRtLmPacks.AUDIO_SCRIBE, LiteRtLmPacks.GEMMA4_VISION -> LiteRtLmPackLimits.MIN_GEMMA4_BYTES
             else -> LiteRtLmPackLimits.MIN_GEMMA4_BYTES
         }
         if (model.length() < minBytes) {
