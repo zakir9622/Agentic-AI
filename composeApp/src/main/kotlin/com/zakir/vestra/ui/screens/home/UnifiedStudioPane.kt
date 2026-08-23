@@ -28,7 +28,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +56,24 @@ import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
 import com.zakir.vestra.ui.theme.VestraColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/**
+ * Runs a pack-readiness probe off the UI thread.
+ *
+ * The probes stat files on disk, so calling them directly from a composable body put
+ * file-system work on the main thread on every recomposition. [keys] re-runs the probe when the
+ * installed packs change or a generation starts/finishes, which is the only time the answer can
+ * actually differ.
+ */
+@Composable
+private fun produceLocalReadiness(
+    vararg keys: Any?,
+    probe: () -> Boolean,
+): State<Boolean> = produceState(initialValue = false, keys = keys) {
+    value = withContext(Dispatchers.IO) { runCatching(probe).getOrDefault(false) }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -86,6 +106,7 @@ fun UnifiedStudioPane(
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
 
+    val cloudModelsEnabled by viewModel.appSettings.cloudModelsEnabled.collectAsState()
     val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
     val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
     val codeId by viewModel.appSettings.codeProviderId.collectAsState()
@@ -107,11 +128,16 @@ fun UnifiedStudioPane(
     val estimate = viewModel.usage.estimateNext(provider)
     val preflightChip = viewModel.preflightLabel(effectiveCapability)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
-    val localImageReady = viewModel.localImageOfflineReady()
-    val localImageEditReady = viewModel.localImageEditOfflineReady()
-    val localCodeReady = viewModel.localCodeOfflineReady()
-    val localVideoReady = viewModel.localVideoOfflineReady()
-    val localVisionReady = viewModel.localVisionOfflineReady()
+
+    // These each stat pack files on disk. Called straight from the composable body they ran on
+    // the main thread on every recomposition — and ResultPane ticks once a second while a
+    // generation is running, so that was five file-system probes per second on the UI thread.
+    // Hoist them onto Dispatchers.IO and recompute only when the installed packs change.
+    val localImageReady by produceLocalReadiness(packStates, busy) { viewModel.localImageOfflineReady() }
+    val localImageEditReady by produceLocalReadiness(packStates, busy) { viewModel.localImageEditOfflineReady() }
+    val localCodeReady by produceLocalReadiness(packStates, busy) { viewModel.localCodeOfflineReady() }
+    val localVideoReady by produceLocalReadiness(packStates, busy) { viewModel.localVideoOfflineReady() }
+    val localVisionReady by produceLocalReadiness(packStates, busy) { viewModel.localVisionOfflineReady() }
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
@@ -123,9 +149,15 @@ fun UnifiedStudioPane(
 
     var showModelPicker by remember { mutableStateOf(false) }
     var advancedExpanded by remember { mutableStateOf(false) }
-    val pickerModels = remember(effectiveCapability, freeCloudDiscovery) {
-        freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
-            ?: CloudModelCatalog.forCapability(effectiveCapability)
+    // Cloud rows must disappear entirely when the master toggle is off — otherwise the picker
+    // offers models that preflight and the runtime gate will refuse to run.
+    val pickerModels = remember(effectiveCapability, freeCloudDiscovery, cloudModelsEnabled) {
+        if (!cloudModelsEnabled) {
+            emptyList()
+        } else {
+            freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
+                ?: CloudModelCatalog.forCapability(effectiveCapability)
+        }
     }
     val onDeviceEntries = remember(
         packStates,
@@ -204,12 +236,17 @@ fun UnifiedStudioPane(
         else -> Unit
     }
 
-    Column(
-        modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 8.dp),
-    ) {
+    // Two regions, not one long scroll: generated content scrolls in the top region while the
+    // composer stays docked at the bottom of the screen. Previously everything lived in a single
+    // verticalScroll column, so the composer drifted mid-scroll and results pushed it off-screen.
+    Column(modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 8.dp),
+        ) {
         GlassSectionLabel(subtitle.uppercase())
         Text(
             when (capability) {
@@ -271,45 +308,6 @@ fun UnifiedStudioPane(
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
-
-        PromptComposer(
-            prompt = prompt,
-            onPromptChange = viewModel::setPrompt,
-            modelLabel = when {
-                effectiveCapability == AiCapability.IMAGE_GEN && localImageReady && reference == null ->
-                    "Local tiny-SD (offline)"
-                effectiveCapability == AiCapability.IMAGE_EDIT && localImageEditReady ->
-                    "Local img2img (offline)"
-                effectiveCapability == AiCapability.CODE && localCodeReady ->
-                    "Local Gemma (offline)"
-                effectiveCapability == AiCapability.VIDEO && localVideoReady ->
-                    "Local still-clip (offline)"
-                else -> provider.displayName
-            },
-            assistCount = assistCount,
-            busy = busy,
-            enabled = true,
-            onModelClick = { showModelPicker = true },
-            onAssistsClick = { advancedExpanded = !advancedExpanded },
-            onSend = ::onGenerate,
-            onStop = { viewModel.forceStop() },
-            placeholder = placeholder,
-            referenceUri = if (capability == AiCapability.IMAGE_GEN) reference else null,
-            onAddReference = if (capability == AiCapability.IMAGE_GEN) {
-                {
-                    pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }
-            } else {
-                null
-            },
-            onClearReference = if (capability == AiCapability.IMAGE_GEN) {
-                { viewModel.setReference(null) }
-            } else {
-                null
-            },
-        )
-
         Spacer(Modifier.height(8.dp))
         AdvancedAssistSection(
             expanded = advancedExpanded,
@@ -381,7 +379,54 @@ fun UnifiedStudioPane(
                 onDismiss = viewModel::clearResult,
             )
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
+        }
+
+        // Docked composer — outside the scroll region so prompt, model pill, reference
+        // picker and send stay reachable no matter how long the result gets.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 10.dp, top = 4.dp),
+        ) {
+            PromptComposer(
+                prompt = prompt,
+                onPromptChange = viewModel::setPrompt,
+                modelLabel = when {
+                    effectiveCapability == AiCapability.IMAGE_GEN && localImageReady && reference == null ->
+                        "Local tiny-SD (offline)"
+                    effectiveCapability == AiCapability.IMAGE_EDIT && localImageEditReady ->
+                        "Local img2img (offline)"
+                    effectiveCapability == AiCapability.CODE && localCodeReady ->
+                        "Local Gemma (offline)"
+                    effectiveCapability == AiCapability.VIDEO && localVideoReady ->
+                        "Local still-clip (offline)"
+                    else -> provider.displayName
+                },
+                assistCount = assistCount,
+                busy = busy,
+                enabled = true,
+                onModelClick = { showModelPicker = true },
+                onAssistsClick = { advancedExpanded = !advancedExpanded },
+                onSend = ::onGenerate,
+                onStop = { viewModel.forceStop() },
+                placeholder = placeholder,
+                referenceUri = if (capability == AiCapability.IMAGE_GEN) reference else null,
+                onAddReference = if (capability == AiCapability.IMAGE_GEN) {
+                    {
+                        pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                } else {
+                    null
+                },
+                onClearReference = if (capability == AiCapability.IMAGE_GEN) {
+                    { viewModel.setReference(null) }
+                } else {
+                    null
+                },
+            )
+        }
     }
 
     if (showModelPicker) {
@@ -392,7 +437,7 @@ fun UnifiedStudioPane(
                 AiCapability.VIDEO -> "Video models"
                 AiCapability.CODE -> "Coding models"
                 else -> "Models"
-            },
+            } + if (cloudModelsEnabled) "" else " · on-device",
             models = pickerModels,
             selectedId = selectedId,
             onDeviceEntries = onDeviceEntries,
