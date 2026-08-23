@@ -57,6 +57,12 @@ class TryOnViewModel(
     private val _shoot = MutableStateFlow<ShootState?>(null)
     val shoot: StateFlow<ShootState?> = _shoot
 
+    private val _liveLog = MutableStateFlow<List<String>>(emptyList())
+    val liveLog: StateFlow<List<String>> = _liveLog
+
+    private val _generationStartedAtMs = MutableStateFlow<Long?>(null)
+    val generationStartedAtMs: StateFlow<Long?> = _generationStartedAtMs
+
     private var shootJob: Job? = null
 
     fun addGarment(uri: String) {
@@ -135,6 +141,10 @@ class TryOnViewModel(
         val layers = outfit.sortedBy { it.category.layerRank() }
         shootJob?.cancel()
         val shootId = Uuid.random().toString()
+        _liveLog.value = emptyList()
+        val startedAt = System.currentTimeMillis()
+        _generationStartedAtMs.value = startedAt
+        appendLive("Start · ${shots.size} look(s) · ${layers.size} layer(s)")
         _shoot.value = ShootState(0, shots.size, GenerationState.Idle, emptyList())
 
         shootJob = viewModelScope.launch {
@@ -226,6 +236,18 @@ class TryOnViewModel(
             labelled
         }
         _shoot.value = ShootState(shotIndex, totalShots, forShoot, completed)
+        when (val inner = forShoot) {
+            is GenerationState.Preparing -> appendLive(inner.message)
+            is GenerationState.Running -> appendLive(inner.stage)
+            is GenerationState.Complete -> appendLive("Complete · ${inner.result.executedTier.name}")
+            is GenerationState.Failed -> appendLive("Failed · ${inner.error.userMessage()}")
+            GenerationState.Idle -> Unit
+        }
+    }
+
+    private fun appendLive(line: String) {
+        val stamped = line.take(160)
+        _liveLog.value = (_liveLog.value + stamped).takeLast(40)
     }
 
     fun resetSession() {
@@ -234,13 +256,28 @@ class TryOnViewModel(
         _shots.value = emptyList()
         _casting.value = CastingProfile()
         _shoot.value = null
+        _liveLog.value = emptyList()
+        _generationStartedAtMs.value = null
     }
 
     fun cancelShoot() {
         shootJob?.cancel()
         shootJob = null
         _shoot.value = null
+        _liveLog.value = emptyList()
+        _generationStartedAtMs.value = null
     }
+}
+
+private fun TryOnError.userMessage(): String = when (this) {
+    TryOnError.ModelPackMissing ->
+        "Model pack not installed"
+    TryOnError.DeviceNotCapable ->
+        "Device not capable"
+    TryOnError.NetworkUnavailable ->
+        "Network unavailable"
+    is TryOnError.SafetyBlocked -> reason
+    is TryOnError.Internal -> message.ifBlank { "Generation failed" }
 }
 
 private fun PersonSource.label(): String = when (this) {

@@ -3,7 +3,7 @@
 > **Baseline:** v3.1.0-rc14 (`b76c215` + DoD pass). Supplement to
 > [`../five-star-quality/`](../five-star-quality/) — not a replacement. No new visual design
 > system (Loom Ink stays).
-> **Status:** rc15 — A0 harness + A1/A3/B2/B3 shipped; Pixel 9 on-device table optional/TBD.
+> **Status:** rc15 complete — all code items shipped; Pixel 9 on-device benchmark table is a post-install device run.
 
 ## Re-check vs tree (2026-08-23, post-rc14)
 
@@ -13,9 +13,10 @@
 | B4 sampler UI | open | **Done in rc14** — Steps/CFG/Seed removed from composer (never reached cloud payloads) |
 | OrtGraph QNN→NNAPI→XNNPACK cascade | claimed at OrtGraph.kt:19-29 | **Outdated** — production uses `ProOrtSessions` (CPU + `NO_OPT`, QNN never; NNAPI only if `OrtEpPolicy.preferNnapi`) |
 | A0 on-device numbers | missing | Harness shipped; [`docs/BENCHMARKS.md`](../../BENCHMARKS.md) has desktop reference — **Pixel 9 table TBD** |
-| B1/B2/B3 | open | **Done rc15** — per-tab log (prior), elapsed timer, reduce-motion on GenerationScreen |
+| B1/B2/B3 | open | **Done rc15** — per-tab log + try-on `GenerationScreen`, elapsed timer, reduce-motion |
 | A1 OrtSessionCache in Pro | open | **Done rc15** — `SdControlNetPipeline` uses `OrtSessionCache.openGraph()` |
 | A3 minSdk | open | **Done rc15** — `deviceMeets()` checks `sdkInt >= minSdk` |
+| B4 quality retry | open | **Done rc15** — `rejectReason()` + blank-frame on Inference; classifier maps blank → `BadOutput` |
 
 ---
 

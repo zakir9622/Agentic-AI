@@ -40,6 +40,7 @@ import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
 import com.zakir.vestra.ui.TryOnViewModel
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
+import com.zakir.vestra.ui.components.LiveGenConsole
 import com.zakir.vestra.ui.effects.DevelopStage
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -52,6 +53,8 @@ fun GenerationScreen(
     onOpenHelp: (() -> Unit)? = null,
 ) {
     val shoot by viewModel.shoot.collectAsState()
+    val liveLog by viewModel.liveLog.collectAsState()
+    val generationStartedAtMs by viewModel.generationStartedAtMs.collectAsState()
     val haptics = LocalHapticFeedback.current
     val reduceMotion = rememberReduceMotion()
 
@@ -170,12 +173,20 @@ fun GenerationScreen(
                     trackColor = VestraColors.GlassBorder,
                 )
                 Spacer(Modifier.height(16.dp))
+                val elapsedSec = generationStartedAtMs?.let { start ->
+                    ((System.currentTimeMillis() - start) / 1_000L).coerceAtLeast(0L)
+                }
+                val statusLine = buildString {
+                    append(label)
+                    if (elapsedSec != null) append(" · ${elapsedSec}s elapsed")
+                }
                 Text(
-                    text = label,
+                    text = statusLine,
                     style = MaterialTheme.typography.bodyLarge,
                     color = VestraColors.Ivory,
                     textAlign = TextAlign.Center,
                 )
+                LiveGenConsole(liveLog, generationStartedAtMs)
                 Spacer(Modifier.height(20.dp))
                 GlassSecondaryButton(
                     text = LookbookCopy.ACTION_CANCEL_GENERATION,

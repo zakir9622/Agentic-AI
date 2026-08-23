@@ -119,9 +119,44 @@ class GenerativeCloudServiceTest {
             setHfToken("hf_test")
         }
         val service = GenerativeCloudService(http, FakeIo(), settings, UsageLedger(TestMemorySettings()))
-        val states = service.generateImage("abaya lookbook", referenceUri = null).toList()
+        val states = service.generateImage(
+            "abaya lookbook",
+            referenceUri = null,
+            assists = GenerativeAssists(qualityGuard = false),
+        ).toList()
         assertTrue(states.any { it is GenerativeState.ImageReady })
         assertTrue(hostsCalled.any { it.contains("router.huggingface.co") })
+    }
+
+    @Test
+    fun imageGenRejectsBlankInferenceOutputWhenQualityGuardOn() = runTest {
+        val engine = MockEngine { request ->
+            when {
+                request.url.host.contains("router.huggingface.co") -> respond(
+                    """{"data":[{"b64_json":"$validPngB64"}]}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+                request.method.value == "POST" -> respond(
+                    """{"event_id":"evt-1"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+                else -> respond(
+                    "event: error\ndata: null\n\n",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "text/event-stream"),
+                )
+            }
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setImageGenProvider("flux-schnell-hf")
+            setHfToken("hf_test")
+        }
+        val service = GenerativeCloudService(httpClient(engine), FakeIo(), settings, UsageLedger(TestMemorySettings()))
+        val states = service.generateImage("abaya lookbook", referenceUri = null).toList()
+        assertTrue(states.none { it is GenerativeState.ImageReady })
+        assertTrue(states.any { it is GenerativeState.Failed })
     }
 
     @Test

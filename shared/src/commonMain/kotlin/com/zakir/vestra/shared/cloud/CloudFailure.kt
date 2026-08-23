@@ -202,7 +202,9 @@ object CloudFailureClassifier {
 
             lower.contains("too small") ||
                 lower.contains("not a recognizable image") ||
-                lower.contains("downloaded file is empty") -> CloudFailure.BadOutput
+                lower.contains("downloaded file is empty") ||
+                lower.contains("looks blank") ||
+                lower.contains("low variance") -> CloudFailure.BadOutput
 
             msg.isBlank() -> CloudFailure.Unknown("Generation failed")
 
