@@ -46,6 +46,10 @@ class GenerativeViewModel(
     private val _liveLog = MutableStateFlow<List<String>>(emptyList())
     val liveLog: StateFlow<List<String>> = _liveLog
 
+    /** Wall-clock start of the active generation (for elapsed timer in ResultPane). */
+    private val _generationStartedAtMs = MutableStateFlow<Long?>(null)
+    val generationStartedAtMs: StateFlow<Long?> = _generationStartedAtMs
+
     private val _preflightMessage = MutableStateFlow<String?>(null)
     val preflightMessage: StateFlow<String?> = _preflightMessage
 
@@ -103,6 +107,7 @@ class GenerativeViewModel(
         var resultCapability: AiCapability? = null,
         var job: Job? = null,
         var generationEpoch: Int = 0,
+        var generationStartedAtMs: Long? = null,
     )
 
     private val bags = mutableMapOf<AiCapability, StudioBag>()
@@ -131,6 +136,7 @@ class GenerativeViewModel(
         cur.resultCapability = _resultCapability.value
         cur.job = job
         cur.generationEpoch = generationEpoch
+        cur.generationStartedAtMs = _generationStartedAtMs.value
 
         boundKey = key
         val next = bag()
@@ -143,6 +149,7 @@ class GenerativeViewModel(
         _preflightMessage.value = next.preflightMessage
         _lastUsedProviderId.value = next.lastUsedProviderId
         _resultCapability.value = next.resultCapability
+        _generationStartedAtMs.value = next.generationStartedAtMs
     }
 
     val isBusy: Boolean
@@ -455,6 +462,8 @@ class GenerativeViewModel(
         job?.cancel(CancellationException("force_stop"))
         job = null
         generationEpoch++
+        _generationStartedAtMs.value = null
+        bag(boundKey).generationStartedAtMs = null
         appendLive("Stopped by user")
         _state.value = if (showStopped) {
             GenerativeState.Failed("Stopped. Tap Generate to run again.")
@@ -488,8 +497,12 @@ class GenerativeViewModel(
         val studioKey = studioKey(studio)
         _preflightMessage.value = null
         _liveLog.value = emptyList()
+        _generationStartedAtMs.value = null
         _resultCapability.value = studio
         _state.value = GenerativeState.Preparing("Starting…")
+        val startedAt = System.currentTimeMillis()
+        _generationStartedAtMs.value = startedAt
+        bag(studioKey).generationStartedAtMs = startedAt
         appendLive("Start · ${capability.name} · ${modelLabel ?: "model"}")
         val builder = runDiagnostics?.startRun(
             capability = capability,

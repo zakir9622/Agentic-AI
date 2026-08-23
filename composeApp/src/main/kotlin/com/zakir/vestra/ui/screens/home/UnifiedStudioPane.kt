@@ -69,6 +69,7 @@ fun UnifiedStudioPane(
     val reference by viewModel.referenceUri.collectAsState()
     val state by viewModel.state.collectAsState()
     val liveLog by viewModel.liveLog.collectAsState()
+    val generationStartedAtMs by viewModel.generationStartedAtMs.collectAsState()
     val preflight by viewModel.preflightMessage.collectAsState()
     val creative by viewModel.creativeMode.collectAsState()
     val pragmatic by viewModel.pragmaticMode.collectAsState()
@@ -344,6 +345,7 @@ fun UnifiedStudioPane(
             ResultPane(
                 state = state,
                 liveLog = liveLog,
+                generationStartedAtMs = generationStartedAtMs,
                 onCancel = { viewModel.forceStop() },
                 onRetry = {
                     viewModel.clearResult()

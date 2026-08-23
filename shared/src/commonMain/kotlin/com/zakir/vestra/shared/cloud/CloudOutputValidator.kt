@@ -21,6 +21,22 @@ object CloudOutputValidator {
         }
     }
 
+    /**
+     * Structural + optional content-quality rejection (blank-frame on Android).
+     * Used by cloud download paths and HF Inference before surfacing success.
+     */
+    fun rejectReason(
+        bytes: ByteArray,
+        isVideo: Boolean = false,
+        checkContent: Boolean = true,
+    ): String? {
+        validate(bytes, isVideo = isVideo)?.let { return it }
+        if (!isVideo && checkContent) {
+            validateImageContentPlatform(bytes)?.let { return it }
+        }
+        return null
+    }
+
     fun validateAudio(bytes: ByteArray): String? {
         if (bytes.isEmpty()) return "Downloaded audio is empty"
         if (bytes.size < MIN_AUDIO_BYTES) return "Downloaded audio is too small (${bytes.size} bytes)"

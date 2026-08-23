@@ -256,7 +256,10 @@ class GenerativeCloudService(
                                         hfToken = token,
                                     )
                                 }
-                                CloudOutputValidator.validate(bytes)?.let {
+                                CloudOutputValidator.rejectReason(
+                                    bytes,
+                                    checkContent = assists.qualityGuard,
+                                )?.let {
                                     throw CloudFailureException(CloudFailure.BadOutput)
                                 }
                                 io.downloadResult(

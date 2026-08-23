@@ -1,5 +1,6 @@
 package com.zakir.vestra.shared.engine.lite
 
+import com.zakir.vestra.shared.engine.pro.OrtGraph
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -8,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object OrtSessionCache {
     private val cache = ConcurrentHashMap<String, OrtModel>()
+    private val graphCache = ConcurrentHashMap<String, OrtGraph>()
 
     fun open(modelPath: String): OrtModel =
         cache.getOrPut(modelPath) {
@@ -15,14 +17,25 @@ object OrtSessionCache {
             OrtModel(modelPath)
         }
 
+    /** Multi-input Pro / local-image graphs — reused across denoise steps and generations. */
+    fun openGraph(modelPath: String): OrtGraph =
+        graphCache.getOrPut(modelPath) {
+            OrtGraph(modelPath)
+        }
+
     fun invalidateContaining(packRoot: String) {
         cache.keys.filter { it.startsWith(packRoot) }.forEach { key ->
             cache.remove(key)?.close()
+        }
+        graphCache.keys.filter { it.startsWith(packRoot) }.forEach { key ->
+            graphCache.remove(key)?.close()
         }
     }
 
     fun clearAll() {
         cache.values.forEach { it.close() }
         cache.clear()
+        graphCache.values.forEach { it.close() }
+        graphCache.clear()
     }
 }

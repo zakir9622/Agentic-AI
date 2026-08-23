@@ -72,6 +72,7 @@ fun AudioStudioPane(
     val prompt by viewModel.prompt.collectAsState()
     val state by viewModel.state.collectAsState()
     val liveLog by viewModel.liveLog.collectAsState()
+    val generationStartedAtMs by viewModel.generationStartedAtMs.collectAsState()
     val preflight by viewModel.preflightMessage.collectAsState()
     val personaId by viewModel.voicePersonaId.collectAsState()
     val knobs by viewModel.voiceKnobs.collectAsState()
@@ -307,6 +308,7 @@ fun AudioStudioPane(
         ResultPane(
             state = state,
             liveLog = liveLog,
+            generationStartedAtMs = generationStartedAtMs,
             onRetry = {
                 if (reference != null && prompt.equals("voice-change", true)) {
                     viewModel.applyVoiceChange()

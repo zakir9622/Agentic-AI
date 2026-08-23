@@ -8,6 +8,14 @@ import kotlin.test.assertTrue
 class CloudFailureTest {
 
     @Test
+    fun blankFrameClassifiesAsBadOutput() {
+        val failure = CloudFailureClassifier.fromMessage("Downloaded image looks blank (low variance)")
+        assertEquals(CloudFailure.BadOutput, failure)
+        assertTrue(failure.retryVariants)
+        assertFalse(failure.advanceModel)
+    }
+
+    @Test
     fun routeUnsupportedAdvancesModel() {
         val failure = CloudFailureClassifier.fromMessage("HTTP 400: Model not supported by provider nscale")
         assertEquals(CloudFailure.RouteUnsupported, failure)

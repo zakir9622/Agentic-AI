@@ -64,11 +64,8 @@ class AndroidCloudIo(
         if (isAudio) {
             CloudOutputValidator.validateAudio(bytes)?.let { reason -> error(reason) }
         } else {
-            CloudOutputValidator.validate(bytes, isVideo = isVideo)?.let { reason ->
+            CloudOutputValidator.rejectReason(bytes, isVideo = isVideo)?.let { reason ->
                 error(reason)
-            }
-            if (!isVideo) {
-                BlankFrameDetector.rejectIfBlank(bytes)?.let { reason -> error(reason) }
             }
         }
         val dir = File(context.filesDir, "generations").apply { mkdirs() }

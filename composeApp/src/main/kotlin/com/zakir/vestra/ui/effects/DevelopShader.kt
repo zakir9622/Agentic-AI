@@ -68,7 +68,16 @@ half4 main(float2 coord) {
 """
 
 @Composable
-fun DevelopStage(progress: Float, modifier: Modifier = Modifier) {
+fun DevelopStage(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    reduceMotion: Boolean = false,
+) {
+    if (reduceMotion) {
+        FallbackScanline(progress = progress, time = 0f, modifier = modifier)
+        return
+    }
+
     val transition = rememberInfiniteTransition(label = "develop")
     val time by transition.animateFloat(
         initialValue = 0f,

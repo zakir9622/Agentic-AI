@@ -1,6 +1,7 @@
 package com.zakir.vestra.ui.screens.generate
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -39,8 +40,10 @@ import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
 import com.zakir.vestra.ui.TryOnViewModel
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
+import com.zakir.vestra.ui.components.LiveGenConsole
 import com.zakir.vestra.ui.effects.DevelopStage
 import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.util.rememberReduceMotion
 
 @Composable
 fun GenerationScreen(
@@ -50,7 +53,10 @@ fun GenerationScreen(
     onOpenHelp: (() -> Unit)? = null,
 ) {
     val shoot by viewModel.shoot.collectAsState()
+    val liveLog by viewModel.liveLog.collectAsState()
+    val generationStartedAtMs by viewModel.generationStartedAtMs.collectAsState()
     val haptics = LocalHapticFeedback.current
+    val reduceMotion = rememberReduceMotion()
 
     fun abortGeneration() {
         viewModel.cancelShoot()
@@ -126,11 +132,12 @@ fun GenerationScreen(
                         }
                         val animatedShot by animateFloatAsState(
                             targetValue = shotFraction,
-                            animationSpec = tween(450),
+                            animationSpec = if (reduceMotion) snap() else tween(450),
                             label = "shot",
                         )
                         DevelopStage(
                             progress = animatedShot,
+                            reduceMotion = reduceMotion,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(14.dp))
@@ -154,7 +161,7 @@ fun GenerationScreen(
                 }
                 val animatedOverall by animateFloatAsState(
                     targetValue = overall,
-                    animationSpec = tween(450),
+                    animationSpec = if (reduceMotion) snap() else tween(450),
                     label = "overall",
                 )
                 androidx.compose.material3.LinearProgressIndicator(
@@ -166,12 +173,20 @@ fun GenerationScreen(
                     trackColor = VestraColors.GlassBorder,
                 )
                 Spacer(Modifier.height(16.dp))
+                val elapsedSec = generationStartedAtMs?.let { start ->
+                    ((System.currentTimeMillis() - start) / 1_000L).coerceAtLeast(0L)
+                }
+                val statusLine = buildString {
+                    append(label)
+                    if (elapsedSec != null) append(" · ${elapsedSec}s elapsed")
+                }
                 Text(
-                    text = label,
+                    text = statusLine,
                     style = MaterialTheme.typography.bodyLarge,
                     color = VestraColors.Ivory,
                     textAlign = TextAlign.Center,
                 )
+                LiveGenConsole(liveLog, generationStartedAtMs)
                 Spacer(Modifier.height(20.dp))
                 GlassSecondaryButton(
                     text = LookbookCopy.ACTION_CANCEL_GENERATION,
