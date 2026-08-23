@@ -64,9 +64,7 @@ fun UnifiedStudioPane(
     packManager: ModelPackManager? = null,
 ) {
     LaunchedEffect(capability) {
-        if (!viewModel.isBusy) {
-            viewModel.prepareStudio(resetIfIdle = true)
-        }
+        viewModel.bindStudio(capability)
     }
 
     val prompt by viewModel.prompt.collectAsState()
@@ -348,25 +346,27 @@ fun UnifiedStudioPane(
         }
 
         Spacer(Modifier.height(12.dp))
-        val failedMsg = (state as? GenerativeState.Failed)?.message.orEmpty()
-        val quotaOrCredits = failedMsg.contains("ZeroGPU", ignoreCase = true) ||
-            failedMsg.contains("monthly credits", ignoreCase = true) ||
-            failedMsg.contains("Inference Providers", ignoreCase = true)
-        ResultPane(
-            state = state,
-            liveLog = liveLog,
-            onCancel = { viewModel.forceStop() },
-            onRetry = {
-                viewModel.clearResult()
-                if (quotaOrCredits) {
-                    showModelPicker = true
-                } else {
-                    onGenerate()
-                }
-            },
-            retryLabel = if (quotaOrCredits) "Choose model" else LookbookCopy.ACTION_RETRY,
-            onDismiss = viewModel::clearResult,
-        )
+        if (viewModel.resultBelongsTo(effectiveCapability) || viewModel.resultBelongsTo(capability)) {
+            val failedMsg = (state as? GenerativeState.Failed)?.message.orEmpty()
+            val quotaOrCredits = failedMsg.contains("ZeroGPU", ignoreCase = true) ||
+                failedMsg.contains("monthly credits", ignoreCase = true) ||
+                failedMsg.contains("Inference Providers", ignoreCase = true)
+            ResultPane(
+                state = state,
+                liveLog = liveLog,
+                onCancel = { viewModel.forceStop() },
+                onRetry = {
+                    viewModel.clearResult()
+                    if (quotaOrCredits) {
+                        showModelPicker = true
+                    } else {
+                        onGenerate()
+                    }
+                },
+                retryLabel = if (quotaOrCredits) "Choose model" else LookbookCopy.ACTION_RETRY,
+                onDismiss = viewModel::clearResult,
+            )
+        }
         Spacer(Modifier.height(24.dp))
     }
 

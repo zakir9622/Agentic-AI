@@ -25,7 +25,6 @@ import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.local.LocalModelEntry
-import com.zakir.vestra.shared.packs.PackHandshakeResult
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -190,19 +189,6 @@ internal fun LazyListScope.settingsEnginesSection(
                         null -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
-                if (handshakeOk == true) {
-                    Text(
-                        PackHandshakeResult.SIGNAL_OK,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                } else if (handshakeOk == false) {
-                    Text(
-                        PackHandshakeResult.SIGNAL_FAIL,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
             }
         }
         Spacer(Modifier.height(14.dp))

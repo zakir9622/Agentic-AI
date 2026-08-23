@@ -88,6 +88,63 @@ class GenerativeViewModel(
     private var job: Job? = null
     private var generationEpoch = 0
 
+    /** Which studio produced the current [state] — panes hide foreign results. */
+    private val _resultCapability = MutableStateFlow<AiCapability?>(null)
+    val resultCapability: StateFlow<AiCapability?> = _resultCapability
+
+    /** Per-studio prompt/result bags so pager tabs do not wipe each other. */
+    private data class StudioBag(
+        var prompt: String = "",
+        var referenceUri: String? = null,
+        var state: GenerativeState? = null,
+        var liveLog: List<String> = emptyList(),
+        var preflightMessage: String? = null,
+        var lastUsedProviderId: String? = null,
+        var resultCapability: AiCapability? = null,
+        var job: Job? = null,
+        var generationEpoch: Int = 0,
+    )
+
+    private val bags = mutableMapOf<AiCapability, StudioBag>()
+    private var boundKey: AiCapability = AiCapability.IMAGE_GEN
+
+    private fun studioKey(capability: AiCapability): AiCapability =
+        if (capability == AiCapability.IMAGE_EDIT) AiCapability.IMAGE_GEN else capability
+
+    private fun bag(key: AiCapability = boundKey): StudioBag =
+        bags.getOrPut(key) { StudioBag() }
+
+    /**
+     * Switch the visible studio session. Does **not** clear sibling tabs.
+     * Call from pager pages instead of [prepareStudio].
+     */
+    fun bindStudio(capability: AiCapability) {
+        val key = studioKey(capability)
+        if (key == boundKey) return
+        val cur = bag()
+        cur.prompt = _prompt.value
+        cur.referenceUri = _referenceUri.value
+        cur.state = _state.value
+        cur.liveLog = _liveLog.value
+        cur.preflightMessage = _preflightMessage.value
+        cur.lastUsedProviderId = _lastUsedProviderId.value
+        cur.resultCapability = _resultCapability.value
+        cur.job = job
+        cur.generationEpoch = generationEpoch
+
+        boundKey = key
+        val next = bag()
+        job = next.job
+        generationEpoch = next.generationEpoch
+        _prompt.value = next.prompt
+        _referenceUri.value = next.referenceUri
+        _state.value = next.state
+        _liveLog.value = next.liveLog
+        _preflightMessage.value = next.preflightMessage
+        _lastUsedProviderId.value = next.lastUsedProviderId
+        _resultCapability.value = next.resultCapability
+    }
+
     val isBusy: Boolean
         get() {
             val s = _state.value
@@ -159,6 +216,22 @@ class GenerativeViewModel(
         _preflightMessage.value = null
         _prompt.value = ""
         _referenceUri.value = null
+        _resultCapability.value = null
+        val cur = bag()
+        cur.prompt = ""
+        cur.referenceUri = null
+        cur.state = null
+        cur.liveLog = emptyList()
+        cur.preflightMessage = null
+        cur.resultCapability = null
+    }
+
+    /** True when [state] belongs to this studio (or shared Image Create/Edit). */
+    fun resultBelongsTo(capability: AiCapability): Boolean {
+        val owned = _resultCapability.value ?: return _state.value != null
+        val want = studioKey(capability)
+        val have = studioKey(owned)
+        return want == have
     }
 
     fun preflightLabel(capability: AiCapability): String? {
@@ -201,9 +274,10 @@ class GenerativeViewModel(
         }
         _prompt.value = p
         val capability = if (_referenceUri.value == null) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
+        val offline = !appSettings.networkLikelyAvailable()
         val bypassPreflight = when {
-            _referenceUri.value == null && generative.localImageReady() -> true
-            _referenceUri.value != null && generative.localImageEditReady() -> true
+            offline && _referenceUri.value == null && generative.localImageReady() -> true
+            offline && _referenceUri.value != null && generative.localImageEditReady() -> true
             else -> false
         }
         if (!bypassPreflight) {
@@ -223,6 +297,7 @@ class GenerativeViewModel(
         startGeneration(
             capability = if (_referenceUri.value == null) RunCapability.IMAGE_GEN else RunCapability.IMAGE_EDIT,
             modelLabel = if (bypassPreflight) localLabel else appSettings.selectedProvider(capability).displayName,
+            studio = capability,
         ) {
             generative.generateImage(p, _referenceUri.value, currentAssists())
         }
@@ -235,7 +310,7 @@ class GenerativeViewModel(
             return
         }
         _prompt.value = p
-        val bypassPreflight = generative.localCodeReady()
+        val bypassPreflight = generative.localCodeReady() && !appSettings.networkLikelyAvailable()
         if (!bypassPreflight) {
             when (val check = appSettings.preflight(AiCapability.CODE)) {
                 is PreflightResult.Blocked -> {
@@ -246,8 +321,9 @@ class GenerativeViewModel(
             }
         }
         startGeneration(
-            RunCapability.CODE,
-            if (bypassPreflight) "Local Gemma (offline)" else appSettings.selectedProvider(AiCapability.CODE).displayName,
+            capability = RunCapability.CODE,
+            modelLabel = if (bypassPreflight) "Local Gemma (offline)" else appSettings.selectedProvider(AiCapability.CODE).displayName,
+            studio = AiCapability.CODE,
         ) {
             generative.generateCode(p, currentAssists())
         }
@@ -285,7 +361,11 @@ class GenerativeViewModel(
             generative.localAudioReady() -> "Device TTS (offline)"
             else -> appSettings.selectedProvider(AiCapability.AUDIO).displayName
         }
-        startGeneration(RunCapability.AUDIO, modelLabel) {
+        startGeneration(
+            capability = RunCapability.AUDIO,
+            modelLabel = modelLabel,
+            studio = AiCapability.AUDIO,
+        ) {
             generative.generateAudio(
                 prompt = p,
                 persona = persona,
@@ -304,7 +384,11 @@ class GenerativeViewModel(
         }
         _prompt.value = "voice-change"
         _preflightMessage.value = null
-        startGeneration(RunCapability.AUDIO, "Local voice changer") {
+        startGeneration(
+            capability = RunCapability.AUDIO,
+            modelLabel = "Local voice changer",
+            studio = AiCapability.AUDIO,
+        ) {
             generative.generateAudio(
                 prompt = "voice-change",
                 persona = com.zakir.vestra.shared.audio.VoiceCatalog.byId(_voicePersonaId.value),
@@ -321,7 +405,7 @@ class GenerativeViewModel(
             return
         }
         _prompt.value = p
-        val bypassPreflight = generative.localVideoReady()
+        val bypassPreflight = generative.localVideoReady() && !appSettings.networkLikelyAvailable()
         if (!bypassPreflight) {
             when (val check = appSettings.preflight(AiCapability.VIDEO)) {
                 is PreflightResult.Blocked -> {
@@ -332,8 +416,13 @@ class GenerativeViewModel(
             }
         }
         startGeneration(
-            RunCapability.VIDEO,
-            if (bypassPreflight) "Local still-clip (offline)" else appSettings.selectedProvider(AiCapability.VIDEO).displayName,
+            capability = RunCapability.VIDEO,
+            modelLabel = if (bypassPreflight) {
+                "Local still-clip (offline)"
+            } else {
+                appSettings.selectedProvider(AiCapability.VIDEO).displayName
+            },
+            studio = AiCapability.VIDEO,
         ) {
             generative.generateVideo(p, currentAssists())
         }
@@ -372,12 +461,15 @@ class GenerativeViewModel(
     private fun startGeneration(
         capability: RunCapability,
         modelLabel: String?,
+        studio: AiCapability,
         block: () -> kotlinx.coroutines.flow.Flow<GenerativeState>,
     ) {
         job?.cancel()
         val epoch = ++generationEpoch
+        val studioKey = studioKey(studio)
         _preflightMessage.value = null
         _liveLog.value = emptyList()
+        _resultCapability.value = studio
         _state.value = GenerativeState.Preparing("Starting…")
         appendLive("Start · ${capability.name} · ${modelLabel ?: "model"}")
         val builder = runDiagnostics?.startRun(
@@ -392,6 +484,26 @@ class GenerativeViewModel(
             try {
                 block().collect { next ->
                     if (epoch != generationEpoch) return@collect
+                    if (boundKey != studioKey) {
+                        // User switched tabs — keep updating the owning bag only.
+                        val owner = bag(studioKey)
+                        owner.state = next
+                        when (next) {
+                            is GenerativeState.ImageReady,
+                            is GenerativeState.VideoReady,
+                            is GenerativeState.AudioReady,
+                            is GenerativeState.CodeReady,
+                            -> owner.lastUsedProviderId = when (next) {
+                                is GenerativeState.ImageReady -> next.providerId
+                                is GenerativeState.VideoReady -> next.providerId
+                                is GenerativeState.AudioReady -> next.providerId
+                                is GenerativeState.CodeReady -> next.providerId
+                                else -> owner.lastUsedProviderId
+                            }
+                            else -> Unit
+                        }
+                        return@collect
+                    }
                     _state.value = next
                     when (next) {
                         is GenerativeState.Preparing -> appendLive(next.message)
@@ -437,12 +549,30 @@ class GenerativeViewModel(
             } catch (e: Exception) {
                 if (epoch == generationEpoch) {
                     val msg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
-                    appendLive("Error · $msg")
-                    _state.value = GenerativeState.Failed(msg)
+                    if (boundKey == studioKey) {
+                        appendLive("Error · $msg")
+                        _state.value = GenerativeState.Failed(msg)
+                    } else {
+                        bag(studioKey).state = GenerativeState.Failed(msg)
+                    }
                     builder?.complete(success = false, error = msg)
                 }
+            } finally {
+                if (boundKey == studioKey) {
+                    bag().job = null
+                    bag().generationEpoch = generationEpoch
+                    bag().state = _state.value
+                    bag().liveLog = _liveLog.value
+                    bag().lastUsedProviderId = _lastUsedProviderId.value
+                    bag().resultCapability = _resultCapability.value
+                } else {
+                    bag(studioKey).job = null
+                }
+                if (job?.isActive != true) job = null
             }
         }
+        bag(studioKey).job = job
+        bag(studioKey).generationEpoch = epoch
     }
 
     private fun ingestCreateImage(path: String, label: String) {

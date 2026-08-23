@@ -302,7 +302,7 @@ fun HomeScreen(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
-                beyondViewportPageCount = 1,
+                beyondViewportPageCount = 0,
             ) { page ->
                 when (tabs[page]) {
                     HomeTab.TRY_ON -> TryOnPage(

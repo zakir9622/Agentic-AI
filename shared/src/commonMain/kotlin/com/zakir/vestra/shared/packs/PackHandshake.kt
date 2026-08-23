@@ -74,12 +74,22 @@ object PackHandshakeWires {
     }
 
     fun formatDetail(result: PackHandshakeResult): String = buildString {
-        append(result.signal)
-        append(" · ")
-        append(result.message)
-        if (result.wires.isNotEmpty() && result.ok) {
-            append(" · wires: ")
-            append(result.wires.joinToString(", "))
+        if (result.ok) {
+            append("Linked to this device")
+            if (result.wires.isNotEmpty()) {
+                append(" · ")
+                append(result.wires.joinToString(", "))
+            }
+        } else {
+            append(result.message)
         }
     }
+
+    /** Short chip for Settings / Packs (no machine ACK codes). */
+    fun formatUserSummary(result: PackHandshakeResult): String =
+        if (result.ok) {
+            "Ready · ${result.displayName}"
+        } else {
+            "Not linked · ${result.message.take(80)}"
+        }
 }

@@ -7,13 +7,13 @@ object LookbookCopy {
     const val PRODUCT_NAME = "The Lookbook"
     const val PRODUCT_TAGLINE = "Modest fashion atelier · on-device AI"
     const val PRODUCT_BLURB =
-        "Enterprise-ready virtual try-on for modest wear. Run Lite or Pro packs fully offline, " +
-            "or connect free-tier cloud studios for images, video, and code assist."
+        "Modest fashion atelier with true on-device AI. Try-on, Image Create/Edit, Video still-clips, " +
+            "Code (Gemma), and Speak run offline after you download Model packs — cloud studios stay optional."
 
     const val STUDIO_HOME = "Atelier"
     const val STUDIO_TRY_ON = "Virtual try-on"
     const val STUDIO_IMAGE = "Image studio"
-    const val STUDIO_VIDEO = "Video studio"
+    const val STUDIO_VIDEO = "Clip studio"
     const val STUDIO_CODE = "Code studio"
     const val STUDIO_AUDIO = "Audio studio"
     const val STUDIO_WARDROBE = "Looks gallery"
@@ -87,17 +87,17 @@ object HelpCatalog {
             id = "start-image",
             category = "Getting started",
             question = "What is Image studio?",
-            answer = "Image studio generates or recreates stills with free Hugging Face Spaces. " +
-                "Enter a prompt, optionally attach a reference photo, enable assists, then tap Generate. " +
-                "Select the cloud image model under Settings → Image generation.",
+            answer = "Image studio creates or edits stills on-device with local-sdturbo-v1 (Settings → Model packs), " +
+                "or via free Hugging Face Spaces/Inference when you prefer cloud. " +
+                "Attach a reference photo for Edit. Tap Verify link after download to confirm the pack is wired.",
         ),
         HelpTopic(
             id = "start-video-code",
             category = "Getting started",
-            question = "How do Video and Code studios work?",
-            answer = "Video studio renders short clips on free HF Spaces (queues are common at peak). " +
-                "Code studio uses free Groq, Hugging Face Inference, or OpenRouter keys. " +
-                "Save the matching API key in Settings before running either studio.",
+            question = "How do Clip and Code studios work?",
+            answer = "Clip studio can encode a short on-device still-clip from local-sdturbo-v1, or use free HF Spaces for cloud video. " +
+                "Code studio runs local Gemma (local-gemma-v1 pack) offline, or Groq / HF / OpenRouter with your API keys. " +
+                "Download packs once, then Verify link for a device handshake.",
         ),
         HelpTopic(
             id = "packs-offline",
@@ -105,7 +105,8 @@ object HelpCatalog {
             question = "How do Lite and Pro packs work offline?",
             answer = "Download a pack from Settings → Model packs or All packs. " +
                 "After install, try-on runs on-device with no network. " +
-                "Enable durable storage so Documents/TheLookbook/packs survives uninstall and avoids re-downloading multi-GB files.",
+                "Also download local-sdturbo-v1 (Create/Edit/Clip) and local-gemma-v1 (Code) for full offline studios. " +
+                "Enable durable storage so Documents/TheLookbook/packs survives uninstall.",
         ),
         HelpTopic(
             id = "packs-resume",

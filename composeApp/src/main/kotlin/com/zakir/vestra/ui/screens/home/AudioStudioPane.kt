@@ -66,7 +66,7 @@ fun AudioStudioPane(
     packManager: ModelPackManager? = null,
 ) {
     LaunchedEffect(Unit) {
-        if (!viewModel.isBusy) viewModel.prepareStudio(resetIfIdle = true)
+        viewModel.bindStudio(AiCapability.AUDIO)
     }
 
     val prompt by viewModel.prompt.collectAsState()

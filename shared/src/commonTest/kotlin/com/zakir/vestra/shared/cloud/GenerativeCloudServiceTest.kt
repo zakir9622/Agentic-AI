@@ -257,7 +257,9 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val http = httpClient(engine)
-        val settings = AppSettings(TestMemorySettings())
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
         val service = GenerativeCloudService(
             http,
             FakeIo(),
@@ -269,7 +271,7 @@ class GenerativeCloudServiceTest {
         val ready = states.filterIsInstance<GenerativeState.ImageReady>().single()
         assertEquals("local-sdturbo-v1", ready.providerId)
         assertEquals("/tmp/local.png", ready.path)
-        assertTrue(!httpCalled, "Cloud HTTP should not run when local image succeeds")
+        assertTrue(!httpCalled, "Cloud HTTP should not run when local image succeeds offline")
     }
 
     @Test
@@ -331,7 +333,9 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val http = httpClient(engine)
-        val settings = AppSettings(TestMemorySettings())
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
         val service = GenerativeCloudService(
             http,
             FakeIo(),
@@ -356,7 +360,9 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val http = httpClient(engine)
-        val settings = AppSettings(TestMemorySettings())
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
         val service = GenerativeCloudService(
             http,
             FakeIo(),
@@ -379,7 +385,9 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val http = httpClient(engine)
-        val settings = AppSettings(TestMemorySettings())
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
         val service = GenerativeCloudService(
             http,
             FakeIo(),
