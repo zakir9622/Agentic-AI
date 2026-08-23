@@ -1,5 +1,10 @@
 # Changelog — The Lookbook
 
+## CI / releases
+- **Release APK only on `main`:** merges/pushes to main publish the rolling `latest` GitHub Release
+- Feature-branch pushes no longer create preview releases (PR runs Android CI checks only)
+- Publishing `latest` prunes any other leftover release tags
+
 ## 3.1.0-rc9
 - **Pack device handshake:** Settings → Engines & packs and Model packs gain **Verify link** / **Verify all**
 - Re-checks files + graphs on device and returns `HANDSHAKE_OK` / `HANDSHAKE_FAIL` with wired studios listed
