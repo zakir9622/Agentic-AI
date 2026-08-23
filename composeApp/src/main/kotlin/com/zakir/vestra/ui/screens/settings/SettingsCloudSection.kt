@@ -169,16 +169,8 @@ internal fun LazyListScope.settingsCloudCapabilitiesSection(
     videoId: String,
     audioId: String,
 ) {
-    item(key = "cap-tryon") {
-        CloudCapabilityDropdown(
-            title = "CLOUD TRY-ON",
-            capability = AiCapability.TRY_ON,
-            selectedId = tryOnId,
-            appSettings = appSettings,
-            discovery = freeCloudDiscovery,
-            onSelect = appSettings::setCloudProvider,
-        )
-    }
+    // Try-on cloud model row hidden while try-on is temporarily disabled app-wide
+    // (see HomeTab.TRY_ON_TAB_ENABLED). Re-add the item(key = "cap-tryon") block to restore.
     item(key = "cap-gen") {
         CloudCapabilityDropdown(
             title = "IMAGE GENERATION",

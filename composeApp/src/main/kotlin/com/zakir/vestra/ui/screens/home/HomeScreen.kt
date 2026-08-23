@@ -85,6 +85,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class HomeTab(val label: String, val routeKey: String) {
+    // Try-on is temporarily disabled app-wide — kept in the enum (not deleted) so the try-on
+    // engines/routes/tests keep compiling and it's a one-line revert to bring the tab back.
+    // To re-enable: flip TRY_ON_TAB_ENABLED to true below.
     TRY_ON("Try-on", "tryon"),
     IMAGE("Image", "image"),
     VIDEO("Video", "video"),
@@ -94,8 +97,13 @@ private enum class HomeTab(val label: String, val routeKey: String) {
     ;
 
     companion object {
+        /** Temporarily off while try-on is disabled app-wide. Flip to bring the tab back. */
+        const val TRY_ON_TAB_ENABLED = false
+
+        val visible: List<HomeTab> = entries.filter { TRY_ON_TAB_ENABLED || it != TRY_ON }
+
         fun fromRouteKey(key: String?): HomeTab =
-            entries.firstOrNull { it.routeKey.equals(key, ignoreCase = true) } ?: TRY_ON
+            visible.firstOrNull { it.routeKey.equals(key, ignoreCase = true) } ?: visible.first()
     }
 }
 
@@ -171,13 +179,13 @@ fun HomeScreen(
         append(tryOnModel)
     }
 
-    val tabs = HomeTab.entries
-    val initialPage = HomeTab.fromRouteKey(initialTabRoute).ordinal
+    val tabs = HomeTab.visible
+    val initialPage = tabs.indexOf(HomeTab.fromRouteKey(initialTabRoute)).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(initialTabRoute) {
-        val target = HomeTab.fromRouteKey(initialTabRoute).ordinal
+        val target = tabs.indexOf(HomeTab.fromRouteKey(initialTabRoute)).coerceAtLeast(0)
         if (pagerState.currentPage != target) {
             pagerState.scrollToPage(target)
         }
@@ -191,7 +199,7 @@ fun HomeScreen(
         }
         onOpenNewsChat(headline)
         scope.launch {
-            pagerState.animateScrollToPage(HomeTab.NEWS.ordinal)
+            pagerState.animateScrollToPage(tabs.indexOf(HomeTab.NEWS))
         }
     }
 

@@ -341,11 +341,8 @@ fun VestraNavHost(
             WardrobeScreen(
                 wardrobe = wardrobe,
                 onBack = { navController.popBackStack() },
-                onStartTryOn = {
-                    navController.navigate(Routes.GARMENT) {
-                        popUpTo(Routes.studioHome())
-                    }
-                },
+                // onStartTryOn omitted (defaults to null) while try-on is temporarily
+                // disabled app-wide — restores the empty-state CTA when re-added.
             )
         }
         composable(
