@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
@@ -150,15 +151,19 @@ fun NewsChatScreen(
                 Text("No headlines yet — refresh or start a chat below.", style = MaterialTheme.typography.bodyMedium, color = VestraColors.InkMuted)
             }
         } else {
-            newsItems.take(8).forEach { item ->
-                Spacer(Modifier.height(8.dp))
+            newsItems.take(5).forEach { item ->
+                Spacer(Modifier.height(6.dp))
                 GlassCard(onClick = {
                     chatInput = "Discuss this headline for modest fashion and on-device AI: ${item.title}"
                     onHeadlineSelected(item.title)
                 }) {
-                    Text(item.source, style = MaterialTheme.typography.labelSmall, color = VestraColors.Accent)
-                    Spacer(Modifier.height(4.dp))
-                    Text(item.title, style = MaterialTheme.typography.titleMedium, color = VestraColors.Ink)
+                    Text(
+                        "${item.source} · ${item.title}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VestraColors.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -167,11 +172,21 @@ fun NewsChatScreen(
             Spacer(Modifier.height(20.dp))
             GlassSectionLabel("CHAT")
             chatMessages.takeLast(6).forEach { msg ->
+                val isUser = msg.role == "user"
                 Spacer(Modifier.height(8.dp))
-                GlassCard {
-                    Text(msg.role.uppercase(), style = MaterialTheme.typography.labelSmall, color = VestraColors.Accent)
-                    Spacer(Modifier.height(4.dp))
-                    Text(msg.text, style = MaterialTheme.typography.bodyMedium, color = VestraColors.Ink)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+                ) {
+                    GlassCard(modifier = Modifier.fillMaxWidth(0.86f)) {
+                        Text(
+                            if (isUser) "YOU" else "ASSISTANT",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isUser) VestraColors.InkMuted else VestraColors.Accent,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(msg.text, style = MaterialTheme.typography.bodyMedium, color = VestraColors.Ink)
+                    }
                 }
             }
             if (chatError != null) {
