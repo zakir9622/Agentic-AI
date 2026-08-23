@@ -6,7 +6,7 @@ Active roadmaps live in separate directories so parallel workstreams do not coll
 |-----------|--------|----------|-------|--------|
 | [`five-star-quality/`](five-star-quality/) | Post true-local rc9 audit | **v3.1.0-rc9 → rc10+** | Studio isolation, OrtGraph soft-fail, honesty UI, iterative 5★ cycles | **Active** |
 | [`generation-transparency/`](generation-transparency/) | Claude Code read-only audit (post rc9) | **v3.1.0-rc15** | On-device latency benchmark harness, Pro-pack export collision, OrtSessionCache in diffusion path, per-tab generation log + timer, reduced-motion coverage | **rc15 complete** — all code items; Pixel 9 benchmark run after install |
-| [`litert-lm-integration/`](litert-lm-integration/) | Google AI Edge Gallery / LiteRT-LM research | **v3.1.0-rc16** | Gemma 4 Code via LiteRT-LM, vision assist, optional STT/tools; MediaPipe deprecation | **Planned** — see L0–L4 in plan |
+| [`litert-lm-integration/`](litert-lm-integration/) | Google AI Edge Gallery / LiteRT-LM research | **v3.1.0-rc17** | Gemma 4 Code via LiteRT-LM, vision assist, optional STT/tools; MediaPipe fallback | **Implemented** @ rc17–rc18 |
 | [`true-local/`](true-local/) | Pixel-true offline engines | **v3.1.0-rc5…rc9** | System TTS + SD-Turbo + Gemma + still-clip + handshake | Merged to main |
 | [`big-release-r2/`](big-release-r2/) | True-limits release (ATR + UI + on-device scaffold) | **v3.1.0-rc1…rc4** | Full ATR Auto, fixture harness, Loom Ink UI, Audio Studio | Merged to main |
 | [`stable-release/`](stable-release/) | Cursor plan audit (post v3.0.3) | v3.0.4 → v3.0.16 | Honest stable cut + sideload | R0/R1 done; handoff to R2 |

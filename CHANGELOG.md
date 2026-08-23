@@ -1,5 +1,11 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc18
+- **Five-star Q3 rc18:** video offline hard-stop (parity with image/code); human handshake Toasts (no `HANDSHAKE_OK` leaks)
+- **Per-pack handshake:** verify one pack without locking all Verify buttons
+- **Video pack-in-use:** still-clip encode holds `local-sdturbo-v1` for full generate+encode
+- **Routing matrix tests:** online cloud-first, offline video/audio hard-stops
+
 ## 3.1.0-rc17
 - **LiteRT-LM deep integration:** warm engine cache (no per-shot cold load), 90s inference timeout
 - **Offline hard-stop:** Code Studio and Chat fail closed when offline without local pack

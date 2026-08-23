@@ -238,7 +238,7 @@ fun SettingsScreen(
         }
         mutableStateOf(preferred ?: localPackChoices.firstOrNull()?.packId.orEmpty())
     }
-    var handshakeBusy by remember { mutableStateOf(false) }
+    var handshakeBusyPackId by remember { mutableStateOf<String?>(null) }
     var handshakeDetail by remember { mutableStateOf<String?>(null) }
     var handshakeOk by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(selectedTier) {
@@ -359,56 +359,50 @@ fun SettingsScreen(
                     startDownload = startDownload,
                     onOpenPacks = onOpenPacks,
                     onOpenUsage = onOpenUsage,
-                    handshakeBusy = handshakeBusy,
+                    handshakeBusy = handshakeBusyPackId != null,
                     handshakeDetail = handshakeDetail,
                     handshakeOk = handshakeOk,
                     onHandshakeSelected = {
-                        if (handshakeBusy || selectedPackId.isBlank()) return@settingsEnginesSection
+                        if (handshakeBusyPackId != null || selectedPackId.isBlank()) return@settingsEnginesSection
                         scope.launch {
-                            handshakeBusy = true
+                            handshakeBusyPackId = selectedPackId
                             handshakeDetail = "Handshaking ${selectedPackId}…"
                             handshakeOk = null
                             val result = withContext(Dispatchers.Default) {
                                 packManager.handshake(selectedPackId)
                             }
-                            handshakeBusy = false
+                            handshakeBusyPackId = null
                             handshakeOk = result.ok
                             handshakeDetail = PackHandshakeWires.formatDetail(result)
                             Toast.makeText(
                                 context,
-                                "${result.signal} · ${result.displayName}",
+                                PackHandshakeWires.formatUserSummary(result),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }
                     },
                     onHandshakeAll = {
-                        if (handshakeBusy) return@settingsEnginesSection
+                        if (handshakeBusyPackId != null) return@settingsEnginesSection
                         scope.launch {
-                            handshakeBusy = true
+                            handshakeBusyPackId = "__all__"
                             handshakeDetail = "Handshaking all installed packs…"
                             handshakeOk = null
                             val report = withContext(Dispatchers.Default) {
                                 packManager.handshakeAll()
                             }
-                            handshakeBusy = false
+                            handshakeBusyPackId = null
                             handshakeOk = report.allOk && report.results.isNotEmpty()
                             handshakeDetail = buildString {
                                 append(report.summary)
                                 report.results.take(4).forEach { r ->
                                     append('\n')
-                                    append(r.signal)
-                                    append(' ')
-                                    append(r.packId)
-                                    if (r.ok && r.wires.isNotEmpty()) {
-                                        append(" → ")
-                                        append(r.wires.first())
-                                    }
+                                    append(PackHandshakeWires.formatUserSummary(r))
                                 }
                                 if (report.results.size > 4) {
                                     append("\n… +${report.results.size - 4} more")
                                 }
                             }
-                            Toast.makeText(context, report.signal + " · " + report.summary, Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, report.summary, Toast.LENGTH_LONG).show()
                         }
                     },
                 )

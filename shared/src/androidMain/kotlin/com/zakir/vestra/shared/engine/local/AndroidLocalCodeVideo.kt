@@ -20,6 +20,8 @@ import java.nio.ByteBuffer
 class AndroidLocalVideoGenerator(
     private val localImage: LocalImageGenerator,
     private val outputDir: File,
+    private val packs: ModelPackManager? = null,
+    private val packId: String = LocalSdturboPackValidator.PACK_ID,
 ) : LocalVideoGenerator {
 
     override fun isReady(): Boolean = localImage.isReady()
@@ -30,21 +32,26 @@ class AndroidLocalVideoGenerator(
                 "Install local-sdturbo-v1 from Model packs for offline video still-clips.",
             )
         }
-        return when (val image = localImage.generate(prompt, seed, referenceImageUri = null)) {
-            is LocalImageResult.Unavailable -> LocalVideoResult.Unavailable(image.reason)
-            is LocalImageResult.Ok -> runCatching {
-                val bitmap = BitmapFactory.decodeFile(image.imagePath)
-                    ?: error("Could not decode local image for video")
-                outputDir.mkdirs()
-                val out = File(outputDir, "local_vid_${System.currentTimeMillis()}.mp4")
-                encodeStillMp4(bitmap, out, durationMs = 2_500, fps = 8)
-                bitmap.recycle()
-                LocalVideoResult.Ok(out.absolutePath)
-            }.getOrElse { err ->
-                LocalVideoResult.Unavailable(
-                    err.message?.take(160) ?: "Local still-clip encode failed",
-                )
+        packs?.markPackInUse(packId)
+        return try {
+            when (val image = localImage.generate(prompt, seed, referenceImageUri = null)) {
+                is LocalImageResult.Unavailable -> LocalVideoResult.Unavailable(image.reason)
+                is LocalImageResult.Ok -> runCatching {
+                    val bitmap = BitmapFactory.decodeFile(image.imagePath)
+                        ?: error("Could not decode local image for video")
+                    outputDir.mkdirs()
+                    val out = File(outputDir, "local_vid_${System.currentTimeMillis()}.mp4")
+                    encodeStillMp4(bitmap, out, durationMs = 2_500, fps = 8)
+                    bitmap.recycle()
+                    LocalVideoResult.Ok(out.absolutePath)
+                }.getOrElse { err ->
+                    LocalVideoResult.Unavailable(
+                        err.message?.take(160) ?: "Local still-clip encode failed",
+                    )
+                }
             }
+        } finally {
+            packs?.markPackIdle(packId)
         }
     }
 

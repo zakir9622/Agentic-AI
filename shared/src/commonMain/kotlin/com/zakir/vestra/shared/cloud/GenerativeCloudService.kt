@@ -695,6 +695,15 @@ class GenerativeCloudService(
                         return@flow
                     }
                     is LocalVideoResult.Unavailable -> {
+                        if (!settings.networkLikelyAvailable()) {
+                            emit(
+                                GenerativeState.Failed(
+                                    "You're offline and the on-device still-clip couldn't run. " +
+                                        local.reason,
+                                ),
+                            )
+                            return@flow
+                        }
                         emit(
                             GenerativeState.Running(
                                 0.1f,
@@ -706,11 +715,12 @@ class GenerativeCloudService(
             }
             if (!settings.networkLikelyAvailable()) {
                 emit(
-                    GenerativeState.Running(
-                        0.05f,
-                        "Network probe uncertain — trying cloud anyway…",
+                    GenerativeState.Failed(
+                        "You're offline. Install local-sdturbo-v1 from Model packs " +
+                            "for offline video still-clips.",
                     ),
                 )
+                return@flow
             }
             val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health)
             val variants = visualPromptVariants(prompt, assists)

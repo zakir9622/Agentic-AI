@@ -119,18 +119,20 @@ Each cycle:
 
 ---
 
-## Q3 checklist (active · rc13)
+## Q3 checklist (active · rc18)
 
 - [ ] Run [DEVICE_MATRIX.md](./DEVICE_MATRIX.md) on Pixel 8/9 with `latest` APK
-- [x] Automated routing matrix tests (offline + online `prefersLocal`)
+- [x] Automated routing matrix tests (offline + online `prefersLocal` + cloud-first regression)
 - [x] Hide non-runnable scaffolds from studio ON-DEVICE picker
 - [x] Audio ResultPane Cancel during generation
 - [x] Pro sticky graph-incompat (`markGraphIncompatible`) + handshake UNet probe
 - [x] Skip legacy Pro after ControlNet ORT incompat (AUTO→Lite one shot)
-- [ ] Scorecard ≥4.5 average → tag **3.1.0** (or open Q4 for polish gaps)
+- [x] U5 — Human handshake labels in Toasts (no machine ACK strings)
+- [x] Video offline hard-stop when no local pack
+- [ ] Scorecard ≥4.5 average → tag **3.1.0** (device matrix pending)
 - [ ] Confirm Pro AUTO→Lite on device with installed `pro-v1`
 
-**Interim builds:** rc12 polish · **rc13** Pro graph probe.
+**Interim builds:** rc12 polish · rc13 Pro graph probe · **rc18** offline parity + handshake UX.
 
 ---
 

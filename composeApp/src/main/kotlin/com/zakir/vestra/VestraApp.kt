@@ -211,6 +211,7 @@ class VestraApp : Application() {
             localVideo = com.zakir.vestra.shared.engine.local.AndroidLocalVideoGenerator(
                 localImageGen,
                 outputDir = generationsDir,
+                packs = packManager,
             ),
             localVision = com.zakir.vestra.shared.engine.local.AndroidLocalVisionAssist(
                 this,

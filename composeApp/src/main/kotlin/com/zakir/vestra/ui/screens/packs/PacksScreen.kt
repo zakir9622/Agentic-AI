@@ -54,7 +54,7 @@ fun PacksScreen(
     val scope = rememberCoroutineScope()
     val startDownload = rememberPackDownloadStarter(showToast = true)
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
-    var handshakeBusy by remember { mutableStateOf(false) }
+    var handshakeBusyPackId by remember { mutableStateOf<String?>(null) }
     var handshakeBanner by remember { mutableStateOf<String?>(null) }
     var handshakeBannerOk by remember { mutableStateOf<Boolean?>(null) }
     var packHandshake by remember { mutableStateOf<Map<String, PackHandshakeResult>>(emptyMap()) }
@@ -79,32 +79,32 @@ fun PacksScreen(
     }
 
     fun runHandshake(packId: String) {
-        if (handshakeBusy) return
+        if (handshakeBusyPackId != null) return
         scope.launch {
-            handshakeBusy = true
+            handshakeBusyPackId = packId
             handshakeBanner = "Handshaking $packId…"
             handshakeBannerOk = null
             val result = withContext(Dispatchers.Default) { packManager.handshake(packId) }
             packHandshake = packHandshake + (packId to result)
-            handshakeBusy = false
+            handshakeBusyPackId = null
             handshakeBannerOk = result.ok
             handshakeBanner = PackHandshakeWires.formatDetail(result)
-            Toast.makeText(context, "${result.signal} · ${result.displayName}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, PackHandshakeWires.formatUserSummary(result), Toast.LENGTH_SHORT).show()
         }
     }
 
     fun runHandshakeAll() {
-        if (handshakeBusy) return
+        if (handshakeBusyPackId != null) return
         scope.launch {
-            handshakeBusy = true
+            handshakeBusyPackId = "__all__"
             handshakeBanner = "Handshaking all installed packs…"
             handshakeBannerOk = null
             val report = withContext(Dispatchers.Default) { packManager.handshakeAll() }
             packHandshake = report.results.associateBy { it.packId }
-            handshakeBusy = false
+            handshakeBusyPackId = null
             handshakeBannerOk = report.allOk && report.results.isNotEmpty()
-            handshakeBanner = report.summary + " · " + report.signal
-            Toast.makeText(context, report.signal + " · " + report.summary, Toast.LENGTH_LONG).show()
+            handshakeBanner = report.summary
+            Toast.makeText(context, report.summary, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -142,10 +142,13 @@ fun PacksScreen(
         Spacer(Modifier.height(12.dp))
         OutlinedButton(
             onClick = ::runHandshakeAll,
-            enabled = !handshakeBusy && states.values.any { it.status == PackStatus.INSTALLED },
+            enabled = handshakeBusyPackId == null &&
+                states.values.any { it.status == PackStatus.INSTALLED },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(if (handshakeBusy) "Handshaking…" else "Verify all device links")
+            Text(
+                if (handshakeBusyPackId == "__all__") "Handshaking…" else "Verify all device links",
+            )
         }
         handshakeBanner?.let { banner ->
             Spacer(Modifier.height(8.dp))
@@ -188,7 +191,7 @@ fun PacksScreen(
             PackCard(
                 state = state,
                 handshake = packHandshake[state.pack.id],
-                handshakeBusy = handshakeBusy,
+                handshakeBusy = handshakeBusyPackId != null && handshakeBusyPackId != state.pack.id,
                 onInstall = { startDownload(state.pack.id) },
                 onHandshake = { runHandshake(state.pack.id) },
                 onCancel = {

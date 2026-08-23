@@ -685,6 +685,107 @@ class GenerativeCloudServiceTest {
     }
 
     @Test
+    fun videoGenHardStopsOfflineWhenNoLocalPack() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+        )
+        val states = service.generateVideo("abaya clip").toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun videoGenHardStopsOfflineWhenLocalFails() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localVideo = object : LocalVideoGenerator {
+                override fun isReady(): Boolean = true
+                override fun generate(prompt: String, seed: Long?) =
+                    LocalVideoResult.Unavailable("pack broken")
+            },
+        )
+        val states = service.generateVideo("abaya clip").toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun imageGenUsesCloudWhenOnlineWithoutPrefersLocal() = runTest {
+        var httpCalled = false
+        val engine = MockEngine { request ->
+            httpCalled = true
+            respond(
+                """{"data":[{"b64_json":"$validPngB64"}]}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { true }
+            setImageGenProvider("flux-schnell-hf")
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localImage = FakeLocalImage(),
+        )
+        val states = service.generateImage("emerald abaya", referenceUri = null).toList()
+        assertTrue(states.any { it is GenerativeState.ImageReady || it is GenerativeState.Failed })
+        assertTrue(httpCalled, "Online without prefersLocal must attempt cloud")
+    }
+
+    @Test
+    fun audioGenHardStopsOfflineWhenNoLocalTts() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+        )
+        val states = service.generateAudio(
+            prompt = "Hello",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+        ).toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
     fun audioScribePickerTranscribesAttachedClip() = runTest {
         val settings = AppSettings(TestMemorySettings()).apply {
             setLocalGenerator(AiCapability.AUDIO, LiteRtLmPacks.AUDIO_SCRIBE)
