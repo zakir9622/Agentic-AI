@@ -74,12 +74,35 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
 
     /**
      * Pro graphs (VAE / ControlNet / IP-Adapter) are hundreds of MB each.
-     * File-size checks in [verifyFiles] are the safe startup gate; skip session create.
+     * Startup verify only checks files exist; [verifyOnnxHandshake] opens UNet once.
      */
     private fun verifyProPack(dir: String): String? {
         if (!File(dir, "config.json").exists()) return "Pro config.json missing"
         if (!File(dir, "unet.onnx").exists()) return "No ONNX files in Pro pack"
         return null
+    }
+
+    /**
+     * Handshake-only: open `unet.onnx` with Pro-safe session options and close.
+     * Surfaces FP16 / invalid-graph failures so Pro is not marked Ready on this device.
+     */
+    private fun probeProUnet(dir: String): String? {
+        val unet = File(dir, "unet.onnx")
+        if (!unet.isFile) return "unet.onnx missing — re-download Pro pack"
+        return runCatching {
+            com.zakir.vestra.shared.engine.pro.ProOrtSessions.create(unet.absolutePath).use { }
+            null
+        }.getOrElse { error ->
+            com.zakir.vestra.shared.engine.pro.ProOrtSessions.friendlyMessage(unet.absolutePath, error)
+        }
+    }
+
+    override fun verifyOnnxHandshake(pack: ModelPack, dir: String): String? {
+        if (pack.id.startsWith("pro-")) {
+            verifyProPack(dir)?.let { return it }
+            return probeProUnet(dir)
+        }
+        return verifyOnnx(pack, dir)
     }
 
     /** Presence + byte length already checked; avoid NNAPI smoke inference. */

@@ -39,8 +39,17 @@ interface PackIntegrityChecker {
     /** Every manifest file exists with the declared byte length. */
     fun verifyFiles(pack: ModelPack, dir: String): String?
 
-    /** ONNX graphs in [dir] can be loaded by the runtime (session create). */
+    /**
+     * Cheap ONNX checks for startup / re-verify (may skip huge Pro graphs).
+     * Returns null when checks pass.
+     */
     fun verifyOnnx(pack: ModelPack, dir: String): String?
+
+    /**
+     * Explicit Settings “Verify link” / handshake — may open large graphs once.
+     * Default = [verifyOnnx].
+     */
+    fun verifyOnnxHandshake(pack: ModelPack, dir: String): String? = verifyOnnx(pack, dir)
 }
 
 /** Test / iOS stub — skips ONNX load checks. */

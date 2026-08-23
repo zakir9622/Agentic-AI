@@ -78,8 +78,8 @@ private fun UnavailableReason.toError(tier: EngineTier): TryOnError = when (this
         TryOnError.Internal(
             when (tier) {
                 EngineTier.PRO ->
-                    "Pro pack failed verification — open Settings → Model packs and re-download " +
-                        "pro-v1 (or pro-v2-int8) and lite-v1."
+                    "Pro pack failed verification or is incompatible on this device — open Settings → " +
+                        "Model packs, tap Verify link on pro-v1, or use Lite try-on / re-download."
                 EngineTier.LITE ->
                     "Lite pack failed verification — open Settings → Model packs and re-download lite-v1."
                 else ->
