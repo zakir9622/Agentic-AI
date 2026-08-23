@@ -44,7 +44,13 @@ internal fun LazyListScope.settingsCloudMasterToggleSection(appSettings: AppSett
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Enable cloud models", style = MaterialTheme.typography.titleSmall)
+                    // Explicit Ink: the inherited content colour renders near-black on this card,
+                    // which left the title all but unreadable (caught by a screenshot test).
+                    Text(
+                        "Enable cloud models",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = VestraColors.Ink,
+                    )
                     Text(
                         if (cloudEnabled) {
                             "Cloud generation is on — Groq / OpenRouter / HF models are available below."

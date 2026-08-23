@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.ui.theme.VestraColors
@@ -151,13 +152,16 @@ fun PromptComposer(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // The model chip takes the free space directly. It used to share it 50/50 with a
+            // weighted Spacer, which squeezed the label so hard that "Local tiny-SD (offline)"
+            // clipped to "Local" — the chip named the wrong model. Dropping the spacer keeps
+            // the send orb right-aligned anyway, since the chip now fills the gap.
             ModelChip(
                 label = modelLabel,
                 onClick = onModelClick,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier.weight(1f),
             )
             AssistChip(count = assistCount, onClick = onAssistsClick)
-            Spacer(Modifier.weight(1f))
             SendOrb(
                 busy = busy,
                 enabled = enabled && (busy || prompt.isNotBlank()),
@@ -202,6 +206,10 @@ private fun ModelChip(
             style = MaterialTheme.typography.labelMedium,
             color = VestraColors.Ink,
             maxLines = 1,
+            // Without this the default Clip cut "Local tiny-SD (offline)" down to "Local" with
+            // no indication anything was missing, so the chip lied about which model was
+            // selected. The full name stays in the chip's contentDescription for a11y.
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
