@@ -256,16 +256,32 @@ class AppSettings(private val settings: Settings) {
 
     fun networkLikelyAvailable(): Boolean = networkProbe()
 
+    /**
+     * Whether any network generation call is permitted at all.
+     *
+     * [preflight] is only a pre-check and deliberately lets a local selection through, so it
+     * cannot be the sole gate: a local pack that fails at runtime would otherwise fall back to
+     * cloud with the toggle off. Every code path that is about to reach the network must consult
+     * this immediately before doing so.
+     */
+    fun cloudGenerationAllowed(): Boolean = _cloudModelsEnabled.value
+
+    /** User-facing reason for a blocked cloud call, shared by preflight and the runtime gates. */
+    fun cloudDisabledReason(capability: AiCapability): String {
+        val label = capability.name.lowercase().replace('_', ' ')
+        return "Cloud models are off — enable them in Settings to use $label via cloud, " +
+            "or pick a local model instead."
+    }
+
     fun preflight(capability: AiCapability): PreflightResult {
         if (prefersLocal(capability)) {
+            // Allowed through so a local pick can start; if the local engine then fails, the
+            // runtime gate in GenerativeCloudService — not this function — stops the cloud
+            // fallback. Do not treat this early return as "cloud is permitted".
             return PreflightResult.Ok(selectedProvider(capability))
         }
         if (!_cloudModelsEnabled.value) {
-            val label = capability.name.lowercase().replace('_', ' ')
-            return PreflightResult.Blocked(
-                "Cloud models are off — enable them in Settings to use $label via cloud, " +
-                    "or pick a local model instead.",
-            )
+            return PreflightResult.Blocked(cloudDisabledReason(capability))
         }
         val provider = selectedProvider(capability)
         // Do not hard-block on ConnectivityManager — it often lags 5G/Wi‑Fi and caused

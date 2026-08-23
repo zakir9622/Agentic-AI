@@ -161,6 +161,7 @@ class GenerativeCloudService(
                     }
                 }
             }
+            var localBlockedReason: String? = null
             if (tryLocalFirst) {
                 val stage = if (referenceUri.isNullOrBlank()) {
                     "Generating on-device…"
@@ -185,11 +186,24 @@ class GenerativeCloudService(
                         return@flow
                     }
                     is LocalImageResult.Unavailable -> {
+                        // Surface the engine's real reason. It used to be swallowed behind a
+                        // generic "Local pack unavailable", which made an on-device failure
+                        // impossible to diagnose from the run log or a diagnostics export.
+                        localBlockedReason = local.reason
                         if (!networkOk) {
                             emit(
                                 GenerativeState.Failed(
-                                    "You're offline and the on-device image pack couldn't run. " +
-                                        "Install or repair the local image pack in Settings, then retry.",
+                                    "You're offline and on-device image generation failed: ${local.reason}",
+                                ),
+                            )
+                            return@flow
+                        }
+                        if (!settings.cloudGenerationAllowed()) {
+                            emit(
+                                GenerativeState.Failed(
+                                    "On-device image generation failed: ${local.reason}\n\n" +
+                                        "Cloud models are off, so nothing was sent to the network. " +
+                                        "Fix the pack in Settings → Model packs, or enable cloud models.",
                                 ),
                             )
                             return@flow
@@ -197,7 +211,7 @@ class GenerativeCloudService(
                         emit(
                             GenerativeState.Running(
                                 0.1f,
-                                "Local pack unavailable — trying cloud…",
+                                "On-device unavailable (${local.reason.take(80)}) — trying cloud…",
                             ),
                         )
                     }
@@ -211,6 +225,10 @@ class GenerativeCloudService(
                             "(Packs → Image) to generate without a network.",
                     ),
                 )
+                return@flow
+            }
+            if (!settings.cloudGenerationAllowed()) {
+                emit(GenerativeState.Failed(settings.cloudDisabledReason(capability)))
                 return@flow
             }
             val candidates = CloudModelRouting.fallbackChain(provider, capability, settings, health)
@@ -562,14 +580,30 @@ class GenerativeCloudService(
                             )
                             return@flow
                         }
+                        if (!settings.cloudGenerationAllowed()) {
+                            emit(
+                                GenerativeState.Failed(
+                                    "On-device Code failed: ${local.reason}\n\n" +
+                                        "Cloud models are off, so nothing was sent to the network. " +
+                                        "Fix the pack in Settings → Model packs, or enable cloud models.",
+                                ),
+                            )
+                            return@flow
+                        }
+                        // Name the model that actually failed and why — the old copy said
+                        // "Local Gemma unavailable" even when the Qwen3 route was the one that ran.
                         emit(
                             GenerativeState.Running(
                                 0.1f,
-                                "Local Gemma unavailable — trying cloud…",
+                                "$localLabel unavailable (${local.reason.take(80)}) — trying cloud…",
                             ),
                         )
                     }
                 }
+            }
+            if (!settings.cloudGenerationAllowed()) {
+                emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.CODE)))
+                return@flow
             }
             if (!settings.networkLikelyAvailable()) {
                 emit(
@@ -703,6 +737,10 @@ class GenerativeCloudService(
                         )
                     }
                 }
+            }
+            if (!settings.cloudGenerationAllowed()) {
+                emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.VIDEO)))
+                return@flow
             }
             if (!settings.networkLikelyAvailable()) {
                 emit(
@@ -960,6 +998,10 @@ class GenerativeCloudService(
                         "You're offline. Enable device TTS or reconnect to use cloud audio.",
                     ),
                 )
+                return@flow
+            }
+            if (!settings.cloudGenerationAllowed()) {
+                emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.AUDIO)))
                 return@flow
             }
             val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.AUDIO, settings, health)
@@ -1243,6 +1285,9 @@ class GenerativeCloudService(
                     }
                 }
             }
+        }
+        if (!settings.cloudGenerationAllowed()) {
+            error(settings.cloudDisabledReason(capability))
         }
         if (!settings.networkLikelyAvailable()) {
             error(

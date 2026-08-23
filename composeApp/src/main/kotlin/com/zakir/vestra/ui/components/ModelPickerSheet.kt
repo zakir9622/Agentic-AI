@@ -262,13 +262,11 @@ private fun OnDevicePickerRow(
                 color = if (entry.ready) VestraColors.Ink else VestraColors.InkMuted,
             )
             Text(
-                if (enabled) {
-                    "${entry.statusLabel} · ${entry.detail}"
-                } else if (!entry.ready) {
-                    "${entry.statusLabel} · ${entry.detail}"
-                } else {
-                    "Select to run offline · ${entry.detail}"
-                },
+                // `detail` is the catalog's testing note and carries "Download <pack> in Model
+                // packs…". Appending it to an already-ready row produced the contradictory
+                // "Ready offline · Download local-sdturbo-v1…", so it is only shown when the
+                // pack really is missing and that instruction is the useful next step.
+                if (entry.ready) entry.statusLabel else "${entry.statusLabel} · ${entry.detail}",
                 style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.InkMuted,
                 maxLines = 2,

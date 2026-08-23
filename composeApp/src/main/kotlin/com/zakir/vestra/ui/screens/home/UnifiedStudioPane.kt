@@ -8,6 +8,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
@@ -52,6 +55,7 @@ import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
 import com.zakir.vestra.ui.theme.VestraColors
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun UnifiedStudioPane(
     capability: AiCapability,
@@ -238,15 +242,20 @@ fun UnifiedStudioPane(
             color = VestraColors.InkMuted,
         )
         Spacer(Modifier.height(4.dp))
-        Row(
+        // FlowRow, not Row: `estimate` can be a long provider sentence, and in a plain Row it
+        // consumed the full width and squeezed the chips beside it down to one-character-wide
+        // columns of vertical text. FlowRow wraps them onto the next line instead.
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 estimate,
                 style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.InkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             if (preflightChip != null && preflight == null) {
                 GlassPill(text = preflightChip, active = true)
@@ -257,6 +266,8 @@ fun UnifiedStudioPane(
                     "Last: $lastUsedName",
                     style = MaterialTheme.typography.labelSmall,
                     color = VestraColors.Accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
