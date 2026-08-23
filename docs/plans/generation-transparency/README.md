@@ -1,7 +1,7 @@
 # Generation transparency
 
-**Status:** not started
-**Baseline:** v3.1.0-rc9 (`b76c215`)
+**Status:** A0 harness ready — awaiting Pixel 9 device numbers  
+**Baseline:** v3.1.0-rc14 (plan text originally rc9; re-verified post DoD pass)  
 **Canonical plan:** [`PLAN.md`](PLAN.md)
 
 Supplements [`../five-star-quality/`](../five-star-quality/) — the active plan — rather than
@@ -10,13 +10,21 @@ generation, Real-ESRGAN, Model Health UI, Settings decomposition, and a full vis
 ("Loom Ink") had all shipped since the last audit round. This plan does not propose another
 visual redesign — `five-star-quality/PLAN.md` already lists that as a non-goal.
 
-Two things were confirmed still open by reading the current code, not the docs:
+### Already closed elsewhere (do not redo)
+
+| Item | Closed by |
+|------|-----------|
+| A2 Pro-pack export collision | rc14 DoD — colliding CatVTON exporter quarantined; live HF `pro-v1` verified fully-conditioned |
+| B4 composer Steps/CFG/Seed | rc14 DoD — removed (never reached model payloads) |
+
+### Still open
 
 | # | Theme | Gap |
 |---|-------|-----|
-| A | Measure, then resolve | No on-device latency has ever been measured (`benchmark-local.py` is desktop-CPU-only); ONNX execution-provider selection is silently swallowed by `runCatching` with no logging; `OrtSessionCache` isn't wired into the Pro/diffusion path; two export scripts (`export_diffusion_pack.py` / `convert_pro_pack.py`) still collide on the same output path with different capability |
-| B | Generation transparency UI | `GenerativeViewModel` still overwrites its state on every emission — no accumulating per-tab log, no elapsed-time counter; reduced-motion doesn't reach the generation screen; composer sliders may still not affect the actual payload |
+| A0 | Measure | Instrumented harness + EP probe shipped; **committed Pixel 9 `docs/BENCHMARKS.md` numbers still needed** |
+| A1 | Cache | `OrtSessionCache` not yet wired into `SdControlNetPipeline` (needs A0 before/after) |
+| A3 | Cleanup | `DeviceSpec.minSdk` / `EpochClock` — low priority |
+| B1–B3 | UI transparency | Accumulating per-tab log, elapsed timer, reduce-motion on GenerationScreen |
 
-**Related:** [`../generation-stability/`](../generation-stability/) (shares findings R1/R2 on the
-Pro-pack collision and phantom composer controls), [`../five-star-quality/`](../five-star-quality/)
-(active plan — check its Q3/Q4 checklist before starting any item here to avoid duplicating work).
+**Related:** [`../generation-stability/`](../generation-stability/) (R1/R2), [`../five-star-quality/`](../five-star-quality/)
+(active — check Q3/Q4 before duplicating work).

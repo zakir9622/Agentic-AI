@@ -3,6 +3,7 @@ package com.zakir.vestra.shared.engine.pro
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import com.zakir.vestra.shared.engine.lite.OrtEpPolicy
+import com.zakir.vestra.shared.engine.lite.OrtEpProbe
 import java.io.File
 
 /**
@@ -18,8 +19,11 @@ internal object ProOrtSessions {
 
     fun create(modelPath: String): OrtSession {
         val env = OrtEnvironment.getEnvironment()
+        val epIntent = OrtEpProbe.productionProEpIntent()
         return try {
-            env.createSession(modelPath, sessionOptions())
+            val session = env.createSession(modelPath, sessionOptions())
+            OrtEpProbe.logSessionCreated(modelPath, kind = "pro", epIntent = epIntent)
+            session
         } catch (error: UnsatisfiedLinkError) {
             throw IllegalStateException(
                 "ONNX Runtime native library failed to load — reinstall the app or re-download the Pro pack.",

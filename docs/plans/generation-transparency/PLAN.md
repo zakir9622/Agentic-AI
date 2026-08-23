@@ -1,12 +1,21 @@
 # Generation transparency — measure what's real, show what's happening
 
-> **Baseline:** v3.1.0-rc9 (`b76c215`). This is a supplement to
-> [`../five-star-quality/`](../five-star-quality/) (the active plan — read it first), not a
-> replacement. It does not propose a new visual design system — Loom Ink stays, per
-> `five-star-quality/PLAN.md`'s own non-goals. It feeds directly into that plan's open Q4 items
-> ("UI declutter · accesslint · visual baselines") and closes a measurement gap no existing plan
-> covers.
-> **Status:** not started.
+> **Baseline:** v3.1.0-rc14 (`b76c215` + DoD pass). Supplement to
+> [`../five-star-quality/`](../five-star-quality/) — not a replacement. No new visual design
+> system (Loom Ink stays).
+> **Status:** A0 harness landed (instrumented + harvest script); **awaiting Pixel 9 numbers**.
+
+## Re-check vs tree (2026-08-23, post-rc14)
+
+| Item | Plan claim | Current tree |
+|------|------------|--------------|
+| A2 export collision | open | **Done in rc14** — `export_diffusion_pack.py` refuses; CatVTON → `export_catvton_legacy_pack.py`; `verify-manifest.py` asserts conditioning files |
+| B4 sampler UI | open | **Done in rc14** — Steps/CFG/Seed removed from composer (never reached cloud payloads) |
+| OrtGraph QNN→NNAPI→XNNPACK cascade | claimed at OrtGraph.kt:19-29 | **Outdated** — production uses `ProOrtSessions` (CPU + `NO_OPT`, QNN never; NNAPI only if `OrtEpPolicy.preferNnapi`) |
+| A0 on-device numbers | missing | Harness: `OnDeviceOrtBenchmarkTest` + `scripts/benchmark-on-device.sh` → `docs/BENCHMARKS.md` |
+| B1/B2/B3 | open | Still open (confirm before starting Part B) |
+
+---
 
 ## Why this plan exists
 

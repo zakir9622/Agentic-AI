@@ -93,16 +93,23 @@ class OrtModel(
          */
         private fun createSessionSafely(modelPath: String, useNnapi: Boolean): OrtSession {
             val env = OrtEnvironment.getEnvironment()
+            val wantNnapi = useNnapi && OrtEpPolicy.preferNnapi
+            val epIntent = buildString {
+                append("CPU")
+                append(if (wantNnapi) ", NNAPI(opt-in)" else ", NNAPI=off")
+            }
             return try {
-                env.createSession(
+                val session = env.createSession(
                     modelPath,
                     OrtSession.SessionOptions().apply {
                         // Never force NNAPI on the generate hot path unless explicitly enabled.
-                        if (useNnapi && OrtEpPolicy.preferNnapi) {
+                        if (wantNnapi) {
                             runCatching { addNnapi() }
                         }
                     },
                 )
+                OrtEpProbe.logSessionCreated(modelPath, kind = "lite", epIntent = epIntent)
+                session
             } catch (error: UnsatisfiedLinkError) {
                 throw IllegalStateException(
                     "ONNX Runtime native library failed to load — reinstall the app or re-download lite-v1.",
