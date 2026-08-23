@@ -48,6 +48,14 @@ class AppSettings(private val settings: Settings) {
     private val _preferLiteRtLmGpu = MutableStateFlow(settings.getBoolean(KEY_PREFER_LITERT_GPU, false))
     val preferLiteRtLmGpu: StateFlow<Boolean> = _preferLiteRtLmGpu
 
+    /**
+     * Master switch for cloud generation, app-wide. Default false — local-only until the
+     * user explicitly opts in. When off, [preflight] blocks any capability whose selected
+     * provider isn't a local generator, regardless of network/API-key state.
+     */
+    private val _cloudModelsEnabled = MutableStateFlow(settings.getBoolean(KEY_CLOUD_MODELS_ENABLED, false))
+    val cloudModelsEnabled: StateFlow<Boolean> = _cloudModelsEnabled
+
     private val _preferNnapi = MutableStateFlow(settings.getBoolean(KEY_PREFER_NNAPI, false))
     val preferNnapi: StateFlow<Boolean> = _preferNnapi
 
@@ -99,6 +107,11 @@ class AppSettings(private val settings: Settings) {
     fun setPreferLiteRtLmGpu(enabled: Boolean) {
         settings.putBoolean(KEY_PREFER_LITERT_GPU, enabled)
         _preferLiteRtLmGpu.value = enabled
+    }
+
+    fun setCloudModelsEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_CLOUD_MODELS_ENABLED, enabled)
+        _cloudModelsEnabled.value = enabled
     }
 
     fun clearApiTokens() {
@@ -247,6 +260,13 @@ class AppSettings(private val settings: Settings) {
         if (prefersLocal(capability)) {
             return PreflightResult.Ok(selectedProvider(capability))
         }
+        if (!_cloudModelsEnabled.value) {
+            val label = capability.name.lowercase().replace('_', ' ')
+            return PreflightResult.Blocked(
+                "Cloud models are off — enable them in Settings to use $label via cloud, " +
+                    "or pick a local model instead.",
+            )
+        }
         val provider = selectedProvider(capability)
         // Do not hard-block on ConnectivityManager — it often lags 5G/Wi‑Fi and caused
         // false "No internet" while the status bar showed signal. Generation attempts
@@ -368,6 +388,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_FAL_KEY = "fal_api_key"
         const val KEY_PREFER_NNAPI = "prefer_nnapi"
         const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
+        const val KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"
     }
 }
 

@@ -1,9 +1,12 @@
 package com.zakir.vestra.shared.settings
 
 import com.russhwolf.settings.Settings
+import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 private class MemorySettings : Settings {
     private val map = mutableMapOf<String, Any?>()
@@ -67,5 +70,31 @@ class AppSettingsMigrationTest {
             CloudModelCatalog.defaultFor(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN).id,
             settings.selectedProvider(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN).id,
         )
+    }
+
+    @Test
+    fun cloudModelsOffByDefaultBlocksCloudCapability() {
+        val settings = AppSettings(MemorySettings())
+        val result = settings.preflight(AiCapability.IMAGE_GEN)
+        assertTrue(result is PreflightResult.Blocked)
+        assertTrue((result as PreflightResult.Blocked).reason.contains("Cloud models are off"))
+    }
+
+    @Test
+    fun enablingCloudModelsRemovesTheGlobalBlock() {
+        val settings = AppSettings(MemorySettings())
+        settings.setCloudModelsEnabled(true)
+        val result = settings.preflight(AiCapability.IMAGE_GEN)
+        val blockedOnGlobalToggle =
+            result is PreflightResult.Blocked && result.reason.contains("Cloud models are off")
+        assertFalse(blockedOnGlobalToggle)
+    }
+
+    @Test
+    fun localSelectionBypassesTheCloudToggleEvenWhenOff() {
+        val settings = AppSettings(MemorySettings())
+        settings.setLocalGenerator(AiCapability.IMAGE_GEN, "local-sdturbo-v1")
+        val result = settings.preflight(AiCapability.IMAGE_GEN)
+        assertTrue(result is PreflightResult.Ok)
     }
 }

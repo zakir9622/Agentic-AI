@@ -127,6 +127,7 @@ fun SettingsScreen(
     val hfToken by appSettings.hfToken.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
     val openRouterKey by appSettings.openRouterApiKey.collectAsState()
+    val cloudModelsEnabled by appSettings.cloudModelsEnabled.collectAsState()
 
     var hfInput by remember(hfToken) { mutableStateOf(hfToken.orEmpty()) }
     var groqInput by remember(groqKey) { mutableStateOf(groqKey.orEmpty()) }
@@ -307,6 +308,10 @@ fun SettingsScreen(
             }
 
             if (showCloud) {
+                settingsCloudMasterToggleSection(appSettings = appSettings)
+            }
+
+            if (showCloud && cloudModelsEnabled) {
                 settingsCloudKeysSection(
                     appSettings = appSettings,
                     hfTokenSaved = !hfToken.isNullOrBlank(),
@@ -414,7 +419,7 @@ fun SettingsScreen(
                 )
             }
 
-            if (showCloud) {
+            if (showCloud && cloudModelsEnabled) {
                 settingsCloudCapabilitiesSection(
                     appSettings = appSettings,
                     freeCloudDiscovery = freeCloudDiscovery,
