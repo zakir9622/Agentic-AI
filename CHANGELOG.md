@@ -1,5 +1,13 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc17
+- **LiteRT-LM deep integration:** warm engine cache (no per-shot cold load), 90s inference timeout
+- **Offline hard-stop:** Code Studio and Chat fail closed when offline without local pack
+- **FunctionGemma:** selectable in Code ON-DEVICE picker; tool callbacks wired to studio prompt/tier
+- **Audio scribe picker:** Generate transcribes attached clip when scribe model selected
+- **Vision assist:** feedback when reference photo cannot be read
+- **Per-pack readiness:** Gemma 3 / Gemma 4 / FunctionGemma show independent install state in picker
+
 ## 3.1.0-rc14
 - **DoD stability pass:** live HF `pro-v1` verified fully-conditioned; CatVTON exporter quarantined off `pro-v1`
 - Composer honesty: remove Steps/CFG/Seed UI (never reached cloud); audio fashion assist enriches speech

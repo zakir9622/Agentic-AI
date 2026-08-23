@@ -10,6 +10,7 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.engine.local.LocalStudioToolBridge
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
 import com.zakir.vestra.shared.usage.UsageLedger
@@ -74,6 +75,9 @@ class GenerativeViewModel(
     private val _qualityGuard = MutableStateFlow(true)
     val qualityGuard: StateFlow<Boolean> = _qualityGuard
 
+    private val _analyzeReference = MutableStateFlow(false)
+    val analyzeReference: StateFlow<Boolean> = _analyzeReference
+
     private val _inferenceSteps = MutableStateFlow(22)
     val inferenceSteps: StateFlow<Int> = _inferenceSteps
 
@@ -91,6 +95,30 @@ class GenerativeViewModel(
 
     private var job: Job? = null
     private var generationEpoch = 0
+
+    init {
+        LocalStudioToolBridge.onAppendPrompt = { clause ->
+            if (clause.isNotBlank()) {
+                val current = _prompt.value.trim()
+                _prompt.value = if (current.isBlank()) clause else "$current $clause"
+            }
+        }
+        LocalStudioToolBridge.onSetEngineTier = { tierName ->
+            runCatching { EngineTier.valueOf(tierName.trim().uppercase()) }
+                .getOrNull()
+                ?.let { appSettings.setEngineTier(it) }
+        }
+        LocalStudioToolBridge.onSetBackdrop = { backdrop ->
+            if (backdrop.isNotBlank()) {
+                val current = _prompt.value.trim()
+                _prompt.value = if (current.isBlank()) {
+                    "Backdrop: $backdrop"
+                } else {
+                    "$current · backdrop: $backdrop"
+                }
+            }
+        }
+    }
 
     /** Which studio produced the current [state] — panes hide foreign results. */
     private val _resultCapability = MutableStateFlow<AiCapability?>(null)
@@ -192,6 +220,10 @@ class GenerativeViewModel(
         _qualityGuard.value = enabled
     }
 
+    fun setAnalyzeReference(enabled: Boolean) {
+        _analyzeReference.value = enabled
+    }
+
     fun setInferenceSteps(value: Int) {
         _inferenceSteps.value = value.coerceIn(4, 50)
     }
@@ -211,6 +243,7 @@ class GenerativeViewModel(
         detailBoost = _detailBoost.value,
         bypassFilter = _bypassFilter.value,
         qualityGuard = _qualityGuard.value,
+        analyzeReference = _analyzeReference.value,
         inferenceSteps = _inferenceSteps.value.takeIf { it != 22 },
         guidanceScale = _guidanceScale.value.takeIf { it != 7.0f },
         seed = _seed.value,
@@ -261,7 +294,9 @@ class GenerativeViewModel(
             (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
             generative.localCodeReady()
         ) {
-            return "Local Gemma · Ready offline"
+            val label = com.zakir.vestra.shared.local.LocalModelCatalog
+                .byId(generative.localCodeProviderId())?.displayName ?: "Local Gemma"
+            return "$label · Ready offline"
         }
         if (capability == AiCapability.VIDEO &&
             (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
@@ -282,6 +317,30 @@ class GenerativeViewModel(
     fun localAudioOfflineReady(): Boolean = generative.localAudioReady()
 
     fun localCodeOfflineReady(): Boolean = generative.localCodeReady()
+
+    fun localTranscribeOfflineReady(): Boolean = generative.localTranscribeReady()
+
+    fun localVisionOfflineReady(): Boolean = generative.localVisionReady()
+
+    fun transcribeAudio() {
+        val clip = _referenceUri.value
+        if (clip.isNullOrBlank()) {
+            _preflightMessage.value = "Record or attach audio first, then tap Transcribe."
+            return
+        }
+        if (!generative.localTranscribeReady()) {
+            _preflightMessage.value = "Download local-gemma-4-e2b-v1 from Model packs for offline transcription."
+            return
+        }
+        _preflightMessage.value = null
+        startGeneration(
+            capability = RunCapability.AUDIO,
+            modelLabel = "Local audio scribe (offline)",
+            studio = AiCapability.AUDIO,
+        ) {
+            generative.generateTranscribe(clip)
+        }
+    }
 
     fun localVideoOfflineReady(): Boolean = generative.localVideoReady()
 
@@ -569,6 +628,11 @@ class GenerativeViewModel(
                                 success = true,
                                 note = "${next.providerId} · ${next.tokensIn}+${next.tokensOut} tokens",
                             )
+                        }
+                        is GenerativeState.TranscribeReady -> {
+                            appendLive("Transcription ready")
+                            _lastUsedProviderId.value = next.providerId
+                            builder?.complete(success = true, note = next.providerId)
                         }
                         is GenerativeState.Failed -> {
                             appendLive("Failed · ${next.message.take(120)}")

@@ -186,13 +186,41 @@ class VestraApp : Application() {
             localVoiceChanger = com.zakir.vestra.shared.engine.local.AndroidLocalVoiceChanger(
                 outputDir = generationsDir,
             ),
-            localCode = com.zakir.vestra.shared.engine.local.AndroidLocalCodeGenerator(
-                this,
-                packManager,
+            localCode = com.zakir.vestra.shared.engine.local.RoutingLocalCodeGenerator(
+                appSettings,
+                gemma4 = com.zakir.vestra.shared.engine.local.AndroidLiteRtLmCodeGenerator(
+                    this,
+                    packManager,
+                    useGpu = { appSettings.preferLiteRtLmGpu.value },
+                ),
+                legacyGemma3 = com.zakir.vestra.shared.engine.local.AndroidLegacyMediaPipeCodeGenerator(
+                    this,
+                    packManager,
+                ),
+                functionGemma = com.zakir.vestra.shared.engine.local.AndroidFunctionGemmaTools(
+                    this,
+                    packManager,
+                    useGpu = { appSettings.preferLiteRtLmGpu.value },
+                    toolSet = com.zakir.vestra.shared.engine.local.LookbookStudioToolSet(
+                        onAppendPrompt = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onAppendPrompt,
+                        onSetEngineTier = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onSetEngineTier,
+                        onSetBackdrop = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onSetBackdrop,
+                    ),
+                ),
             ),
             localVideo = com.zakir.vestra.shared.engine.local.AndroidLocalVideoGenerator(
                 localImageGen,
                 outputDir = generationsDir,
+            ),
+            localVision = com.zakir.vestra.shared.engine.local.AndroidLocalVisionAssist(
+                this,
+                packManager,
+                useGpu = { appSettings.preferLiteRtLmGpu.value },
+            ),
+            localTranscriber = com.zakir.vestra.shared.engine.local.AndroidLocalAudioTranscriber(
+                this,
+                packManager,
+                useGpu = { appSettings.preferLiteRtLmGpu.value },
             ),
         )
 

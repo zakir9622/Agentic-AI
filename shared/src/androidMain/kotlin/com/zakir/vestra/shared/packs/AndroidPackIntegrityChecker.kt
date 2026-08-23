@@ -4,6 +4,9 @@ import com.zakir.vestra.shared.domain.ModelPack
 import com.zakir.vestra.shared.domain.PackKind
 import com.zakir.vestra.shared.engine.lite.LiteEngine
 import com.zakir.vestra.shared.engine.lite.OrtModel
+import com.zakir.vestra.shared.engine.local.LiteRtLmPackConfig
+import com.zakir.vestra.shared.engine.local.LiteRtLmPackLimits
+import com.zakir.vestra.shared.engine.local.LiteRtLmPacks
 import com.zakir.vestra.shared.engine.local.LocalSdturboPackValidator
 import com.zakir.vestra.shared.quality.AndroidQualityPostProcessor
 import java.io.File
@@ -47,21 +50,57 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
         pack.id == LocalSdturboPackValidator.PACK_ID ||
             pack.id.contains("sdturbo", ignoreCase = true) -> verifySdturboPack(dir)
         pack.id == "local-gemma-v1" || pack.id.contains("gemma", ignoreCase = true) ->
-            verifyGemmaPack(dir)
+            verifyLiteRtLmOrLegacyGemma(pack.id, dir)
         else -> verifyManifestOnnxFiles(pack, dir)
     }
 
     /**
-     * MediaPipe `.task` packs — file-size checks in [verifyFiles] are the gate.
-     * Never load the LLM during startup verify (OOM risk on mid-RAM phones).
+     * LiteRT-LM `.litertlm` or legacy MediaPipe `.task` — file-size gate only.
+     * Never load full LLM during startup verify (OOM risk).
      */
-    private fun verifyGemmaPack(dir: String): String? {
-        val task = File(dir, "gemma3-1b-it-int4.task")
-        if (!task.isFile || task.length() < 50_000_000L) {
+    private fun verifyLiteRtLmOrLegacyGemma(packId: String, dir: String): String? {
+        if (packId == LiteRtLmPacks.LEGACY_GEMMA3) {
+            return verifyLegacyGemmaPack(dir)
+        }
+        val root = File(dir)
+        val defaultPrimary = when (packId) {
+            LiteRtLmPacks.GEMMA4_CODE, LiteRtLmPacks.GEMMA4_VISION, LiteRtLmPacks.AUDIO_SCRIBE ->
+                LiteRtLmPacks.GEMMA4_FILE
+            LiteRtLmPacks.FUNCTION_GEMMA -> LiteRtLmPacks.FUNCTION_GEMMA_FILE
+            else -> LiteRtLmPacks.GEMMA4_FILE
+        }
+        val cfg = LiteRtLmPackConfig.read(root, defaultPrimary)
+        if (cfg.runtime != "litert-lm") {
+            return verifyLegacyGemmaPack(dir)
+        }
+        val model = File(root, cfg.primaryFile)
+        if (!model.isFile) {
+            return "${cfg.primaryFile} missing — re-download $packId"
+        }
+        val minBytes = when (packId) {
+            LiteRtLmPacks.FUNCTION_GEMMA -> LiteRtLmPackLimits.MIN_FUNCTION_BYTES
+            LiteRtLmPacks.AUDIO_SCRIBE, LiteRtLmPacks.GEMMA4_VISION -> LiteRtLmPackLimits.MIN_GEMMA4_BYTES
+            else -> LiteRtLmPackLimits.MIN_GEMMA4_BYTES
+        }
+        if (model.length() < minBytes) {
+            return "${cfg.primaryFile} incomplete (${model.length()} / $minBytes bytes min)"
+        }
+        return null
+    }
+
+    /**
+     * Legacy MediaPipe `.task` packs — file-size checks in [verifyFiles] are the gate.
+     */
+    private fun verifyLegacyGemmaPack(dir: String): String? {
+        val task = File(dir, LiteRtLmPacks.LEGACY_GEMMA3_FILE)
+        if (!task.isFile || task.length() < LiteRtLmPackLimits.MIN_LEGACY_GEMMA3_BYTES) {
             return "Gemma .task missing or incomplete — re-download local-gemma-v1"
         }
         return null
     }
+
+    /** @deprecated use [verifyLegacyGemmaPack] */
+    private fun verifyGemmaPack(dir: String): String? = verifyLegacyGemmaPack(dir)
 
     private fun verifyLitePack(dir: String): String? {
         val required = listOf("garment_seg.onnx", "human_parse.onnx")

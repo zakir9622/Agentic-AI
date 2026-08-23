@@ -175,8 +175,8 @@ fun AudioStudioPane(
     ) {
         GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase())
         Text(
-            "Device TTS works offline (system voices + knobs). Cloud TTS optional. " +
-                "Neural local-tts-v1 pack is optional when published.",
+            "Device TTS works offline (system voices + knobs). Transcribe uses local-gemma-4-e2b-v1 when installed. " +
+                "Cloud TTS optional.",
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,
         )
@@ -231,6 +231,13 @@ fun AudioStudioPane(
                     if (!busy && reference != null) viewModel.applyVoiceChange()
                 },
                 label = { Text("Apply voice change") },
+            )
+            AtelierFilterChip(
+                selected = false,
+                onClick = {
+                    if (!busy && reference != null) viewModel.transcribeAudio()
+                },
+                label = { Text("Transcribe (offline)") },
             )
             if (reference != null) {
                 AtelierFilterChip(

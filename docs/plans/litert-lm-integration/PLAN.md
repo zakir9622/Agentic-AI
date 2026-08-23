@@ -2,19 +2,21 @@
 
 > **Baseline:** v3.1.0-rc16. Supplements [`../five-star-quality/`](../five-star-quality/) and
 > [`../true-local/`](../true-local/). No new visual design system (Loom Ink stays).
-> **Status:** Planned.
+> **Status:** Implemented (rc17).
 
 ## Re-check vs tree (2026-08-23)
 
 | Item | Current tree |
 |------|--------------|
 | Code offline | `AndroidLocalCodeGenerator` → MediaPipe `.task` (`local-gemma-v1`, ~530 MB) |
-| LiteRT-LM | **Not integrated** — no `litertlm-android` dependency |
-| Kotlin | **2.1.21** — LiteRT-LM 0.10.x requires **2.3.0+** |
+| LiteRT-LM | **Integrated** — `litertlm-android:0.10.2`, Gemma 4 Code + vision + audio scribe |
+| Kotlin | **2.3.0** |
 | Image / try-on | ONNX Runtime (`local-sdturbo-v1`, `lite-v1`, `pro-v1`) — **keep** |
 | Audio offline | System TTS + DSP voice changer — **keep** |
 | Pack pipeline | HF manifest → `ModelPackManager` → handshake — **reuse** |
-| Gallery models | Cannot import directly — need `.litertlm` packs + new engine |
+| HF publish | **Live** — `local-gemma-4-e2b-v1` (~2.6 GB) + `local-functiongemma-v1` (~284 MB) on vestra-packs |
+| Engine cache | **Warm reuse** — `LiteRtLmEngineCache` + 90s timeout; no per-shot cold load |
+| Gallery models | Published as `.litertlm` packs + LiteRT-LM engine |
 
 ---
 

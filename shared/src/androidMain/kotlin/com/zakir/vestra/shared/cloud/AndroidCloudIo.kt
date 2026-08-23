@@ -161,4 +161,25 @@ class AndroidCloudIo(
         compress(Bitmap.CompressFormat.JPEG, 92, stream)
         return stream.toByteArray()
     }
+
+    override fun resolveLocalPath(uri: String): String? {
+        if (uri.startsWith("/")) {
+            val file = File(uri)
+            return file.takeIf { it.isFile }?.absolutePath
+        }
+        return runCatching {
+            val parsed = android.net.Uri.parse(uri)
+            when (parsed.scheme) {
+                "file" -> parsed.path?.let { File(it).takeIf { f -> f.isFile }?.absolutePath }
+                "content" -> {
+                    val cache = File(context.cacheDir, "vision_ref_${System.currentTimeMillis()}.jpg")
+                    context.contentResolver.openInputStream(parsed)?.use { input ->
+                        cache.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    cache.takeIf { it.isFile && it.length() > 0L }?.absolutePath
+                }
+                else -> null
+            }
+        }.getOrNull()
+    }
 }

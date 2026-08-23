@@ -32,7 +32,10 @@ class LocalModelCatalogTest {
     fun audioStudioShowsTtsScaffoldAndVoiceChanger() {
         val ids = LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { it.id }
         // Non-runnable scaffolds (local-tts-v1) stay out of the studio picker.
-        assertEquals(listOf("local-tts-system", "local-voice-changer"), ids)
+        assertEquals(
+            setOf("local-tts-system", "local-voice-changer", "local-audio-scribe-v1"),
+            ids.toSet(),
+        )
         val system = LocalModelCatalog.entries.first { it.id == "local-tts-system" }
         assertTrue(system.runnable)
         assertEquals("Ready offline", LocalModelCatalog.studioStatusLabel(system, packReady = false))
@@ -60,13 +63,22 @@ class LocalModelCatalogTest {
     }
 
     @Test
-    fun codeStudioOffersLocalGemma() {
+    fun codeStudioOffersGemma4LegacyAndFunctionGemma() {
         val code = LocalModelCatalog.forStudioPicker(AiCapability.CODE)
-        assertEquals(listOf("local-gemma-v1"), code.map { it.id })
-        assertTrue(code.first().runnable)
-        assertEquals("local-gemma-v1", code.first().packId)
-        assertFalse(LocalModelCatalog.studioEntryReady(code.first(), packReady = false))
-        assertTrue(LocalModelCatalog.studioEntryReady(code.first(), packReady = true))
+        assertTrue(code.map { it.id }.contains("local-gemma-4-e2b-v1"))
+        assertTrue(code.map { it.id }.contains("local-gemma-v1"))
+        assertTrue(code.map { it.id }.contains("local-functiongemma-v1"))
+        val gemma4 = code.first { it.id == "local-gemma-4-e2b-v1" }
+        assertTrue(gemma4.runnable)
+        assertEquals("local-gemma-4-e2b-v1", gemma4.packId)
+    }
+
+    @Test
+    fun codeStudioLegacyGemmaStillSelectable() {
+        val legacy = LocalModelCatalog.entries.first { it.id == "local-gemma-v1" }
+        assertTrue(legacy.runnable)
+        assertTrue(LocalModelCatalog.studioEntryReady(legacy, packReady = true))
+        assertFalse(LocalModelCatalog.studioEntryReady(legacy, packReady = false))
     }
 
     @Test
@@ -94,17 +106,23 @@ class LocalModelCatalogTest {
         }
         assertTrue(quality.any { it.packId == "realesrgan-v1" })
         assertTrue(quality.any { it.packId == "birefnet-v1" })
-        quality.forEach {
+        val tryOnQuality = quality.filter {
+            it.id !in setOf("local-gemma-4-vision-v1")
+        }
+        tryOnQuality.forEach {
             assertTrue(
                 it.capability == AiCapability.TRY_ON,
                 "${it.id} should be TRY_ON quality post, was ${it.capability}",
             )
         }
+        assertTrue(quality.any { it.id == "local-gemma-4-vision-v1" && it.capability == AiCapability.IMAGE_GEN })
     }
 
     @Test
     fun selectableStudioIdsMatchRunnableGenerators() {
         assertTrue(LocalModelCatalog.isSelectableStudioId("local-sdturbo-v1", AiCapability.IMAGE_GEN))
+        assertTrue(LocalModelCatalog.isSelectableStudioId("local-gemma-4-e2b-v1", AiCapability.CODE))
+        assertTrue(LocalModelCatalog.isSelectableStudioId("local-functiongemma-v1", AiCapability.CODE))
         assertTrue(LocalModelCatalog.isSelectableStudioId("local-gemma-v1", AiCapability.CODE))
         assertFalse(LocalModelCatalog.isSelectableStudioId("local-quality-realesrgan", AiCapability.TRY_ON))
         assertFalse(LocalModelCatalog.isSelectableStudioId("flux-schnell-hf", AiCapability.IMAGE_GEN))

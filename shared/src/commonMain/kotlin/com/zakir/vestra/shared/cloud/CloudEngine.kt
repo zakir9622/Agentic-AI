@@ -185,4 +185,6 @@ interface CloudImageIo {
     suspend fun loadImageBytes(uri: String): ByteArray?
     fun toDataUrl(jpegBytes: ByteArray): String
     suspend fun downloadResult(urlOrPath: String, spaceHost: String? = null): String
+    /** Resolve content/file URI to a local filesystem path for on-device vision assist. */
+    fun resolveLocalPath(uri: String): String? = null
 }

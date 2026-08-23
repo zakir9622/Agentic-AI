@@ -141,25 +141,28 @@ class AndroidLocalVideoGenerator(
 }
 
 /**
- * Offline Code Studio via MediaPipe LLM Inference + Gemma 3 1B INT4 pack.
+ * Legacy offline Code Studio via MediaPipe LLM Inference + Gemma 3 1B INT4 pack.
+ * Deprecated — prefer [AndroidLiteRtLmCodeGenerator] (Gemma 4 E2B).
  */
-class AndroidLocalCodeGenerator(
+class AndroidLegacyMediaPipeCodeGenerator(
     private val context: Context,
     private val packs: ModelPackManager,
-    private val packId: String = PACK_ID,
+    private val packId: String = LiteRtLmPacks.LEGACY_GEMMA3,
 ) : LocalCodeGenerator {
+
+    override fun providerId(): String = packId
 
     override fun isReady(): Boolean {
         if (!packs.isReady(packId)) return false
         val dir = packs.installedDir(packId) ?: return false
         val task = File(dir, TASK_FILE)
-        return task.isFile && task.length() > MIN_TASK_BYTES
+        return task.isFile && task.length() > LiteRtLmPackLimits.MIN_LEGACY_GEMMA3_BYTES
     }
 
     override fun generate(prompt: String, system: String): LocalCodeResult {
         if (!isReady()) {
             return LocalCodeResult.Unavailable(
-                "Download local-gemma-v1 (~530 MB) from Model packs for offline Code Studio.",
+                "Download local-gemma-v1 (~530 MB) from Model packs for legacy offline Code Studio.",
             )
         }
         val dir = packs.installedDir(packId)
@@ -171,7 +174,7 @@ class AndroidLocalCodeGenerator(
         } catch (err: Throwable) {
             LocalCodeResult.Unavailable(
                 err.message?.take(200)
-                    ?: "On-device Gemma failed — re-download local-gemma-v1 or use cloud Code.",
+                    ?: "On-device Gemma failed — re-download local-gemma-v1 or use Gemma 4 / cloud Code.",
             )
         } finally {
             packs.markPackIdle(packId)
@@ -229,9 +232,7 @@ class AndroidLocalCodeGenerator(
     }
 
     companion object {
-        const val PACK_ID = "local-gemma-v1"
-        const val TASK_FILE = "gemma3-1b-it-int4.task"
-        const val MIN_TASK_BYTES = 50_000_000L
+        const val TASK_FILE = LiteRtLmPacks.LEGACY_GEMMA3_FILE
         private const val MEDIAPIPE_TIMEOUT_SEC = 90L
     }
 }

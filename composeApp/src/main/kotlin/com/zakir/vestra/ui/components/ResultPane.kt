@@ -235,6 +235,32 @@ fun ResultPane(
                 },
             )
         }
+        is GenerativeState.TranscribeReady -> GlassCard {
+            GlassSectionLabel("TRANSCRIPTION")
+            Text(
+                "On-device · ${state.providerId}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                state.text,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 320.dp)
+                    .verticalScroll(rememberScrollState()),
+            )
+            Spacer(Modifier.height(10.dp))
+            GlassSecondaryButton(
+                text = "Copy transcript",
+                onClick = {
+                    val cm = context.getSystemService(ClipboardManager::class.java)
+                    cm?.setPrimaryClip(ClipData.newPlainText("lookbook-transcript", state.text))
+                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                },
+            )
+        }
         is GenerativeState.Failed -> {
             if (liveLog.isNotEmpty()) LiveGenConsole(liveLog, generationStartedAtMs)
             GlassErrorBanner(

@@ -77,6 +77,7 @@ fun UnifiedStudioPane(
     val fashionContext by viewModel.fashionContext.collectAsState()
     val bypassFilter by viewModel.bypassFilter.collectAsState()
     val qualityGuard by viewModel.qualityGuard.collectAsState()
+    val analyzeReference by viewModel.analyzeReference.collectAsState()
     val lastUsedId by viewModel.lastUsedProviderId.collectAsState()
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
@@ -106,12 +107,13 @@ fun UnifiedStudioPane(
     val localImageEditReady = viewModel.localImageEditOfflineReady()
     val localCodeReady = viewModel.localCodeOfflineReady()
     val localVideoReady = viewModel.localVideoOfflineReady()
+    val localVisionReady = viewModel.localVisionOfflineReady()
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
         AiCapability.AUDIO -> listOf(fashionContext).count { it }
         AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO ->
-            listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
+            listOf(bypassFilter, fashionContext, detailBoost, qualityGuard, analyzeReference).count { it }
         else -> 0
     }
 
@@ -134,7 +136,9 @@ fun UnifiedStudioPane(
                 "local-sdturbo-v1" -> localImageReady
                 "local-sdturbo-edit" -> localImageEditReady
                 "local-stillclip-v1" -> localVideoReady
-                "local-gemma-v1" -> localCodeReady
+                "local-gemma-v1" -> packStates["local-gemma-v1"]?.isReady() == true
+                "local-gemma-4-e2b-v1" -> packStates["local-gemma-4-e2b-v1"]?.isReady() == true
+                "local-functiongemma-v1" -> packStates["local-functiongemma-v1"]?.isReady() == true
                 else -> entry.packId?.let { packStates[it]?.isReady() == true } == true
             }
             OnDevicePickerEntry(
@@ -224,9 +228,9 @@ fun UnifiedStudioPane(
                     "Device TTS works offline + voice-changer knobs. Cloud TTS optional."
                 AiCapability.CODE ->
                     if (localCodeReady) {
-                        "Local Gemma ready offline — Code Studio runs on-device."
+                        "Local Gemma 4 / legacy Gemma ready offline — Code Studio runs on-device."
                     } else {
-                        "Cloud LLMs by default. Offline Code: download local-gemma-v1 (~530 MB)."
+                        "Cloud LLMs by default. Offline Code: download local-gemma-4-e2b-v1 (~2.6 GB)."
                     }
                 else -> estimate
             },
@@ -301,12 +305,15 @@ fun UnifiedStudioPane(
             fashionContext = fashionContext,
             detailBoost = detailBoost,
             qualityGuard = qualityGuard,
+            analyzeReference = analyzeReference,
+            localVisionReady = localVisionReady,
             pragmatic = pragmatic,
             creative = creative,
             onBypassFilter = { viewModel.setBypassFilter(!bypassFilter) },
             onFashionContext = { viewModel.setFashionContext(!fashionContext) },
             onDetailBoost = { viewModel.setDetailBoost(!detailBoost) },
             onQualityGuard = { viewModel.setQualityGuard(!qualityGuard) },
+            onAnalyzeReference = { viewModel.setAnalyzeReference(!analyzeReference) },
             onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
             onCreative = { viewModel.setCreativeMode(!creative) },
         )
@@ -410,12 +417,15 @@ private fun AdvancedAssistSection(
     fashionContext: Boolean,
     detailBoost: Boolean,
     qualityGuard: Boolean,
+    analyzeReference: Boolean,
+    localVisionReady: Boolean,
     pragmatic: Boolean,
     creative: Boolean,
     onBypassFilter: () -> Unit,
     onFashionContext: () -> Unit,
     onDetailBoost: () -> Unit,
     onQualityGuard: () -> Unit,
+    onAnalyzeReference: () -> Unit,
     onPragmatic: () -> Unit,
     onCreative: () -> Unit,
 ) {
@@ -495,6 +505,21 @@ private fun AdvancedAssistSection(
                             enabled = !busy,
                             onToggle = onQualityGuard,
                         )
+                        Spacer(Modifier.height(8.dp))
+                        GlassOptionToggle(
+                            text = "Analyze reference (offline vision)",
+                            active = analyzeReference,
+                            enabled = !busy && localVisionReady,
+                            onToggle = onAnalyzeReference,
+                        )
+                        if (!localVisionReady) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Install local-gemma-4-e2b-v1 for offline reference analysis.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = VestraColors.InkMuted,
+                            )
+                        }
                         // Steps / CFG / Seed are not exposed: cloud Space + HF Inference
                         // payloads ignore them; showing them lied about what the model receives.
                     }

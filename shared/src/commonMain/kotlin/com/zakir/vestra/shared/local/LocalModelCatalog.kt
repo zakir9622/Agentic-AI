@@ -113,15 +113,60 @@ object LocalModelCatalog {
             testingNote = "Requires local-sdturbo-v1 v3+ (includes vae_encoder.onnx). Pick a reference, then Generate.",
         ),
         LocalModelEntry(
+            id = "local-gemma-4-e2b-v1",
+            displayName = "Local Gemma 4 E2B (code)",
+            description = "LiteRT-LM on-device — Gallery-class Gemma 4 for Code Studio.",
+            capability = AiCapability.CODE,
+            packId = "local-gemma-4-e2b-v1",
+            license = "Gemma Terms of Use",
+            approxSizeLabel = "~2.6 GB",
+            runnable = true,
+            testingNote = "Download local-gemma-4-e2b-v1 in Model packs. Airplane mode Code Studio with Gemma 4.",
+        ),
+        LocalModelEntry(
             id = "local-gemma-v1",
-            displayName = "Local Gemma 3 1B (code)",
-            description = "On-device MediaPipe LLM — download local-gemma-v1 (~530 MB) for offline Code Studio.",
+            displayName = "Local Gemma 3 1B (legacy)",
+            description = "Legacy MediaPipe LLM — download local-gemma-v1 (~530 MB). Prefer Gemma 4 E2B.",
             capability = AiCapability.CODE,
             packId = "local-gemma-v1",
             license = "Gemma Terms of Use",
             approxSizeLabel = "~530 MB",
             runnable = true,
-            testingNote = "Download local-gemma-v1 in Model packs. Airplane mode Code Studio should return text.",
+            testingNote = "Legacy fallback. Download local-gemma-v1 or upgrade to local-gemma-4-e2b-v1.",
+        ),
+        LocalModelEntry(
+            id = "local-gemma-4-vision-v1",
+            displayName = "Local Gemma 4 vision assist",
+            description = "Offline describe garment / reference photos (Ask Image class). Uses Gemma 4 E2B pack.",
+            capability = AiCapability.IMAGE_GEN,
+            packId = "local-gemma-4-e2b-v1",
+            license = "Gemma Terms of Use",
+            approxSizeLabel = "~2.6 GB (shared with Code)",
+            runnable = true,
+            testingNote = "Install local-gemma-4-e2b-v1 once — toggle Analyze reference in Create Advanced.",
+            pickerRole = LocalModelPickerRole.QUALITY_POST,
+        ),
+        LocalModelEntry(
+            id = "local-audio-scribe-v1",
+            displayName = "Local audio scribe (STT)",
+            description = "Offline speech-to-text via Gemma 4 multimodal audio — shares Code pack.",
+            capability = AiCapability.AUDIO,
+            packId = "local-gemma-4-e2b-v1",
+            license = "Gemma Terms of Use",
+            approxSizeLabel = "~2.6 GB (shared with Code)",
+            runnable = true,
+            testingNote = "Install local-gemma-4-e2b-v1 — Transcribe in Audio Studio uses the same pack.",
+        ),
+        LocalModelEntry(
+            id = "local-functiongemma-v1",
+            displayName = "FunctionGemma tools (experimental)",
+            description = "Local tool calling for studio assists — append prompt, set tier, backdrop.",
+            capability = AiCapability.CODE,
+            packId = "local-functiongemma-v1",
+            license = "Gemma Terms of Use",
+            approxSizeLabel = "~300 MB",
+            runnable = true,
+            testingNote = "Experimental · pick in Code ON-DEVICE when pack installed.",
         ),
         LocalModelEntry(
             id = "local-stillclip-v1",
@@ -228,9 +273,15 @@ object LocalModelCatalog {
         entry.id == "local-sdturbo-edit" && packReady -> "Ready offline (img2img)"
         entry.id == "local-sdturbo-edit" && !packReady ->
             "Download local-sdturbo-v1 v3+ for offline edit"
-        entry.id == "local-gemma-v1" && packReady -> "Ready offline"
+        entry.id == "local-gemma-4-e2b-v1" && packReady -> "Ready offline · Gemma 4"
+        entry.id == "local-gemma-4-e2b-v1" && !packReady ->
+            "Download local-gemma-4-e2b-v1 in Model packs (~2.6 GB)"
+        entry.id == "local-gemma-v1" && packReady -> "Ready offline · legacy Gemma 3"
         entry.id == "local-gemma-v1" && !packReady ->
             "Download local-gemma-v1 in Model packs (~530 MB)"
+        entry.id == "local-audio-scribe-v1" && packReady -> "Ready offline · transcribe (Gemma 4)"
+        entry.id == "local-audio-scribe-v1" && !packReady ->
+            "Download local-gemma-4-e2b-v1 in Model packs (~2.6 GB)"
         entry.id == "local-stillclip-v1" && packReady -> "Ready offline (still-clip)"
         entry.id == "local-stillclip-v1" && !packReady ->
             "Download local-sdturbo-v1 for offline still-clips"
@@ -245,7 +296,10 @@ object LocalModelCatalog {
         entry.id == "local-sdturbo-v1" ||
             entry.id == "local-sdturbo-edit" ||
             entry.id == "local-stillclip-v1" ||
-            entry.id == "local-gemma-v1" -> packReady
+            entry.id == "local-gemma-4-e2b-v1" ||
+            entry.id == "local-gemma-v1" ||
+            entry.id == "local-audio-scribe-v1" -> packReady
+        entry.id == "local-gemma-4-vision-v1" -> packReady
         entry.runnable && (entry.packId == null || packReady) -> true
         else -> false
     }

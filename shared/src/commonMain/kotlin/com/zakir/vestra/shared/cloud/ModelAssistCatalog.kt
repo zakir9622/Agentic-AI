@@ -21,6 +21,8 @@ data class GenerativeAssists(
     val bypassFilter: Boolean = true,
     /** Image/video: append common quality negatives (blur, artifacts). */
     val qualityGuard: Boolean = true,
+    /** Image/edit: offline vision assist on reference photo before generation (L2). */
+    val analyzeReference: Boolean = false,
     /** Reserved for local engines that honor sampler overrides (not cloud UI). */
     val inferenceSteps: Int? = null,
     val guidanceScale: Float? = null,
@@ -38,6 +40,7 @@ object ModelAssistCatalog {
             AssistToggle("fashion", "Fashion context", "Modest wear lookbook framing."),
             AssistToggle("detail", "Detail boost", "Sharpness and lighting clauses."),
             AssistToggle("quality", "Quality guard", "Avoid blur / artifacts language."),
+            AssistToggle("analyze", "Analyze reference", "Offline vision assist describes attached photo before generation."),
         )
         AiCapability.AUDIO -> listOf(
             AssistToggle("fashion", "Fashion context", "Modest lookbook narration framing in the spoken script."),
