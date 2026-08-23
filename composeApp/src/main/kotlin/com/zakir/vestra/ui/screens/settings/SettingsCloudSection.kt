@@ -2,6 +2,7 @@ package com.zakir.vestra.ui.screens.settings
 
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,8 +11,12 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -27,6 +32,38 @@ import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** Master switch for cloud generation — off by default, local-only until enabled. */
+internal fun LazyListScope.settingsCloudMasterToggleSection(appSettings: AppSettings) {
+    item(key = "cloud-master-toggle") {
+        val cloudEnabled by appSettings.cloudModelsEnabled.collectAsState()
+        GlassCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Enable cloud models", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        if (cloudEnabled) {
+                            "Cloud generation is on — Groq / OpenRouter / HF models are available below."
+                        } else {
+                            "Off by default — generation runs local-only. Turn on to use free cloud models."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = cloudEnabled,
+                    onCheckedChange = appSettings::setCloudModelsEnabled,
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+    }
+}
 
 /** API keys card + per-capability cloud model dropdowns. */
 internal fun LazyListScope.settingsCloudKeysSection(
