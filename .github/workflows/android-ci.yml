@@ -43,6 +43,9 @@ jobs:
       - name: Local model integration (bundled assets)
         run: python3 scripts/integration-local-models.py --skip-hf-download
 
+      - name: Edge-case integration harness
+        run: python3 scripts/integration-edge-cases.py
+
       - name: Local model benchmarks (smoke)
         run: python3 scripts/benchmark-local.py
 

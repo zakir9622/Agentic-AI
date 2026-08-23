@@ -24,8 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,9 +76,6 @@ fun UnifiedStudioPane(
     val fashionContext by viewModel.fashionContext.collectAsState()
     val bypassFilter by viewModel.bypassFilter.collectAsState()
     val qualityGuard by viewModel.qualityGuard.collectAsState()
-    val inferenceSteps by viewModel.inferenceSteps.collectAsState()
-    val guidanceScale by viewModel.guidanceScale.collectAsState()
-    val seed by viewModel.seed.collectAsState()
     val lastUsedId by viewModel.lastUsedProviderId.collectAsState()
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
@@ -113,7 +108,10 @@ fun UnifiedStudioPane(
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
-        else -> listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
+        AiCapability.AUDIO -> listOf(fashionContext).count { it }
+        AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO ->
+            listOf(bypassFilter, fashionContext, detailBoost, qualityGuard).count { it }
+        else -> 0
     }
 
     var showModelPicker by remember { mutableStateOf(false) }
@@ -310,14 +308,6 @@ fun UnifiedStudioPane(
             onQualityGuard = { viewModel.setQualityGuard(!qualityGuard) },
             onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
             onCreative = { viewModel.setCreativeMode(!creative) },
-            inferenceSteps = inferenceSteps,
-            guidanceScale = guidanceScale,
-            seed = seed?.toString().orEmpty(),
-            onInferenceSteps = viewModel::setInferenceSteps,
-            onGuidanceScale = viewModel::setGuidanceScale,
-            onSeed = { raw ->
-                viewModel.setSeed(raw.trim().toLongOrNull())
-            },
         )
 
         if (examples.isNotEmpty()) {
@@ -426,12 +416,6 @@ private fun AdvancedAssistSection(
     onQualityGuard: () -> Unit,
     onPragmatic: () -> Unit,
     onCreative: () -> Unit,
-    inferenceSteps: Int = 22,
-    guidanceScale: Float = 7f,
-    seed: String = "",
-    onInferenceSteps: (Int) -> Unit = {},
-    onGuidanceScale: (Float) -> Unit = {},
-    onSeed: (String) -> Unit = {},
 ) {
     GlassCard(onClick = onToggle) {
         Row(
@@ -472,7 +456,16 @@ private fun AdvancedAssistSection(
                             onToggle = onCreative,
                         )
                     }
-                    else -> {
+                    AiCapability.AUDIO -> {
+                        // Only fashion framing is applied to the spoken script.
+                        GlassOptionToggle(
+                            text = LookbookCopy.ASSIST_FASHION,
+                            active = fashionContext,
+                            enabled = !busy,
+                            onToggle = onFashionContext,
+                        )
+                    }
+                    AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> {
                         GlassOptionToggle(
                             text = LookbookCopy.ASSIST_EDITORIAL,
                             active = bypassFilter,
@@ -500,50 +493,10 @@ private fun AdvancedAssistSection(
                             enabled = !busy,
                             onToggle = onQualityGuard,
                         )
-                        if (capability == AiCapability.IMAGE_GEN || capability == AiCapability.IMAGE_EDIT) {
-                            Spacer(Modifier.height(12.dp))
-                            Text("Sampler (HF Inference when supported)", style = MaterialTheme.typography.labelSmall, color = VestraColors.Accent)
-                            Spacer(Modifier.height(6.dp))
-                            OutlinedTextField(
-                                value = inferenceSteps.toString(),
-                                onValueChange = { onInferenceSteps(it.toIntOrNull() ?: inferenceSteps) },
-                                label = { Text("Steps") },
-                                singleLine = true,
-                                enabled = !busy,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
-                                    unfocusedBorderColor = VestraColors.GlassBorder,
-                                ),
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = guidanceScale.toString(),
-                                onValueChange = { onGuidanceScale(it.toFloatOrNull() ?: guidanceScale) },
-                                label = { Text("CFG scale") },
-                                singleLine = true,
-                                enabled = !busy,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
-                                    unfocusedBorderColor = VestraColors.GlassBorder,
-                                ),
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = seed,
-                                onValueChange = onSeed,
-                                label = { Text("Seed (optional)") },
-                                singleLine = true,
-                                enabled = !busy,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
-                                    unfocusedBorderColor = VestraColors.GlassBorder,
-                                ),
-                            )
-                        }
+                        // Steps / CFG / Seed are not exposed: cloud Space + HF Inference
+                        // payloads ignore them; showing them lied about what the model receives.
                     }
+                    else -> Unit
                 }
             }
         }

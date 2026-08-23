@@ -15,7 +15,9 @@ pip install -r requirements.txt
 | Script | Output |
 |---|---|
 | `export_lite_pack.py` | `exports/lite-v1/` — INT8 ONNX models for the Lite engine (garment segmentation + human parsing) |
-| `export_diffusion_pack.py` | `exports/pro-v1/` — INT8/FP16 ONNX try-on diffusion for the Pro engine (takes `--weights`) |
+| `convert_pro_pack.py` | `exports/pro-v1/` — **production** fully-conditioned Pro (SD1.5 + ControlNet-Depth + IP-Adapter) |
+| `export_catvton_legacy_pack.py` | `exports/catvton-legacy/` — CatVTON 3-file experiment pack (never write as pro-v1) |
+| `export_diffusion_pack.py` | **Removed** — stub that refuses to run (old CatVTON→pro-v1 collision) |
 | `export_dev_pack.py` | `exports-dev/pro-dev-v1/` — **private, non-commercial** dev pack from CatVTON research weights (devOnly-flagged) |
 | `build_models_pack.py` | `exports/studio-models-v1/` — studio-models (casting gallery) pack from the owner's base-model photos |
 | `manifest_gen.py` | `exports/manifest.json` — pack manifest (ids, versions, sha256, sizes, device gates, devOnly flags) |

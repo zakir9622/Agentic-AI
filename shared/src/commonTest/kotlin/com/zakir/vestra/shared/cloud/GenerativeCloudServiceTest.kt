@@ -452,4 +452,129 @@ class GenerativeCloudServiceTest {
         assertEquals("local-gemma-v1", ready.providerId)
         assertTrue(!httpCalled)
     }
+
+    private class UnavailableLocalImage : LocalImageGenerator {
+        override fun isReady(): Boolean = true
+        override fun isEditReady(): Boolean = false
+        override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult =
+            LocalImageResult.Unavailable("pack broken")
+    }
+
+    private class CapturingLocalAudio : LocalAudioGenerator {
+        var lastText: String? = null
+        override fun isReady(): Boolean = true
+        override fun generate(
+            text: String,
+            persona: com.zakir.vestra.shared.audio.VoicePersona,
+            knobs: VoiceKnobs,
+            seed: Long?,
+        ): LocalAudioResult {
+            lastText = text
+            return LocalAudioResult.Ok("/tmp/captured.wav")
+        }
+    }
+
+    @Test
+    fun imageGenHardStopsOfflineWhenNoLocalPack() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            // default localImage is unimplemented / not ready
+        )
+        val states = service.generateImage("abaya lookbook", referenceUri = null).toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(failed.message.contains("on-device", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled, "Must not attempt cloud HTTP when offline without local pack")
+    }
+
+    @Test
+    fun imageGenHardStopsOfflineWhenLocalPackFails() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localImage = UnavailableLocalImage(),
+        )
+        val states = service.generateImage("abaya lookbook", referenceUri = null).toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun audioFashionAssistChangesSpokenScript() = runTest {
+        val capturing = CapturingLocalAudio()
+        val settings = AppSettings(TestMemorySettings())
+        val service = GenerativeCloudService(
+            httpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localAudio = capturing,
+        )
+        service.generateAudio(
+            prompt = "Describe the abaya",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+            assists = GenerativeAssists(fashionContext = true),
+        ).toList()
+        assertTrue(
+            capturing.lastText.orEmpty().contains("modest fashion", ignoreCase = true),
+            "Fashion assist must enrich the spoken script: ${capturing.lastText}",
+        )
+
+        capturing.lastText = null
+        service.generateAudio(
+            prompt = "Describe the abaya",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+            assists = GenerativeAssists(fashionContext = false),
+        ).toList()
+        assertEquals("Describe the abaya", capturing.lastText)
+    }
+
+    @Test
+    fun audioCloudOfflineRecordsOfflineHealthKind() = runTest {
+        val engine = MockEngine {
+            error("Unable to resolve host \"innoai-Edge-TTS-Text-to-Speech.hf.space\"")
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { true }
+            setHfToken("hf_test_token_for_unit")
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+        )
+        val provider = settings.selectedProvider(AiCapability.AUDIO)
+        val states = service.generateAudio(
+            prompt = "Hello",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+        ).toList()
+        assertTrue(states.any { it is GenerativeState.Failed })
+        assertEquals(
+            ModelHealthTracker.FailureKind.OFFLINE,
+            settings.modelHealth.failureKind(provider.id),
+        )
+    }
 }

@@ -39,8 +39,11 @@ accelerate launch train_tryon.py --data dataset/train --out runs/tryon-v1
 # 3. Distill to 8-12 steps for phones (LCM-style consistency distillation).
 accelerate launch distill.py --teacher runs/tryon-v1 --out runs/tryon-v1-lcm
 
-# 4. Export + quantize for the app (existing script), then manifest + upload.
-python ../export_diffusion_pack.py --weights runs/tryon-v1-lcm --out ../exports/pro-v1
+# 4. Export for the app. CatVTON 3-file experiments go to catvton-legacy/;
+#    production pro-v1 must use convert_pro_pack.py (fully conditioned).
+python ../export_catvton_legacy_pack.py --weights runs/tryon-v1-lcm --out ../exports/catvton-legacy
+# For shippable pro-v1 (ControlNet + IP-Adapter + text):
+#   python ../convert_pro_pack.py --src pro_src --out ../exports/pro-v1
 python ../manifest_gen.py ../exports/
 ```
 

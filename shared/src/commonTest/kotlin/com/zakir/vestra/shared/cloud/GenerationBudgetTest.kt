@@ -35,4 +35,16 @@ class GenerationBudgetTest {
             !GenerationBudget(now + 10_000L).allowWakeRetry(nowMs = now),
         )
     }
+
+    @Test
+    fun factoryDeadlinesMatchUiContracts() {
+        val now = 1_000_000L
+        assertEquals(now + GenerationBudget.IMAGE_DEADLINE_MS, GenerationBudget.forImage(now).deadlineMs)
+        assertEquals(120_000L, GenerationBudget.IMAGE_DEADLINE_MS)
+        assertEquals(now + GenerationBudget.VIDEO_DEADLINE_MS, GenerationBudget.forVideo(now).deadlineMs)
+        assertEquals(300_000L, GenerationBudget.VIDEO_DEADLINE_MS)
+        assertEquals(now + GenerationBudget.AUDIO_DEADLINE_MS, GenerationBudget.forAudio(now).deadlineMs)
+        assertEquals(45_000L, GenerationBudget.AUDIO_DEADLINE_MS)
+        assertTrue(GenerationBudget.GRADIO_POLL_REQUEST_TIMEOUT_MS < GenerationBudget.IMAGE_DEADLINE_MS)
+    }
 }
