@@ -54,12 +54,18 @@ class AppSettingsMigrationTest {
     }
 
     @Test
-    fun imageEditMigratesAwayFromBrokenInferenceRoute() {
-        val raw = MemorySettings()
-        raw.putString("image_edit_provider_id", "instruct-pix2pix-inference")
-        val settings = AppSettings(raw)
-        assertEquals(CloudModelCatalog.defaultImageEditId, settings.selectedProvider(
-            com.zakir.vestra.shared.cloud.AiCapability.IMAGE_EDIT,
-        ).id)
+    fun localGeneratorSelectionPersistsAndPrefersLocal() {
+        val settings = AppSettings(MemorySettings())
+        settings.setLocalGenerator(
+            com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN,
+            "local-sdturbo-v1",
+        )
+        assertEquals("local-sdturbo-v1", settings.selectionId(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN))
+        assertEquals(true, settings.prefersLocal(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN))
+        // Cloud default still resolves for fallback / estimates.
+        assertEquals(
+            CloudModelCatalog.defaultFor(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN).id,
+            settings.selectedProvider(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN).id,
+        )
     }
 }

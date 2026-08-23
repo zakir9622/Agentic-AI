@@ -107,7 +107,7 @@ Each cycle:
 
 ---
 
-## Q2 checklist (this train · rc11)
+## Q2 checklist (shipped · rc11 · PR #56)
 
 - [x] U3 — Selectable ON-DEVICE picker rows (`setLocalGenerator` / `prefersLocal`)
 - [x] S6 — MediaPipe Gemma generate timeout (90s)
@@ -116,6 +116,15 @@ Each cycle:
 - [x] S5 — Code/video fallback skips missing-key candidates (like Image)
 - [x] Pro ORT FP16 / ControlNet soft-fail + AUTO→Lite (device diagnostics)
 - [x] Version **3.1.0-rc11**
+
+---
+
+## Q3 checklist (next · 3.1.0)
+
+- [ ] Run [DEVICE_MATRIX.md](./DEVICE_MATRIX.md) on Pixel 8/9 with `latest` APK
+- [x] Automated routing matrix tests (offline + online `prefersLocal`)
+- [ ] Scorecard ≥4.5 average → tag **3.1.0** (or open Q4 for polish gaps)
+- [ ] Confirm Pro AUTO→Lite on device with installed `pro-v1`
 
 ---
 
