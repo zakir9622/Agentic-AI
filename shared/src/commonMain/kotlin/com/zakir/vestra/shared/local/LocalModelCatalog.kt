@@ -216,7 +216,9 @@ object LocalModelCatalog {
      * Excludes quality upscalers / matting packs that must not appear as Image models.
      */
     fun forStudioPicker(capability: AiCapability): List<LocalModelEntry> =
-        forCapability(capability).filter { it.pickerRole == LocalModelPickerRole.STUDIO_GENERATOR }
+        forCapability(capability).filter {
+            it.pickerRole == LocalModelPickerRole.STUDIO_GENERATOR && it.runnable
+        }
 
     /** Honest short status for picker rows. */
     fun studioStatusLabel(entry: LocalModelEntry, packReady: Boolean): String = when {

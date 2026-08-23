@@ -315,6 +315,7 @@ fun AudioStudioPane(
                 }
             },
             onDismiss = { viewModel.forceStop(showStopped = false) },
+            onCancel = { viewModel.forceStop() },
             retryLabel = "Speak again",
         )
         Spacer(Modifier.height(24.dp))
