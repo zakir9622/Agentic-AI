@@ -1,5 +1,13 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc17
+- **LiteRT-LM full integration (L0–L4):** Kotlin 2.3, `litertlm-android:0.10.2`, third on-device runtime alongside ORT
+- **L1 Code:** Gemma 4 E2B via `local-gemma-4-e2b-v1`; legacy Gemma 3 MediaPipe kept as fallback
+- **L2 Vision:** offline reference analysis toggle in Create (requires `local-gemma-4-vision-v1`)
+- **L3 Audio Scribe:** Transcribe mode in Audio Studio (`local-audio-scribe-v1`)
+- **L4 Tools:** `LookbookStudioToolSet` demo in debug builds; Settings → LiteRT-LM GPU opt-in
+- Pack script `assemble-local-gemma4-pack.py`, `LiteRtLmBenchmarkTest`, updated `docs/BENCHMARKS.md`
+
 ## 3.1.0-rc14
 - **DoD stability pass:** live HF `pro-v1` verified fully-conditioned; CatVTON exporter quarantined off `pro-v1`
 - Composer honesty: remove Steps/CFG/Seed UI (never reached cloud); audio fashion assist enriches speech

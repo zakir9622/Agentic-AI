@@ -96,7 +96,8 @@ object HelpCatalog {
             category = "Getting started",
             question = "How do Clip and Code studios work?",
             answer = "Clip studio can encode a short on-device still-clip from local-sdturbo-v1, or use free HF Spaces for cloud video. " +
-                "Code studio runs local Gemma (local-gemma-v1 pack) offline, or Groq / HF / OpenRouter with your API keys. " +
+                "Code studio runs local Gemma 4 (local-gemma-4-e2b-v1, LiteRT-LM) or legacy Gemma 3 offline, " +
+                    "or Groq / HF / OpenRouter with your API keys. " +
                 "Download packs once, then Verify link for a device handshake.",
         ),
         HelpTopic(
@@ -105,7 +106,9 @@ object HelpCatalog {
             question = "How do Lite and Pro packs work offline?",
             answer = "Download a pack from Settings → Model packs or All packs. " +
                 "After install, try-on runs on-device with no network. " +
-                "Also download local-sdturbo-v1 (Create/Edit/Clip) and local-gemma-v1 (Code) for full offline studios. " +
+                "Also download local-sdturbo-v1 (Create/Edit/Clip), local-gemma-4-e2b-v1 (Code), " +
+                    "local-gemma-4-vision-v1 (optional reference analysis), and local-audio-scribe-v1 (Transcribe) " +
+                    "for full offline studios. " +
                 "Enable durable storage so Documents/TheLookbook/packs survives uninstall.",
         ),
         HelpTopic(

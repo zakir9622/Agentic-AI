@@ -256,7 +256,11 @@ class GenerativeCloudServiceTest {
             LocalImageResult.Ok(path)
     }
 
-    private class FakeLocalCode(private val text: String = "fun main() {}") : LocalCodeGenerator {
+    private class FakeLocalCode(
+        private val text: String = "fun main() {}",
+        private val id: String = "local-gemma-4-e2b-v1",
+    ) : LocalCodeGenerator {
+        override fun providerId(): String = id
         override fun isReady(): Boolean = true
         override fun generate(prompt: String, system: String): LocalCodeResult =
             LocalCodeResult.Ok(text, tokensIn = 1, tokensOut = 2)
@@ -407,7 +411,7 @@ class GenerativeCloudServiceTest {
         )
         val states = service.generateCode("hello world").toList()
         val ready = states.filterIsInstance<GenerativeState.CodeReady>().single()
-        assertEquals("local-gemma-v1", ready.providerId)
+        assertEquals("local-gemma-4-e2b-v1", ready.providerId)
         assertEquals("fun main() {}", ready.text)
         assertTrue(!httpCalled)
     }
@@ -480,7 +484,7 @@ class GenerativeCloudServiceTest {
             FakeIo(),
             settings,
             UsageLedger(TestMemorySettings()),
-            localCode = FakeLocalCode(),
+            localCode = FakeLocalCode(id = "local-gemma-v1"),
         )
         val states = service.generateCode("hello world").toList()
         val ready = states.filterIsInstance<GenerativeState.CodeReady>().single()

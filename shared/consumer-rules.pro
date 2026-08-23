@@ -8,3 +8,7 @@
 # MediaPipe GenAI (local Gemma) — reflection + JNI from shared androidMain
 -keep class com.google.mediapipe.** { *; }
 -dontwarn com.google.mediapipe.**
+
+# LiteRT-LM (Gemma 4 / vision / audio / tools)
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**

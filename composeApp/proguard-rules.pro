@@ -12,7 +12,11 @@
 -keep class ai.onnxruntime.** { *; }
 -dontwarn ai.onnxruntime.**
 
-# MediaPipe GenAI (local Gemma) — reflection + JNI
+# LiteRT-LM (Gemma 4 / vision / audio) — JNI + ToolSet reflection
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**
+
+# MediaPipe GenAI (legacy Gemma 3) — reflection + JNI
 -keep class com.google.mediapipe.** { *; }
 -dontwarn com.google.mediapipe.**
 

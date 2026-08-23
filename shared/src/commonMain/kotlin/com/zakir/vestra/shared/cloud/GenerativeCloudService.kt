@@ -9,7 +9,13 @@ import com.zakir.vestra.shared.engine.local.LocalImageGenerator
 import com.zakir.vestra.shared.engine.local.LocalImageResult
 import com.zakir.vestra.shared.engine.local.LocalVideoGenerator
 import com.zakir.vestra.shared.engine.local.LocalVideoResult
+import com.zakir.vestra.shared.engine.local.LocalVisionAssist
+import com.zakir.vestra.shared.engine.local.LocalAssistResult
+import com.zakir.vestra.shared.engine.local.LocalAudioTranscriber
+import com.zakir.vestra.shared.engine.local.LocalTranscribeResult
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalCodeGenerator
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalVisionAssist
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalAudioTranscriber
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalVideoGenerator
 import com.zakir.vestra.shared.audio.VoiceCatalog
@@ -48,6 +54,8 @@ sealed interface GenerativeState {
     data class VideoReady(val path: String, val providerId: String) : GenerativeState
     data class AudioReady(val path: String, val providerId: String) : GenerativeState
     data class CodeReady(val text: String, val tokensIn: Int, val tokensOut: Int, val providerId: String) : GenerativeState
+    /** Offline transcription result (Audio Scribe). */
+    data class TranscribeReady(val text: String, val providerId: String) : GenerativeState
     data class Failed(val message: String) : GenerativeState
 }
 
@@ -67,6 +75,8 @@ class GenerativeCloudService(
     private val localVoiceChanger: LocalVoiceChanger = UnimplementedLocalVoiceChanger,
     private val localCode: LocalCodeGenerator = UnimplementedLocalCodeGenerator,
     private val localVideo: LocalVideoGenerator = UnimplementedLocalVideoGenerator,
+    private val localVision: LocalVisionAssist = UnimplementedLocalVisionAssist,
+    private val localTranscriber: LocalAudioTranscriber = UnimplementedLocalAudioTranscriber,
 ) {
     fun localImageReady(): Boolean = localImage.isReady()
 
@@ -77,6 +87,10 @@ class GenerativeCloudService(
     fun localCodeReady(): Boolean = localCode.isReady()
 
     fun localVideoReady(): Boolean = localVideo.isReady()
+
+    fun localVisionReady(): Boolean = localVision.isReady()
+
+    fun localTranscribeReady(): Boolean = localTranscriber.isReady()
 
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
@@ -106,6 +120,36 @@ class GenerativeCloudService(
                 else -> localImage.isEditReady()
             }
             val tryLocalFirst = localReady && (!networkOk || settings.prefersLocal(capability))
+            // Optional vision assist — describe reference before image gen (L2).
+            var enrichedPrompt = prompt.trim()
+            if (assists.analyzeReference && !referenceUri.isNullOrBlank() && localVision.isReady()) {
+                emit(GenerativeState.Running(0.04f, "Analyzing reference photo…"))
+                val imagePath = io.resolveLocalPath(referenceUri)
+                if (imagePath != null) {
+                    when (val assist = localVision.describeImage(
+                        imagePath,
+                        "Describe this garment or fashion reference for a text-to-image prompt. " +
+                            "Include fabric, color, silhouette, and styling details in 2–4 sentences.",
+                    )) {
+                        is LocalAssistResult.Ok -> {
+                            enrichedPrompt = buildString {
+                                append(enrichedPrompt)
+                                if (enrichedPrompt.isNotBlank()) append("\n\n")
+                                append("Reference analysis: ")
+                                append(assist.text)
+                            }
+                        }
+                        is LocalAssistResult.Unavailable -> {
+                            emit(
+                                GenerativeState.Running(
+                                    0.05f,
+                                    "Vision assist skipped — ${assist.reason.take(80)}",
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
             if (tryLocalFirst) {
                 val stage = if (referenceUri.isNullOrBlank()) {
                     "Generating on-device…"
@@ -115,7 +159,7 @@ class GenerativeCloudService(
                 emit(GenerativeState.Running(0.08f, stage))
                 when (
                     val local = localImage.generate(
-                        prompt.trim(),
+                        enrichedPrompt,
                         assists.seed,
                         referenceImageUri = referenceUri,
                     )
@@ -482,7 +526,7 @@ class GenerativeCloudService(
             if (localCode.isReady() &&
                 (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.CODE))
             ) {
-                emit(GenerativeState.Running(0.08f, "Generating code on-device…"))
+                emit(GenerativeState.Running(0.08f, "Loading Gemma 4…"))
                 when (val local = localCode.generate(prompt.trim(), buildCodeSystem(assists))) {
                     is LocalCodeResult.Ok -> {
                         emit(
@@ -490,7 +534,7 @@ class GenerativeCloudService(
                                 local.text,
                                 local.tokensIn,
                                 local.tokensOut,
-                                "local-gemma-v1",
+                                localCode.providerId(),
                             ),
                         )
                         return@flow
@@ -776,6 +820,41 @@ class GenerativeCloudService(
                     selectedDisplayName = provider.displayName,
                 ),
             ))
+        }
+    }.flowOn(Dispatchers.Default)
+
+    /** Offline speech-to-text (L3 Audio Scribe) — mic/file → text, no cloud. */
+    fun generateTranscribe(
+        audioPath: String,
+        prompt: String = LocalAudioTranscriber.DEFAULT_PROMPT,
+    ): Flow<GenerativeState> = flow {
+        emit(GenerativeState.Preparing("Loading audio scribe…"))
+        try {
+            if (!localTranscriber.isReady()) {
+                emit(
+                    GenerativeState.Failed(
+                        "Download local-audio-scribe-v1 from Model packs for offline transcription.",
+                    ),
+                )
+                return@flow
+            }
+            emit(GenerativeState.Running(0.2f, "Transcribing on-device…"))
+            when (val result = localTranscriber.transcribe(audioPath, prompt)) {
+                is LocalTranscribeResult.Ok -> {
+                    emit(
+                        GenerativeState.TranscribeReady(
+                            result.text,
+                            "local-audio-scribe-v1",
+                        ),
+                    )
+                }
+                is LocalTranscribeResult.Unavailable ->
+                    emit(GenerativeState.Failed(result.reason))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emit(GenerativeState.Failed(e.message ?: "Transcription failed"))
         }
     }.flowOn(Dispatchers.Default)
 

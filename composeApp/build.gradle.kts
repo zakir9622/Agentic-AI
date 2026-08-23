@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 74
-        versionName = "3.1.0-rc16"
+        versionCode = 75
+        versionName = "3.1.0-rc17"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
@@ -95,8 +95,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -123,7 +126,9 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.work.runtime)
 
-    // On-device Code Studio (Gemma via MediaPipe LLM Inference) — loaded reflectively.
+    // LiteRT-LM — Gemma 4 Code / vision / audio / tools (Gallery-class on-device LLM).
+    implementation(libs.litertlm.android)
+    // Legacy Gemma 3 1B (MediaPipe) — reflective load for local-gemma-v1 fallback only.
     implementation("com.google.mediapipe:tasks-genai:0.10.27")
 
     debugImplementation(libs.androidx.compose.ui.tooling)

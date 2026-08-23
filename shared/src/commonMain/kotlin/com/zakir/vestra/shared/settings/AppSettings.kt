@@ -41,6 +41,13 @@ class AppSettings(private val settings: Settings) {
      * When true, ONNX Runtime may attach NNAPI. Default false — NNAPI session
      * create has killed the process on Pixel 9 during lite pack load/verify.
      */
+    /**
+     * When true, LiteRT-LM may use GPU backend for Gemma 4 / vision / audio.
+     * Default false — CPU is safer on Tensor Pixels until verified.
+     */
+    private val _preferLiteRtLmGpu = MutableStateFlow(settings.getBoolean(KEY_PREFER_LITERT_GPU, false))
+    val preferLiteRtLmGpu: StateFlow<Boolean> = _preferLiteRtLmGpu
+
     private val _preferNnapi = MutableStateFlow(settings.getBoolean(KEY_PREFER_NNAPI, false))
     val preferNnapi: StateFlow<Boolean> = _preferNnapi
 
@@ -87,6 +94,11 @@ class AppSettings(private val settings: Settings) {
     fun setPreferNnapi(enabled: Boolean) {
         settings.putBoolean(KEY_PREFER_NNAPI, enabled)
         _preferNnapi.value = enabled
+    }
+
+    fun setPreferLiteRtLmGpu(enabled: Boolean) {
+        settings.putBoolean(KEY_PREFER_LITERT_GPU, enabled)
+        _preferLiteRtLmGpu.value = enabled
     }
 
     fun clearApiTokens() {
@@ -355,6 +367,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_REPLICATE_TOKEN = "replicate_token"
         const val KEY_FAL_KEY = "fal_api_key"
         const val KEY_PREFER_NNAPI = "prefer_nnapi"
+        const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
     }
 }
 

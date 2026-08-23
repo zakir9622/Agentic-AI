@@ -2,15 +2,15 @@
 
 > **Baseline:** v3.1.0-rc16. Supplements [`../five-star-quality/`](../five-star-quality/) and
 > [`../true-local/`](../true-local/). No new visual design system (Loom Ink stays).
-> **Status:** Planned.
+> **Status:** Implemented (rc17).
 
 ## Re-check vs tree (2026-08-23)
 
 | Item | Current tree |
 |------|--------------|
 | Code offline | `AndroidLocalCodeGenerator` → MediaPipe `.task` (`local-gemma-v1`, ~530 MB) |
-| LiteRT-LM | **Not integrated** — no `litertlm-android` dependency |
-| Kotlin | **2.1.21** — LiteRT-LM 0.10.x requires **2.3.0+** |
+| LiteRT-LM | **Integrated** — `litertlm-android:0.10.2`, Gemma 4 Code + vision + audio scribe |
+| Kotlin | **2.3.0** |
 | Image / try-on | ONNX Runtime (`local-sdturbo-v1`, `lite-v1`, `pro-v1`) — **keep** |
 | Audio offline | System TTS + DSP voice changer — **keep** |
 | Pack pipeline | HF manifest → `ModelPackManager` → handshake — **reuse** |

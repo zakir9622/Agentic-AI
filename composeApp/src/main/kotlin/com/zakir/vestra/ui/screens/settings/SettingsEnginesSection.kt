@@ -84,6 +84,26 @@ internal fun LazyListScope.settingsEnginesSection(
                     onCheckedChange = appSettings::setPreferNnapi,
                 )
             }
+            Spacer(Modifier.height(12.dp))
+            val preferLiteRtGpu by appSettings.preferLiteRtLmGpu.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("LiteRT-LM GPU", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Off by default — CPU for Gemma 4 / vision / audio. Enable after Pixel 9 verify.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = preferLiteRtGpu,
+                    onCheckedChange = appSettings::setPreferLiteRtLmGpu,
+                )
+            }
         }
         Spacer(Modifier.height(14.dp))
     }

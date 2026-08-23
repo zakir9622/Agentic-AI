@@ -1,9 +1,11 @@
 package com.zakir.vestra.shared.engine.local
 
 /**
- * Offline Code Studio contract — Gemma / small coder via MediaPipe when pack installed.
+ * Offline Code Studio contract — Gemma via LiteRT-LM (Gemma 4) or legacy MediaPipe (Gemma 3).
  */
 interface LocalCodeGenerator {
+    /** Catalog / pack id emitted as providerId in GenerativeState.CodeReady. */
+    fun providerId(): String
     fun isReady(): Boolean
     fun generate(prompt: String, system: String = ""): LocalCodeResult
 }
@@ -14,10 +16,11 @@ sealed class LocalCodeResult {
 }
 
 object UnimplementedLocalCodeGenerator : LocalCodeGenerator {
+    override fun providerId(): String = LiteRtLmPacks.GEMMA4_CODE
     override fun isReady(): Boolean = false
     override fun generate(prompt: String, system: String): LocalCodeResult =
         LocalCodeResult.Unavailable(
-            "Local code model not installed — download local-gemma-v1 from Model packs, or use cloud Code Studio.",
+            "Local code model not installed — download local-gemma-4-e2b-v1 from Model packs, or use cloud Code Studio.",
         )
 }
 

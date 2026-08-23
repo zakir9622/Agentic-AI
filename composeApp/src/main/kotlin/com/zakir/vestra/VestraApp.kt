@@ -186,13 +186,40 @@ class VestraApp : Application() {
             localVoiceChanger = com.zakir.vestra.shared.engine.local.AndroidLocalVoiceChanger(
                 outputDir = generationsDir,
             ),
-            localCode = com.zakir.vestra.shared.engine.local.AndroidLocalCodeGenerator(
-                this,
-                packManager,
+            localCode = com.zakir.vestra.shared.engine.local.RoutingLocalCodeGenerator(
+                appSettings,
+                gemma4 = com.zakir.vestra.shared.engine.local.AndroidLiteRtLmCodeGenerator(
+                    this,
+                    packManager,
+                    useGpu = { appSettings.preferLiteRtLmGpu.value },
+                    tools = if (BuildConfig.DEBUG) {
+                        listOf(
+                            com.zakir.vestra.shared.engine.local.LookbookStudioToolSet(
+                                onAppendPrompt = { /* studio tools demo — wired in debug */ },
+                            ),
+                        )
+                    } else {
+                        emptyList()
+                    },
+                ),
+                legacyGemma3 = com.zakir.vestra.shared.engine.local.AndroidLegacyMediaPipeCodeGenerator(
+                    this,
+                    packManager,
+                ),
             ),
             localVideo = com.zakir.vestra.shared.engine.local.AndroidLocalVideoGenerator(
                 localImageGen,
                 outputDir = generationsDir,
+            ),
+            localVision = com.zakir.vestra.shared.engine.local.AndroidLocalVisionAssist(
+                this,
+                packManager,
+                useGpu = { appSettings.preferLiteRtLmGpu.value },
+            ),
+            localTranscriber = com.zakir.vestra.shared.engine.local.AndroidLocalAudioTranscriber(
+                this,
+                packManager,
+                useGpu = { appSettings.preferLiteRtLmGpu.value },
             ),
         )
 

@@ -1,7 +1,26 @@
 # Lookbook ORT benchmarks
 
 **Plan:** generation-transparency A0  
-**Last updated:** 2026-08-23 (rc15)
+**Last updated:** 2026-08-23 (rc17)
+
+## LiteRT-LM (Gemma 4 / vision / audio)
+
+**Pending on-device numbers.** Instrumented harness ships with rc17; run when a `.litertlm` pack is installed:
+
+```bash
+./gradlew :composeApp:connectedSideloadDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.zakir.vestra.LiteRtLmBenchmarkTest
+```
+
+| Artifact | Role |
+|----------|------|
+| `composeApp/.../LiteRtLmBenchmarkTest.kt` | Cold load + single-turn generate when pack present |
+| `shared/.../litert/LiteRtLmEngine.kt` | Production engine wrapper |
+| `scripts/assemble-local-gemma4-pack.py` | Download + pack layout from litert-community |
+
+Logcat tag: `LookbookLiteRtLm`.
+
+Default backend: **CPU**. Opt-in GPU via Settings → Engines → LiteRT-LM GPU.
 
 ## On-device numbers (Pixel 9 / flagship)
 

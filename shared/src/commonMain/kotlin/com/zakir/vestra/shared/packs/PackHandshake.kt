@@ -61,7 +61,15 @@ object PackHandshakeWires {
         packId == "local-sdturbo-v1" ->
             listOf("Image Create", "Image Edit (img2img)", "Video still-clip")
         packId == "local-gemma-v1" ->
-            listOf("Code Studio (on-device Gemma)")
+            listOf("Code Studio (legacy Gemma 3)")
+        packId == "local-gemma-4-e2b-v1" ->
+            listOf("Code Studio (Gemma 4 E2B)")
+        packId == "local-gemma-4-vision-v1" ->
+            listOf("Vision assist · Analyze reference")
+        packId == "local-audio-scribe-v1" ->
+            listOf("Audio · Transcribe (STT)")
+        packId == "local-functiongemma-v1" ->
+            listOf("Local tools (experimental)")
         packId.contains("birefnet", ignoreCase = true) ->
             listOf("Quality · BiRefNet matting")
         packId.contains("realesrgan", ignoreCase = true) ->

@@ -32,6 +32,7 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.onnxruntime.android)
             implementation(libs.androidx.exifinterface)
+            implementation(libs.litertlm.android)
         }
     }
 }
