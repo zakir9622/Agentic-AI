@@ -113,16 +113,13 @@ jobs:
             "${EXTRA[@]}" \
             "dist/${APK_NAME}"
 
-          # Keep only this release (+ optional other v* tags). Drop stale preview / old rolling junk.
+          # Keep only this rolling latest release — drop every other release/tag.
           if [[ "${TAG}" == "latest" ]]; then
             gh release list --limit 100 | while read -r line; do
               OTHER_TAG="$(echo "$line" | awk -F'\t' '{print $(NF-1)}')"
               [[ -z "${OTHER_TAG}" || "${OTHER_TAG}" == "latest" ]] && continue
-              # Drop former feature-branch previews and orphaned rolling tags only;
-              # keep intentional version tags (v*).
-              if [[ "${OTHER_TAG}" == "preview" || "${OTHER_TAG}" == latest-* ]]; then
-                gh release delete "${OTHER_TAG}" --yes --cleanup-tag 2>/dev/null || true
-              fi
+              echo "Pruning old release: ${OTHER_TAG}"
+              gh release delete "${OTHER_TAG}" --yes --cleanup-tag 2>/dev/null || true
             done
           fi
           echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
