@@ -136,4 +136,16 @@ class CloudModelRoutingTest {
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.TRY_ON)
         assertTrue(chain.any { it.id == "ootd-hf" })
     }
+
+    @Test
+    fun imageFallbackSkipsInferenceWhenCreditsCooldown() {
+        val settings = AppSettings(MemorySettings()).apply { setHfToken("hf_test") }
+        val health = ModelHealthTracker(MemorySettings())
+        health.recordFailure("flux-schnell-inference", ModelHealthTracker.FailureKind.CREDITS)
+        val selected = CloudModelCatalog.byId("flux-schnell-hf")!!
+        val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_GEN, settings, health)
+        assertEquals("flux-schnell-hf", chain.first().id)
+        assertTrue(chain.none { it.platform == CloudPlatform.HF_INFERENCE }, chain.map { it.id }.toString())
+        assertTrue(CloudModelRouting.inferenceCreditsExhausted(AiCapability.IMAGE_GEN, health))
+    }
 }

@@ -5,12 +5,15 @@ import com.zakir.vestra.shared.domain.GenerationState
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 
 /**
  * Resolves the tier a request should run on and dispatches to that engine.
  *
  * AUTO: Pro if ready, else Lite. Cloud is never auto-selected (privacy invariant).
+ * When AUTO selects Pro and the pack fails ORT load (FP16 / broken ControlNet),
+ * retries Lite once with a short status line so the user still gets a try-on.
  */
 class EngineRouter(private val engines: List<TryOnEngine>) {
 
@@ -30,7 +33,38 @@ class EngineRouter(private val engines: List<TryOnEngine>) {
             is Availability.Unavailable ->
                 return flowOf(GenerationState.Failed(availability.reason.toError(engine.tier)))
         }
-        return engine.generate(request)
+        val allowLiteFallback =
+            request.tier == EngineTier.AUTO &&
+                engine.tier == EngineTier.PRO &&
+                engineFor(EngineTier.LITE)?.isAvailable() == Availability.Ready
+        if (!allowLiteFallback) return engine.generate(request)
+
+        val lite = engineFor(EngineTier.LITE)!!
+        return flow {
+            var proIncompatible: String? = null
+            engine.generate(request).collect { state ->
+                when (state) {
+                    is GenerationState.Failed -> {
+                        val msg = (state.error as? TryOnError.Internal)?.message
+                        if (ProOrtFailure.isPackIncompatible(msg)) {
+                            proIncompatible = msg
+                            emit(
+                                GenerationState.Running(
+                                    0.06f,
+                                    "Pro pack incompatible on this device — switching to Lite…",
+                                ),
+                            )
+                        } else {
+                            emit(state)
+                        }
+                    }
+                    else -> emit(state)
+                }
+            }
+            if (proIncompatible != null) {
+                lite.generate(request.copy(tier = EngineTier.LITE)).collect { emit(it) }
+            }
+        }
     }
 
     fun availability(tier: EngineTier): Availability =

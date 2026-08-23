@@ -13,6 +13,7 @@ import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.domain.TryOnRequest
 import com.zakir.vestra.shared.domain.TryOnResult
 import com.zakir.vestra.shared.engine.Availability
+import com.zakir.vestra.shared.engine.ProOrtFailure
 import com.zakir.vestra.shared.engine.TryOnEngine
 import com.zakir.vestra.shared.engine.UnavailableReason
 import com.zakir.vestra.shared.engine.lite.GarmentClassifier
@@ -279,8 +280,9 @@ class DiffusionEngine(
             throw error
         } catch (error: Exception) {
             Log.e(TAG, "Pro generation failed", error)
-            DiagnosticsHook.completeTryOn(diag, false, error.message)
-            emit(GenerationState.Failed(TryOnError.Internal(error.message ?: "Generation failed")))
+            val friendly = friendlyProFailure(error)
+            DiagnosticsHook.completeTryOn(diag, false, friendly)
+            emit(GenerationState.Failed(TryOnError.Internal(friendly)))
         } catch (error: Throwable) {
             Log.e(TAG, "Pro generation native failure", error)
             DiagnosticsHook.completeTryOn(diag, false, error.message)
@@ -307,6 +309,19 @@ class DiffusionEngine(
         val PACK_IDS = listOf("pro-v1", "pro-v2-int8")
         const val TAG = "VestraProBench"
     }
+}
+
+private fun friendlyProFailure(error: Throwable): String {
+    val chain = generateSequence(error) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+    val pathHint = Regex("""Load model from ([^\s]+)""").find(chain)?.groupValues?.getOrNull(1)
+    if (pathHint != null && ProOrtFailure.isPackIncompatible(chain)) {
+        return ProOrtSessions.friendlyMessage(pathHint, error)
+    }
+    if (ProOrtFailure.isPackIncompatible(chain)) {
+        return "Pro pack is incompatible with this ONNX Runtime on your device. " +
+            "Use Lite try-on, or re-download pro-v1 / try pro-v2-int8 in Settings → Model packs."
+    }
+    return error.message?.take(220)?.ifBlank { null } ?: "Generation failed"
 }
 
 private fun UnavailableReason.toProError(): TryOnError = when (this) {

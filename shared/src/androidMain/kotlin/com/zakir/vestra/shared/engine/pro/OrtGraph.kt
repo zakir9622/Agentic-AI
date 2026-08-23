@@ -3,9 +3,7 @@ package com.zakir.vestra.shared.engine.pro
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import com.zakir.vestra.shared.engine.lite.OrtEpPolicy
 import com.zakir.vestra.shared.engine.lite.OrtModel
-import java.io.File
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
 
@@ -73,40 +71,8 @@ class OrtGraph(modelPath: String) : AutoCloseable {
             return out
         }
 
-        private fun createSessionSafely(modelPath: String): OrtSession {
-            val env = OrtEnvironment.getEnvironment()
-            return try {
-                env.createSession(
-                    modelPath,
-                    OrtSession.SessionOptions().apply {
-                        setIntraOpNumThreads(4)
-                        setInterOpNumThreads(2)
-                        runCatching {
-                            val qnnOptions = mutableMapOf<String, String>()
-                            addQnn(qnnOptions)
-                        }
-                        if (OrtEpPolicy.preferNnapi) {
-                            runCatching { addNnapi() }
-                        }
-                        runCatching { addXnnpack(emptyMap()) }
-                    },
-                )
-            } catch (error: UnsatisfiedLinkError) {
-                throw IllegalStateException(
-                    "ONNX Runtime native library failed to load — reinstall the app or re-download the pack.",
-                    error,
-                )
-            } catch (error: Exception) {
-                throw IllegalStateException(
-                    "Could not open ONNX session (${File(modelPath).name}): ${error.message?.take(100) ?: "unknown"}",
-                    error,
-                )
-            } catch (error: Error) {
-                throw IllegalStateException(
-                    "Native ONNX failure opening ${File(modelPath).name} — re-download the pack or retry.",
-                    error,
-                )
-            }
-        }
+        private fun createSessionSafely(modelPath: String): OrtSession =
+            // Pro FP16 packs: NO_OPT + no QNN (see ProOrtSessions). Soft-wraps link/load errors.
+            ProOrtSessions.create(modelPath)
     }
 }

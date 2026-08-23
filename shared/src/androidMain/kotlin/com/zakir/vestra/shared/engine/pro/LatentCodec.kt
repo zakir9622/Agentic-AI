@@ -151,14 +151,7 @@ class LatentCodec(
     // ── internals ────────────────────────────────────────────────────────────
 
     private fun session(file: String): OrtSession =
-        env.createSession(
-            "$packDir/$file",
-            OrtSession.SessionOptions().apply {
-                if (com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi) {
-                    runCatching { addNnapi() }
-                }
-            },
-        )
+        ProOrtSessions.create("$packDir/$file")
 
     private fun runVae(session: OrtSession, chw: FloatArray, height: Int, width: Int): FloatArray {
         val channels = chw.size / (height * width)
