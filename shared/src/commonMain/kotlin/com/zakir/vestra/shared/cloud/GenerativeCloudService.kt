@@ -26,8 +26,10 @@ import io.ktor.client.HttpClient
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -399,7 +401,7 @@ class GenerativeCloudService(
                 ),
             )
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     private suspend fun resolveImageSpacePayload(
         candidate: CloudModelProvider,
@@ -602,7 +604,7 @@ class GenerativeCloudService(
                 ),
             ))
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     fun generateVideo(
         prompt: String,
@@ -775,7 +777,7 @@ class GenerativeCloudService(
                 ),
             ))
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     @OptIn(ExperimentalEncodingApi::class)
     fun generateAudio(
@@ -1000,7 +1002,7 @@ class GenerativeCloudService(
                 ),
             )
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     private fun buildCodeSystem(assists: GenerativeAssists): String = buildString {
         append("You are a helpful coding assistant. Return clear, working code with brief explanations. ")

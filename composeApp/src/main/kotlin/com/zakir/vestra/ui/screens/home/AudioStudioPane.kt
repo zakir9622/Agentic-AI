@@ -29,6 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.zakir.vestra.shared.audio.AndroidMicRecorder
@@ -146,7 +148,12 @@ fun AudioStudioPane(
         freeCloudDiscovery?.selectable(viewModel.appSettings, AiCapability.AUDIO)
             ?: CloudModelCatalog.forCapability(AiCapability.AUDIO)
     }
-    val localAudioReady = viewModel.localAudioOfflineReady()
+    var localAudioReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        localAudioReady = withContext(Dispatchers.Default) {
+            viewModel.localAudioOfflineReady()
+        }
+    }
     val onDeviceEntries = remember(packStates, localAudioReady) {
         LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { entry ->
             val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true
