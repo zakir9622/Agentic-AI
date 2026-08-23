@@ -354,6 +354,7 @@ fun HomeScreen(
                         chatViewModel = chatViewModel,
                         appSettings = appSettings,
                         freeCloudDiscovery = freeCloudDiscovery,
+                        packManager = packManager,
                         onHeadlineSelected = ::openNewsChat,
                     )
                 }

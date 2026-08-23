@@ -3,6 +3,7 @@ package com.zakir.vestra.shared.settings
 import com.russhwolf.settings.Settings
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
+import com.zakir.vestra.shared.local.LocalModelCatalog
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -96,5 +97,24 @@ class AppSettingsMigrationTest {
         settings.setLocalGenerator(AiCapability.IMAGE_GEN, "local-sdturbo-v1")
         val result = settings.preflight(AiCapability.IMAGE_GEN)
         assertTrue(result is PreflightResult.Ok)
+    }
+
+    /**
+     * The News/Chat model picker calls setLocalGenerator(CODE, …) for every on-device row
+     * it renders, and that call throws on a non-selectable id — so each CODE studio entry
+     * must actually be accepted, and must then make chat prefer the local route.
+     */
+    @Test
+    fun everyLocalCodeStudioEntryIsSelectableForChat() {
+        val entries = LocalModelCatalog.forStudioPicker(AiCapability.CODE)
+        assertTrue(entries.isNotEmpty(), "expected at least one on-device CODE generator")
+        entries.forEach { entry ->
+            val settings = AppSettings(MemorySettings())
+            settings.setLocalGenerator(AiCapability.CODE, entry.id)
+            assertEquals(entry.id, settings.selectionId(AiCapability.CODE))
+            assertTrue(settings.prefersLocal(AiCapability.CODE), "${entry.id} should prefer local")
+            // Cloud off is the default — a local chat pick must still be allowed through.
+            assertTrue(settings.preflight(AiCapability.CODE) is PreflightResult.Ok)
+        }
     }
 }

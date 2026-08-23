@@ -33,14 +33,17 @@ import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
+import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.shared.news.NewsRepository
+import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.ModelPickerSheet
+import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.launch
@@ -51,6 +54,7 @@ fun NewsChatScreen(
     chatViewModel: ChatViewModel?,
     appSettings: AppSettings? = null,
     freeCloudDiscovery: FreeCloudDiscovery? = null,
+    packManager: ModelPackManager? = null,
     onHeadlineSelected: (String?) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
@@ -69,14 +73,41 @@ fun NewsChatScreen(
 
     val codeId by appSettings?.codeProviderId?.collectAsState()
         ?: remember { mutableStateOf(CloudModelCatalog.defaultFor(AiCapability.CODE).id) }
+    val cloudEnabled by appSettings?.cloudModelsEnabled?.collectAsState()
+        ?: remember { mutableStateOf(false) }
+    val packStates by packManager?.states?.collectAsState()
+        ?: remember { mutableStateOf(emptyMap()) }
     val chatProvider = appSettings?.selectedProvider(AiCapability.CODE)
         ?: CloudModelCatalog.defaultFor(AiCapability.CODE)
-    val pickerModels = remember(freeCloudDiscovery, appSettings) {
-        if (appSettings != null && freeCloudDiscovery != null) {
-            freeCloudDiscovery.selectable(appSettings, AiCapability.CODE)
-        } else {
-            CloudModelCatalog.forCapability(AiCapability.CODE)
+
+    // Cloud rows only exist once the master toggle is on — otherwise the sheet is
+    // on-device only, matching what preflight() will actually allow to run.
+    val pickerModels = remember(freeCloudDiscovery, appSettings, cloudEnabled) {
+        when {
+            !cloudEnabled -> emptyList()
+            appSettings != null && freeCloudDiscovery != null ->
+                freeCloudDiscovery.selectable(appSettings, AiCapability.CODE)
+            else -> CloudModelCatalog.forCapability(AiCapability.CODE)
         }
+    }
+    val onDeviceEntries = remember(packStates) {
+        LocalModelCatalog.forStudioPicker(AiCapability.CODE).map { entry ->
+            val packReady = entry.packId?.let { packStates[it]?.isReady() == true } == true ||
+                packStates[entry.id]?.isReady() == true
+            OnDevicePickerEntry(
+                id = entry.id,
+                displayName = entry.displayName,
+                detail = entry.testingNote,
+                ready = LocalModelCatalog.studioEntryReady(entry, packReady),
+                statusLabel = LocalModelCatalog.studioStatusLabel(entry, packReady),
+            )
+        }
+    }
+    val localChatSelected = LocalModelCatalog.isSelectableStudioId(codeId, AiCapability.CODE)
+    val chatModelLabel = if (localChatSelected) {
+        (LocalModelCatalog.byId(codeId)?.displayName ?: "Local on-device") + " (offline)"
+    } else {
+        chatProvider.displayName
     }
 
     LaunchedEffect(newsRepository) {
@@ -202,7 +233,7 @@ fun NewsChatScreen(
             PromptComposer(
                 prompt = chatInput,
                 onPromptChange = { chatInput = it },
-                modelLabel = chatProvider.displayName,
+                modelLabel = chatModelLabel,
                 assistCount = 0,
                 busy = chatBusy,
                 enabled = true,
@@ -221,11 +252,15 @@ fun NewsChatScreen(
 
     if (showModelPicker && appSettings != null) {
         ModelPickerSheet(
-            title = "Chat models",
+            title = if (cloudEnabled) "Chat models" else "Chat models · on-device",
             models = pickerModels,
             selectedId = codeId,
+            onDeviceEntries = onDeviceEntries,
             health = appSettings.modelHealth,
             onSelect = { chosen -> appSettings.setCodeProvider(chosen.id) },
+            onSelectDevice = { entry ->
+                if (entry.ready) appSettings.setLocalGenerator(AiCapability.CODE, entry.id)
+            },
             onDismiss = { showModelPicker = false },
         )
     }

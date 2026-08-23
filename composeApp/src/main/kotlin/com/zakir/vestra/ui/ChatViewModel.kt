@@ -57,7 +57,12 @@ class ChatViewModel(
         }
 
         val provider = appSettings.selectedProvider(AiCapability.CODE)
-        if (provider.platform !in setOf(CloudPlatform.GROQ, CloudPlatform.OPENROUTER, CloudPlatform.HF_INFERENCE)) {
+        // A local on-device pick routes through chatWithFallback's local branch, so the
+        // cloud-platform guard below must not reject it.
+        val localChat = appSettings.prefersLocal(AiCapability.CODE) && generative.localCodeReady()
+        if (!localChat &&
+            provider.platform !in setOf(CloudPlatform.GROQ, CloudPlatform.OPENROUTER, CloudPlatform.HF_INFERENCE)
+        ) {
             _error.value = "Pick a chat-capable coding model in Settings (Groq, OpenRouter, or HF Inference)."
             return
         }
