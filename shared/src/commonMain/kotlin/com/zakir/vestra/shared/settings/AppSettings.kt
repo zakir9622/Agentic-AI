@@ -10,6 +10,7 @@ import com.zakir.vestra.shared.cloud.ModelHealthTracker
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.cloud.requiresSpace
 import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.local.LocalModelCatalog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -153,13 +154,10 @@ class AppSettings(private val settings: Settings) {
         resolveProvider(_cloudProviderId.value, AiCapability.TRY_ON)
 
     fun selectedProvider(capability: AiCapability): CloudModelProvider {
-        val id = when (capability) {
-            AiCapability.TRY_ON -> _cloudProviderId.value
-            AiCapability.IMAGE_GEN -> _imageGenProviderId.value
-            AiCapability.IMAGE_EDIT -> _imageEditProviderId.value
-            AiCapability.CODE -> _codeProviderId.value
-            AiCapability.VIDEO -> _videoProviderId.value
-            AiCapability.AUDIO -> _audioProviderId.value
+        val id = selectionId(capability)
+        if (LocalModelCatalog.isSelectableStudioId(id, capability)) {
+            // Local route selected — cloud default is only used if local fails / for estimates.
+            return CloudModelCatalog.defaultFor(capability)
         }
         // Legacy auto-listed HF "warm" text models are not Inference Providers chat routes.
         if (capability == AiCapability.CODE && id.startsWith("hf-disc-")) {
@@ -181,6 +179,30 @@ class AppSettings(private val settings: Settings) {
             flowFor(capability)?.let { flow -> flow.value = resolved.id }
         }
         return resolved
+    }
+
+    /** Raw stored selection id (cloud provider or local catalog id). */
+    fun selectionId(capability: AiCapability): String = when (capability) {
+        AiCapability.TRY_ON -> _cloudProviderId.value
+        AiCapability.IMAGE_GEN -> _imageGenProviderId.value
+        AiCapability.IMAGE_EDIT -> _imageEditProviderId.value
+        AiCapability.CODE -> _codeProviderId.value
+        AiCapability.VIDEO -> _videoProviderId.value
+        AiCapability.AUDIO -> _audioProviderId.value
+    }
+
+    /** True when the user explicitly picked an on-device studio generator. */
+    fun prefersLocal(capability: AiCapability): Boolean =
+        LocalModelCatalog.isSelectableStudioId(selectionId(capability), capability)
+
+    fun setLocalGenerator(capability: AiCapability, localId: String) {
+        require(LocalModelCatalog.isSelectableStudioId(localId, capability)) {
+            "Not a selectable local generator: $localId for $capability"
+        }
+        val key = keyFor(capability) ?: return
+        val flow = flowFor(capability) ?: return
+        settings.putString(key, localId)
+        flow.value = localId
     }
 
     private fun keyFor(capability: AiCapability): String? = when (capability) {
@@ -210,6 +232,9 @@ class AppSettings(private val settings: Settings) {
     fun networkLikelyAvailable(): Boolean = networkProbe()
 
     fun preflight(capability: AiCapability): PreflightResult {
+        if (prefersLocal(capability)) {
+            return PreflightResult.Ok(selectedProvider(capability))
+        }
         val provider = selectedProvider(capability)
         // Do not hard-block on ConnectivityManager — it often lags 5G/Wi‑Fi and caused
         // false "No internet" while the status bar showed signal. Generation attempts
@@ -231,6 +256,11 @@ class AppSettings(private val settings: Settings) {
         capability: AiCapability,
         flow: MutableStateFlow<String>,
     ) {
+        if (LocalModelCatalog.isSelectableStudioId(id, capability)) {
+            settings.putString(key, id)
+            flow.value = id
+            return
+        }
         val resolved = resolveProvider(id, capability)
         settings.putString(key, resolved.id)
         flow.value = resolved.id
@@ -238,6 +268,9 @@ class AppSettings(private val settings: Settings) {
 
     private fun migrateProviderId(key: String, capability: AiCapability): String {
         val stored = settings.getStringOrNull(key)
+        if (stored != null && LocalModelCatalog.isSelectableStudioId(stored, capability)) {
+            return stored
+        }
         // One-time: InstructPix2Pix was the default edit model but its Space often returns
         // empty Gradio errors — prefer Qwen Image Edit unless the user re-selects it later.
         if (capability == AiCapability.IMAGE_EDIT &&

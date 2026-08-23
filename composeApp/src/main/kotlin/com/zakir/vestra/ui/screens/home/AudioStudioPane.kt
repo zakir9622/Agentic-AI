@@ -329,6 +329,10 @@ fun AudioStudioPane(
                 viewModel.appSettings.setAudioProvider(it.id)
                 showModelPicker = false
             },
+            onSelectDevice = { entry ->
+                if (!entry.ready) return@ModelPickerSheet
+                viewModel.appSettings.setLocalGenerator(AiCapability.AUDIO, entry.id)
+            },
             onDismiss = { showModelPicker = false },
             onDeviceEntries = onDeviceEntries,
             health = viewModel.appSettings.modelHealth,

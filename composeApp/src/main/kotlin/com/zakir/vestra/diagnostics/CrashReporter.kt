@@ -60,9 +60,19 @@ object CrashReporter {
                     }
                 }
         }
-        // Detect prior unclean exit BEFORE opening a new session.
-        runCatching { detectAbruptExit() }
+        // Detect prior unclean exit BEFORE opening a new session. Snapshot on main,
+        // then scrape logcat off-main so Application.onCreate never blocks.
+        val priorSession = readSession()
         openSession()
+        Thread(
+            {
+                runCatching { detectAbruptExit(priorSession) }
+            },
+            "lookbook-abrupt-detect",
+        ).apply {
+            isDaemon = true
+            start()
+        }
         registerLifecycle(app)
         registerMemoryCallbacks(app)
         i("CrashReporter", "installed v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
@@ -183,8 +193,8 @@ object CrashReporter {
 
     // ── session watchdog ───────────────────────────────────────────────────
 
-    private fun detectAbruptExit() {
-        val session = readSession() ?: return
+    private fun detectAbruptExit(priorSession: JSONObject? = readSession()) {
+        val session = priorSession ?: return
         if (!session.optBoolean("open", false)) return
         if (session.optBoolean("recordedFatal", false)) return
         // Clean finish already closed the session.

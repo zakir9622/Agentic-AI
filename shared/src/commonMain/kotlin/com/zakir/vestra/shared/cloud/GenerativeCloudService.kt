@@ -103,7 +103,7 @@ class GenerativeCloudService(
                 referenceUri.isNullOrBlank() -> localImage.isReady()
                 else -> localImage.isEditReady()
             }
-            val tryLocalFirst = localReady && !networkOk
+            val tryLocalFirst = localReady && (!networkOk || settings.prefersLocal(capability))
             if (tryLocalFirst) {
                 val stage = if (referenceUri.isNullOrBlank()) {
                     "Generating on-device…"
@@ -464,7 +464,9 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            if (localCode.isReady() && !settings.networkLikelyAvailable()) {
+            if (localCode.isReady() &&
+                (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.CODE))
+            ) {
                 emit(GenerativeState.Running(0.08f, "Generating code on-device…"))
                 when (val local = localCode.generate(prompt.trim(), buildCodeSystem(assists))) {
                     is LocalCodeResult.Ok -> {
@@ -513,8 +515,8 @@ class GenerativeCloudService(
             val codeDeadline = EpochClock.System.nowMs() + 90_000L
             for ((modelIndex, candidate) in candidates.withIndex()) {
                 attempted = candidate
-                CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
-                requireKeyIfNeeded(candidate)
+                if (CloudModelContracts.preflightOrNull(candidate) != null) continue
+                if (candidate.requiresApiKey && settings.apiKeyFor(candidate).isNullOrBlank()) continue
                 if (modelIndex > 0) {
                     emit(
                         GenerativeState.Running(
@@ -601,7 +603,9 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            if (localVideo.isReady() && !settings.networkLikelyAvailable()) {
+            if (localVideo.isReady() &&
+                (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.VIDEO))
+            ) {
                 emit(GenerativeState.Running(0.08f, "Encoding local still-clip…"))
                 when (val local = localVideo.generate(prompt.trim(), assists.seed)) {
                     is LocalVideoResult.Ok -> {
@@ -641,8 +645,8 @@ class GenerativeCloudService(
             for ((modelIndex, candidate) in candidates.withIndex()) {
                 budget.throwIfExpired()
                 attempted = candidate
-                CloudModelContracts.preflightOrNull(candidate)?.let { error(it) }
-                requireKeyIfNeeded(candidate)
+                if (CloudModelContracts.preflightOrNull(candidate) != null) continue
+                if (candidate.requiresApiKey && settings.apiKeyFor(candidate).isNullOrBlank()) continue
                 if (modelIndex > 0) {
                     emit(
                         GenerativeState.Running(

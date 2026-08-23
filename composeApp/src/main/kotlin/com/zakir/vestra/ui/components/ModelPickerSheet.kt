@@ -67,6 +67,7 @@ fun ModelPickerSheet(
     onSelect: (CloudModelProvider) -> Unit,
     onDismiss: () -> Unit,
     onDeviceEntries: List<OnDevicePickerEntry> = emptyList(),
+    onSelectDevice: ((OnDevicePickerEntry) -> Unit)? = null,
     health: ModelHealthTracker? = null,
 ) {
     var query by remember { mutableStateOf("") }
@@ -169,7 +170,12 @@ fun ModelPickerSheet(
                             )
                         }
                         items(onDeviceEntries, key = { "local-${it.id}" }) { entry ->
-                            OnDevicePickerRow(entry)
+                            OnDevicePickerRow(
+                                entry = entry,
+                                selected = entry.id == selectedId,
+                                onSelect = onSelectDevice,
+                                onDismiss = onDismiss,
+                            )
                         }
                     }
                     grouped.forEach { (section, models) ->
@@ -202,13 +208,35 @@ fun ModelPickerSheet(
 }
 
 @Composable
-private fun OnDevicePickerRow(entry: OnDevicePickerEntry) {
+private fun OnDevicePickerRow(
+    entry: OnDevicePickerEntry,
+    selected: Boolean,
+    onSelect: ((OnDevicePickerEntry) -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    val enabled = onSelect != null && entry.ready
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(VestraColors.GlassFill)
-            .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(16.dp))
+            .background(
+                if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
+            )
+            .border(
+                1.dp,
+                if (selected) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
+                RoundedCornerShape(16.dp),
+            )
+            .then(
+                if (enabled) {
+                    Modifier.clickable {
+                        onSelect?.invoke(entry)
+                        onDismiss()
+                    }
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -228,9 +256,19 @@ private fun OnDevicePickerRow(entry: OnDevicePickerEntry) {
         }
         Spacer(Modifier.size(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(entry.displayName, style = MaterialTheme.typography.titleSmall, color = VestraColors.Ink)
             Text(
-                "${entry.statusLabel} · ${entry.detail}",
+                entry.displayName,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (entry.ready) VestraColors.Ink else VestraColors.InkMuted,
+            )
+            Text(
+                if (enabled) {
+                    "${entry.statusLabel} · ${entry.detail}"
+                } else if (!entry.ready) {
+                    "${entry.statusLabel} · ${entry.detail}"
+                } else {
+                    "Select to run offline · ${entry.detail}"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.InkMuted,
                 maxLines = 2,

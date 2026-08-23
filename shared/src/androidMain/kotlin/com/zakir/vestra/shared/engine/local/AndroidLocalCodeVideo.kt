@@ -197,12 +197,32 @@ class AndroidLocalCodeGenerator(
                 }
                 append(prompt.trim())
             }
-            val text = llmClass.getMethod("generateResponse", String::class.java)
-                .invoke(llm, fullPrompt) as String
-            if (text.isBlank()) {
-                return LocalCodeResult.Unavailable("Gemma returned empty text.")
+            val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+            return try {
+                val future = executor.submit<String> {
+                    llmClass.getMethod("generateResponse", String::class.java)
+                        .invoke(llm, fullPrompt) as String
+                }
+                val text = try {
+                    future.get(MEDIAPIPE_TIMEOUT_SEC, java.util.concurrent.TimeUnit.SECONDS)
+                } catch (timeout: java.util.concurrent.TimeoutException) {
+                    future.cancel(true)
+                    return LocalCodeResult.Unavailable(
+                        "On-device Gemma timed out after ${MEDIAPIPE_TIMEOUT_SEC}s — try a shorter prompt or cloud Code.",
+                    )
+                }
+                if (text.isNullOrBlank()) {
+                    LocalCodeResult.Unavailable("Gemma returned empty text.")
+                } else {
+                    LocalCodeResult.Ok(
+                        text.trim(),
+                        tokensIn = fullPrompt.length / 4,
+                        tokensOut = text.length / 4,
+                    )
+                }
+            } finally {
+                executor.shutdownNow()
             }
-            return LocalCodeResult.Ok(text.trim(), tokensIn = fullPrompt.length / 4, tokensOut = text.length / 4)
         } finally {
             runCatching { llmClass.getMethod("close").invoke(llm) }
         }
@@ -212,5 +232,6 @@ class AndroidLocalCodeGenerator(
         const val PACK_ID = "local-gemma-v1"
         const val TASK_FILE = "gemma3-1b-it-int4.task"
         const val MIN_TASK_BYTES = 50_000_000L
+        private const val MEDIAPIPE_TIMEOUT_SEC = 90L
     }
 }
