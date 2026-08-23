@@ -21,9 +21,6 @@ enum class LocalModelPickerRole {
  * Packs are downloaded once from Hugging Face and then work fully offline.
  *
  * This is separate from [com.zakir.vestra.shared.cloud.CloudModelCatalog] — those need network.
- *
- * Honesty: full offline Image / Video / TTS / Code generation needs published weights.
- * Until then, entries stay `runnable = false` with clear scaffold / coming-soon labels.
  */
 data class LocalModelEntry(
     val id: String,
@@ -96,47 +93,46 @@ object LocalModelCatalog {
         LocalModelEntry(
             id = "local-sdturbo-v1",
             displayName = "Local image gen (tiny-SD)",
-            description = "On-device tiny-SD / LCM via ORT — download local-sdturbo-v1 (~1 GB) from Model packs, then Create works offline.",
+            description = "On-device tiny-SD / LCM via ORT — download local-sdturbo-v1 (~1.06 GB) from Model packs, then Create works offline.",
             capability = AiCapability.IMAGE_GEN,
             packId = "local-sdturbo-v1",
             license = "CreativeML OpenRAIL-M (SD1.5 lineage)",
-            approxSizeLabel = "~994 MB",
+            approxSizeLabel = "~1.06 GB",
             runnable = true,
             testingNote = "Download local-sdturbo-v1 in Settings → Model packs. Airplane mode Create Studio should yield a PNG.",
         ),
         LocalModelEntry(
-            id = "local-coder-planned",
-            displayName = "Local coding LLM (planned)",
-            description = "Small open coder (e.g. Qwen2.5-Coder 1.5B / Gemma 2B) via ExecuTorch / MediaPipe for offline Code Studio.",
-            capability = AiCapability.CODE,
-            packId = null,
-            license = "Apache-2.0 (planned)",
-            approxSizeLabel = "~1–2 GB",
-            runnable = false,
-            testingNote = "Not in this build — use Groq/HF free coding models. Pack ID reserved: local-coder-v1.",
+            id = "local-sdturbo-edit",
+            displayName = "Local image edit (img2img)",
+            description = "Same tiny-SD pack with vae_encoder — attach a reference photo and edit offline.",
+            capability = AiCapability.IMAGE_EDIT,
+            packId = "local-sdturbo-v1",
+            license = "CreativeML OpenRAIL-M (SD1.5 lineage)",
+            approxSizeLabel = "~1.06 GB (shared)",
+            runnable = true,
+            testingNote = "Requires local-sdturbo-v1 v3+ (includes vae_encoder.onnx). Pick a reference, then Generate.",
         ),
         LocalModelEntry(
-            id = "local-gemma-planned",
-            displayName = "Gemma 3 1B on-device (planned)",
-            description = "Google Gemma 3 1B via LiteRT-LM / MediaPipe LLM Inference — offline chat and code assist.",
+            id = "local-gemma-v1",
+            displayName = "Local Gemma 3 1B (code)",
+            description = "On-device MediaPipe LLM — download local-gemma-v1 (~530 MB) for offline Code Studio.",
             capability = AiCapability.CODE,
-            packId = null,
+            packId = "local-gemma-v1",
             license = "Gemma Terms of Use",
-            approxSizeLabel = "~1–2 GB (.litertlm INT4)",
-            runnable = false,
-            testingNote = "Feasible on Pixel 8+ / 8 GB RAM phones via LiteRT-LM. Not wired in this build — catalog placeholder only.",
+            approxSizeLabel = "~530 MB",
+            runnable = true,
+            testingNote = "Download local-gemma-v1 in Model packs. Airplane mode Code Studio should return text.",
         ),
         LocalModelEntry(
-            id = "local-video-planned",
-            displayName = "Local video (research)",
-            description = "On-device short video is not practical on phones yet; use free LTX-Video HF Space.",
+            id = "local-stillclip-v1",
+            displayName = "Local video still-clip",
+            description = "Honest offline video: generates a local keyframe (tiny-SD) and encodes a short H.264 MP4. Not diffusion video.",
             capability = AiCapability.VIDEO,
-            packId = null,
-            license = "N/A",
-            approxSizeLabel = "N/A",
-            runnable = false,
-            offlineAfterInstall = false,
-            testingNote = "No local video weights — cloud LTX / Wan2 only.",
+            packId = "local-sdturbo-v1",
+            license = "CreativeML OpenRAIL-M (shared image pack)",
+            approxSizeLabel = "~1.06 GB (shared)",
+            runnable = true,
+            testingNote = "Uses local-sdturbo-v1. Airplane Video Studio yields a short still-clip MP4.",
         ),
         LocalModelEntry(
             id = "local-tts-system",
@@ -226,7 +222,16 @@ object LocalModelCatalog {
     fun studioStatusLabel(entry: LocalModelEntry, packReady: Boolean): String = when {
         entry.id == "local-sdturbo-v1" && packReady -> "Ready offline"
         entry.id == "local-sdturbo-v1" && !packReady ->
-            "Download local-sdturbo-v1 in Model packs (~994 MB)"
+            "Download local-sdturbo-v1 in Model packs (~1.06 GB)"
+        entry.id == "local-sdturbo-edit" && packReady -> "Ready offline (img2img)"
+        entry.id == "local-sdturbo-edit" && !packReady ->
+            "Download local-sdturbo-v1 v3+ for offline edit"
+        entry.id == "local-gemma-v1" && packReady -> "Ready offline"
+        entry.id == "local-gemma-v1" && !packReady ->
+            "Download local-gemma-v1 in Model packs (~530 MB)"
+        entry.id == "local-stillclip-v1" && packReady -> "Ready offline (still-clip)"
+        entry.id == "local-stillclip-v1" && !packReady ->
+            "Download local-sdturbo-v1 for offline still-clips"
         entry.runnable && (entry.packId == null || packReady) -> "Ready offline"
         !entry.runnable && entry.packId != null -> "Scaffold · weights not published"
         !entry.runnable -> "Coming soon · no on-device weights yet"
@@ -235,7 +240,10 @@ object LocalModelCatalog {
 
     /** Green-dot readiness for studio ON-DEVICE rows (may differ from catalog [LocalModelEntry.runnable]). */
     fun studioEntryReady(entry: LocalModelEntry, packReady: Boolean): Boolean = when {
-        entry.id == "local-sdturbo-v1" -> packReady
+        entry.id == "local-sdturbo-v1" ||
+            entry.id == "local-sdturbo-edit" ||
+            entry.id == "local-stillclip-v1" ||
+            entry.id == "local-gemma-v1" -> packReady
         entry.runnable && (entry.packId == null || packReady) -> true
         else -> false
     }

@@ -2,6 +2,11 @@ package com.zakir.vestra.shared.engine.local
 
 import ai.onnxruntime.OnnxTensor
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
 import com.zakir.vestra.shared.engine.pro.ClipTokenizer
 import com.zakir.vestra.shared.engine.pro.DdimScheduler
 import com.zakir.vestra.shared.engine.pro.DiffusionSteps
@@ -15,11 +20,12 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * True on-device SD-Turbo / LCM txt2img (4-channel UNet — not Pro 9-ch inpaint).
+ * True on-device tiny-SD / LCM txt2img + optional img2img edit.
  *
  * Requires pack files:
  * - text_encoder.onnx, unet.onnx, vae_decoder.onnx (≥ 1 MB each)
  * - vocab.json + merges.txt (CLIP tokenizer)
+ * - vae_encoder.onnx (optional — enables offline image edit)
  */
 class AndroidTxt2ImgEngine(
     private val packDir: File,
@@ -34,13 +40,24 @@ class AndroidTxt2ImgEngine(
     private val textEncoderName = config.graphs?.textEncoder ?: "text_encoder.onnx"
     private val unetName = config.graphs?.unet ?: "unet.onnx"
     private val vaeName = config.graphs?.vaeDecoder ?: "vae_decoder.onnx"
+    private val vaeEncoderName = config.graphs?.vaeEncoder ?: "vae_encoder.onnx"
 
     private val textEncoder = OrtGraph(File(packDir, textEncoderName).absolutePath)
     private val unet = OrtGraph(File(packDir, unetName).absolutePath)
     private val vaeDecoder = OrtGraph(File(packDir, vaeName).absolutePath)
+    private val vaeEncoder: OrtGraph? = File(packDir, vaeEncoderName).takeIf { it.isFile && it.length() > 1_000_000L }
+        ?.let { runCatching { OrtGraph(it.absolutePath) }.getOrNull() }
     private val tokenizer = runCatching { ClipTokenizer(packDir.absolutePath) }.getOrNull()
 
-    fun generate(prompt: String, seed: Long?, outputDir: File): LocalImageResult {
+    fun hasEditSupport(): Boolean = vaeEncoder != null
+
+    fun generate(
+        prompt: String,
+        seed: Long?,
+        outputDir: File,
+        referenceBitmap: Bitmap? = null,
+        strength: Float = 0.65f,
+    ): LocalImageResult {
         val trimmed = prompt.trim()
         if (trimmed.isEmpty()) {
             return LocalImageResult.Unavailable("Prompt is empty")
@@ -48,6 +65,11 @@ class AndroidTxt2ImgEngine(
         if (tokenizer == null) {
             return LocalImageResult.Unavailable(
                 "Pack missing vocab.json / merges.txt — re-export local-sdturbo-v1 with CLIP tokenizer files.",
+            )
+        }
+        if (referenceBitmap != null && vaeEncoder == null) {
+            return LocalImageResult.Unavailable(
+                "Local image edit needs vae_encoder.onnx — re-download local-sdturbo-v1.",
             )
         }
         return runCatching {
@@ -61,13 +83,20 @@ class AndroidTxt2ImgEngine(
             val cond = encodeText(trimmed)
             val uncond = if (guidance > 1.01f) encodeText("") else null
 
-            val sample = FloatArray(4 * plane) { gaussian(rng) }
+            val sample = if (referenceBitmap != null) {
+                val init = encodeImage(referenceBitmap)
+                val noise = FloatArray(4 * plane) { gaussian(rng) }
+                val t = strength.coerceIn(0.15f, 0.95f)
+                FloatArray(4 * plane) { i -> init[i] * (1f - t) + noise[i] * t }
+            } else {
+                FloatArray(4 * plane) { gaussian(rng) }
+            }
             val scheduler = DdimScheduler()
             val timesteps = scheduler.timesteps(steps)
 
             for (t in timesteps) {
                 val noiseCond = predictNoise(sample, cond, t)
-                val noise = if (uncond != null && guidance > 1.01f) {
+                val noisePred = if (uncond != null && guidance > 1.01f) {
                     val noiseUncond = predictNoise(sample, uncond, t)
                     FloatArray(noiseCond.size) { i ->
                         noiseUncond[i] + guidance * (noiseCond[i] - noiseUncond[i])
@@ -75,7 +104,7 @@ class AndroidTxt2ImgEngine(
                 } else {
                     noiseCond
                 }
-                scheduler.step(sample, noise, t, steps)
+                scheduler.step(sample, noisePred, t, steps)
             }
 
             val rgb = decodeVae(sample)
@@ -103,6 +132,23 @@ class AndroidTxt2ImgEngine(
         } ?: textEncoder.inputNames.first()
         val tensor = textEncoder.longTensor(ids, 1, 77)
         return textEncoder.runSingle(mapOf(inputName to tensor))
+    }
+
+    private fun encodeImage(source: Bitmap): FloatArray {
+        val encoder = vaeEncoder ?: error("VAE encoder missing")
+        val resized = Bitmap.createScaledBitmap(source, resolution, resolution, true)
+        val chw = toNormalizedChw(resized)
+        if (resized !== source) resized.recycle()
+        val name = encoder.inputNames.first()
+        val tensor = encoder.floatTensor(chw, 1, 3, resolution.toLong(), resolution.toLong())
+        val encoded = encoder.runSingle(mapOf(name to tensor))
+        // Some VAEs return mean+logvar; take first 4*plane as latents.
+        val needed = 4 * plane
+        return if (encoded.size >= needed) {
+            FloatArray(needed) { i -> encoded[i] * vaeScale }
+        } else {
+            FloatArray(needed) { i -> (encoded.getOrElse(i) { 0f }) * vaeScale }
+        }
     }
 
     private fun predictNoise(sample: FloatArray, hidden: FloatArray, timestep: Int): FloatArray {
@@ -138,7 +184,6 @@ class AndroidTxt2ImgEngine(
         return unet.runSingle(inputs)
     }
 
-    /** Tiny-SD / SD-Turbo ONNX exports vary — timestep is int64 or float32. */
     private fun timestepTensor(timestep: Int): OnnxTensor {
         val env = ai.onnxruntime.OrtEnvironment.getEnvironment()
         return OnnxTensor.createTensor(env, longArrayOf(timestep.toLong()))
@@ -149,6 +194,22 @@ class AndroidTxt2ImgEngine(
         val name = vaeDecoder.inputNames.first()
         val tensor = vaeDecoder.floatTensor(scaled, 1, 4, latent.toLong(), latent.toLong())
         return vaeDecoder.runSingle(mapOf(name to tensor))
+    }
+
+    private fun toNormalizedChw(bitmap: Bitmap): FloatArray {
+        val w = bitmap.width
+        val h = bitmap.height
+        val pixels = IntArray(w * h)
+        bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
+        val out = FloatArray(3 * w * h)
+        val plane = w * h
+        for (i in pixels.indices) {
+            val c = pixels[i]
+            out[i] = ((c shr 16) and 0xff) / 127.5f - 1f
+            out[plane + i] = ((c shr 8) and 0xff) / 127.5f - 1f
+            out[2 * plane + i] = (c and 0xff) / 127.5f - 1f
+        }
+        return out
     }
 
     private fun fromChw(chw: FloatArray, width: Int, height: Int): Bitmap {
@@ -178,5 +239,6 @@ class AndroidTxt2ImgEngine(
         runCatching { textEncoder.close() }
         runCatching { unet.close() }
         runCatching { vaeDecoder.close() }
+        runCatching { vaeEncoder?.close() }
     }
 }

@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 65
-        versionName = "3.1.0-rc7"
+        versionCode = 66
+        versionName = "3.1.0-rc8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
@@ -122,6 +122,9 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.work.runtime)
+
+    // On-device Code Studio (Gemma via MediaPipe LLM Inference) — loaded reflectively.
+    implementation("com.google.mediapipe:tasks-genai:0.10.27")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

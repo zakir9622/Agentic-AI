@@ -3,9 +3,15 @@ package com.zakir.vestra.shared.cloud
 import com.zakir.vestra.shared.safety.InputSafetyGate
 import com.zakir.vestra.shared.safety.SafetyVerdict
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.shared.engine.local.LocalCodeGenerator
+import com.zakir.vestra.shared.engine.local.LocalCodeResult
 import com.zakir.vestra.shared.engine.local.LocalImageGenerator
 import com.zakir.vestra.shared.engine.local.LocalImageResult
+import com.zakir.vestra.shared.engine.local.LocalVideoGenerator
+import com.zakir.vestra.shared.engine.local.LocalVideoResult
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalCodeGenerator
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
+import com.zakir.vestra.shared.engine.local.UnimplementedLocalVideoGenerator
 import com.zakir.vestra.shared.audio.VoiceCatalog
 import com.zakir.vestra.shared.audio.VoiceKnobs
 import com.zakir.vestra.shared.audio.VoicePersona
@@ -45,8 +51,8 @@ sealed interface GenerativeState {
 
 /**
  * Free-tier generative service: HF Spaces + HF Inference Providers for image/video,
- * Groq/HF/OpenRouter for code. Optional [localImage] is tried first for text-to-image
- * when the on-device pack is ready.
+ * Groq/HF/OpenRouter for code. Optional local generators are tried first when ready
+ * (Create / Edit / Audio / Code / Video still-clip).
  */
 class GenerativeCloudService(
     private val http: HttpClient,
@@ -57,10 +63,18 @@ class GenerativeCloudService(
     private val localImage: LocalImageGenerator = UnimplementedLocalImageGenerator,
     private val localAudio: LocalAudioGenerator = UnimplementedLocalAudioGenerator,
     private val localVoiceChanger: LocalVoiceChanger = UnimplementedLocalVoiceChanger,
+    private val localCode: LocalCodeGenerator = UnimplementedLocalCodeGenerator,
+    private val localVideo: LocalVideoGenerator = UnimplementedLocalVideoGenerator,
 ) {
     fun localImageReady(): Boolean = localImage.isReady()
 
+    fun localImageEditReady(): Boolean = localImage.isEditReady()
+
     fun localAudioReady(): Boolean = localAudio.isReady()
+
+    fun localCodeReady(): Boolean = localCode.isReady()
+
+    fun localVideoReady(): Boolean = localVideo.isReady()
 
     private val hf = HfGradioClient(http)
     private val hfInference = HfInferenceClient(http)
@@ -82,12 +96,33 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            // Offline Create Studio (M4): try local pack before requiring network.
-            if (referenceUri.isNullOrBlank() && localImage.isReady()) {
-                emit(GenerativeState.Running(0.08f, "Generating on-device…"))
-                when (val local = localImage.generate(prompt.trim(), assists.seed)) {
+            // Offline Create / Edit: try local pack before requiring network.
+            val tryLocalImage = when {
+                referenceUri.isNullOrBlank() && localImage.isReady() -> true
+                !referenceUri.isNullOrBlank() && localImage.isEditReady() -> true
+                else -> false
+            }
+            if (tryLocalImage) {
+                val stage = if (referenceUri.isNullOrBlank()) {
+                    "Generating on-device…"
+                } else {
+                    "Editing on-device…"
+                }
+                emit(GenerativeState.Running(0.08f, stage))
+                when (
+                    val local = localImage.generate(
+                        prompt.trim(),
+                        assists.seed,
+                        referenceImageUri = referenceUri,
+                    )
+                ) {
                     is LocalImageResult.Ok -> {
-                        emit(GenerativeState.ImageReady(local.imagePath, "local-sdturbo-v1"))
+                        val providerId = if (referenceUri.isNullOrBlank()) {
+                            "local-sdturbo-v1"
+                        } else {
+                            "local-sdturbo-edit"
+                        }
+                        emit(GenerativeState.ImageReady(local.imagePath, providerId))
                         return@flow
                     }
                     is LocalImageResult.Unavailable -> {
@@ -415,6 +450,30 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
+            if (localCode.isReady()) {
+                emit(GenerativeState.Running(0.08f, "Generating code on-device…"))
+                when (val local = localCode.generate(prompt.trim(), buildCodeSystem(assists))) {
+                    is LocalCodeResult.Ok -> {
+                        emit(
+                            GenerativeState.CodeReady(
+                                local.text,
+                                local.tokensIn,
+                                local.tokensOut,
+                                "local-gemma-v1",
+                            ),
+                        )
+                        return@flow
+                    }
+                    is LocalCodeResult.Unavailable -> {
+                        emit(
+                            GenerativeState.Running(
+                                0.1f,
+                                "Local Gemma unavailable — trying cloud…",
+                            ),
+                        )
+                    }
+                }
+            }
             if (!settings.networkLikelyAvailable()) {
                 emit(
                     GenerativeState.Running(
@@ -527,6 +586,23 @@ class GenerativeCloudService(
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
+            }
+            if (localVideo.isReady()) {
+                emit(GenerativeState.Running(0.08f, "Encoding local still-clip…"))
+                when (val local = localVideo.generate(prompt.trim(), assists.seed)) {
+                    is LocalVideoResult.Ok -> {
+                        emit(GenerativeState.VideoReady(local.videoPath, "local-stillclip-v1"))
+                        return@flow
+                    }
+                    is LocalVideoResult.Unavailable -> {
+                        emit(
+                            GenerativeState.Running(
+                                0.1f,
+                                "Local still-clip unavailable — trying cloud…",
+                            ),
+                        )
+                    }
+                }
             }
             if (!settings.networkLikelyAvailable()) {
                 emit(

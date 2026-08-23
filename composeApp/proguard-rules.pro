@@ -12,3 +12,7 @@
 -keep class ai.onnxruntime.** { *; }
 -dontwarn ai.onnxruntime.**
 
+# MediaPipe GenAI (local Gemma) — reflection + JNI
+-keep class com.google.mediapipe.** { *; }
+-dontwarn com.google.mediapipe.**
+

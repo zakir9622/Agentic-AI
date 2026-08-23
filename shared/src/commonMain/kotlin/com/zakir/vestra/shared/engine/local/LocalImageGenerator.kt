@@ -1,15 +1,15 @@
 package com.zakir.vestra.shared.engine.local
 
 /**
- * Offline Create Studio contract (generation-stability M4 / follow-up E4).
+ * Offline Create Studio contract (txt2img + optional img2img edit).
  *
- * Pack id: `local-sdturbo-v1`. Until ONNX weights **and** a wired runner exist,
- * [isReady] is false and [generate] returns a typed failure — cloud image gen
- * remains the default path.
+ * Pack id: `local-sdturbo-v1`.
  */
 interface LocalImageGenerator {
     fun isReady(): Boolean
-    fun generate(prompt: String, seed: Long? = null): LocalImageResult
+    /** True when VAE encoder is present — enables offline image edit. */
+    fun isEditReady(): Boolean = false
+    fun generate(prompt: String, seed: Long? = null, referenceImageUri: String? = null): LocalImageResult
 }
 
 sealed class LocalImageResult {
@@ -20,7 +20,7 @@ sealed class LocalImageResult {
 /** Placeholder until SD-Turbo / LCM pack graphs ship. */
 object UnimplementedLocalImageGenerator : LocalImageGenerator {
     override fun isReady(): Boolean = false
-    override fun generate(prompt: String, seed: Long?): LocalImageResult =
+    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult =
         LocalImageResult.Unavailable(
             "Local image pack not published yet — use cloud Create Studio, " +
                 "or wait for local-sdturbo-v1 weights on Model packs.",
@@ -38,7 +38,7 @@ class PackAwareLocalImageGenerator(
 ) : LocalImageGenerator {
     override fun isReady(): Boolean = runnerImplemented && packReady()
 
-    override fun generate(prompt: String, seed: Long?): LocalImageResult {
+    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
         if (!runnerImplemented) {
             return LocalImageResult.Unavailable(
                 "Local SD-Turbo runner not wired yet — using cloud Create Studio.",

@@ -159,22 +159,40 @@ class VestraApp : Application() {
             http,
             applyVisibleWatermark = true, // always stamp AI provenance on cloud outputs
         )
+        val generationsDir = java.io.File(filesDir, "generations").also { it.mkdirs() }
+        val localImageGen = com.zakir.vestra.shared.engine.local.AndroidLocalImageGenerator(
+            packManager,
+            outputDir = generationsDir,
+            loadReferenceBitmap = { uriString ->
+                runCatching {
+                    val uri = android.net.Uri.parse(uriString)
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        android.graphics.BitmapFactory.decodeStream(input)
+                    }
+                }.getOrNull()
+            },
+        )
         generative = GenerativeCloudService(
             http,
             cloudIo,
             appSettings,
             usageLedger,
-            localImage = com.zakir.vestra.shared.engine.local.AndroidLocalImageGenerator(
-                packManager,
-                outputDir = java.io.File(filesDir, "generations").also { it.mkdirs() },
-            ),
+            localImage = localImageGen,
             localAudio = com.zakir.vestra.shared.engine.local.AndroidLocalAudioGenerator(
                 this,
                 packManager,
-                outputDir = java.io.File(filesDir, "generations").also { it.mkdirs() },
+                outputDir = generationsDir,
             ),
             localVoiceChanger = com.zakir.vestra.shared.engine.local.AndroidLocalVoiceChanger(
-                outputDir = java.io.File(filesDir, "generations").also { it.mkdirs() },
+                outputDir = generationsDir,
+            ),
+            localCode = com.zakir.vestra.shared.engine.local.AndroidLocalCodeGenerator(
+                this,
+                packManager,
+            ),
+            localVideo = com.zakir.vestra.shared.engine.local.AndroidLocalVideoGenerator(
+                localImageGen,
+                outputDir = generationsDir,
             ),
         )
 

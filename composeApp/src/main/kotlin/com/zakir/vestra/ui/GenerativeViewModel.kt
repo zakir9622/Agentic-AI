@@ -165,8 +165,17 @@ class GenerativeViewModel(
         if (capability == AiCapability.IMAGE_GEN && generative.localImageReady()) {
             return "Local SD-Turbo · Ready offline"
         }
+        if (capability == AiCapability.IMAGE_EDIT && generative.localImageEditReady()) {
+            return "Local SD-Turbo edit · Ready offline"
+        }
         if (capability == AiCapability.AUDIO && generative.localAudioReady()) {
             return "Device TTS · Ready offline"
+        }
+        if (capability == AiCapability.CODE && generative.localCodeReady()) {
+            return "Local Gemma · Ready offline"
+        }
+        if (capability == AiCapability.VIDEO && generative.localVideoReady()) {
+            return "Local still-clip · Ready offline"
         }
         return when (val check = appSettings.preflight(capability)) {
             is PreflightResult.Blocked -> check.reason
@@ -176,7 +185,13 @@ class GenerativeViewModel(
 
     fun localImageOfflineReady(): Boolean = generative.localImageReady()
 
+    fun localImageEditOfflineReady(): Boolean = generative.localImageEditReady()
+
     fun localAudioOfflineReady(): Boolean = generative.localAudioReady()
+
+    fun localCodeOfflineReady(): Boolean = generative.localCodeReady()
+
+    fun localVideoOfflineReady(): Boolean = generative.localVideoReady()
 
     fun generateImage() {
         val p = sanitizePrompt(_prompt.value)
@@ -186,7 +201,11 @@ class GenerativeViewModel(
         }
         _prompt.value = p
         val capability = if (_referenceUri.value == null) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
-        val bypassPreflight = _referenceUri.value == null && generative.localImageReady()
+        val bypassPreflight = when {
+            _referenceUri.value == null && generative.localImageReady() -> true
+            _referenceUri.value != null && generative.localImageEditReady() -> true
+            else -> false
+        }
         if (!bypassPreflight) {
             when (val check = appSettings.preflight(capability)) {
                 is PreflightResult.Blocked -> {
@@ -196,9 +215,14 @@ class GenerativeViewModel(
                 is PreflightResult.Ok -> Unit
             }
         }
+        val localLabel = if (_referenceUri.value == null) {
+            "Local SD-Turbo (offline)"
+        } else {
+            "Local SD-Turbo edit (offline)"
+        }
         startGeneration(
             capability = if (_referenceUri.value == null) RunCapability.IMAGE_GEN else RunCapability.IMAGE_EDIT,
-            modelLabel = if (bypassPreflight) "Local SD-Turbo (offline)" else appSettings.selectedProvider(capability).displayName,
+            modelLabel = if (bypassPreflight) localLabel else appSettings.selectedProvider(capability).displayName,
         ) {
             generative.generateImage(p, _referenceUri.value, currentAssists())
         }
@@ -211,14 +235,20 @@ class GenerativeViewModel(
             return
         }
         _prompt.value = p
-        when (val check = appSettings.preflight(AiCapability.CODE)) {
-            is PreflightResult.Blocked -> {
-                _preflightMessage.value = check.reason
-                return
+        val bypassPreflight = generative.localCodeReady()
+        if (!bypassPreflight) {
+            when (val check = appSettings.preflight(AiCapability.CODE)) {
+                is PreflightResult.Blocked -> {
+                    _preflightMessage.value = check.reason
+                    return
+                }
+                is PreflightResult.Ok -> Unit
             }
-            is PreflightResult.Ok -> Unit
         }
-        startGeneration(RunCapability.CODE, appSettings.selectedProvider(AiCapability.CODE).displayName) {
+        startGeneration(
+            RunCapability.CODE,
+            if (bypassPreflight) "Local Gemma (offline)" else appSettings.selectedProvider(AiCapability.CODE).displayName,
+        ) {
             generative.generateCode(p, currentAssists())
         }
     }
@@ -291,14 +321,20 @@ class GenerativeViewModel(
             return
         }
         _prompt.value = p
-        when (val check = appSettings.preflight(AiCapability.VIDEO)) {
-            is PreflightResult.Blocked -> {
-                _preflightMessage.value = check.reason
-                return
+        val bypassPreflight = generative.localVideoReady()
+        if (!bypassPreflight) {
+            when (val check = appSettings.preflight(AiCapability.VIDEO)) {
+                is PreflightResult.Blocked -> {
+                    _preflightMessage.value = check.reason
+                    return
+                }
+                is PreflightResult.Ok -> Unit
             }
-            is PreflightResult.Ok -> Unit
         }
-        startGeneration(RunCapability.VIDEO, appSettings.selectedProvider(AiCapability.VIDEO).displayName) {
+        startGeneration(
+            RunCapability.VIDEO,
+            if (bypassPreflight) "Local still-clip (offline)" else appSettings.selectedProvider(AiCapability.VIDEO).displayName,
+        ) {
             generative.generateVideo(p, currentAssists())
         }
     }

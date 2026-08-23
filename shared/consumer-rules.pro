@@ -4,3 +4,7 @@
 # See https://onnxruntime.ai/docs/build/android.html
 -keep class ai.onnxruntime.** { *; }
 -dontwarn ai.onnxruntime.**
+
+# MediaPipe GenAI (local Gemma) — reflection + JNI from shared androidMain
+-keep class com.google.mediapipe.** { *; }
+-dontwarn com.google.mediapipe.**

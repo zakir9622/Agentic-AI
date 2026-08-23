@@ -18,8 +18,14 @@ class LocalModelCatalogTest {
     }
 
     @Test
-    fun imageEditStudioPickerHasNoQualityPacks() {
-        assertTrue(LocalModelCatalog.forStudioPicker(AiCapability.IMAGE_EDIT).isEmpty())
+    fun imageEditStudioPickerOffersLocalImg2Img() {
+        val ids = LocalModelCatalog.forStudioPicker(AiCapability.IMAGE_EDIT).map { it.id }
+        assertEquals(listOf("local-sdturbo-edit"), ids)
+        val entry = LocalModelCatalog.entries.first { it.id == "local-sdturbo-edit" }
+        assertTrue(entry.runnable)
+        assertEquals("local-sdturbo-v1", entry.packId)
+        assertTrue(LocalModelCatalog.studioEntryReady(entry, packReady = true))
+        assertFalse(LocalModelCatalog.studioEntryReady(entry, packReady = false))
     }
 
     @Test
@@ -37,14 +43,29 @@ class LocalModelCatalogTest {
     }
 
     @Test
-    fun videoStudioIsHonestResearchOnly() {
+    fun videoStudioOffersLocalStillClip() {
         val video = LocalModelCatalog.forStudioPicker(AiCapability.VIDEO)
-        assertEquals(1, video.size)
-        assertFalse(video.first().runnable)
+        assertEquals(listOf("local-stillclip-v1"), video.map { it.id })
+        assertTrue(video.first().runnable)
+        assertEquals("local-sdturbo-v1", video.first().packId)
         assertTrue(
             LocalModelCatalog.studioStatusLabel(video.first(), false)
-                .contains("no on-device weights", ignoreCase = true),
+                .contains("Download", ignoreCase = true),
         )
+        assertEquals(
+            "Ready offline (still-clip)",
+            LocalModelCatalog.studioStatusLabel(video.first(), true),
+        )
+    }
+
+    @Test
+    fun codeStudioOffersLocalGemma() {
+        val code = LocalModelCatalog.forStudioPicker(AiCapability.CODE)
+        assertEquals(listOf("local-gemma-v1"), code.map { it.id })
+        assertTrue(code.first().runnable)
+        assertEquals("local-gemma-v1", code.first().packId)
+        assertFalse(LocalModelCatalog.studioEntryReady(code.first(), packReady = false))
+        assertTrue(LocalModelCatalog.studioEntryReady(code.first(), packReady = true))
     }
 
     @Test

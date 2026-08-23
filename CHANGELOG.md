@@ -1,5 +1,12 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc8
+- **True local for every studio:** Image Create/Edit, Video still-clip, Code (Gemma), Audio (system TTS) — not try-on only
+- **Image Edit offline:** `vae_encoder` img2img via `local-sdturbo-v1` v3+
+- **Video offline:** honest H.264 still-clip from on-device keyframe (`local-stillclip-v1`)
+- **Code offline:** MediaPipe + published `local-gemma-v1` (~530 MB)
+- Catalog / preflight / studio copy updated; airplane-safe generate when local packs ready
+
 ## 3.1.0-rc7
 - **True local Image Create:** published `local-sdturbo-v1` (~994 MB tiny-SD ONNX FP16) to HF packs; catalog `runnable=true`
 - Assemble tooling: `scripts/assemble-local-sdturbo-pack.py` (from public tiny-SD ONNX)

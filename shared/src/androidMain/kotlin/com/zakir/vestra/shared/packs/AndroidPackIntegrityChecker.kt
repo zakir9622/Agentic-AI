@@ -46,7 +46,21 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
             pack.id.contains("birefnet", ignoreCase = true) -> verifyBirefnetPack(dir)
         pack.id == LocalSdturboPackValidator.PACK_ID ||
             pack.id.contains("sdturbo", ignoreCase = true) -> verifySdturboPack(dir)
+        pack.id == "local-gemma-v1" || pack.id.contains("gemma", ignoreCase = true) ->
+            verifyGemmaPack(dir)
         else -> verifyManifestOnnxFiles(pack, dir)
+    }
+
+    /**
+     * MediaPipe `.task` packs — file-size checks in [verifyFiles] are the gate.
+     * Never load the LLM during startup verify (OOM risk on mid-RAM phones).
+     */
+    private fun verifyGemmaPack(dir: String): String? {
+        val task = File(dir, "gemma3-1b-it-int4.task")
+        if (!task.isFile || task.length() < 50_000_000L) {
+            return "Gemma .task missing or incomplete — re-download local-gemma-v1"
+        }
+        return null
     }
 
     private fun verifyLitePack(dir: String): String? {
