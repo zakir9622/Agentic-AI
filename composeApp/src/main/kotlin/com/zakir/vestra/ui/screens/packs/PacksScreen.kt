@@ -31,6 +31,8 @@ import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.domain.PackVerifyStatus
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.packs.PackDownloadWorker
+import com.zakir.vestra.shared.packs.PackHandshakeResult
+import com.zakir.vestra.shared.packs.PackHandshakeWires
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.ui.components.GlassCard
@@ -52,6 +54,10 @@ fun PacksScreen(
     val scope = rememberCoroutineScope()
     val startDownload = rememberPackDownloadStarter(showToast = true)
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
+    var handshakeBusy by remember { mutableStateOf(false) }
+    var handshakeBanner by remember { mutableStateOf<String?>(null) }
+    var handshakeBannerOk by remember { mutableStateOf<Boolean?>(null) }
+    var packHandshake by remember { mutableStateOf<Map<String, PackHandshakeResult>>(emptyMap()) }
 
     LaunchedEffect(Unit) {
         durableReady = DurableStorage.hasAllFilesAccess()
@@ -69,6 +75,36 @@ fun PacksScreen(
         if (pendingIds.isEmpty()) return@LaunchedEffect
         withContext(Dispatchers.Default) {
             pendingIds.forEach { id -> packManager.verifyInstalled(id) }
+        }
+    }
+
+    fun runHandshake(packId: String) {
+        if (handshakeBusy) return
+        scope.launch {
+            handshakeBusy = true
+            handshakeBanner = "Handshaking $packId…"
+            handshakeBannerOk = null
+            val result = withContext(Dispatchers.Default) { packManager.handshake(packId) }
+            packHandshake = packHandshake + (packId to result)
+            handshakeBusy = false
+            handshakeBannerOk = result.ok
+            handshakeBanner = PackHandshakeWires.formatDetail(result)
+            Toast.makeText(context, "${result.signal} · ${result.displayName}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun runHandshakeAll() {
+        if (handshakeBusy) return
+        scope.launch {
+            handshakeBusy = true
+            handshakeBanner = "Handshaking all installed packs…"
+            handshakeBannerOk = null
+            val report = withContext(Dispatchers.Default) { packManager.handshakeAll() }
+            packHandshake = report.results.associateBy { it.packId }
+            handshakeBusy = false
+            handshakeBannerOk = report.allOk && report.results.isNotEmpty()
+            handshakeBanner = report.summary + " · " + report.signal
+            Toast.makeText(context, report.signal + " · " + report.summary, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -103,6 +139,26 @@ fun PacksScreen(
                 Text("Enable durable storage now")
             }
         }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = ::runHandshakeAll,
+            enabled = !handshakeBusy && states.values.any { it.status == PackStatus.INSTALLED },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (handshakeBusy) "Handshaking…" else "Verify all device links")
+        }
+        handshakeBanner?.let { banner ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                banner,
+                style = MaterialTheme.typography.labelMedium,
+                color = when (handshakeBannerOk) {
+                    true -> MaterialTheme.colorScheme.primary
+                    false -> MaterialTheme.colorScheme.error
+                    null -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
         Spacer(Modifier.height(16.dp))
 
         if (states.isEmpty()) {
@@ -131,7 +187,10 @@ fun PacksScreen(
             Spacer(Modifier.height(12.dp))
             PackCard(
                 state = state,
+                handshake = packHandshake[state.pack.id],
+                handshakeBusy = handshakeBusy,
                 onInstall = { startDownload(state.pack.id) },
+                onHandshake = { runHandshake(state.pack.id) },
                 onCancel = {
                     PackDownloadWorker.cancel(context, state.pack.id)
                     packManager.markCancelled(state.pack.id)
@@ -146,6 +205,8 @@ fun PacksScreen(
                                 "Can't remove ${state.pack.displayName} while a generation is running",
                                 Toast.LENGTH_LONG,
                             ).show()
+                        } else {
+                            packHandshake = packHandshake - state.pack.id
                         }
                     }
                 },
@@ -158,7 +219,10 @@ fun PacksScreen(
 @Composable
 private fun PackCard(
     state: PackState,
+    handshake: PackHandshakeResult?,
+    handshakeBusy: Boolean,
     onInstall: () -> Unit,
+    onHandshake: () -> Unit,
     onCancel: () -> Unit,
     onUninstall: () -> Unit,
 ) {
@@ -226,18 +290,42 @@ private fun PackCard(
                     OutlinedButton(onClick = onCancel) { Text("Force stop") }
                 }
             }
-            PackStatus.INSTALLED -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    state.verifyLabel(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = when {
-                        state.isReady() -> MaterialTheme.colorScheme.primary
-                        state.verifyError != null -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                )
-                OutlinedButton(onClick = onUninstall) { Text("Remove") }
+            PackStatus.INSTALLED -> Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        state.verifyLabel(),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = when {
+                            state.isReady() -> MaterialTheme.colorScheme.primary
+                            state.verifyError != null -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .align(Alignment.CenterVertically),
+                    )
+                    OutlinedButton(onClick = onUninstall) { Text("Remove") }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onHandshake,
+                    enabled = !handshakeBusy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Verify device link")
+                }
+                handshake?.let { hs ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        PackHandshakeWires.formatDetail(hs),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (hs.ok) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    )
+                }
             }
             PackStatus.INCOMPATIBLE -> Text(
                 "This device doesn't meet the pack's requirements.",

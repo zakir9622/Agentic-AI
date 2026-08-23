@@ -170,6 +170,74 @@ class ModelPackManager(
         }
     }
 
+    /**
+     * Explicit device handshake for one pack: re-verify files + graphs, then
+     * report which studio wires are linked. Used by Settings / Packs “Verify” button.
+     */
+    suspend fun handshake(id: String, nowMs: Long = EpochClock.System.nowMs()): PackHandshakeResult {
+        val state = _states.value[id]
+        val wires = PackHandshakeWires.forPackId(id)
+        if (state == null) {
+            return PackHandshakeResult(
+                packId = id,
+                displayName = id,
+                ok = false,
+                signal = PackHandshakeResult.SIGNAL_SKIP,
+                message = "Pack not in catalog",
+                wires = wires,
+                verifiedAtMs = nowMs,
+            )
+        }
+        if (state.status != PackStatus.INSTALLED) {
+            return PackHandshakeResult(
+                packId = id,
+                displayName = state.pack.displayName,
+                ok = false,
+                signal = PackHandshakeResult.SIGNAL_SKIP,
+                message = "Not installed — download first",
+                wires = wires,
+                verifiedAtMs = nowMs,
+            )
+        }
+        val ok = verifyInstalled(id)
+        val after = _states.value[id]
+        return if (ok) {
+            PackHandshakeResult(
+                packId = id,
+                displayName = state.pack.displayName,
+                ok = true,
+                signal = PackHandshakeResult.SIGNAL_OK,
+                message = "Linked to device · files + engine graphs OK",
+                wires = wires,
+                verifiedAtMs = after?.verifiedAtMs ?: nowMs,
+            )
+        } else {
+            PackHandshakeResult(
+                packId = id,
+                displayName = state.pack.displayName,
+                ok = false,
+                signal = PackHandshakeResult.SIGNAL_FAIL,
+                message = after?.verifyError ?: "Integrity check failed — re-download",
+                wires = wires,
+                verifiedAtMs = nowMs,
+            )
+        }
+    }
+
+    /** Handshake every installed pack; returns an aggregate ACK/NACK report. */
+    suspend fun handshakeAll(nowMs: Long = EpochClock.System.nowMs()): PackHandshakeReport {
+        val started = nowMs
+        val installed = _states.value.values
+            .filter { it.status == PackStatus.INSTALLED }
+            .map { it.pack.id }
+        val results = installed.map { handshake(it, nowMs = EpochClock.System.nowMs()) }
+        return PackHandshakeReport(
+            results = results,
+            startedAtMs = started,
+            finishedAtMs = EpochClock.System.nowMs(),
+        )
+    }
+
     fun markDownloading(id: String, progress: Float) {
         updateStatus(id) { it.copy(status = PackStatus.DOWNLOADING, progress = progress) }
     }

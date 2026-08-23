@@ -25,6 +25,7 @@ import com.zakir.vestra.shared.engine.Availability
 import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.local.LocalModelEntry
+import com.zakir.vestra.shared.packs.PackHandshakeResult
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -42,6 +43,11 @@ internal fun LazyListScope.settingsEnginesSection(
     startDownload: (String) -> Unit,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
+    handshakeBusy: Boolean = false,
+    handshakeDetail: String? = null,
+    handshakeOk: Boolean? = null,
+    onHandshakeSelected: () -> Unit = {},
+    onHandshakeAll: () -> Unit = {},
 ) {
     item(key = "engine") {
         GlassCard {
@@ -145,6 +151,57 @@ internal fun LazyListScope.settingsEnginesSection(
                 }
                 OutlinedButton(onClick = onOpenPacks, modifier = Modifier.weight(1f)) {
                     Text("All packs")
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Device handshake confirms the pack is on disk, integrity-checked, and wired to the matching studio.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onHandshakeSelected,
+                    enabled = !handshakeBusy &&
+                        selectedPackId.isNotBlank() &&
+                        status == PackStatus.INSTALLED,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (handshakeBusy) "Handshaking…" else "Verify link")
+                }
+                OutlinedButton(
+                    onClick = onHandshakeAll,
+                    enabled = !handshakeBusy &&
+                        packStates.values.any { it.status == PackStatus.INSTALLED },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Verify all")
+                }
+            }
+            handshakeDetail?.let { detail ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = when (handshakeOk) {
+                        true -> MaterialTheme.colorScheme.primary
+                        false -> MaterialTheme.colorScheme.error
+                        null -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                if (handshakeOk == true) {
+                    Text(
+                        PackHandshakeResult.SIGNAL_OK,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else if (handshakeOk == false) {
+                    Text(
+                        PackHandshakeResult.SIGNAL_FAIL,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }

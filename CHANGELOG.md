@@ -1,5 +1,9 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc9
+- **Pack device handshake:** Settings → Engines & packs and Model packs gain **Verify link** / **Verify all**
+- Re-checks files + graphs on device and returns `HANDSHAKE_OK` / `HANDSHAKE_FAIL` with wired studios listed
+
 ## 3.1.0-rc8
 - **True local for every studio:** Image Create/Edit, Video still-clip, Code (Gemma), Audio (system TTS) — not try-on only
 - **Image Edit offline:** `vae_encoder` img2img via `local-sdturbo-v1` v3+
