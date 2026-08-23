@@ -88,7 +88,16 @@ data class PackState(
     fun verifyLabel(): String = when (verifyStatus) {
         PackVerifyStatus.VERIFIED -> "Verified — ready offline"
         PackVerifyStatus.VERIFYING -> "Verifying models…"
-        PackVerifyStatus.FAILED -> verifyError ?: "Verification failed — re-download"
+        PackVerifyStatus.FAILED -> {
+            val err = verifyError.orEmpty()
+            when {
+                err.contains("incompatible", ignoreCase = true) ||
+                    err.contains("float16", ignoreCase = true) ||
+                    err.contains("ORT", ignoreCase = true) ->
+                    "Incompatible on this device — use Lite or re-download"
+                else -> verifyError ?: "Verification failed — re-download"
+            }
+        }
         PackVerifyStatus.UNKNOWN ->
             if (status == PackStatus.INSTALLED) "Installed — verification pending" else ""
     }

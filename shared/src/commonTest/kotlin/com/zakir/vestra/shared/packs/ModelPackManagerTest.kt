@@ -475,6 +475,30 @@ class ModelPackManagerTest {
     }
 
     @Test
+    fun markGraphIncompatibleClearsReadySoAutoSkipsPro() = runTest {
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+        assertTrue(manager.isReady("lite-v1"))
+        manager.markGraphIncompatible(
+            "lite-v1",
+            "Pro pack UNet (unet.onnx) is incompatible with this ONNX Runtime (FP16 type mismatch).",
+        )
+        assertFalse(manager.isReady("lite-v1"))
+        assertEquals(PackVerifyStatus.FAILED, manager.verifyStatus("lite-v1"))
+        assertTrue(
+            manager.states.value.getValue("lite-v1").verifyLabel()
+                .contains("Incompatible", ignoreCase = true),
+        )
+    }
+
+    @Test
     fun deviceSpecGate() {
         val manager = ModelPackManager(FakeFs(), FakeProbe(ram = 4096, npu = false), manifestClient(), "u")
         assertTrue(manager.deviceMeets(DeviceSpec(minRamMb = 0, requiresNpu = false)))

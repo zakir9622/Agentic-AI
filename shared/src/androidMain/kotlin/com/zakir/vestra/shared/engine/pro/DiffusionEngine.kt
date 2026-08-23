@@ -169,6 +169,15 @@ class DiffusionEngine(
                     throw error
                 } catch (error: Exception) {
                     Log.e(TAG, "SD-ControlNet pipeline failed; falling back", error)
+                    val chain = generateSequence<Throwable>(error) { it.cause }.mapNotNull { it.message }
+                        .joinToString(" | ")
+                    if (ProOrtFailure.isPackIncompatible(chain) || ProOrtFailure.isPackIncompatible(error.message)) {
+                        val friendly = friendlyProFailure(error)
+                        packs.markGraphIncompatible(packId, friendly)
+                        DiagnosticsHook.completeTryOn(diag, false, friendly)
+                        emit(GenerationState.Failed(TryOnError.Internal(friendly)))
+                        return@flow
+                    }
                     emit(
                         GenerationState.Running(
                             0.08f,
@@ -281,18 +290,18 @@ class DiffusionEngine(
         } catch (error: Exception) {
             Log.e(TAG, "Pro generation failed", error)
             val friendly = friendlyProFailure(error)
+            if (ProOrtFailure.isPackIncompatible(friendly) || ProOrtFailure.isPackIncompatible(error.message)) {
+                packs.markGraphIncompatible(packId, friendly)
+            }
             DiagnosticsHook.completeTryOn(diag, false, friendly)
             emit(GenerationState.Failed(TryOnError.Internal(friendly)))
         } catch (error: Throwable) {
             Log.e(TAG, "Pro generation native failure", error)
-            DiagnosticsHook.completeTryOn(diag, false, error.message)
-            emit(
-                GenerationState.Failed(
-                    TryOnError.Internal(
-                        "Pro try-on crashed in native code — switch to Lite, or re-download pro-v1 + lite-v1.",
-                    ),
-                ),
-            )
+            val friendly =
+                "Pro try-on crashed in native code — switch to Lite, or re-download pro-v1 + lite-v1."
+            packs.markGraphIncompatible(packId, friendly)
+            DiagnosticsHook.completeTryOn(diag, false, friendly)
+            emit(GenerationState.Failed(TryOnError.Internal(friendly)))
         } finally {
             packId?.let { packs.markPackIdle(it) }
             packs.markPackIdle(com.zakir.vestra.shared.engine.lite.LiteEngine.PACK_ID)
@@ -314,14 +323,16 @@ class DiffusionEngine(
 private fun friendlyProFailure(error: Throwable): String {
     val chain = generateSequence(error) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
     val pathHint = Regex("""Load model from ([^\s]+)""").find(chain)?.groupValues?.getOrNull(1)
-    if (pathHint != null && ProOrtFailure.isPackIncompatible(chain)) {
+        ?: Regex("""\(([^)]+\.onnx)\)""").find(chain)?.groupValues?.getOrNull(1)
+    if (pathHint != null) {
         return ProOrtSessions.friendlyMessage(pathHint, error)
     }
     if (ProOrtFailure.isPackIncompatible(chain)) {
         return "Pro pack is incompatible with this ONNX Runtime on your device. " +
             "Use Lite try-on, or re-download pro-v1 / try pro-v2-int8 in Settings → Model packs."
     }
-    return error.message?.take(220)?.ifBlank { null } ?: "Generation failed"
+    // Never dump raw ORT to the UI — keep a short actionable line.
+    return "Pro try-on failed on this device — switch to Lite, or re-download the Pro pack in Settings."
 }
 
 private fun UnavailableReason.toProError(): TryOnError = when (this) {

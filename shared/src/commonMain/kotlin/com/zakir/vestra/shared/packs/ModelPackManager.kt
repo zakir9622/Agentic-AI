@@ -171,8 +171,18 @@ class ModelPackManager(
     }
 
     /**
+     * Record that an installed pack's graphs cannot load on this device (ORT type
+     * mismatch, invalid ControlNet, etc.). Marks verify FAILED so [isReady] is false
+     * and AUTO try-on stays on Lite without another Pro generate.
+     */
+    fun markGraphIncompatible(id: String, error: String) {
+        markVerifyFailed(id, error.take(220))
+    }
+
+    /**
      * Explicit device handshake for one pack: re-verify files + graphs, then
      * report which studio wires are linked. Used by Settings / Packs “Verify” button.
+     * Pro packs open UNet once here (not on every cold start).
      */
     suspend fun handshake(id: String, nowMs: Long = EpochClock.System.nowMs()): PackHandshakeResult {
         val state = _states.value[id]
@@ -199,15 +209,20 @@ class ModelPackManager(
                 verifiedAtMs = nowMs,
             )
         }
-        val ok = verifyInstalled(id)
+        val ok = verifyInstalledHandshake(id)
         val after = _states.value[id]
+        val isPro = id.startsWith("pro-")
         return if (ok) {
             PackHandshakeResult(
                 packId = id,
                 displayName = state.pack.displayName,
                 ok = true,
                 signal = PackHandshakeResult.SIGNAL_OK,
-                message = "Linked to device · files + engine graphs OK",
+                message = if (isPro) {
+                    "Linked to device · Pro UNet session opened OK"
+                } else {
+                    "Linked to device · files + engine graphs OK"
+                },
                 wires = wires,
                 verifiedAtMs = after?.verifiedAtMs ?: nowMs,
             )
@@ -221,6 +236,29 @@ class ModelPackManager(
                 wires = wires,
                 verifiedAtMs = nowMs,
             )
+        }
+    }
+
+    /** Handshake verify — may deep-probe Pro UNet. */
+    private suspend fun verifyInstalledHandshake(id: String): Boolean = withContext(Dispatchers.Default) {
+        synchronized(integrityLock) {
+            val state = _states.value[id] ?: return@withContext false
+            if (state.status != PackStatus.INSTALLED) return@withContext false
+            val dir = installedDir(id) ?: return@withContext false
+            markVerifying(id)
+            val fileError = integrityChecker.verifyFiles(state.pack, dir)
+            if (fileError != null) {
+                markVerifyFailed(id, fileError)
+                return@withContext false
+            }
+            val onnxError = integrityChecker.verifyOnnxHandshake(state.pack, dir)
+            if (onnxError == null) {
+                markVerified(id)
+                true
+            } else {
+                markVerifyFailed(id, onnxError)
+                false
+            }
         }
     }
 
