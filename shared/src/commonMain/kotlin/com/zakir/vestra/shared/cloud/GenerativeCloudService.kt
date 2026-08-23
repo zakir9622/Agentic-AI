@@ -1202,11 +1202,14 @@ class GenerativeCloudService(
      * blocked / flaky Space still has a chance to succeed.
      */
     private fun visualPromptVariants(prompt: String, assists: GenerativeAssists): List<String> {
-        val base = prompt.trim().ifBlank { "modest fashion lookbook portrait" }
+        // No implicit subject. Image/Video are general-purpose generators: an empty prompt used
+        // to become "modest fashion lookbook portrait", which silently rewrote what the user
+        // asked for. Modest-wear framing belongs to try-on only.
+        val base = prompt.trim().ifBlank { "a photograph" }
         val rich = enrichVisualPrompt(base, assists)
         val soft = enrichVisualPrompt(
             base,
-            assists.copy(bypassFilter = true, fashionContext = true, detailBoost = false, qualityGuard = false),
+            assists.copy(bypassFilter = true, detailBoost = false, qualityGuard = false),
         )
         val bare = base
         return listOf(rich, soft, bare).distinct()
@@ -1214,14 +1217,14 @@ class GenerativeCloudService(
 
     private fun enrichVisualPrompt(prompt: String, assists: GenerativeAssists): String {
         val extras = buildList {
+            // "Editorial" nudges the model away from a safety refusal without prescribing a
+            // subject; the modest-wear wording it used to add steered every generation, whatever
+            // the user actually typed.
             if (assists.bypassFilter) {
-                add(
-                    "editorial fashion catalog photography, tasteful modest clothing, " +
-                        "professional lookbook, fabric and garment focus, SFW fashion editorial",
-                )
+                add("editorial photography, professional composition, SFW")
             }
             if (assists.fashionContext) {
-                add("fashion photography, modest wear lookbook, garment fabric detail, clothing catalog style")
+                add("fashion photography, garment fabric detail, catalog style")
             }
             if (assists.detailBoost) {
                 add("sharp detail, coherent lighting, high resolution")
@@ -1233,11 +1236,11 @@ class GenerativeCloudService(
         return if (extras.isEmpty()) prompt else "$prompt. ${extras.joinToString(". ")}"
     }
 
-    /** Fashion framing for spoken TTS scripts when the Advanced toggle is on. */
+    /** Optional voiceover framing for TTS scripts when the Advanced toggle is on. */
     private fun enrichAudioPrompt(prompt: String, assists: GenerativeAssists): String {
         if (prompt.equals("voice-change", ignoreCase = true)) return prompt
         if (!assists.fashionContext) return prompt
-        return "$prompt. Narrate as a modest fashion lookbook voiceover — clear, calm, SFW."
+        return "$prompt. Narrate as a product voiceover — clear, calm, SFW."
     }
 
     private fun requireKeyIfNeeded(provider: CloudModelProvider) {

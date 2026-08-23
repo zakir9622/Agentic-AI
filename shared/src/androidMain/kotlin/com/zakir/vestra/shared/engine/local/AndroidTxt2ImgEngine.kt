@@ -182,7 +182,7 @@ class AndroidTxt2ImgEngine(
         val chw = toNormalizedChw(resized)
         if (resized !== source) resized.recycle()
         val name = encoder.inputNames.first()
-        val tensor = encoder.floatTensor(chw, 1, 3, resolution.toLong(), resolution.toLong())
+        val tensor = encoder.floatTensorTyped(name, chw, 1, 3, resolution.toLong(), resolution.toLong())
         val encoded = encoder.runSingle(mapOf(name to tensor))
         // Some VAEs return mean+logvar; take first 4*plane as latents.
         val needed = 4 * plane
@@ -203,7 +203,7 @@ class AndroidTxt2ImgEngine(
             it.contains("hidden", true) || it.contains("encoder", true)
         }
 
-        val sampleTensor = unet.floatTensor(sample, 1, 4, latent.toLong(), latent.toLong())
+        val sampleTensor = unet.floatTensorTyped(sampleName, sample, 1, 4, latent.toLong(), latent.toLong())
         val timeTensor = timestepTensor(timestep, timeName)
         val hiddenTensor = hiddenName?.let {
             val seq = if (hidden.size % 768 == 0) hidden.size / 768 else 77
@@ -215,7 +215,7 @@ class AndroidTxt2ImgEngine(
                     hidden.copyInto(dst, endIndex = minOf(hidden.size, dst.size))
                 }
             }
-            unet.floatTensor(data, 1, seq.toLong(), dim.toLong())
+            unet.floatTensorTyped(hiddenName, data, 1, seq.toLong(), dim.toLong())
         }
 
         val inputs = buildMap {
@@ -233,7 +233,8 @@ class AndroidTxt2ImgEngine(
     private fun decodeVae(latentSample: FloatArray): FloatArray {
         val scaled = FloatArray(latentSample.size) { i -> latentSample[i] / vaeScale }
         val name = vaeDecoder.inputNames.first()
-        val tensor = vaeDecoder.floatTensor(scaled, 1, 4, latent.toLong(), latent.toLong())
+        val vaeName = vaeDecoder.inputNames.first()
+        val tensor = vaeDecoder.floatTensorTyped(vaeName, scaled, 1, 4, latent.toLong(), latent.toLong())
         return vaeDecoder.runSingle(mapOf(name to tensor))
     }
 

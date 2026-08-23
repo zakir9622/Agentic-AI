@@ -9,6 +9,7 @@ import com.zakir.vestra.shared.engine.lite.OrtModel
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
 import java.nio.LongBuffer
+import java.nio.ShortBuffer
 
 /**
  * Thin multi-input/multi-output ONNX Runtime wrapper for the SD1.5 +
@@ -24,6 +25,25 @@ class OrtGraph(modelPath: String) : AutoCloseable {
 
     fun floatTensor(data: FloatArray, vararg shape: Long): OnnxTensor =
         OnnxTensor.createTensor(env, FloatBuffer.wrap(data), shape)
+
+    /**
+     * Float tensor typed to match [inputName].
+     *
+     * These packs are quantized FP16, so feeding FP32 fails with
+     * `ORT_INVALID_ARGUMENT ... Actual: (tensor(float)), expected: (tensor(float16))`. Callers
+     * keep working in FloatArray; the half conversion happens here only when the graph asks
+     * for it.
+     */
+    fun floatTensorTyped(inputName: String, data: FloatArray, vararg shape: Long): OnnxTensor =
+        when (inputType(inputName)) {
+            OnnxJavaType.FLOAT16 -> OnnxTensor.createTensor(
+                env,
+                ShortBuffer.wrap(Fp16.fromFloats(data)),
+                shape,
+                OnnxJavaType.FLOAT16,
+            )
+            else -> floatTensor(data, *shape)
+        }
 
     fun longTensor(data: LongArray, vararg shape: Long): OnnxTensor =
         OnnxTensor.createTensor(env, LongBuffer.wrap(data), shape)
@@ -100,12 +120,27 @@ class OrtGraph(modelPath: String) : AutoCloseable {
     }
 
     companion object {
+        /**
+         * Reads a float output, converting when the graph emits FP16.
+         *
+         * An FP16 tensor has no float view — asking for floatBuffer throws — so half-precision
+         * outputs are read as shorts and widened here. The rest of the pipeline stays FP32.
+         */
         private fun readFloats(t: OnnxTensor): FloatArray {
             val count = OrtModel.elementCount(t.info.shape)
             require(count in 1..OrtModel.MAX_OUTPUT_ELEMENTS) {
                 "ONNX output size $count outside safe range (max ${OrtModel.MAX_OUTPUT_ELEMENTS})"
             }
             val out = FloatArray(count)
+            if (t.info.type == OnnxJavaType.FLOAT16 || t.info.type == OnnxJavaType.BFLOAT16) {
+                val halves = ShortArray(count)
+                t.shortBuffer.get(halves)
+                val bfloat = t.info.type == OnnxJavaType.BFLOAT16
+                for (i in 0 until count) {
+                    out[i] = if (bfloat) Fp16.bfloatToFloat(halves[i]) else Fp16.toFloat(halves[i])
+                }
+                return out
+            }
             t.floatBuffer.get(out)
             return out
         }

@@ -26,11 +26,11 @@ class AndroidLiteRtLmCodeGenerator(
         LiteRtLmInference.litertLmReady(packs, packId, primaryFile, minBytes)
 
     /**
-     * Initializes the engine into the shared cache so the first prompt is already warm.
+     * Loads the engine into the shared cache without opening a conversation.
      *
-     * Uses the same runText path a real generation takes — a one-token prompt — so this proves
-     * the model genuinely loads rather than only that the files are present, which is the
-     * distinction that let "Ready offline" coexist with a pack that could not run.
+     * An earlier version warmed up by generating one token, which left a session open — and
+     * LiteRT-LM allows only one, so the user's first real prompt failed with
+     * FAILED_PRECONDITION. Initialization alone is what warm-up should cost.
      */
     override fun warmUp(): String? {
         if (!isReady()) {
@@ -39,20 +39,14 @@ class AndroidLiteRtLmCodeGenerator(
         val dir = packs.installedDir(packId) ?: return "$packId pack directory missing."
         val modelPath = LiteRtLmPackConfig.modelPath(java.io.File(dir), primaryFile)
             ?: return "$primaryFile missing — re-download $packId."
-        @Suppress("UNCHECKED_CAST")
-        val result = LiteRtLmInference.runText(
+        return LiteRtLmInference.warmUpEngine(
             context = context,
             packs = packs,
             packId = packId,
             modelPath = modelPath,
             useGpu = useGpu(),
             tools = tools,
-            prompt = "hi",
-            system = "Reply with one word.",
-            mapOk = { LocalCodeResult.Ok(it.text, it.tokensIn, it.tokensOut) },
-            mapUnavailable = { LocalCodeResult.Unavailable(it) },
-        ) as LocalCodeResult
-        return (result as? LocalCodeResult.Unavailable)?.reason
+        )
     }
 
     override fun generate(prompt: String, system: String): LocalCodeResult {

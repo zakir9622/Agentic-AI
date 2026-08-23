@@ -10,6 +10,44 @@ import java.io.File
 
 /** Shared warm-engine inference for all LiteRT-LM generators. */
 internal object LiteRtLmInference {
+    /**
+     * Initializes the engine without starting a conversation.
+     *
+     * withEngine() calls engine.initialize() before running the block, so an empty block pays
+     * the whole cold-load cost and leaves no session behind. Warming up via a real one-token
+     * generation instead left a conversation open, and LiteRT-LM permits exactly one — the next
+     * real prompt then died with FAILED_PRECONDITION: "A session already exists."
+     *
+     * Returns the failure reason, or null when the model loaded.
+     */
+    fun warmUpEngine(
+        context: Context,
+        packs: ModelPackManager,
+        packId: String,
+        modelPath: String,
+        useGpu: Boolean,
+        visionEnabled: Boolean = false,
+        audioEnabled: Boolean = false,
+        tools: List<ToolSet> = emptyList(),
+    ): String? {
+        packs.markPackInUse(packId)
+        return try {
+            val spec = LiteRtLmEngineCache.EngineSpec(
+                modelPath = modelPath,
+                useGpu = useGpu,
+                visionEnabled = visionEnabled,
+                audioEnabled = audioEnabled,
+                toolsKey = LiteRtLmEngine.toolsKey(tools),
+            )
+            LiteRtLmEngineCache.withEngine(context, spec, tools) { /* load only */ }
+            null
+        } catch (err: Throwable) {
+            err.message?.take(200) ?: "LiteRT-LM failed to load."
+        } finally {
+            packs.markPackIdle(packId)
+        }
+    }
+
     fun runText(
         context: Context,
         packs: ModelPackManager,

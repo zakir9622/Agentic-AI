@@ -623,9 +623,16 @@ class GenerativeCloudServiceTest {
             persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
             assists = GenerativeAssists(fashionContext = true),
         ).toList()
+        // The assist must still shape the script, but without the modest-wear framing that used
+        // to be injected into every generation — that belongs to try-on, not general TTS.
+        val spoken = capturing.lastText.orEmpty()
         assertTrue(
-            capturing.lastText.orEmpty().contains("modest fashion", ignoreCase = true),
-            "Fashion assist must enrich the spoken script: ${capturing.lastText}",
+            spoken.contains("voiceover", ignoreCase = true),
+            "Fashion assist must enrich the spoken script: $spoken",
+        )
+        assertTrue(
+            !spoken.contains("modest", ignoreCase = true),
+            "General audio must not carry modest-wear framing: $spoken",
         )
 
         capturing.lastText = null
