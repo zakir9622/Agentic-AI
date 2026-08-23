@@ -72,6 +72,7 @@ class AndroidLocalVideoGenerator(
             var track = -1
             var muxerStarted = false
             val bufferInfo = MediaCodec.BufferInfo()
+            var ptsIndex = 0L
             try {
                 codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 inputSurface = codec.createInputSurface()
@@ -114,6 +115,10 @@ class AndroidLocalVideoGenerator(
                                 bufferInfo.size = 0
                             }
                             if (bufferInfo.size > 0 && muxerStarted) {
+                                if (bufferInfo.presentationTimeUs <= 0L) {
+                                    bufferInfo.presentationTimeUs = ptsIndex * 1_000_000L / fps
+                                    ptsIndex++
+                                }
                                 outBuf.position(bufferInfo.offset)
                                 outBuf.limit(bufferInfo.offset + bufferInfo.size)
                                 muxer.writeSampleData(track, outBuf, bufferInfo)
@@ -160,13 +165,16 @@ class AndroidLocalCodeGenerator(
         val dir = packs.installedDir(packId)
             ?: return LocalCodeResult.Unavailable("Gemma pack directory missing.")
         val modelPath = File(dir, TASK_FILE).absolutePath
-        return runCatching {
+        packs.markPackInUse(packId)
+        return try {
             generateWithMediaPipe(modelPath, prompt, system)
-        }.getOrElse { err ->
+        } catch (err: Throwable) {
             LocalCodeResult.Unavailable(
                 err.message?.take(200)
                     ?: "On-device Gemma failed — re-download local-gemma-v1 or use cloud Code.",
             )
+        } finally {
+            packs.markPackIdle(packId)
         }
     }
 

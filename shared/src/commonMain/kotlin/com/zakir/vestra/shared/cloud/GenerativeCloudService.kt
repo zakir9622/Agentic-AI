@@ -96,13 +96,15 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            // Offline Create / Edit: try local pack before requiring network.
-            val tryLocalImage = when {
-                referenceUri.isNullOrBlank() && localImage.isReady() -> true
-                !referenceUri.isNullOrBlank() && localImage.isEditReady() -> true
-                else -> false
+            // Prefer local when offline (or network probe says so). When online, honor the
+            // selected cloud model first; local remains a fallback after cloud failures.
+            val networkOk = settings.networkLikelyAvailable()
+            val localReady = when {
+                referenceUri.isNullOrBlank() -> localImage.isReady()
+                else -> localImage.isEditReady()
             }
-            if (tryLocalImage) {
+            val tryLocalFirst = localReady && !networkOk
+            if (tryLocalFirst) {
                 val stage = if (referenceUri.isNullOrBlank()) {
                     "Generating on-device…"
                 } else {
@@ -450,7 +452,7 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            if (localCode.isReady()) {
+            if (localCode.isReady() && !settings.networkLikelyAvailable()) {
                 emit(GenerativeState.Running(0.08f, "Generating code on-device…"))
                 when (val local = localCode.generate(prompt.trim(), buildCodeSystem(assists))) {
                     is LocalCodeResult.Ok -> {
@@ -587,7 +589,7 @@ class GenerativeCloudService(
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            if (localVideo.isReady()) {
+            if (localVideo.isReady() && !settings.networkLikelyAvailable()) {
                 emit(GenerativeState.Running(0.08f, "Encoding local still-clip…"))
                 when (val local = localVideo.generate(prompt.trim(), assists.seed)) {
                     is LocalVideoResult.Ok -> {

@@ -80,10 +80,12 @@ class AndroidLocalImageGenerator(
             }
         }
         return try {
+            packs.markPackInUse(packId)
             AndroidTxt2ImgEngine(dir, config).use { engine ->
                 engine.generate(prompt, seed, outputDir, referenceBitmap = referenceBitmap)
             }
         } finally {
+            packs.markPackIdle(packId)
             if (referenceBitmap != null && !referenceBitmap.isRecycled) {
                 referenceBitmap.recycle()
             }

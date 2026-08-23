@@ -3,38 +3,21 @@ package com.zakir.vestra.shared.engine.pro
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import com.zakir.vestra.shared.engine.lite.OrtEpPolicy
+import com.zakir.vestra.shared.engine.lite.OrtModel
+import java.io.File
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
 
 /**
  * Thin multi-input/multi-output ONNX Runtime wrapper for the SD1.5 +
- * ControlNet + IP-Adapter graphs. Prefers NNAPI (Tensor G4 on Pixel 9) with
- * XNNPACK CPU threads as fallback.
- *
- * Note: [OrtSession.SessionOptions.addQnn] is attempted opportunistically, but the
- * stock `onnxruntime-android` AAR does **not** ship Qualcomm QNN `.so` libraries —
- * the call fails silently and NNAPI/XNNPACK win. Real NPU acceleration needs a
- * separate ORT-QNN / Qualcomm AI Hub build (cycle4 stretch).
+ * ControlNet + IP-Adapter graphs (and local txt2img). Soft-wraps native link
+ * failures like [OrtModel]; caps output element counts to avoid OOM.
  */
 class OrtGraph(modelPath: String) : AutoCloseable {
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
-    private val session: OrtSession = env.createSession(
-        modelPath,
-        OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(4)
-            setInterOpNumThreads(2)
-            // Best-effort QNN (usually no-op without QNN EP package), then optional NNAPI, then XNNPACK.
-            runCatching {
-                val qnnOptions = mutableMapOf<String, String>()
-                addQnn(qnnOptions)
-            }
-            if (com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi) {
-                runCatching { addNnapi() }
-            }
-            runCatching { addXnnpack(emptyMap()) }
-        },
-    )
+    private val session: OrtSession = createSessionSafely(modelPath)
 
     val inputNames: Set<String> get() = session.inputNames.toSet()
 
@@ -55,9 +38,7 @@ class OrtGraph(modelPath: String) : AutoCloseable {
             session.run(inputs).use { result ->
                 return outputs.map { name ->
                     val t = result.get(name).get() as OnnxTensor
-                    val out = FloatArray(t.info.shape.fold(1L) { a, d -> a * d }.toInt())
-                    t.floatBuffer.get(out)
-                    out
+                    readFloats(t)
                 }
             }
         } finally {
@@ -70,14 +51,62 @@ class OrtGraph(modelPath: String) : AutoCloseable {
         try {
             session.run(inputs).use { result ->
                 val t = result[0] as OnnxTensor
-                val out = FloatArray(t.info.shape.fold(1L) { a, d -> a * d }.toInt())
-                t.floatBuffer.get(out)
-                return out
+                return readFloats(t)
             }
         } finally {
             inputs.values.forEach { it.close() }
         }
     }
 
-    override fun close() = session.close()
+    override fun close() {
+        runCatching { session.close() }
+    }
+
+    companion object {
+        private fun readFloats(t: OnnxTensor): FloatArray {
+            val count = OrtModel.elementCount(t.info.shape)
+            require(count in 1..OrtModel.MAX_OUTPUT_ELEMENTS) {
+                "ONNX output size $count outside safe range (max ${OrtModel.MAX_OUTPUT_ELEMENTS})"
+            }
+            val out = FloatArray(count)
+            t.floatBuffer.get(out)
+            return out
+        }
+
+        private fun createSessionSafely(modelPath: String): OrtSession {
+            val env = OrtEnvironment.getEnvironment()
+            return try {
+                env.createSession(
+                    modelPath,
+                    OrtSession.SessionOptions().apply {
+                        setIntraOpNumThreads(4)
+                        setInterOpNumThreads(2)
+                        runCatching {
+                            val qnnOptions = mutableMapOf<String, String>()
+                            addQnn(qnnOptions)
+                        }
+                        if (OrtEpPolicy.preferNnapi) {
+                            runCatching { addNnapi() }
+                        }
+                        runCatching { addXnnpack(emptyMap()) }
+                    },
+                )
+            } catch (error: UnsatisfiedLinkError) {
+                throw IllegalStateException(
+                    "ONNX Runtime native library failed to load — reinstall the app or re-download the pack.",
+                    error,
+                )
+            } catch (error: Exception) {
+                throw IllegalStateException(
+                    "Could not open ONNX session (${File(modelPath).name}): ${error.message?.take(100) ?: "unknown"}",
+                    error,
+                )
+            } catch (error: Error) {
+                throw IllegalStateException(
+                    "Native ONNX failure opening ${File(modelPath).name} — re-download the pack or retry.",
+                    error,
+                )
+            }
+        }
+    }
 }

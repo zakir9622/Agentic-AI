@@ -1,5 +1,12 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc10
+- **Five-star Q1:** per-studio session bags (pager tabs no longer wipe each other)
+- OrtGraph safe session + output size caps; local packs mark in-use during generate
+- Still-clip MediaCodec presentation timestamps; human handshake labels
+- Prefer local Create/Edit/Code/Video when offline; honor cloud selection when online
+- Help + product blurb updated for true-local; Clip studio naming
+
 ## CI / releases
 - **Release APK only on `main`:** merges/pushes to main publish the rolling `latest` GitHub Release
 - Feature-branch pushes no longer create preview releases (PR runs Android CI checks only)

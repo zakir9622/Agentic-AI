@@ -28,7 +28,7 @@ class PackHandshakeTest {
     }
 
     @Test
-    fun formatDetailIncludesSignalAndWiresWhenOk() {
+    fun formatDetailIncludesHumanSummaryWhenOk() {
         val result = PackHandshakeResult(
             packId = "lite-v1",
             displayName = "Lite",
@@ -39,8 +39,9 @@ class PackHandshakeTest {
             verifiedAtMs = 1L,
         )
         val detail = PackHandshakeWires.formatDetail(result)
-        assertTrue(detail.startsWith(PackHandshakeResult.SIGNAL_OK))
+        assertTrue(detail.contains("Linked to this device"))
         assertTrue(detail.contains("Try-on Lite"))
+        assertFalse(detail.contains("HANDSHAKE_OK"))
     }
 
     @Test
