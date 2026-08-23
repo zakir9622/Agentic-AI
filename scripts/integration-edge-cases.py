@@ -114,10 +114,24 @@ def test_manifest_pro_external_weights() -> None:
     pro = next(p for p in manifest["packs"] if p["id"] == "pro-v1")
     files = {f["path"]: f for f in pro["files"]}
 
-    unet = files.get("unet.onnx")
-    unet_data = files.get("unet.onnx.data")
-    if unet is None:
-        raise SystemExit("pro-v1 missing unet.onnx in manifest")
+    required = (
+        "unet.onnx",
+        "unet.onnx.data",
+        "text_encoder.onnx",
+        "controlnet.onnx",
+        "depth.onnx",
+        "vae_encoder.onnx",
+        "vae_decoder.onnx",
+        "ip_image_encoder.onnx",
+    )
+    for name in required:
+        if name not in files:
+            raise SystemExit(
+                f"pro-v1 missing {name} — not fully-conditioned (CatVTON stub?)"
+            )
+
+    unet = files["unet.onnx"]
+    unet_data = files["unet.onnx.data"]
 
     total_from_files = sum(f["bytes"] for f in pro["files"])
     if total_from_files != pro["totalBytes"]:
@@ -126,7 +140,7 @@ def test_manifest_pro_external_weights() -> None:
         )
 
     unet_only = unet["bytes"]
-    data_bytes = unet_data["bytes"] if unet_data else 0
+    data_bytes = unet_data["bytes"]
     combined = unet_only + data_bytes
     print(
         f"  OK  unet.onnx={unet_only / 1e6:.1f} MB + "
@@ -136,16 +150,15 @@ def test_manifest_pro_external_weights() -> None:
         raise SystemExit("pro-v1 unet.onnx.data should be ~1.8 GB external weights")
 
     # Range probe on external weights file (first byte only).
-    if unet_data:
-        req = urllib.request.Request(
-            unet_data["url"],
-            headers={"User-Agent": "lookbook-edge/1.0", "Range": "bytes=0-0"},
-        )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            if resp.status not in (200, 206):
-                raise SystemExit(f"unet.onnx.data unreachable: HTTP {resp.status}")
-        print(f"  OK  unet.onnx.data reachable on HF")
-
+    req = urllib.request.Request(
+        unet_data["url"],
+        headers={"User-Agent": "lookbook-edge/1.0", "Range": "bytes=0-0"},
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        if resp.status not in (200, 206):
+            raise SystemExit(f"unet.onnx.data unreachable: HTTP {resp.status}")
+    print("  OK  unet.onnx.data reachable on HF")
+    print(f"  OK  conditioning files present ({len(required)} checked)")
 
 def test_hf_lite_sha_mismatch_detection() -> None:
     """Simulate corrupt download: wrong sha256 must be detectable."""

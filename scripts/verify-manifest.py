@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the live packs manifest and verify structure + lite-v1 file integrity.
+"""Fetch the live packs manifest and verify structure + pack integrity.
 
 Exit 0 when OK; non-zero on degradation. Used in CI after publish.
 
@@ -18,6 +18,23 @@ DEFAULT_URL = (
     "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json"
 )
 REQUIRED_PACKS = ("lite-v1", "pro-v1")
+
+# Fully-conditioned production Pro (convert_pro_pack.py / Colab notebook).
+# Absence of any of these means a CatVTON 3-file stub overwrote pro-v1.
+PRO_CONDITIONING_FILES = (
+    "unet.onnx",
+    "unet.onnx.data",
+    "text_encoder.onnx",
+    "text_encoder.onnx.data",
+    "controlnet.onnx",
+    "controlnet.onnx.data",
+    "depth.onnx",
+    "vae_encoder.onnx",
+    "vae_decoder.onnx",
+    "ip_image_encoder.onnx",
+)
+# External UNet weights for the live pack are ~1.8 GB.
+PRO_UNET_DATA_MIN_BYTES = 1_000_000_000
 
 
 def sha256_of(data: bytes) -> str:
@@ -71,8 +88,30 @@ def main() -> None:
                 print(f"OK: lite-v1/{name} ({len(data)} bytes, sha256 match)")
 
     pro = packs.get("pro-v1")
-    if pro and not pro.get("files"):
-        errors.append("pro-v1 has no files")
+    if pro:
+        if not pro.get("files"):
+            errors.append("pro-v1 has no files")
+        else:
+            files = {f["path"]: f for f in pro["files"]}
+            for name in PRO_CONDITIONING_FILES:
+                if name not in files:
+                    errors.append(
+                        f"pro-v1 missing conditioning file: {name} "
+                        "(pack must be fully-conditioned, not CatVTON 3-file stub)"
+                    )
+                else:
+                    print(f"OK: pro-v1/{name} ({files[name]['bytes']} bytes listed)")
+            unet_data = files.get("unet.onnx.data")
+            if unet_data and unet_data["bytes"] < PRO_UNET_DATA_MIN_BYTES:
+                errors.append(
+                    f"pro-v1 unet.onnx.data too small ({unet_data['bytes']}); "
+                    f"expected ≥ {PRO_UNET_DATA_MIN_BYTES} (fully-conditioned pack)"
+                )
+            # CatVTON stub only ships 3 ONNX graphs — fully-conditioned has many more.
+            if len(files) < 10:
+                errors.append(
+                    f"pro-v1 only has {len(files)} files — looks like a stub, not conditioned pack"
+                )
 
     for pack_id, pack in sorted(packs.items()):
         total = sum(f["bytes"] for f in pack.get("files", []))
@@ -86,7 +125,7 @@ def main() -> None:
             print(f"  - {err}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"\nManifest OK — {len(packs)} pack(s)")
+    print(f"\nManifest OK — {len(packs)} pack(s); pro-v1 fully-conditioned")
 
 
 if __name__ == "__main__":

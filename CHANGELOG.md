@@ -1,5 +1,13 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc14
+- **DoD stability pass:** live HF `pro-v1` verified fully-conditioned; CatVTON exporter quarantined off `pro-v1`
+- Composer honesty: remove Steps/CFG/Seed UI (never reached cloud); audio fashion assist enriches speech
+- Model Health dropdown uses runtime `effectiveSupport` (cooldown/failures), not static catalog
+- Video + audio Gradio `predict` honor wall `deadlineMs` + poll timeout (same as image)
+- Offline image/audio hard-stop when local unavailable — no cloud loop
+- Audio failures map `CloudFailure` → health kinds; CI runs `integration-edge-cases.py`
+
 ## 3.1.0-rc10
 - **Five-star Q1:** per-studio session bags (pager tabs no longer wipe each other)
 - OrtGraph safe session + output size caps; local packs mark in-use during generate

@@ -204,7 +204,7 @@ internal fun CloudCapabilityDropdown(
     val selectedNeedsToken = selected != null && locked.any { it.id == selected.id }
     val lockedOthers = locked.filter { it.id != selected?.id }
     val selectedContractNote = selected?.let { CloudModelContracts.settingsSupportingText(it) }
-    val selectedSupport = selected?.let { CloudModelContracts.forProvider(it).support }
+    val selectedSupport = selected?.let { appSettings.modelHealth.effectiveSupport(it) }
 
     // Edge case: prefs still point at a locked model while usable options exist (e.g. HF
     // discovery unlocked models but Groq selection lacks a Groq key). Auto-switch.
@@ -267,7 +267,7 @@ internal fun CloudCapabilityDropdown(
                 shadowElevation = GlassFormDefaults.MenuShadow,
             ) {
                 options.forEach { provider ->
-                    val support = CloudModelContracts.forProvider(provider).support
+                    val support = appSettings.modelHealth.effectiveSupport(provider)
                     DropdownMenuItem(
                         text = {
                             Column {

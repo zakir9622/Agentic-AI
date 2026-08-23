@@ -388,6 +388,7 @@ class GenerativeViewModel(
                 persona = persona,
                 knobs = _voiceKnobs.value,
                 referenceAudioUri = _referenceUri.value,
+                assists = currentAssists(),
             )
         }
     }

@@ -2,14 +2,15 @@ package com.zakir.vestra.shared.cloud
 
 /**
  * Per-capability assist toggles that free models can honor via prompt / system
- * rewriting (HF Spaces rarely expose raw sampler knobs on Gradio predict).
+ * rewriting. Sampler knobs (steps/CFG/seed) are intentionally not exposed in the
+ * composer — Gradio Spaces and HF Inference payloads do not accept them.
  */
 data class GenerativeAssists(
     /** Code: complete lawful tasks instead of soft-refusing. */
     val pragmatic: Boolean = true,
     /** Code: slightly higher temperature / exploratory answers. */
     val creative: Boolean = false,
-    /** Image/video: lookbook + modest-fashion framing. */
+    /** Image/video: lookbook + modest-fashion framing. Audio: spoken script framing. */
     val fashionContext: Boolean = true,
     /** Image/video: sharpness / lighting clauses. */
     val detailBoost: Boolean = true,
@@ -20,7 +21,7 @@ data class GenerativeAssists(
     val bypassFilter: Boolean = true,
     /** Image/video: append common quality negatives (blur, artifacts). */
     val qualityGuard: Boolean = true,
-    /** Optional sampler overrides when the backend exposes them (HF Inference). */
+    /** Reserved for local engines that honor sampler overrides (not cloud UI). */
     val inferenceSteps: Int? = null,
     val guidanceScale: Float? = null,
     val seed: Long? = null,
