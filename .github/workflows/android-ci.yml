@@ -1,5 +1,8 @@
 name: Android CI
 
+# PR checks + main push checks. Does NOT publish GitHub Releases —
+# see release-apk.yml (main merges / pushes only).
+
 on:
   push:
     branches: [main]

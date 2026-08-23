@@ -1,17 +1,15 @@
 name: Release APK
 
 # Builds an installable sideload release APK and publishes it to GitHub Releases.
-# - push to main → rolling "latest" release
-# - push to cursor/** feature branches → "preview" pre-release (always overwritten)
-# - tags v* → versioned release
-# - workflow_dispatch → same as branch rules above
+# ONLY on push/merge to main (and optional v* tags / manual dispatch).
+# Feature-branch pushes do NOT create releases — use Android CI for PR checks.
 #
 # IMPORTANT: Uses signing/lookbook-sideload.keystore (committed). Never generate a
 # fresh keystore here — that breaks in-place updates ("App not installed").
 
 on:
   push:
-    branches: [main, "cursor/**"]
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -59,16 +57,12 @@ jobs:
             NAME="the-lookbook-${TAG}.apk"
             IS_PRERELEASE=false
             TITLE="The Lookbook ${TAG}"
-          elif [[ "${GITHUB_REF_NAME}" == main ]]; then
+          else
+            # main push / merge / workflow_dispatch on main
             TAG="latest"
             NAME="the-lookbook-sideload-${{ github.run_number }}.apk"
             IS_PRERELEASE=false
             TITLE="The Lookbook — latest APK (build #${{ github.run_number }})"
-          else
-            TAG="preview"
-            NAME="the-lookbook-preview-${SHORT_SHA}.apk"
-            IS_PRERELEASE=true
-            TITLE="The Lookbook — preview (${GITHUB_REF_NAME} @ ${SHORT_SHA})"
           fi
           cp composeApp/build/outputs/apk/sideload/release/*.apk "dist/${NAME}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
@@ -94,19 +88,19 @@ jobs:
           NOTES="$(cat <<EOF
           Sideload release APK from \`${GITHUB_REF_NAME}\` (\`${GITHUB_SHA}\`).
 
+          Published only from **main** (merge / push). PR branches run Android CI checks only.
+
           **Install / update:** Pixel 9 / Android 15+ (API 35). Signed with the stable
           \`signing/lookbook-sideload.keystore\` so later versions update **in place**.
 
           - **First time on a device that had an older CI APK:** uninstall once, then install this build.
           - **After v3.0.16+:** open the new APK — Android updates without uninstall.
 
-          **Engines:**
-          - On-device Lite / Pro packs (Try-on)
-          - Cloud Image / Video / Code (HF Spaces + Inference; configure token in Settings)
-
-          Download packs from **Settings → Model packs** (one-time; offline after).
+          **True local:** Try-on, Image Create/Edit, Video still-clip, Code (Gemma), Audio TTS —
+          download packs in **Settings → Model packs**, then **Verify link** for \`HANDSHAKE_OK\`.
           EOF
           )"
+          # Rolling latest: replace prior release with this tag
           gh release delete "${TAG}" --yes --cleanup-tag 2>/dev/null || true
           EXTRA=()
           if [[ "${IS_PRERELEASE}" == "true" ]]; then
@@ -118,4 +112,17 @@ jobs:
             --notes "${NOTES}" \
             "${EXTRA[@]}" \
             "dist/${APK_NAME}"
+
+          # Keep only this release (+ optional other v* tags). Drop stale preview / old rolling junk.
+          if [[ "${TAG}" == "latest" ]]; then
+            gh release list --limit 100 | while read -r line; do
+              OTHER_TAG="$(echo "$line" | awk -F'\t' '{print $(NF-1)}')"
+              [[ -z "${OTHER_TAG}" || "${OTHER_TAG}" == "latest" ]] && continue
+              # Drop former feature-branch previews and orphaned rolling tags only;
+              # keep intentional version tags (v*).
+              if [[ "${OTHER_TAG}" == "preview" || "${OTHER_TAG}" == latest-* ]]; then
+                gh release delete "${OTHER_TAG}" --yes --cleanup-tag 2>/dev/null || true
+              fi
+            done
+          fi
           echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
