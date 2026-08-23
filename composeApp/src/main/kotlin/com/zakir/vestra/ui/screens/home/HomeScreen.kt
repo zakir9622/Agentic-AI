@@ -84,7 +84,10 @@ import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class HomeTab(val label: String, val routeKey: String) {
+// `internal` rather than `private` so the pager-index math below is reachable from unit tests:
+// filtering a tab out makes `ordinal` and the visible-list index diverge, which is exactly the
+// kind of off-by-one that only shows up on a device.
+internal enum class HomeTab(val label: String, val routeKey: String) {
     // Try-on is temporarily disabled app-wide — kept in the enum (not deleted) so the try-on
     // engines/routes/tests keep compiling and it's a one-line revert to bring the tab back.
     // To re-enable: flip TRY_ON_TAB_ENABLED to true below.
