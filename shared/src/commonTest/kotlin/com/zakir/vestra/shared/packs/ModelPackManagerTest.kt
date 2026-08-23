@@ -53,9 +53,14 @@ private class FakeFs : PackFileSystem {
     override fun freeBytes(): Long = free
 }
 
-private class FakeProbe(private val ram: Long = 8192, private val npu: Boolean = true) : DeviceProbe {
+private class FakeProbe(
+    private val ram: Long = 8192,
+    private val npu: Boolean = true,
+    private val sdk: Int = 35,
+) : DeviceProbe {
     override fun totalRamMb(): Long = ram
     override fun hasNpu(): Boolean = npu
+    override fun sdkInt(): Int = sdk
 }
 
 private const val MANIFEST = """
@@ -504,5 +509,9 @@ class ModelPackManagerTest {
         assertTrue(manager.deviceMeets(DeviceSpec(minRamMb = 0, requiresNpu = false)))
         assertFalse(manager.deviceMeets(DeviceSpec(minRamMb = 8000, requiresNpu = false)))
         assertFalse(manager.deviceMeets(DeviceSpec(minRamMb = 0, requiresNpu = true)))
+        assertTrue(manager.deviceMeets(DeviceSpec(minRamMb = 0, requiresNpu = false, minSdk = 35)))
+        assertFalse(
+            manager.deviceMeets(DeviceSpec(minRamMb = 0, requiresNpu = false, minSdk = 36)),
+        )
     }
 }

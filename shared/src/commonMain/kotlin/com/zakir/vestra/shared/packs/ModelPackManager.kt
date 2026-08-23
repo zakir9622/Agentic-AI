@@ -412,7 +412,9 @@ class ModelPackManager(
     }
 
     fun deviceMeets(spec: DeviceSpec): Boolean =
-        device.totalRamMb() >= spec.minRamMb && (!spec.requiresNpu || device.hasNpu())
+        device.sdkInt() >= spec.minSdk &&
+            device.totalRamMb() >= spec.minRamMb &&
+            (!spec.requiresNpu || device.hasNpu())
 
     /** True when the volume has room for the pack plus a safety margin. */
     fun hasSpaceFor(pack: ModelPack): Boolean =

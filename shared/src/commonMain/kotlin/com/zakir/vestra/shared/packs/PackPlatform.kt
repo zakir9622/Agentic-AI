@@ -29,6 +29,8 @@ interface DeviceProbe {
     fun totalRamMb(): Long
     /** Best-effort: true when an NNAPI/QNN-class accelerator is likely present. */
     fun hasNpu(): Boolean
+    /** OS API level — compared against [com.zakir.vestra.shared.domain.DeviceSpec.minSdk]. */
+    fun sdkInt(): Int = 35
 }
 
 /**

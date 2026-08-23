@@ -41,6 +41,7 @@ import kotlinx.coroutines.delay
 fun ResultPane(
     state: GenerativeState?,
     liveLog: List<String> = emptyList(),
+    generationStartedAtMs: Long? = null,
     onRetry: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
@@ -79,12 +80,13 @@ fun ResultPane(
         null -> Unit
         is GenerativeState.Preparing -> {
             GlassLoadingCard(state.message, onCancel = onCancel)
-            LiveGenConsole(liveLog)
+            LiveGenConsole(liveLog, generationStartedAtMs)
         }
         is GenerativeState.Running -> {
-            var tick by remember(state.deadlineEpochMs, state.stage) { mutableIntStateOf(0) }
-            LaunchedEffect(state.deadlineEpochMs) {
-                if (state.deadlineEpochMs == null) return@LaunchedEffect
+            var tick by remember(state.deadlineEpochMs, state.stage, generationStartedAtMs) {
+                mutableIntStateOf(0)
+            }
+            LaunchedEffect(state.deadlineEpochMs, generationStartedAtMs) {
                 while (true) {
                     delay(1_000)
                     tick++
@@ -95,17 +97,20 @@ fun ResultPane(
             val remSec = state.deadlineEpochMs?.let { deadline ->
                 ((deadline - System.currentTimeMillis()) / 1_000L).coerceAtLeast(0L)
             }
-            val message = if (remSec != null) {
-                "${state.stage} · ${remSec}s left"
-            } else {
-                state.stage
+            val elapsedSec = generationStartedAtMs?.let { start ->
+                ((System.currentTimeMillis() - start) / 1_000L).coerceAtLeast(0L)
+            }
+            val message = buildString {
+                append(state.stage)
+                if (remSec != null) append(" · ${remSec}s left")
+                if (elapsedSec != null) append(" · ${elapsedSec}s elapsed")
             }
             GlassLoadingCard(
                 message = message,
                 progress = state.fraction,
                 onCancel = onCancel,
             )
-            LiveGenConsole(liveLog)
+            LiveGenConsole(liveLog, generationStartedAtMs)
         }
         is GenerativeState.ImageReady -> GlassCard {
             GlassSectionLabel("RESULT")
@@ -231,7 +236,7 @@ fun ResultPane(
             )
         }
         is GenerativeState.Failed -> {
-            if (liveLog.isNotEmpty()) LiveGenConsole(liveLog)
+            if (liveLog.isNotEmpty()) LiveGenConsole(liveLog, generationStartedAtMs)
             GlassErrorBanner(
                 message = state.message,
                 onRetry = onRetry,
@@ -243,11 +248,17 @@ fun ResultPane(
 }
 
 @Composable
-private fun LiveGenConsole(lines: List<String>) {
+private fun LiveGenConsole(lines: List<String>, generationStartedAtMs: Long? = null) {
     if (lines.isEmpty()) return
     Spacer(Modifier.height(10.dp))
     GlassCard {
-        GlassSectionLabel("LIVE")
+        val header = if (generationStartedAtMs != null) {
+            val elapsed = ((System.currentTimeMillis() - generationStartedAtMs) / 1_000L).coerceAtLeast(0L)
+            "LIVE · ${elapsed}s"
+        } else {
+            "LIVE"
+        }
+        GlassSectionLabel(header)
         val scroll = rememberScrollState()
         LaunchedEffect(lines.size) {
             scroll.animateScrollTo(scroll.maxValue)

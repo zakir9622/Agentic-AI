@@ -80,4 +80,6 @@ class AndroidDeviceProbe(private val context: Context) : DeviceProbe {
         val is64Bit = Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()
         return is64Bit && Build.VERSION.SDK_INT >= 31 && totalRamMb() >= 6 * 1024
     }
+
+    override fun sdkInt(): Int = Build.VERSION.SDK_INT
 }

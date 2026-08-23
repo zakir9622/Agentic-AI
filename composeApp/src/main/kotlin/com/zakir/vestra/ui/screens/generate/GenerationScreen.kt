@@ -1,6 +1,7 @@
 package com.zakir.vestra.ui.screens.generate
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -41,6 +42,7 @@ import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.effects.DevelopStage
 import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.util.rememberReduceMotion
 
 @Composable
 fun GenerationScreen(
@@ -51,6 +53,7 @@ fun GenerationScreen(
 ) {
     val shoot by viewModel.shoot.collectAsState()
     val haptics = LocalHapticFeedback.current
+    val reduceMotion = rememberReduceMotion()
 
     fun abortGeneration() {
         viewModel.cancelShoot()
@@ -126,11 +129,12 @@ fun GenerationScreen(
                         }
                         val animatedShot by animateFloatAsState(
                             targetValue = shotFraction,
-                            animationSpec = tween(450),
+                            animationSpec = if (reduceMotion) snap() else tween(450),
                             label = "shot",
                         )
                         DevelopStage(
                             progress = animatedShot,
+                            reduceMotion = reduceMotion,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(14.dp))
@@ -154,7 +158,7 @@ fun GenerationScreen(
                 }
                 val animatedOverall by animateFloatAsState(
                     targetValue = overall,
-                    animationSpec = tween(450),
+                    animationSpec = if (reduceMotion) snap() else tween(450),
                     label = "overall",
                 )
                 androidx.compose.material3.LinearProgressIndicator(

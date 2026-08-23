@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.core.graphics.scale
 import com.zakir.vestra.shared.engine.lite.ImageOps
+import com.zakir.vestra.shared.engine.lite.OrtSessionCache
 import com.zakir.vestra.shared.engine.pipeline.ConditioningInputs
 import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
 import com.zakir.vestra.shared.engine.pipeline.ConditioningTokens
@@ -65,7 +66,8 @@ class SdControlNetPipeline(
         // ── Stage A: STRUCTURE (depth from the PERSON → ControlNet cond) ──
         onStage(ConditioningStage.STRUCTURE, 0.05f)
         val t0 = System.currentTimeMillis()
-        val depthCond = OrtGraph("$packDir/${config.depthModel}").use { depth ->
+        val depth = graph(config.depthModel)
+        val depthCond = run {
             val chw = ImageOps.toNormalizedChw(personSq.scale(518, 518), 518, 518)
             val map = depth.runSingle(mapOf(depth.inputNames.first() to depth.floatTensor(chw, 1, 3, 518, 518)))
             expandDepthToRgb(map, 518, res)
@@ -74,11 +76,10 @@ class SdControlNetPipeline(
 
         // ── Stage B: TEXTURE (raw CLIP-H image embeds + text embeds) ──
         onStage(ConditioningStage.TEXTURE, 0.15f)
-        val imageEmbeds = OrtGraph("$packDir/${config.imageEncoder}").use { enc ->
-            enc.runSingle(mapOf(enc.inputNames.first() to enc.floatTensor(
-                ImageOps.toNormalizedChw(garmentSq.scale(224, 224), 224, 224), 1, 3, 224, 224,
-            )))
-        }
+        val enc = graph(config.imageEncoder)
+        val imageEmbeds = enc.runSingle(mapOf(enc.inputNames.first() to enc.floatTensor(
+            ImageOps.toNormalizedChw(garmentSq.scale(224, 224), 224, 224), 1, 3, 224, 224,
+        )))
         require(imageEmbeds.size == ipSeq * ipDim) {
             "image encoder emitted ${imageEmbeds.size} floats, expected ${ipSeq * ipDim}"
         }
@@ -95,28 +96,27 @@ class SdControlNetPipeline(
         val textSeq = TEXT_TOKENS.toLong()
 
         val tSync = System.currentTimeMillis()
-        OrtGraph("$packDir/${config.controlNet}").use { control ->
-            OrtGraph("$packDir/${config.unetOrDefault()}").use { unet ->
-                timesteps.forEachIndexed { index, timestep ->
-                    val residuals = control.run(
-                        inputs = mapOf(
-                            "sample" to control.floatTensor(sample, 1, 4, lat, lat),
-                            "timestep" to control.longTensor(longArrayOf(timestep.toLong()), 1),
-                            "encoder_hidden_states" to control.floatTensor(textEmbeds, 1, textSeq, HIDDEN_DIM.toLong()),
-                            "controlnet_cond" to control.floatTensor(depthCond, 1, 3, res.toLong(), res.toLong()),
-                        ),
-                        outputs = CONTROL_OUTPUTS,
-                    )
-                    val noise = runUnet(unet, sample, timestep, textEmbeds, imageEmbeds, residuals)
-                    scheduler.step(sample, noise, timestep, steps)
-                    onStage(ConditioningStage.SYNTHESIS, 0.2f + 0.65f * (index + 1) / steps)
-                }
-            }
+        val control = graph(config.controlNet)
+        val unet = graph(config.unetOrDefault())
+        timesteps.forEachIndexed { index, timestep ->
+            val residuals = control.run(
+                inputs = mapOf(
+                    "sample" to control.floatTensor(sample, 1, 4, lat, lat),
+                    "timestep" to control.longTensor(longArrayOf(timestep.toLong()), 1),
+                    "encoder_hidden_states" to control.floatTensor(textEmbeds, 1, textSeq, HIDDEN_DIM.toLong()),
+                    "controlnet_cond" to control.floatTensor(depthCond, 1, 3, res.toLong(), res.toLong()),
+                ),
+                outputs = CONTROL_OUTPUTS,
+            )
+            val noise = runUnet(unet, sample, timestep, textEmbeds, imageEmbeds, residuals)
+            scheduler.step(sample, noise, timestep, steps)
+            onStage(ConditioningStage.SYNTHESIS, 0.2f + 0.65f * (index + 1) / steps)
         }
         Log.i(TAG, "synthesis_${steps}steps: ${System.currentTimeMillis() - tSync} ms")
 
         // Decode + paste back into the untouched person outside the garment mask.
-        val decoded = OrtGraph("$packDir/${config.vaeDecoderOrDefault()}").use { dec ->
+        val dec = graph(config.vaeDecoderOrDefault())
+        val decoded = run {
             val rgb = dec.runSingle(mapOf(dec.inputNames.first() to dec.floatTensor(sample, 1, 4, lat, lat)))
             chwToBitmap(rgb, res)
         }
@@ -136,9 +136,13 @@ class SdControlNetPipeline(
         } else {
             LongArray(TEXT_TOKENS)
         }
-        return OrtGraph(path).use { te ->
-            te.runSingle(mapOf(te.inputNames.first() to te.longTensor(tokenIds, 1, TEXT_TOKENS.toLong())))
-        }
+        val te = graph(textEncoder)
+        return te.runSingle(mapOf(te.inputNames.first() to te.longTensor(tokenIds, 1, TEXT_TOKENS.toLong())))
+    }
+
+    private fun graph(relativePath: String?): OrtGraph {
+        val rel = requireNotNull(relativePath) { "Graph path missing in Pro pack config" }
+        return OrtSessionCache.openGraph("$packDir/$rel")
     }
 
     private fun runUnet(

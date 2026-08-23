@@ -3,7 +3,7 @@
 > **Baseline:** v3.1.0-rc14 (`b76c215` + DoD pass). Supplement to
 > [`../five-star-quality/`](../five-star-quality/) — not a replacement. No new visual design
 > system (Loom Ink stays).
-> **Status:** A0 harness landed (instrumented + harvest script); **awaiting Pixel 9 numbers**.
+> **Status:** rc15 — A0 harness + A1/A3/B2/B3 shipped; Pixel 9 on-device table optional/TBD.
 
 ## Re-check vs tree (2026-08-23, post-rc14)
 
@@ -12,8 +12,10 @@
 | A2 export collision | open | **Done in rc14** — `export_diffusion_pack.py` refuses; CatVTON → `export_catvton_legacy_pack.py`; `verify-manifest.py` asserts conditioning files |
 | B4 sampler UI | open | **Done in rc14** — Steps/CFG/Seed removed from composer (never reached cloud payloads) |
 | OrtGraph QNN→NNAPI→XNNPACK cascade | claimed at OrtGraph.kt:19-29 | **Outdated** — production uses `ProOrtSessions` (CPU + `NO_OPT`, QNN never; NNAPI only if `OrtEpPolicy.preferNnapi`) |
-| A0 on-device numbers | missing | Harness: `OnDeviceOrtBenchmarkTest` + `scripts/benchmark-on-device.sh` → `docs/BENCHMARKS.md` |
-| B1/B2/B3 | open | Still open (confirm before starting Part B) |
+| A0 on-device numbers | missing | Harness shipped; [`docs/BENCHMARKS.md`](../../BENCHMARKS.md) has desktop reference — **Pixel 9 table TBD** |
+| B1/B2/B3 | open | **Done rc15** — per-tab log (prior), elapsed timer, reduce-motion on GenerationScreen |
+| A1 OrtSessionCache in Pro | open | **Done rc15** — `SdControlNetPipeline` uses `OrtSessionCache.openGraph()` |
+| A3 minSdk | open | **Done rc15** — `deviceMeets()` checks `sdkInt >= minSdk` |
 
 ---
 

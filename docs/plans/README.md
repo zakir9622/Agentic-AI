@@ -5,7 +5,7 @@ Active roadmaps live in separate directories so parallel workstreams do not coll
 | Directory | Source | Baseline | Scope | Status |
 |-----------|--------|----------|-------|--------|
 | [`five-star-quality/`](five-star-quality/) | Post true-local rc9 audit | **v3.1.0-rc9 → rc10+** | Studio isolation, OrtGraph soft-fail, honesty UI, iterative 5★ cycles | **Active** |
-| [`generation-transparency/`](generation-transparency/) | Claude Code read-only audit (post rc9) | **v3.1.0-rc14** | On-device latency benchmark harness, Pro-pack export collision, OrtSessionCache in diffusion path, per-tab generation log + timer, reduced-motion coverage | **A0 harness ready** — awaiting Pixel 9 `docs/BENCHMARKS.md`; A2/B4 closed in rc14 DoD |
+| [`generation-transparency/`](generation-transparency/) | Claude Code read-only audit (post rc9) | **v3.1.0-rc15** | On-device latency benchmark harness, Pro-pack export collision, OrtSessionCache in diffusion path, per-tab generation log + timer, reduced-motion coverage | **rc15:** A0 harness + A1/A3/B2/B3 shipped; Pixel 9 on-device table TBD; A2/B4 closed in rc14 DoD |
 | [`true-local/`](true-local/) | Pixel-true offline engines | **v3.1.0-rc5…rc9** | System TTS + SD-Turbo + Gemma + still-clip + handshake | Merged to main |
 | [`big-release-r2/`](big-release-r2/) | True-limits release (ATR + UI + on-device scaffold) | **v3.1.0-rc1…rc4** | Full ATR Auto, fixture harness, Loom Ink UI, Audio Studio | Merged to main |
 | [`stable-release/`](stable-release/) | Cursor plan audit (post v3.0.3) | v3.0.4 → v3.0.16 | Honest stable cut + sideload | R0/R1 done; handoff to R2 |
