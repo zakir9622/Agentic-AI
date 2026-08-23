@@ -27,6 +27,7 @@ import com.zakir.vestra.shared.engine.local.LocalAudioResult
 import com.zakir.vestra.shared.engine.local.LocalVoiceChanger
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalAudioGenerator
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalVoiceChanger
+import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.time.EpochClock
 import io.ktor.client.HttpClient
@@ -87,6 +88,8 @@ class GenerativeCloudService(
 
     fun localCodeReady(): Boolean = localCode.isReady()
 
+    fun localCodeProviderId(): String = localCode.providerId()
+
     fun localVideoReady(): Boolean = localVideo.isReady()
 
     fun localVisionReady(): Boolean = localVision.isReady()
@@ -126,7 +129,14 @@ class GenerativeCloudService(
             if (assists.analyzeReference && !referenceUri.isNullOrBlank() && localVision.isReady()) {
                 emit(GenerativeState.Running(0.04f, "Analyzing reference photo…"))
                 val imagePath = io.resolveLocalPath(referenceUri)
-                if (imagePath != null) {
+                if (imagePath == null) {
+                    emit(
+                        GenerativeState.Running(
+                            0.05f,
+                            "Vision assist skipped — could not read reference photo.",
+                        ),
+                    )
+                } else {
                     when (val assist = localVision.describeImage(
                         imagePath,
                         "Describe this garment or fashion reference for a text-to-image prompt. " +
@@ -527,7 +537,9 @@ class GenerativeCloudService(
             if (localCode.isReady() &&
                 (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.CODE))
             ) {
-                emit(GenerativeState.Running(0.08f, "Loading Gemma 4…"))
+                val localLabel = LocalModelCatalog.byId(localCode.providerId())?.displayName
+                    ?: "Local on-device"
+                emit(GenerativeState.Running(0.08f, "Loading $localLabel…"))
                 when (val local = localCode.generate(prompt.trim(), buildCodeSystem(assists))) {
                     is LocalCodeResult.Ok -> {
                         emit(
@@ -541,6 +553,15 @@ class GenerativeCloudService(
                         return@flow
                     }
                     is LocalCodeResult.Unavailable -> {
+                        if (!settings.networkLikelyAvailable()) {
+                            emit(
+                                GenerativeState.Failed(
+                                    "You're offline and local Code couldn't run. " +
+                                        local.reason,
+                                ),
+                            )
+                            return@flow
+                        }
                         emit(
                             GenerativeState.Running(
                                 0.1f,
@@ -552,11 +573,12 @@ class GenerativeCloudService(
             }
             if (!settings.networkLikelyAvailable()) {
                 emit(
-                    GenerativeState.Running(
-                        0.05f,
-                        "Network probe uncertain — trying cloud anyway…",
+                    GenerativeState.Failed(
+                        "You're offline. Download local-gemma-4-e2b-v1 from Model packs " +
+                            "for offline Code Studio.",
                     ),
                 )
+                return@flow
             }
             val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
             val system = buildCodeSystem(assists)
@@ -888,6 +910,28 @@ class GenerativeCloudService(
                     is LocalAudioResult.Unavailable -> error(changed.reason)
                 }
             }
+            // Audio scribe picker: transcribe attached clip instead of TTS when selected.
+            if (settings.selectionId(AiCapability.AUDIO) == LiteRtLmPacks.AUDIO_SCRIBE &&
+                !referenceAudioUri.isNullOrBlank() &&
+                localTranscriber.isReady()
+            ) {
+                emit(GenerativeState.Running(0.15f, "Transcribing on-device…"))
+                when (val result = localTranscriber.transcribe(referenceAudioUri, spoken)) {
+                    is LocalTranscribeResult.Ok -> {
+                        emit(
+                            GenerativeState.TranscribeReady(
+                                result.text,
+                                LiteRtLmPacks.GEMMA4_CODE,
+                            ),
+                        )
+                        return@flow
+                    }
+                    is LocalTranscribeResult.Unavailable -> {
+                        emit(GenerativeState.Failed(result.reason))
+                        return@flow
+                    }
+                }
+            }
             val networkOk = settings.networkLikelyAvailable()
             if (localAudio.isReady()) {
                 emit(GenerativeState.Running(0.08f, "Generating speech on-device…"))
@@ -1167,11 +1211,6 @@ class GenerativeCloudService(
         assists: GenerativeAssists = GenerativeAssists(),
     ): Pair<LlmResult, CloudModelProvider> {
         val provider = settings.selectedProvider(capability)
-        // Soft gate — ConnectivityManager can briefly report offline on 5G.
-        if (!settings.networkLikelyAvailable()) {
-            // Fall through: first HTTP attempt still runs; classifier handles real Offline.
-        }
-        val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
         val effectiveSystem = buildCodeSystem(assists).let { base ->
             if (system.isBlank()) base else "$base\n\n$system"
         }
@@ -1180,6 +1219,37 @@ class GenerativeCloudService(
             assists.creative -> temperature.coerceAtLeast(0.5)
             else -> temperature
         }
+        if (capability == AiCapability.CODE &&
+            localCode.isReady() &&
+            (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.CODE))
+        ) {
+            when (val local = localCode.generate(prompt, effectiveSystem)) {
+                is LocalCodeResult.Ok -> {
+                    val localProvider = localCodeProvider()
+                    usage.record(
+                        localProvider,
+                        tokensIn = local.tokensIn,
+                        tokensOut = local.tokensOut,
+                        success = true,
+                        note = "Chat · local · ${localProvider.displayName}",
+                    )
+                    return LlmResult(local.text, local.tokensIn, local.tokensOut) to localProvider
+                }
+                is LocalCodeResult.Unavailable -> {
+                    if (!settings.networkLikelyAvailable()) {
+                        error(
+                            "You're offline and local Code couldn't run. ${local.reason}",
+                        )
+                    }
+                }
+            }
+        }
+        if (!settings.networkLikelyAvailable()) {
+            error(
+                "You're offline. Download local-gemma-4-e2b-v1 from Model packs for offline chat.",
+            )
+        }
+        val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
         var lastError: Exception? = null
         for (candidate in candidates) {
             if (CloudModelContracts.preflightOrNull(candidate) != null) continue
@@ -1215,6 +1285,23 @@ class GenerativeCloudService(
 
     private fun extractRef(element: kotlinx.serialization.json.JsonElement): String =
         GradioOutput.extractMediaRef(element)
+
+    private fun localCodeProvider(): CloudModelProvider {
+        val id = localCode.providerId()
+        val displayName = LocalModelCatalog.byId(id)?.displayName ?: "Local on-device"
+        return CloudModelProvider(
+            id = id,
+            displayName = displayName,
+            description = "On-device LiteRT-LM",
+            platform = CloudPlatform.GROQ,
+            capability = AiCapability.CODE,
+            endpoint = id,
+            license = "On-device",
+            requiresApiKey = false,
+            qualityScore = 80,
+            speedScore = 60,
+        )
+    }
 }
 
 /** Failures where burning the primary image deadline should still try one alternate Space. */

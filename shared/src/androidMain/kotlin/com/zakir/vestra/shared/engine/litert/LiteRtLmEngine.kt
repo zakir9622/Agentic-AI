@@ -12,6 +12,10 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
 import com.google.ai.edge.litertlm.ToolSet
 import java.io.File
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /**
  * Thin wrapper around LiteRT-LM [Engine] for Code / vision / audio on Android.
@@ -24,10 +28,13 @@ class LiteRtLmEngine(
     private val visionEnabled: Boolean = false,
     private val audioEnabled: Boolean = false,
     private val tools: List<ToolSet> = emptyList(),
+    private val managedByCache: Boolean = false,
 ) : AutoCloseable {
 
     private var engine: Engine? = null
     private var loadMs: Long = 0L
+
+    fun isInitialized(): Boolean = engine != null
 
     fun initialize() {
         val started = System.currentTimeMillis()
@@ -57,8 +64,7 @@ class LiteRtLmEngine(
         maxTokens: Int = 1024,
     ): LiteRtLmGenerateResult {
         val eng = engine ?: return LiteRtLmGenerateResult.Unavailable("LiteRT-LM engine not initialized.")
-        LiteRtLmEngineCache.enterInference()
-        return try {
+        return runWithTimeout("Code generation") {
             val convConfig = ConversationConfig(
                 systemInstruction = if (system.isBlank()) null else Contents.of(system.trim()),
                 samplerConfig = SamplerConfig(
@@ -81,13 +87,6 @@ class LiteRtLmEngine(
                     )
                 }
             }
-        } catch (err: Throwable) {
-            LiteRtLmGenerateResult.Unavailable(
-                err.message?.take(200) ?: "LiteRT-LM generation failed.",
-            )
-        } finally {
-            LiteRtLmEngineCache.leaveInference()
-            LiteRtLmEngineCache.drainPendingClose { /* no-op — engines are per-job */ }
         }
     }
 
@@ -100,8 +99,7 @@ class LiteRtLmEngine(
         if (!image.isFile) {
             return LiteRtLmGenerateResult.Unavailable("Image file missing.")
         }
-        LiteRtLmEngineCache.enterInference()
-        return try {
+        return runWithTimeout("Vision assist") {
             eng.createConversation().use { conversation ->
                 val contents = Contents.of(
                     Content.ImageFile(image.absolutePath),
@@ -115,12 +113,6 @@ class LiteRtLmEngine(
                     LiteRtLmGenerateResult.Ok(text = text, tokensIn = 0, tokensOut = text.length / 4)
                 }
             }
-        } catch (err: Throwable) {
-            LiteRtLmGenerateResult.Unavailable(
-                err.message?.take(200) ?: "Vision assist failed.",
-            )
-        } finally {
-            LiteRtLmEngineCache.leaveInference()
         }
     }
 
@@ -133,8 +125,7 @@ class LiteRtLmEngine(
         if (!audio.isFile) {
             return LiteRtLmGenerateResult.Unavailable("Audio file missing.")
         }
-        LiteRtLmEngineCache.enterInference()
-        return try {
+        return runWithTimeout("Transcription") {
             eng.createConversation().use { conversation ->
                 val contents = Contents.of(
                     Content.AudioFile(audio.absolutePath),
@@ -148,26 +139,51 @@ class LiteRtLmEngine(
                     LiteRtLmGenerateResult.Ok(text = text, tokensIn = 0, tokensOut = text.length / 4)
                 }
             }
-        } catch (err: Throwable) {
-            LiteRtLmGenerateResult.Unavailable(
-                err.message?.take(200) ?: "Audio transcription failed.",
-            )
-        } finally {
-            LiteRtLmEngineCache.leaveInference()
         }
     }
 
-    override fun close() {
-        LiteRtLmEngineCache.requestClose(modelPath)
-        if (LiteRtLmEngineCache.hasActiveInference()) return
+    private fun runWithTimeout(label: String, block: () -> LiteRtLmGenerateResult): LiteRtLmGenerateResult {
+        val executor = Executors.newSingleThreadExecutor()
+        return try {
+            val future = executor.submit(Callable { block() })
+            future.get(INFERENCE_TIMEOUT_SEC, TimeUnit.SECONDS)
+        } catch (timeout: TimeoutException) {
+            LiteRtLmGenerateResult.Unavailable(
+                "$label timed out after ${INFERENCE_TIMEOUT_SEC}s — try a shorter prompt or cloud.",
+            )
+        } catch (err: Throwable) {
+            LiteRtLmGenerateResult.Unavailable(
+                err.message?.take(200) ?: "$label failed.",
+            )
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    /** Immediate close — used by [LiteRtLmEngineCache] eviction only. */
+    fun closeNow() {
         runCatching { engine?.close() }
         engine = null
     }
 
+    override fun close() {
+        if (managedByCache) {
+            LiteRtLmEngineCache.requestClose(modelPath)
+            if (LiteRtLmEngineCache.hasActiveInference()) return
+            LiteRtLmEngineCache.evictModelPath(modelPath)
+            return
+        }
+        closeNow()
+    }
+
     companion object {
         private const val TAG = "LookbookLiteRtLm"
+        const val INFERENCE_TIMEOUT_SEC = 90L
 
         fun backendLabel(useGpu: Boolean): String = if (useGpu) "GPU" else "CPU"
+
+        fun toolsKey(tools: List<ToolSet>): String =
+            tools.joinToString(",") { it.javaClass.name }
     }
 }
 

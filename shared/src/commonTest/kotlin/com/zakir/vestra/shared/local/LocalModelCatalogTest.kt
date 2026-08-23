@@ -63,10 +63,11 @@ class LocalModelCatalogTest {
     }
 
     @Test
-    fun codeStudioOffersGemma4AndLegacy() {
+    fun codeStudioOffersGemma4LegacyAndFunctionGemma() {
         val code = LocalModelCatalog.forStudioPicker(AiCapability.CODE)
         assertTrue(code.map { it.id }.contains("local-gemma-4-e2b-v1"))
         assertTrue(code.map { it.id }.contains("local-gemma-v1"))
+        assertTrue(code.map { it.id }.contains("local-functiongemma-v1"))
         val gemma4 = code.first { it.id == "local-gemma-4-e2b-v1" }
         assertTrue(gemma4.runnable)
         assertEquals("local-gemma-4-e2b-v1", gemma4.packId)
@@ -106,7 +107,7 @@ class LocalModelCatalogTest {
         assertTrue(quality.any { it.packId == "realesrgan-v1" })
         assertTrue(quality.any { it.packId == "birefnet-v1" })
         val tryOnQuality = quality.filter {
-            it.id !in setOf("local-gemma-4-vision-v1", "local-functiongemma-v1")
+            it.id !in setOf("local-gemma-4-vision-v1")
         }
         tryOnQuality.forEach {
             assertTrue(
@@ -115,13 +116,13 @@ class LocalModelCatalogTest {
             )
         }
         assertTrue(quality.any { it.id == "local-gemma-4-vision-v1" && it.capability == AiCapability.IMAGE_GEN })
-        assertTrue(quality.any { it.id == "local-functiongemma-v1" && it.capability == AiCapability.CODE })
     }
 
     @Test
     fun selectableStudioIdsMatchRunnableGenerators() {
         assertTrue(LocalModelCatalog.isSelectableStudioId("local-sdturbo-v1", AiCapability.IMAGE_GEN))
         assertTrue(LocalModelCatalog.isSelectableStudioId("local-gemma-4-e2b-v1", AiCapability.CODE))
+        assertTrue(LocalModelCatalog.isSelectableStudioId("local-functiongemma-v1", AiCapability.CODE))
         assertTrue(LocalModelCatalog.isSelectableStudioId("local-gemma-v1", AiCapability.CODE))
         assertFalse(LocalModelCatalog.isSelectableStudioId("local-quality-realesrgan", AiCapability.TRY_ON))
         assertFalse(LocalModelCatalog.isSelectableStudioId("flux-schnell-hf", AiCapability.IMAGE_GEN))

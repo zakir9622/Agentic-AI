@@ -201,6 +201,11 @@ class VestraApp : Application() {
                     this,
                     packManager,
                     useGpu = { appSettings.preferLiteRtLmGpu.value },
+                    toolSet = com.zakir.vestra.shared.engine.local.LookbookStudioToolSet(
+                        onAppendPrompt = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onAppendPrompt,
+                        onSetEngineTier = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onSetEngineTier,
+                        onSetBackdrop = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onSetBackdrop,
+                    ),
                 ),
             ),
             localVideo = com.zakir.vestra.shared.engine.local.AndroidLocalVideoGenerator(

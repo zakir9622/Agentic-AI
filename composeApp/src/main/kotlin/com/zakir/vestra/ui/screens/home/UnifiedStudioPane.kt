@@ -136,8 +136,9 @@ fun UnifiedStudioPane(
                 "local-sdturbo-v1" -> localImageReady
                 "local-sdturbo-edit" -> localImageEditReady
                 "local-stillclip-v1" -> localVideoReady
-                "local-gemma-v1" -> localCodeReady
-                "local-gemma-4-e2b-v1" -> localCodeReady
+                "local-gemma-v1" -> packStates["local-gemma-v1"]?.isReady() == true
+                "local-gemma-4-e2b-v1" -> packStates["local-gemma-4-e2b-v1"]?.isReady() == true
+                "local-functiongemma-v1" -> packStates["local-functiongemma-v1"]?.isReady() == true
                 else -> entry.packId?.let { packStates[it]?.isReady() == true } == true
             }
             OnDevicePickerEntry(

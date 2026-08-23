@@ -17,7 +17,7 @@ import urllib.request
 DEFAULT_URL = (
     "https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main/manifest.json"
 )
-REQUIRED_PACKS = ("lite-v1", "pro-v1", "local-gemma-4-e2b-v1")
+REQUIRED_PACKS = ("lite-v1", "pro-v1", "local-gemma-4-e2b-v1", "local-functiongemma-v1")
 
 # Fully-conditioned production Pro (convert_pro_pack.py / Colab notebook).
 # Absence of any of these means a CatVTON 3-file stub overwrote pro-v1.

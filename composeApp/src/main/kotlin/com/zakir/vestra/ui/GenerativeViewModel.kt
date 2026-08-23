@@ -10,6 +10,7 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.engine.local.LocalStudioToolBridge
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
 import com.zakir.vestra.shared.usage.UsageLedger
@@ -94,6 +95,30 @@ class GenerativeViewModel(
 
     private var job: Job? = null
     private var generationEpoch = 0
+
+    init {
+        LocalStudioToolBridge.onAppendPrompt = { clause ->
+            if (clause.isNotBlank()) {
+                val current = _prompt.value.trim()
+                _prompt.value = if (current.isBlank()) clause else "$current $clause"
+            }
+        }
+        LocalStudioToolBridge.onSetEngineTier = { tierName ->
+            runCatching { EngineTier.valueOf(tierName.trim().uppercase()) }
+                .getOrNull()
+                ?.let { appSettings.setEngineTier(it) }
+        }
+        LocalStudioToolBridge.onSetBackdrop = { backdrop ->
+            if (backdrop.isNotBlank()) {
+                val current = _prompt.value.trim()
+                _prompt.value = if (current.isBlank()) {
+                    "Backdrop: $backdrop"
+                } else {
+                    "$current · backdrop: $backdrop"
+                }
+            }
+        }
+    }
 
     /** Which studio produced the current [state] — panes hide foreign results. */
     private val _resultCapability = MutableStateFlow<AiCapability?>(null)
@@ -269,7 +294,9 @@ class GenerativeViewModel(
             (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
             generative.localCodeReady()
         ) {
-            return "Local Gemma · Ready offline"
+            val label = com.zakir.vestra.shared.local.LocalModelCatalog
+                .byId(generative.localCodeProviderId())?.displayName ?: "Local Gemma"
+            return "$label · Ready offline"
         }
         if (capability == AiCapability.VIDEO &&
             (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&

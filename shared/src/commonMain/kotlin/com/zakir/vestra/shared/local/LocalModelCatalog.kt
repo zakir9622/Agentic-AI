@@ -160,14 +160,13 @@ object LocalModelCatalog {
         LocalModelEntry(
             id = "local-functiongemma-v1",
             displayName = "FunctionGemma tools (experimental)",
-            description = "Local tool calling for studio assists — debug/demo only.",
+            description = "Local tool calling for studio assists — append prompt, set tier, backdrop.",
             capability = AiCapability.CODE,
             packId = "local-functiongemma-v1",
             license = "Gemma Terms of Use",
             approxSizeLabel = "~300 MB",
             runnable = true,
-            testingNote = "Experimental · local tools in debug builds when pack installed.",
-            pickerRole = LocalModelPickerRole.QUALITY_POST,
+            testingNote = "Experimental · pick in Code ON-DEVICE when pack installed.",
         ),
         LocalModelEntry(
             id = "local-stillclip-v1",

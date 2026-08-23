@@ -66,6 +66,8 @@ object PackHandshakeWires {
             listOf("Code Studio (Gemma 4 E2B)", "Vision assist · Analyze reference", "Audio · Transcribe (STT)")
         packId == "local-gemma-4-vision-v1" ->
             listOf("Vision assist · Analyze reference (alias — install local-gemma-4-e2b-v1)")
+        packId == "local-audio-scribe-v1" ->
+            listOf("Audio · Transcribe (alias — install local-gemma-4-e2b-v1)")
         packId == "local-functiongemma-v1" ->
             listOf("Local tools (experimental)")
         packId.contains("birefnet", ignoreCase = true) ->

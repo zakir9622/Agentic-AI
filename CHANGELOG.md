@@ -1,12 +1,12 @@
 # Changelog — The Lookbook
 
 ## 3.1.0-rc17
-- **LiteRT-LM full integration (L0–L4):** Kotlin 2.3, `litertlm-android:0.10.2`, third on-device runtime alongside ORT
-- **Published HF packs:** `local-gemma-4-e2b-v1` (~2.6 GB) + `local-functiongemma-v1` (~284 MB) on vestra-packs manifest
-- **L1 Code:** Gemma 4 E2B; legacy Gemma 3 MediaPipe kept as fallback
-- **L2 Vision:** Analyze reference uses shared Gemma 4 pack (no duplicate download)
-- **L3 Audio Scribe:** Transcribe uses shared Gemma 4 multimodal audio backend
-- **L4 Tools:** FunctionGemma pack + `AndroidFunctionGemmaTools` (debug)
+- **LiteRT-LM deep integration:** warm engine cache (no per-shot cold load), 90s inference timeout
+- **Offline hard-stop:** Code Studio and Chat fail closed when offline without local pack
+- **FunctionGemma:** selectable in Code ON-DEVICE picker; tool callbacks wired to studio prompt/tier
+- **Audio scribe picker:** Generate transcribes attached clip when scribe model selected
+- **Vision assist:** feedback when reference photo cannot be read
+- **Per-pack readiness:** Gemma 3 / Gemma 4 / FunctionGemma show independent install state in picker
 
 ## 3.1.0-rc14
 - **DoD stability pass:** live HF `pro-v1` verified fully-conditioned; CatVTON exporter quarantined off `pro-v1`

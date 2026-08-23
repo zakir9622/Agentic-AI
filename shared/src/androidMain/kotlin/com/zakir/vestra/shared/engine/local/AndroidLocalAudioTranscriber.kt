@@ -1,7 +1,6 @@
 package com.zakir.vestra.shared.engine.local
 
 import android.content.Context
-import com.zakir.vestra.shared.engine.litert.LiteRtLmEngine
 import com.zakir.vestra.shared.packs.ModelPackManager
 import java.io.File
 
@@ -22,42 +21,30 @@ class AndroidLocalAudioTranscriber(
             ?: return LocalTranscribeResult.Unavailable(
                 "Download ${LiteRtLmPacks.GEMMA4_CODE} from Model packs for offline transcription.",
             )
-        val (packId, modelPath) = resolved
-        packs.markPackInUse(packId)
-        return try {
-            LiteRtLmEngine(
-                context = context,
-                modelPath = modelPath,
-                useGpu = useGpu(),
-                visionEnabled = false,
-                audioEnabled = true,
-            ).use { engine ->
-                engine.initialize()
-                when (val result = engine.transcribeAudio(audioPath, prompt)) {
-                    is com.zakir.vestra.shared.engine.litert.LiteRtLmGenerateResult.Ok ->
-                        LocalTranscribeResult.Ok(result.text)
-                    is com.zakir.vestra.shared.engine.litert.LiteRtLmGenerateResult.Unavailable ->
-                        LocalTranscribeResult.Unavailable(result.reason)
-                }
-            }
-        } catch (err: Throwable) {
-            LocalTranscribeResult.Unavailable(
-                err.message?.take(200) ?: "Transcription failed.",
-            )
-        } finally {
-            packs.markPackIdle(packId)
-        }
+        @Suppress("UNCHECKED_CAST")
+        return LiteRtLmInference.runTranscribe(
+            context = context,
+            packs = packs,
+            packId = resolved.packId,
+            modelPath = resolved.modelPath,
+            useGpu = useGpu(),
+            audioEnabled = resolved.config.audio,
+            audioPath = audioPath,
+            prompt = prompt,
+            mapOk = { LocalTranscribeResult.Ok(it.text) },
+            mapUnavailable = { LocalTranscribeResult.Unavailable(it) },
+        ) as LocalTranscribeResult
     }
 
-    private fun resolveModel(): Pair<String, String>? {
-        val path = LiteRtLmPackResolver.modelPath(
+    private fun resolveModel(): LiteRtLmPackResolver.ResolvedPack? {
+        val resolved = LiteRtLmPackResolver.resolveWithConfig(
             packs,
-            LiteRtLmPacks.AUDIO_SCRIBE,
-            LiteRtLmPacks.GEMMA4_FILE,
             LiteRtLmPacks.GEMMA4_CODE,
+            LiteRtLmPacks.GEMMA4_FILE,
         ) ?: return null
-        val file = File(path.second)
+        val file = File(resolved.modelPath)
         if (file.length() < LiteRtLmPackLimits.MIN_GEMMA4_BYTES) return null
-        return path
+        if (!resolved.config.audio) return null
+        return resolved
     }
 }

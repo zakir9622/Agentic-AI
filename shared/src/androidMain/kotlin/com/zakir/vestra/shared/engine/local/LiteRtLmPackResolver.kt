@@ -26,12 +26,29 @@ object LiteRtLmPackResolver {
         defaultPrimaryFile: String,
         vararg fallbackPackIds: String,
     ): Pair<String, String>? {
-        val resolved = installedDir(packs, primaryPackId, *fallbackPackIds) ?: return null
-        val (packId, dir) = resolved
+        val resolved = resolveWithConfig(packs, primaryPackId, defaultPrimaryFile, *fallbackPackIds)
+            ?: return null
+        return resolved.packId to resolved.modelPath
+    }
+
+    data class ResolvedPack(
+        val packId: String,
+        val modelPath: String,
+        val config: LiteRtLmPackConfig,
+    )
+
+    fun resolveWithConfig(
+        packs: ModelPackManager,
+        primaryPackId: String,
+        defaultPrimaryFile: String,
+        vararg fallbackPackIds: String,
+    ): ResolvedPack? {
+        val installed = installedDir(packs, primaryPackId, *fallbackPackIds) ?: return null
+        val (packId, dir) = installed
         val cfg = LiteRtLmPackConfig.read(dir, defaultPrimaryFile)
         val path = LiteRtLmPackConfig.modelPath(dir, cfg.primaryFile) ?: return null
         val file = File(path)
         if (!file.isFile) return null
-        return packId to path
+        return ResolvedPack(packId, path, cfg)
     }
 }

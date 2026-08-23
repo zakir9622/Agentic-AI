@@ -7,8 +7,13 @@ import com.zakir.vestra.shared.audio.VoiceCatalog
 import com.zakir.vestra.shared.audio.VoiceKnobs
 import com.zakir.vestra.shared.engine.local.LocalAudioGenerator
 import com.zakir.vestra.shared.engine.local.LocalAudioResult
+import com.zakir.vestra.shared.engine.local.LocalAssistResult
+import com.zakir.vestra.shared.engine.local.LocalAudioTranscriber
 import com.zakir.vestra.shared.engine.local.LocalCodeGenerator
 import com.zakir.vestra.shared.engine.local.LocalCodeResult
+import com.zakir.vestra.shared.engine.local.LocalTranscribeResult
+import com.zakir.vestra.shared.engine.local.LocalVisionAssist
+import com.zakir.vestra.shared.engine.local.LiteRtLmPacks
 import com.zakir.vestra.shared.engine.local.LocalImageGenerator
 import com.zakir.vestra.shared.engine.local.LocalImageResult
 import com.zakir.vestra.shared.engine.local.LocalVideoGenerator
@@ -58,7 +63,9 @@ private class TestMemorySettings : Settings {
     override fun getBooleanOrNull(key: String): Boolean? = map[key] as? Boolean
 }
 
-private class FakeIo : CloudImageIo {
+private class FakeIo(
+    private val localPath: String? = null,
+) : CloudImageIo {
     override suspend fun loadImageBytes(person: com.zakir.vestra.shared.domain.PersonSource): ByteArray? =
         byteArrayOf(1, 2, 3)
 
@@ -67,6 +74,8 @@ private class FakeIo : CloudImageIo {
     override fun toDataUrl(jpegBytes: ByteArray): String = "data:image/jpeg;base64,abc"
 
     override suspend fun downloadResult(urlOrPath: String, spaceHost: String?): String = "/tmp/out.png"
+
+    override fun resolveLocalPath(uri: String): String? = localPath
 }
 
 class GenerativeCloudServiceTest {
@@ -270,6 +279,18 @@ class GenerativeCloudServiceTest {
         override fun isReady(): Boolean = true
         override fun generate(prompt: String, seed: Long?): LocalVideoResult =
             LocalVideoResult.Ok(path)
+    }
+
+    private class FakeLocalVision(private val text: String = "navy silk abaya") : LocalVisionAssist {
+        override fun isReady(): Boolean = true
+        override fun describeImage(imagePath: String, question: String): LocalAssistResult =
+            LocalAssistResult.Ok(text)
+    }
+
+    private class FakeLocalTranscriber(private val text: String = "hello world") : LocalAudioTranscriber {
+        override fun isReady(): Boolean = true
+        override fun transcribe(audioPath: String, prompt: String): LocalTranscribeResult =
+            LocalTranscribeResult.Ok(text)
     }
 
     private class FakeLocalAudio(private val path: String = "/tmp/local.wav") : LocalAudioGenerator {
@@ -588,6 +609,100 @@ class GenerativeCloudServiceTest {
             assists = GenerativeAssists(fashionContext = false),
         ).toList()
         assertEquals("Describe the abaya", capturing.lastText)
+    }
+
+    @Test
+    fun codeGenHardStopsOfflineWhenNoLocalPack() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+        )
+        val states = service.generateCode("hello world").toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun chatUsesLocalWhenReadyWithoutHttp() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localCode = FakeLocalCode(),
+        )
+        val (result, provider) = service.chatWithFallback("hi", system = "Be brief.")
+        assertEquals("fun main() {}", result.text)
+        assertEquals("local-gemma-4-e2b-v1", provider.id)
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun imageGenUsesVisionAssistWhenAnalyzeReferenceEnabled() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            networkProbe = { false }
+            setLocalGenerator(AiCapability.IMAGE_GEN, "local-sdturbo-v1")
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(localPath = "/tmp/ref.png"),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localImage = FakeLocalImage(editReady = true),
+            localVision = FakeLocalVision("emerald linen"),
+        )
+        val states = service.generateImage(
+            "portrait",
+            referenceUri = "file:///tmp/ref.png",
+            assists = GenerativeAssists(analyzeReference = true),
+        ).toList()
+        assertTrue(states.any { it is GenerativeState.ImageReady })
+        assertTrue(!httpCalled)
+    }
+
+    @Test
+    fun audioScribePickerTranscribesAttachedClip() = runTest {
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setLocalGenerator(AiCapability.AUDIO, LiteRtLmPacks.AUDIO_SCRIBE)
+        }
+        val service = GenerativeCloudService(
+            httpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localTranscriber = FakeLocalTranscriber("transcribed text"),
+        )
+        val states = service.generateAudio(
+            prompt = "ignored for scribe",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+            referenceAudioUri = "file:///tmp/recording.wav",
+        ).toList()
+        val ready = states.filterIsInstance<GenerativeState.TranscribeReady>().single()
+        assertEquals("transcribed text", ready.text)
     }
 
     @Test

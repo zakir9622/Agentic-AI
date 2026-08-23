@@ -1,13 +1,12 @@
 package com.zakir.vestra.shared.engine.local
 
 import android.content.Context
-import com.zakir.vestra.shared.engine.litert.LiteRtLmEngine
 import com.zakir.vestra.shared.packs.ModelPackManager
 import java.io.File
 
 /**
  * Multimodal Gemma 4 vision assist — describe garment / reference photos offline.
- * Uses [LiteRtLmPacks.GEMMA4_VISION] when installed, else shared [LiteRtLmPacks.GEMMA4_CODE].
+ * Uses [LiteRtLmPacks.GEMMA4_CODE] pack with vision backend from config.json.
  */
 class AndroidLocalVisionAssist(
     private val context: Context,
@@ -22,42 +21,30 @@ class AndroidLocalVisionAssist(
             ?: return LocalAssistResult.Unavailable(
                 "Download ${LiteRtLmPacks.GEMMA4_CODE} (~2.6 GB) from Model packs for offline vision assist.",
             )
-        val (packId, modelPath) = resolved
-        packs.markPackInUse(packId)
-        return try {
-            LiteRtLmEngine(
-                context = context,
-                modelPath = modelPath,
-                useGpu = useGpu(),
-                visionEnabled = true,
-                audioEnabled = false,
-            ).use { engine ->
-                engine.initialize()
-                when (val result = engine.describeImage(imagePath, question)) {
-                    is com.zakir.vestra.shared.engine.litert.LiteRtLmGenerateResult.Ok ->
-                        LocalAssistResult.Ok(result.text)
-                    is com.zakir.vestra.shared.engine.litert.LiteRtLmGenerateResult.Unavailable ->
-                        LocalAssistResult.Unavailable(result.reason)
-                }
-            }
-        } catch (err: Throwable) {
-            LocalAssistResult.Unavailable(
-                err.message?.take(200) ?: "Vision assist failed.",
-            )
-        } finally {
-            packs.markPackIdle(packId)
-        }
+        @Suppress("UNCHECKED_CAST")
+        return LiteRtLmInference.runVision(
+            context = context,
+            packs = packs,
+            packId = resolved.packId,
+            modelPath = resolved.modelPath,
+            useGpu = useGpu(),
+            visionEnabled = resolved.config.vision,
+            imagePath = imagePath,
+            question = question,
+            mapOk = { LocalAssistResult.Ok(it.text) },
+            mapUnavailable = { LocalAssistResult.Unavailable(it) },
+        ) as LocalAssistResult
     }
 
-    private fun resolveModel(): Pair<String, String>? {
-        val path = LiteRtLmPackResolver.modelPath(
+    private fun resolveModel(): LiteRtLmPackResolver.ResolvedPack? {
+        val resolved = LiteRtLmPackResolver.resolveWithConfig(
             packs,
-            LiteRtLmPacks.GEMMA4_VISION,
-            LiteRtLmPacks.GEMMA4_FILE,
             LiteRtLmPacks.GEMMA4_CODE,
+            LiteRtLmPacks.GEMMA4_FILE,
         ) ?: return null
-        val file = File(path.second)
+        val file = File(resolved.modelPath)
         if (file.length() < LiteRtLmPackLimits.MIN_GEMMA4_BYTES) return null
-        return path
+        if (!resolved.config.vision) return null
+        return resolved
     }
 }
