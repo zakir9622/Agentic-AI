@@ -112,10 +112,23 @@ internal object LiteRtLmInference {
         }
     }
 
-    fun gemma4Ready(packs: ModelPackManager, packId: String): Boolean {
+    fun gemma4Ready(packs: ModelPackManager, packId: String): Boolean =
+        litertLmReady(packs, packId, LiteRtLmPacks.GEMMA4_FILE, LiteRtLmPackLimits.MIN_GEMMA4_BYTES)
+
+    /**
+     * Installed-and-complete check for any LiteRT-LM pack. [defaultPrimaryFile] is only the
+     * fallback — a pack shipping its own config.json overrides it, so packs whose weights
+     * live under a different filename resolve without an engine change.
+     */
+    fun litertLmReady(
+        packs: ModelPackManager,
+        packId: String,
+        defaultPrimaryFile: String,
+        minBytes: Long,
+    ): Boolean {
         if (!packs.isReady(packId)) return false
         val dir = packs.installedDir(packId) ?: return false
-        val path = LiteRtLmPackConfig.modelPath(File(dir), LiteRtLmPacks.GEMMA4_FILE) ?: return false
-        return File(path).length() >= LiteRtLmPackLimits.MIN_GEMMA4_BYTES
+        val path = LiteRtLmPackConfig.modelPath(File(dir), defaultPrimaryFile) ?: return false
+        return File(path).length() >= minBytes
     }
 }

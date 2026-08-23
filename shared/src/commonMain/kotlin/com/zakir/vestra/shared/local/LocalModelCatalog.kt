@@ -113,6 +113,17 @@ object LocalModelCatalog {
             testingNote = "Requires local-sdturbo-v1 v3+ (includes vae_encoder.onnx). Pick a reference, then Generate.",
         ),
         LocalModelEntry(
+            id = "local-qwen3-06b-v1",
+            displayName = "Local Qwen3 0.6B (fast)",
+            description = "LiteRT-LM INT4 — 331 MB, loads far quicker than Gemma 4 E2B.",
+            capability = AiCapability.CODE,
+            packId = "local-qwen3-06b-v1",
+            license = "Apache-2.0",
+            approxSizeLabel = "~331 MB",
+            runnable = true,
+            testingNote = "Download local-qwen3-06b-v1 in Model packs. Fastest offline Code/Chat route.",
+        ),
+        LocalModelEntry(
             id = "local-gemma-4-e2b-v1",
             displayName = "Local Gemma 4 E2B (code)",
             description = "LiteRT-LM on-device — Gallery-class Gemma 4 for Code Studio.",
@@ -273,6 +284,9 @@ object LocalModelCatalog {
         entry.id == "local-sdturbo-edit" && packReady -> "Ready offline (img2img)"
         entry.id == "local-sdturbo-edit" && !packReady ->
             "Download local-sdturbo-v1 v3+ for offline edit"
+        entry.id == "local-qwen3-06b-v1" && packReady -> "Ready offline · Qwen3 0.6B (fastest)"
+        entry.id == "local-qwen3-06b-v1" && !packReady ->
+            "Download local-qwen3-06b-v1 in Model packs (~331 MB)"
         entry.id == "local-gemma-4-e2b-v1" && packReady -> "Ready offline · Gemma 4"
         entry.id == "local-gemma-4-e2b-v1" && !packReady ->
             "Download local-gemma-4-e2b-v1 in Model packs (~2.6 GB)"
@@ -296,6 +310,7 @@ object LocalModelCatalog {
         entry.id == "local-sdturbo-v1" ||
             entry.id == "local-sdturbo-edit" ||
             entry.id == "local-stillclip-v1" ||
+            entry.id == "local-qwen3-06b-v1" ||
             entry.id == "local-gemma-4-e2b-v1" ||
             entry.id == "local-gemma-v1" ||
             entry.id == "local-audio-scribe-v1" -> packReady

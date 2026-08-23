@@ -47,4 +47,7 @@ object LiteRtLmPackLimits {
     const val MIN_AUDIO_BYTES = 50_000_000L
     const val MIN_FUNCTION_BYTES = 100_000_000L
     const val MIN_LEGACY_GEMMA3_BYTES = 50_000_000L
+
+    /** Qwen3 0.6B INT4 ships at 347,251,840 bytes — floor well under it but over a truncated file. */
+    const val MIN_QWEN3_BYTES = 300_000_000L
 }

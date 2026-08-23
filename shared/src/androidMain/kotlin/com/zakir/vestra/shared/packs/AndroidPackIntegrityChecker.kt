@@ -67,6 +67,7 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
             LiteRtLmPacks.GEMMA4_CODE, LiteRtLmPacks.GEMMA4_VISION, LiteRtLmPacks.AUDIO_SCRIBE ->
                 LiteRtLmPacks.GEMMA4_FILE
             LiteRtLmPacks.FUNCTION_GEMMA -> LiteRtLmPacks.FUNCTION_GEMMA_FILE
+            LiteRtLmPacks.QWEN3_CODE -> LiteRtLmPacks.QWEN3_FILE
             else -> LiteRtLmPacks.GEMMA4_FILE
         }
         val cfg = LiteRtLmPackConfig.read(root, defaultPrimary)
@@ -79,6 +80,7 @@ class AndroidPackIntegrityChecker : PackIntegrityChecker {
         }
         val minBytes = when (packId) {
             LiteRtLmPacks.FUNCTION_GEMMA -> LiteRtLmPackLimits.MIN_FUNCTION_BYTES
+            LiteRtLmPacks.QWEN3_CODE -> LiteRtLmPackLimits.MIN_QWEN3_BYTES
             LiteRtLmPacks.AUDIO_SCRIBE, LiteRtLmPacks.GEMMA4_VISION -> LiteRtLmPackLimits.MIN_GEMMA4_BYTES
             else -> LiteRtLmPackLimits.MIN_GEMMA4_BYTES
         }

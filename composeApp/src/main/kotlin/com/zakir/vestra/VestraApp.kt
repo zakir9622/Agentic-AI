@@ -193,6 +193,15 @@ class VestraApp : Application() {
                     packManager,
                     useGpu = { appSettings.preferLiteRtLmGpu.value },
                 ),
+                qwen3 = com.zakir.vestra.shared.engine.local.AndroidLiteRtLmCodeGenerator(
+                    this,
+                    packManager,
+                    packId = com.zakir.vestra.shared.engine.local.LiteRtLmPacks.QWEN3_CODE,
+                    useGpu = { appSettings.preferLiteRtLmGpu.value },
+                    primaryFile = com.zakir.vestra.shared.engine.local.LiteRtLmPacks.QWEN3_FILE,
+                    minBytes = com.zakir.vestra.shared.engine.local.LiteRtLmPackLimits.MIN_QWEN3_BYTES,
+                    downloadHint = "~331 MB",
+                ),
                 legacyGemma3 = com.zakir.vestra.shared.engine.local.AndroidLegacyMediaPipeCodeGenerator(
                     this,
                     packManager,

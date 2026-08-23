@@ -12,13 +12,18 @@ class RoutingLocalCodeGenerator(
     private val gemma4: LocalCodeGenerator,
     private val legacyGemma3: LocalCodeGenerator,
     private val functionGemma: LocalCodeGenerator? = null,
+    private val qwen3: LocalCodeGenerator? = null,
 ) : LocalCodeGenerator {
 
     private fun delegate(): LocalCodeGenerator = when (settings.selectionId(AiCapability.CODE)) {
         LiteRtLmPacks.LEGACY_GEMMA3 -> legacyGemma3
         LiteRtLmPacks.GEMMA4_CODE -> gemma4
+        LiteRtLmPacks.QWEN3_CODE -> qwen3 ?: gemma4
         LiteRtLmPacks.FUNCTION_GEMMA -> functionGemma ?: gemma4
+        // No explicit pick: prefer the smallest ready pack so a cold load is as short as
+        // possible, rather than defaulting to the 2.47 GB Gemma 4 pack.
         else -> when {
+            qwen3?.isReady() == true -> qwen3
             gemma4.isReady() -> gemma4
             legacyGemma3.isReady() -> legacyGemma3
             functionGemma?.isReady() == true -> functionGemma
