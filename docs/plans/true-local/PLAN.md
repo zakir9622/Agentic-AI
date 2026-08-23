@@ -1,27 +1,27 @@
-# True local on Pixel (v3.1.0-rc5+)
+# True local on Pixel (v3.1.0-rc7+)
 
-**Status:** In progress on `main` / PR track  
+**Status:** Pack published — offline Create unlocked when installed  
 **Device floor:** Pixel 8+ / 8 GB RAM · `minSdk 35`
 
 ## What genuinely works offline on-device today
 
 | Surface | Status | How |
 |---------|--------|-----|
-| **Try-on Lite / Pro** | **Works** | `lite-v1` / `pro-v1` packs + ORT |
+| **Try-on Lite / Pro** | **Works** | `lite-v1` / `pro-v1` packs + ORT (rc6 R8 keep fixes Pixel SIGABRT) |
 | **Audio Speak** | **Works** | Android **system TTS** (Google/OEM voices) |
-| **Audio voice change** | **Works** | Mic record + DSP knobs (pitch/speed/formant/warmth/clarity) |
-| **Quality upscale/matte** | **Works** | Real-ESRGAN / BiRefNet packs (post-step) |
-| **Image Create** | **Engine wired** | `AndroidTxt2ImgEngine` — needs published `local-sdturbo-v1` ONNX pack |
+| **Audio voice change** | **Works** | Mic record + DSP knobs |
+| **Quality upscale/matte** | **Works** | Real-ESRGAN / BiRefNet packs |
+| **Image Create** | **Works when pack installed** | `AndroidTxt2ImgEngine` + published `local-sdturbo-v1` (~994 MB tiny-SD ONNX) |
 | **Video** | Cloud only | Not practical on phones |
 | **Code / Chat LLM** | Cloud only | Gemma via LiteRT-LM planned |
 
 ## Unlock Create Studio offline
 
-1. Export ONNX on GPU/Colab: `ml/export_image_gen_pack.py --copy-tokenizer` documents required files
-2. Validate layout: `python scripts/verify-local-sdturbo-pack.py exports/local-sdturbo-v1`
-3. Publish pack `local-sdturbo-v1` to HF packs manifest (or sideload via adb / debug bootstrap)
-4. User: Settings → Model packs → download
-5. Airplane mode Image Studio should produce a PNG
+1. Install **3.1.0-rc7+**
+2. Settings → Model packs → download **local-sdturbo-v1** (~994 MB)
+3. Airplane mode → Image Studio → prompt → PNG
+
+Pack source: assembled from public `RanaLLC/tiny-sd-onnx-fp16` via `scripts/assemble-local-sdturbo-pack.py`, published to `Iamzakirzr/vestra-packs`.
 
 ## Honesty rules
 
@@ -29,8 +29,7 @@
 - Never route Create Studio through Pro try-on UNet (9-ch inpaint ≠ txt2img)  
 - System TTS is real offline Speak — not a neural Kokoro substitute in quality, but it works without downloads  
 
-## Next (stretch)
+## Stretch
 
-- Publish `local-sdturbo-v1` weights to HF  
 - LiteRT-LM Gemma 3 1B optional pack for Code/News  
 - Optional neural TTS pack (`local-tts-v1`) as upgrade over system voices  

@@ -48,11 +48,12 @@ class LocalModelCatalogTest {
     }
 
     @Test
-    fun imageStudioPickerShowsEngineReadyStatusWithoutPack() {
+    fun imageStudioPickerPromptsDownloadWhenPackMissing() {
         val entry = LocalModelCatalog.entries.first { it.id == "local-sdturbo-v1" }
+        assertTrue(entry.runnable)
         assertTrue(
             LocalModelCatalog.studioStatusLabel(entry, packReady = false)
-                .contains("Engine ready", ignoreCase = true),
+                .contains("Download", ignoreCase = true),
         )
         assertFalse(LocalModelCatalog.studioEntryReady(entry, packReady = false))
     }

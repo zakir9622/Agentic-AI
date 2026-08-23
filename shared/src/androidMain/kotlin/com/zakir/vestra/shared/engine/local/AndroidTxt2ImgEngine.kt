@@ -116,10 +116,7 @@ class AndroidTxt2ImgEngine(
         }
 
         val sampleTensor = unet.floatTensor(sample, 1, 4, latent.toLong(), latent.toLong())
-        val timeTensor = OnnxTensor.createTensor(
-            ai.onnxruntime.OrtEnvironment.getEnvironment(),
-            longArrayOf(timestep.toLong()),
-        )
+        val timeTensor = timestepTensor(timestep)
         val hiddenTensor = hiddenName?.let {
             val seq = if (hidden.size % 768 == 0) hidden.size / 768 else 77
             val dim = if (hidden.size % 768 == 0) 768 else (hidden.size / seq).coerceAtLeast(1)
@@ -139,6 +136,12 @@ class AndroidTxt2ImgEngine(
             if (hiddenName != null && hiddenTensor != null) put(hiddenName, hiddenTensor)
         }
         return unet.runSingle(inputs)
+    }
+
+    /** Tiny-SD / SD-Turbo ONNX exports vary — timestep is int64 or float32. */
+    private fun timestepTensor(timestep: Int): OnnxTensor {
+        val env = ai.onnxruntime.OrtEnvironment.getEnvironment()
+        return OnnxTensor.createTensor(env, longArrayOf(timestep.toLong()))
     }
 
     private fun decodeVae(latentSample: FloatArray): FloatArray {

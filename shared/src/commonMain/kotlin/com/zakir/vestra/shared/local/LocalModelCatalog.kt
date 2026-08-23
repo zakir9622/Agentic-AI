@@ -95,14 +95,14 @@ object LocalModelCatalog {
         ),
         LocalModelEntry(
             id = "local-sdturbo-v1",
-            displayName = "Local image gen (SD-Turbo)",
-            description = "On-device SD-Turbo / LCM via ORT — sampler wired; needs published ONNX pack.",
+            displayName = "Local image gen (tiny-SD)",
+            description = "On-device tiny-SD / LCM via ORT — download local-sdturbo-v1 (~1 GB) from Model packs, then Create works offline.",
             capability = AiCapability.IMAGE_GEN,
             packId = "local-sdturbo-v1",
-            license = "OpenRAIL-M / Apache-2.0 (weights TBD)",
-            approxSizeLabel = "~1–1.5 GB",
-            runnable = false,
-            testingNote = "Engine ready · download local-sdturbo-v1 when on Model packs (ml/export_image_gen_pack.py).",
+            license = "CreativeML OpenRAIL-M (SD1.5 lineage)",
+            approxSizeLabel = "~994 MB",
+            runnable = true,
+            testingNote = "Download local-sdturbo-v1 in Settings → Model packs. Airplane mode Create Studio should yield a PNG.",
         ),
         LocalModelEntry(
             id = "local-coder-planned",
@@ -226,7 +226,7 @@ object LocalModelCatalog {
     fun studioStatusLabel(entry: LocalModelEntry, packReady: Boolean): String = when {
         entry.id == "local-sdturbo-v1" && packReady -> "Ready offline"
         entry.id == "local-sdturbo-v1" && !packReady ->
-            "Engine ready · pack weights not on device"
+            "Download local-sdturbo-v1 in Model packs (~994 MB)"
         entry.runnable && (entry.packId == null || packReady) -> "Ready offline"
         !entry.runnable && entry.packId != null -> "Scaffold · weights not published"
         !entry.runnable -> "Coming soon · no on-device weights yet"

@@ -1,5 +1,11 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc7
+- **True local Image Create:** published `local-sdturbo-v1` (~994 MB tiny-SD ONNX FP16) to HF packs; catalog `runnable=true`
+- Assemble tooling: `scripts/assemble-local-sdturbo-pack.py` (from public tiny-SD ONNX)
+- Studio copy: download pack from Model packs for offline Create
+- Continues rc6: Pixel try-on ORT R8 fix + cloud studio reliability
+
 ## 3.1.0-rc6
 - **Try-on crash fix:** R8 keep `ai.onnxruntime.**` — Pixel SIGABRT was `NodeInfo.<init>` NoSuchMethodError during Lite generate
 - **Cloud Image:** Prefer FLUX Schnell Space by default; mark SDXL Lightning unsupported (Space API 404); fix 402 credit copy (was mislabeled as token permissions); capability-aware Inference rejection hints

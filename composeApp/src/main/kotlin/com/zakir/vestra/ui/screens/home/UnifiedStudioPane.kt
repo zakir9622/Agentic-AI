@@ -197,9 +197,9 @@ fun UnifiedStudioPane(
             when (capability) {
                 AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
                     if (localImageReady) {
-                        "Local SD-Turbo ready offline — Create Studio runs on-device."
+                        "Local tiny-SD ready offline — Create Studio runs on-device."
                     } else {
-                        "Cloud by default. Local SD-Turbo engine is wired — install local-sdturbo-v1 when published."
+                        "Cloud by default. For offline Create: Settings → Model packs → download local-sdturbo-v1 (~994 MB)."
                     }
                 AiCapability.VIDEO ->
                     "Cloud HF Spaces only — on-device video is out of scope for v3.1."
@@ -238,7 +238,7 @@ fun UnifiedStudioPane(
             onPromptChange = viewModel::setPrompt,
             modelLabel = when {
                 effectiveCapability == AiCapability.IMAGE_GEN && localImageReady && reference == null ->
-                    "Local SD-Turbo (offline)"
+                    "Local tiny-SD (offline)"
                 else -> provider.displayName
             },
             assistCount = assistCount,
