@@ -431,6 +431,15 @@ class ModelPackManager(
     fun hasSpaceFor(pack: ModelPack): Boolean =
         fs.freeBytes() > pack.totalBytes + SPACE_MARGIN_BYTES
 
+    /** Free bytes on the volume holding the packs root — for a storage-used rollup in the UI. */
+    fun freeBytesOnDevice(): Long = fs.freeBytes()
+
+    fun deviceRamMb(): Long = device.totalRamMb()
+
+    fun deviceSdkInt(): Int = device.sdkInt()
+
+    fun deviceHasNpu(): Boolean = device.hasNpu()
+
     fun stagingDir(pack: ModelPack): String = "${fs.packsRoot()}/.staging/${pack.id}"
 
     private fun runIntegrityChecks(pack: ModelPack, dir: String): String? {

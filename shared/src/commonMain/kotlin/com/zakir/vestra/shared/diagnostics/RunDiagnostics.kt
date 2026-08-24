@@ -143,6 +143,13 @@ class RunDiagnostics(
         private val startedAt = EpochClock.System.nowMs()
         private val stages = mutableListOf<RunStage>()
 
+        /**
+         * Stable id for this run, known before [complete] — lets a caller thread a lookup-able
+         * reference into a user-facing failure message (e.g. "… (ref $id)"), correlating what
+         * the user sees on screen to the full record in Settings → Diagnostics.
+         */
+        val id: String = "$startedAt-${capability.name}"
+
         fun stage(name: String, durationMs: Long, detail: String = "") {
             stages += RunStage(name, durationMs, detail)
         }
@@ -150,7 +157,7 @@ class RunDiagnostics(
         fun complete(success: Boolean, error: String? = null, note: String = "") {
             onComplete(
                 RunRecord(
-                    id = "$startedAt-${capability.name}",
+                    id = id,
                     timestampMs = startedAt,
                     capability = capability.name,
                     tier = tier?.name,

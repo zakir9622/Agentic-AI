@@ -134,9 +134,12 @@ class ChatViewModel(
                     note = "${used.id} · tokens ${result.tokensIn}+${result.tokensOut}",
                 )
             } catch (e: Exception) {
-                val msg = e.message?.take(280) ?: "Chat failed"
-                _error.value = msg
-                builder?.complete(success = false, error = msg)
+                val rawMsg = e.message?.take(280) ?: "Chat failed"
+                // Thread the diagnostics run's own id into the on-screen message for local chat
+                // failures so it's look-up-able in Settings → Diagnostics — the record already
+                // had a stable id, it just never reached the user-facing string.
+                _error.value = if (localChat && builder != null) "$rawMsg (ref ${builder.id})" else rawMsg
+                builder?.complete(success = false, error = rawMsg)
             } finally {
                 _busy.value = false
             }

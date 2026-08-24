@@ -47,4 +47,8 @@ object TestTags {
     const val CHAT_REFRESH_BUTTON = "chat_news_refresh"
     fun chatHeadlineCard(index: Int): String = "chat_headline_$index"
     fun chatMessageBubble(index: Int, role: String): String = "chat_message_${index}_$role"
+
+    // Processing mode card (SettingsCloudSection.kt) — the on-device-only / cloud-allowed choice.
+    const val PROCESSING_MODE_LOCAL = "processing_mode_local"
+    const val PROCESSING_MODE_CLOUD = "processing_mode_cloud"
 }

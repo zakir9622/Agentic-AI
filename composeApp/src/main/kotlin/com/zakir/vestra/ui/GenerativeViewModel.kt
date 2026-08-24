@@ -652,8 +652,17 @@ class GenerativeViewModel(
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
-                block().collect { next ->
+                block().collect { rawNext ->
                     if (epoch != generationEpoch) return@collect
+                    // Local-generation failures had no way to correlate the message on screen to
+                    // its full record in Settings → Diagnostics — the record itself always had a
+                    // stable id, it just never reached the user-facing string. Cloud failures
+                    // don't need this: CloudFailure already carries enough context in its message.
+                    val next = if (local && rawNext is GenerativeState.Failed && builder != null) {
+                        rawNext.copy(message = "${rawNext.message} (ref ${builder.id})")
+                    } else {
+                        rawNext
+                    }
                     if (boundKey != studioKey) {
                         // User switched tabs — keep updating the owning bag only.
                         val owner = bag(studioKey)
@@ -728,14 +737,15 @@ class GenerativeViewModel(
                 // Expected on force stop / clear
             } catch (e: Exception) {
                 if (epoch == generationEpoch) {
-                    val msg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
+                    val rawMsg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
+                    val msg = if (local && builder != null) "$rawMsg (ref ${builder.id})" else rawMsg
                     if (boundKey == studioKey) {
                         appendLive("Error · $msg")
                         _state.value = GenerativeState.Failed(msg)
                     } else {
                         bag(studioKey).state = GenerativeState.Failed(msg)
                     }
-                    builder?.complete(success = false, error = msg)
+                    builder?.complete(success = false, error = rawMsg)
                 }
             } finally {
                 if (boundKey == studioKey) {
