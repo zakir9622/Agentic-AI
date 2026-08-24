@@ -6,8 +6,10 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.engine.local.LiteRtLmPacks
 import com.zakir.vestra.shared.engine.local.LocalCodeGenerator
 import com.zakir.vestra.shared.engine.local.LocalCodeResult
+import com.zakir.vestra.shared.engine.local.LocalCodeStreamEvent
 import com.zakir.vestra.shared.engine.local.LocalImageGenerator
 import com.zakir.vestra.shared.engine.local.LocalImageResult
+import com.zakir.vestra.shared.engine.local.LocalImageStreamEvent
 import com.zakir.vestra.shared.engine.local.LocalVideoGenerator
 import com.zakir.vestra.shared.engine.local.LocalVideoResult
 import com.zakir.vestra.shared.engine.local.LocalVisionAssist
@@ -56,6 +58,8 @@ sealed interface GenerativeState {
     data class VideoReady(val path: String, val providerId: String) : GenerativeState
     data class AudioReady(val path: String, val providerId: String) : GenerativeState
     data class CodeReady(val text: String, val tokensIn: Int, val tokensOut: Int, val providerId: String) : GenerativeState
+    /** Growing text as a local model streams its response — [text] is cumulative, not a delta. */
+    data class CodeStreaming(val text: String, val providerId: String) : GenerativeState
     /** Offline transcription result (Audio Scribe). */
     data class TranscribeReady(val text: String, val providerId: String) : GenerativeState
     data class Failed(val message: String) : GenerativeState
@@ -176,59 +180,60 @@ class GenerativeCloudService(
             }
             var localBlockedReason: String? = null
             if (tryLocalFirst) {
+                // Reflects whichever engine actually ran — was hardcoded to local-sdturbo-v1,
+                // which mislabeled every image Bonsai produced.
+                val providerId = when {
+                    !referenceUri.isNullOrBlank() -> "local-sdturbo-edit"
+                    settings.selectionId(AiCapability.IMAGE_GEN) == "local-bonsai-image-v1" -> "local-bonsai-image-v1"
+                    else -> "local-sdturbo-v1"
+                }
                 val stage = if (referenceUri.isNullOrBlank()) {
                     "Generating on-device…"
                 } else {
                     "Editing on-device…"
                 }
                 emit(GenerativeState.Running(0.08f, stage))
-                when (
-                    val local = localImage.generate(
-                        enrichedPrompt,
-                        assists.seed,
-                        referenceImageUri = referenceUri,
-                    )
-                ) {
-                    is LocalImageResult.Ok -> {
-                        val providerId = if (referenceUri.isNullOrBlank()) {
-                            "local-sdturbo-v1"
-                        } else {
-                            "local-sdturbo-edit"
-                        }
-                        emit(GenerativeState.ImageReady(local.imagePath, providerId))
-                        return@flow
-                    }
-                    is LocalImageResult.Unavailable -> {
-                        // Surface the engine's real reason. It used to be swallowed behind a
-                        // generic "Local pack unavailable", which made an on-device failure
-                        // impossible to diagnose from the run log or a diagnostics export.
-                        localBlockedReason = local.reason
-                        if (!networkOk) {
-                            emit(
-                                GenerativeState.Failed(
-                                    "You're offline and on-device image generation failed: ${local.reason}",
-                                ),
-                            )
-                            return@flow
-                        }
-                        if (!settings.cloudGenerationAllowed()) {
-                            emit(
-                                GenerativeState.Failed(
-                                    "On-device image generation failed: ${local.reason}\n\n" +
-                                        "Cloud models are off, so nothing was sent to the network. " +
-                                        "Fix the pack in Settings → Model packs, or enable cloud models.",
-                                ),
-                            )
-                            return@flow
-                        }
-                        emit(
-                            GenerativeState.Running(
-                                0.1f,
-                                "On-device unavailable (${local.reason.take(80)}) — trying cloud…",
-                            ),
-                        )
+                var localFailure: String? = null
+                localImage.generateStream(
+                    enrichedPrompt,
+                    assists.seed,
+                    referenceImageUri = referenceUri,
+                ).collect { event ->
+                    when (event) {
+                        is LocalImageStreamEvent.Progress -> emit(GenerativeState.Running(event.fraction, event.stage))
+                        is LocalImageStreamEvent.Done -> emit(GenerativeState.ImageReady(event.imagePath, providerId))
+                        is LocalImageStreamEvent.Unavailable -> localFailure = event.reason
                     }
                 }
+                // Surface the engine's real reason. It used to be swallowed behind a generic
+                // "Local pack unavailable", which made an on-device failure impossible to
+                // diagnose from the run log or a diagnostics export.
+                val reason = localFailure ?: return@flow
+                localBlockedReason = reason
+                if (!networkOk) {
+                    emit(
+                        GenerativeState.Failed(
+                            "You're offline and on-device image generation failed: $reason",
+                        ),
+                    )
+                    return@flow
+                }
+                if (!settings.cloudGenerationAllowed()) {
+                    emit(
+                        GenerativeState.Failed(
+                            "On-device image generation failed: $reason\n\n" +
+                                "Cloud models are off, so nothing was sent to the network. " +
+                                "Fix the pack in Settings → Model packs, or enable cloud models.",
+                        ),
+                    )
+                    return@flow
+                }
+                emit(
+                    GenerativeState.Running(
+                        0.1f,
+                        "On-device unavailable (${reason.take(80)}) — trying cloud…",
+                    ),
+                )
             }
             // Hard stop when offline with no local pack — do not burn time on cloud.
             if (!networkOk) {
@@ -571,48 +576,50 @@ class GenerativeCloudService(
                 val localLabel = LocalModelCatalog.byId(localCode.providerId())?.displayName
                     ?: "Local on-device"
                 emit(GenerativeState.Running(0.08f, "Loading $localLabel…"))
-                when (val local = localCode.generate(prompt.trim(), buildCodeSystem(assists))) {
-                    is LocalCodeResult.Ok -> {
-                        emit(
-                            GenerativeState.CodeReady(
-                                local.text,
-                                local.tokensIn,
-                                local.tokensOut,
-                                localCode.providerId(),
-                            ),
-                        )
-                        return@flow
-                    }
-                    is LocalCodeResult.Unavailable -> {
-                        if (!settings.networkLikelyAvailable()) {
+                var localFailure: String? = null
+                localCode.generateStream(prompt.trim(), buildCodeSystem(assists)).collect { event ->
+                    when (event) {
+                        is LocalCodeStreamEvent.Partial ->
+                            emit(GenerativeState.CodeStreaming(event.textSoFar, localCode.providerId()))
+                        is LocalCodeStreamEvent.Done ->
                             emit(
-                                GenerativeState.Failed(
-                                    "You're offline and local Code couldn't run. " +
-                                        local.reason,
+                                GenerativeState.CodeReady(
+                                    event.text,
+                                    event.tokensIn,
+                                    event.tokensOut,
+                                    localCode.providerId(),
                                 ),
                             )
-                            return@flow
-                        }
-                        if (!settings.cloudGenerationAllowed()) {
-                            emit(
-                                GenerativeState.Failed(
-                                    "On-device Code failed: ${local.reason}\n\n" +
-                                        "Cloud models are off, so nothing was sent to the network. " +
-                                        "Fix the pack in Settings → Model packs, or enable cloud models.",
-                                ),
-                            )
-                            return@flow
-                        }
-                        // Name the model that actually failed and why — the old copy said
-                        // "Local Gemma unavailable" even when the Qwen3 route was the one that ran.
-                        emit(
-                            GenerativeState.Running(
-                                0.1f,
-                                "$localLabel unavailable (${local.reason.take(80)}) — trying cloud…",
-                            ),
-                        )
+                        is LocalCodeStreamEvent.Unavailable -> localFailure = event.reason
                     }
                 }
+                val reason = localFailure ?: return@flow
+                if (!settings.networkLikelyAvailable()) {
+                    emit(
+                        GenerativeState.Failed(
+                            "You're offline and local Code couldn't run. $reason",
+                        ),
+                    )
+                    return@flow
+                }
+                if (!settings.cloudGenerationAllowed()) {
+                    emit(
+                        GenerativeState.Failed(
+                            "On-device Code failed: $reason\n\n" +
+                                "Cloud models are off, so nothing was sent to the network. " +
+                                "Fix the pack in Settings → Model packs, or enable cloud models.",
+                        ),
+                    )
+                    return@flow
+                }
+                // Name the model that actually failed and why — the old copy said
+                // "Local Gemma unavailable" even when the Qwen3 route was the one that ran.
+                emit(
+                    GenerativeState.Running(
+                        0.1f,
+                        "$localLabel unavailable (${reason.take(80)}) — trying cloud…",
+                    ),
+                )
             }
             if (!settings.cloudGenerationAllowed()) {
                 emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.CODE)))
@@ -1256,6 +1263,26 @@ class GenerativeCloudService(
         capability: AiCapability = AiCapability.CODE,
         temperature: Double = 0.4,
     ): LlmResult = chatWithFallback(prompt, system, capability, temperature).first
+
+    /** Provider id of the on-device model chat would use — for labeling a streamed reply. */
+    fun localChatProviderId(): String = localCode.providerId()
+
+    /**
+     * Streaming counterpart of [chatWithFallback]'s local branch. Cloud chat still returns as
+     * one block — cloud model APIs would need server-sent-events support in [LlmClient] to
+     * stream, which this doesn't add. Callers check [localCodeReady] / [AppSettings.prefersLocal]
+     * themselves and fall back to [chatWithFallback] when this doesn't apply or fails.
+     */
+    fun localChatStream(
+        prompt: String,
+        system: String,
+        assists: GenerativeAssists = GenerativeAssists(),
+    ): Flow<LocalCodeStreamEvent> {
+        val effectiveSystem = buildCodeSystem(assists).let { base ->
+            if (system.isBlank()) base else "$base\n\n$system"
+        }
+        return localCode.generateStream(prompt, effectiveSystem)
+    }
 
     /**
      * Chat with the same fallback chain as [generateCode] — tries Groq, OpenRouter,

@@ -1,5 +1,8 @@
 package com.zakir.vestra.shared.engine.local
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+
 /**
  * Offline Code Studio contract — Gemma via LiteRT-LM (Gemma 4) or legacy MediaPipe (Gemma 3).
  */
@@ -18,11 +21,30 @@ interface LocalCodeGenerator {
      * a background dispatcher. Returns the failure reason, or null on success.
      */
     fun warmUp(): String? = if (isReady()) null else "Pack not installed"
+
+    /**
+     * Streaming variant — emits growing text as the model generates it, rather than blocking
+     * until the whole response is done. Default wraps [generate] as a single terminal emission
+     * for generators that don't support incremental output (legacy MediaPipe, FunctionGemma).
+     */
+    fun generateStream(prompt: String, system: String = ""): Flow<LocalCodeStreamEvent> = flow {
+        when (val result = generate(prompt, system)) {
+            is LocalCodeResult.Ok -> emit(LocalCodeStreamEvent.Done(result.text, result.tokensIn, result.tokensOut))
+            is LocalCodeResult.Unavailable -> emit(LocalCodeStreamEvent.Unavailable(result.reason))
+        }
+    }
 }
 
 sealed class LocalCodeResult {
     data class Ok(val text: String, val tokensIn: Int = 0, val tokensOut: Int = 0) : LocalCodeResult()
     data class Unavailable(val reason: String) : LocalCodeResult()
+}
+
+/** Emissions from [LocalCodeGenerator.generateStream]. [Partial.textSoFar] is cumulative. */
+sealed class LocalCodeStreamEvent {
+    data class Partial(val textSoFar: String) : LocalCodeStreamEvent()
+    data class Done(val text: String, val tokensIn: Int = 0, val tokensOut: Int = 0) : LocalCodeStreamEvent()
+    data class Unavailable(val reason: String) : LocalCodeStreamEvent()
 }
 
 object UnimplementedLocalCodeGenerator : LocalCodeGenerator {

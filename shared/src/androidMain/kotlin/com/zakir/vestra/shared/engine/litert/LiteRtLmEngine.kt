@@ -16,6 +16,10 @@ import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeout
 
 /**
  * Thin wrapper around LiteRT-LM [Engine] for Code / vision / audio on Android.
@@ -87,6 +91,62 @@ class LiteRtLmEngine(
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Streaming variant of [generateText]: emits each incremental chunk as it's generated,
+     * instead of blocking until the whole response is done.
+     *
+     * `Conversation.sendMessageAsync(text, extraContext): Flow<Message>` is the litertlm-android
+     * API for this — verified against Google's own reference usage in the AI Edge Gallery app
+     * (`LlmChatModelHelper.kt`'s `MessageCallback.onMessage`), which appends every callback's
+     * `message.toString()` onto an accumulator (`"$response$partialResult"`). That confirms each
+     * emission is a **delta chunk**, not the cumulative text so far — this method accumulates
+     * those deltas itself so callers always receive the full text-so-far.
+     */
+    fun generateTextStream(
+        prompt: String,
+        system: String,
+        temperature: Float = 0.2f,
+    ): Flow<LiteRtLmStreamEvent> = flow {
+        val eng = engine
+        if (eng == null) {
+            emit(LiteRtLmStreamEvent.Unavailable("LiteRT-LM engine not initialized."))
+            return@flow
+        }
+        val convConfig = ConversationConfig(
+            systemInstruction = if (system.isBlank()) null else Contents.of(system.trim()),
+            samplerConfig = SamplerConfig(temperature = temperature.toDouble(), topK = 40, topP = 0.95),
+            tools = tools.map { tool(it) },
+        )
+        try {
+            withTimeout(INFERENCE_TIMEOUT_SEC * 1000L) {
+                eng.createConversation(convConfig).use { conversation ->
+                    val builder = StringBuilder()
+                    conversation.sendMessageAsync(prompt.trim(), emptyMap()).collect { message ->
+                        val delta = message.toString()
+                        if (delta.isNotEmpty()) {
+                            builder.append(delta)
+                            emit(LiteRtLmStreamEvent.Partial(builder.toString()))
+                        }
+                    }
+                    if (builder.isBlank()) {
+                        emit(LiteRtLmStreamEvent.Unavailable("Model returned empty text."))
+                    } else {
+                        val text = builder.toString()
+                        emit(LiteRtLmStreamEvent.Done(text, prompt.length / 4, text.length / 4))
+                    }
+                }
+            }
+        } catch (timeout: TimeoutCancellationException) {
+            emit(
+                LiteRtLmStreamEvent.Unavailable(
+                    "Code generation timed out after ${INFERENCE_TIMEOUT_SEC}s — try a shorter prompt or cloud.",
+                ),
+            )
+        } catch (err: Throwable) {
+            emit(LiteRtLmStreamEvent.Unavailable(err.message?.take(200) ?: "LiteRT-LM failed."))
         }
     }
 
@@ -190,4 +250,11 @@ class LiteRtLmEngine(
 sealed class LiteRtLmGenerateResult {
     data class Ok(val text: String, val tokensIn: Int, val tokensOut: Int) : LiteRtLmGenerateResult()
     data class Unavailable(val reason: String) : LiteRtLmGenerateResult()
+}
+
+/** Emissions from [LiteRtLmEngine.generateTextStream]. [Partial.textSoFar] is cumulative. */
+sealed class LiteRtLmStreamEvent {
+    data class Partial(val textSoFar: String) : LiteRtLmStreamEvent()
+    data class Done(val text: String, val tokensIn: Int, val tokensOut: Int) : LiteRtLmStreamEvent()
+    data class Unavailable(val reason: String) : LiteRtLmStreamEvent()
 }

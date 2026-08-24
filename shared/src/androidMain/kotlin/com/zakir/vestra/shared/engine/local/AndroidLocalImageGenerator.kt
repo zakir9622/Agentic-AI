@@ -3,6 +3,13 @@ package com.zakir.vestra.shared.engine.local
 import android.graphics.Bitmap
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.engine.lite.OrtSessionCache
+import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
+import com.zakir.vestra.shared.quality.QualityPostProcessor
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -18,6 +25,7 @@ class AndroidLocalImageGenerator(
     private val outputDir: File,
     private val loadReferenceBitmap: (uri: String) -> Bitmap? = { null },
     private val packId: String = PACK_ID,
+    private val quality: QualityPostProcessor = NoOpQualityPostProcessor,
 ) : LocalImageGenerator {
 
     override fun isReady(): Boolean {
@@ -65,54 +73,20 @@ class AndroidLocalImageGenerator(
     }
 
     override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
-        if (!Txt2ImgPipeline.SAMPLER_WIRED) {
-            return LocalImageResult.Unavailable(
-                "On-device Create Studio sampler not wired in this build.",
-            )
+        val ready = when (val r = checkReadiness(referenceImageUri)) {
+            is Readiness.NotReady -> return LocalImageResult.Unavailable(r.reason)
+            is Readiness.Ready -> r
         }
-        if (!packs.isReady(packId)) {
-            return LocalImageResult.Unavailable(
-                "Local image pack not installed — download $packId from Model packs " +
-                    "(~1 GB). Then Create and Edit work offline.",
-            )
-        }
-        val dirPath = packs.installedDir(packId)
-            ?: return LocalImageResult.Unavailable("Local image pack directory missing.")
-        val dir = File(dirPath)
-        val config = loadConfig(dir)
-            ?: return LocalImageResult.Unavailable(
-                "Pack config.json missing or invalid — re-download $packId.",
-            )
-        val missing = missingOrTinyGraphs(dir, config)
-        if (missing.isNotEmpty()) {
-            return LocalImageResult.Unavailable(
-                "Local SD-Turbo weights incomplete (${missing.joinToString()}). " +
-                    "Re-download $packId from Model packs.",
-            )
-        }
-        val wantsEdit = !referenceImageUri.isNullOrBlank()
-        val referenceBitmap = if (wantsEdit) {
-            loadReferenceBitmap(referenceImageUri!!)
-                ?: return LocalImageResult.Unavailable(
-                    "Couldn't read the reference image for local edit.",
-                )
+        val referenceBitmap = if (!referenceImageUri.isNullOrBlank()) {
+            loadReferenceBitmap(referenceImageUri)
+                ?: return LocalImageResult.Unavailable("Couldn't read the reference image for local edit.")
         } else {
             null
-        }
-        if (wantsEdit) {
-            val encName = config.graphs?.vaeEncoder ?: "vae_encoder.onnx"
-            val enc = File(dir, encName)
-            if (!enc.isFile || enc.length() < MIN_GRAPH_BYTES) {
-                referenceBitmap?.recycle()
-                return LocalImageResult.Unavailable(
-                    "Local image edit needs vae_encoder.onnx — re-download $packId (v3+).",
-                )
-            }
         }
         return try {
             packs.markPackInUse(packId)
             OrtSessionCache.enterInference()
-            AndroidTxt2ImgEngine(dir, config).use { engine ->
+            AndroidTxt2ImgEngine(ready.dir, ready.config, quality).use { engine ->
                 engine.generate(prompt, seed, outputDir, referenceBitmap = referenceBitmap)
             }
         } finally {
@@ -122,6 +96,98 @@ class AndroidLocalImageGenerator(
                 referenceBitmap.recycle()
             }
         }
+    }
+
+    /** Streaming variant: emits [LocalImageStreamEvent.Progress] once per denoising step. */
+    override fun generateStream(
+        prompt: String,
+        seed: Long?,
+        referenceImageUri: String?,
+    ): Flow<LocalImageStreamEvent> {
+        val ready = when (val r = checkReadiness(referenceImageUri)) {
+            is Readiness.NotReady -> return flowOf(LocalImageStreamEvent.Unavailable(r.reason))
+            is Readiness.Ready -> r
+        }
+        val referenceBitmap = if (!referenceImageUri.isNullOrBlank()) {
+            loadReferenceBitmap(referenceImageUri)
+                ?: return flowOf(
+                    LocalImageStreamEvent.Unavailable("Couldn't read the reference image for local edit."),
+                )
+        } else {
+            null
+        }
+        return callbackFlow {
+            try {
+                packs.markPackInUse(packId)
+                OrtSessionCache.enterInference()
+                val result = AndroidTxt2ImgEngine(ready.dir, ready.config, quality).use { engine ->
+                    engine.generate(
+                        prompt,
+                        seed,
+                        outputDir,
+                        referenceBitmap = referenceBitmap,
+                        onStep = { step, totalSteps ->
+                            trySendBlocking(
+                                LocalImageStreamEvent.Progress(
+                                    "Step $step of $totalSteps…",
+                                    step.toFloat() / totalSteps,
+                                ),
+                            )
+                        },
+                    )
+                }
+                when (result) {
+                    is LocalImageResult.Ok -> trySendBlocking(LocalImageStreamEvent.Done(result.imagePath))
+                    is LocalImageResult.Unavailable ->
+                        trySendBlocking(LocalImageStreamEvent.Unavailable(result.reason))
+                }
+            } finally {
+                OrtSessionCache.leaveInference()
+                packs.markPackIdle(packId)
+                if (referenceBitmap != null && !referenceBitmap.isRecycled) {
+                    referenceBitmap.recycle()
+                }
+            }
+            close()
+            awaitClose { }
+        }
+    }
+
+    private sealed class Readiness {
+        data class Ready(val dir: File, val config: LocalImagePackConfig) : Readiness()
+        data class NotReady(val reason: String) : Readiness()
+    }
+
+    private fun checkReadiness(referenceImageUri: String?): Readiness {
+        if (!Txt2ImgPipeline.SAMPLER_WIRED) {
+            return Readiness.NotReady("On-device Create Studio sampler not wired in this build.")
+        }
+        if (!packs.isReady(packId)) {
+            return Readiness.NotReady(
+                "Local image pack not installed — download $packId from Model packs " +
+                    "(~1 GB). Then Create and Edit work offline.",
+            )
+        }
+        val dirPath = packs.installedDir(packId)
+            ?: return Readiness.NotReady("Local image pack directory missing.")
+        val dir = File(dirPath)
+        val config = loadConfig(dir)
+            ?: return Readiness.NotReady("Pack config.json missing or invalid — re-download $packId.")
+        val missing = missingOrTinyGraphs(dir, config)
+        if (missing.isNotEmpty()) {
+            return Readiness.NotReady(
+                "Local SD-Turbo weights incomplete (${missing.joinToString()}). " +
+                    "Re-download $packId from Model packs.",
+            )
+        }
+        if (!referenceImageUri.isNullOrBlank()) {
+            val encName = config.graphs?.vaeEncoder ?: "vae_encoder.onnx"
+            val enc = File(dir, encName)
+            if (!enc.isFile || enc.length() < MIN_GRAPH_BYTES) {
+                return Readiness.NotReady("Local image edit needs vae_encoder.onnx — re-download $packId (v3+).")
+            }
+        }
+        return Readiness.Ready(dir, config)
     }
 
     fun packGraphsReady(): Boolean {

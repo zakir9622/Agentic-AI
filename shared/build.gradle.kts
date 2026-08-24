@@ -33,6 +33,15 @@ kotlin {
             implementation(libs.onnxruntime.android)
             implementation(libs.androidx.exifinterface)
             implementation(libs.litertlm.android)
+            // Plain LiteRT Interpreter API — for .tflite graphs run directly (Bonsai Image
+            // pipeline), distinct from litertlm-android's conversational Engine API.
+            implementation(libs.litert.android)
+        }
+        androidUnitTest.dependencies {
+            implementation(kotlin("test"))
+            // Robolectric gives org.json.JSONObject a real implementation in a JVM unit test
+            // (the compile-only Android stub jar throws "Stub!" at runtime otherwise).
+            implementation(libs.robolectric)
         }
     }
 }

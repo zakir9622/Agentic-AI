@@ -480,6 +480,29 @@ class ModelPackManagerTest {
     }
 
     @Test
+    fun handshakeAllReportsWhichPackIsCurrentlyRunningBeforeItsResultLands() = runTest {
+        // Regression for a real UI bug: PacksScreen used one shared "busy" flag for every pack
+        // row, so tapping "Verify all" made every row look mid-check with no way to tell which
+        // one actually was. handshakeAll must expose per-pack progress so the UI can show that.
+        val fs = FakeFs()
+        val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")
+        manager.refresh()
+        val staging = manager.stagingDir(manager.pack("lite-v1")!!)
+        fs.files["$staging/a.onnx"] = "A".repeat(60)
+        fs.files["$staging/b.onnx"] = "B".repeat(40)
+        fs.hashes["$staging/a.onnx"] = "hash-a"
+        fs.hashes["$staging/b.onnx"] = "hash-b"
+        assertTrue(manager.completeInstall("lite-v1", staging))
+
+        val startedIds = mutableListOf<String>()
+        val report = manager.handshakeAll(nowMs = 42L, onPackStarted = { id -> startedIds.add(id) })
+
+        assertEquals(listOf("lite-v1"), startedIds)
+        assertEquals(1, report.results.size)
+        assertEquals("lite-v1", report.results.single().packId)
+    }
+
+    @Test
     fun markGraphIncompatibleClearsReadySoAutoSkipsPro() = runTest {
         val fs = FakeFs()
         val manager = ModelPackManager(fs, FakeProbe(), manifestClient(), "https://m/manifest.json")

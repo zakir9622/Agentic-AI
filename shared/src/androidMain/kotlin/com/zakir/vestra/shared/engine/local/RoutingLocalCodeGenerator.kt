@@ -38,5 +38,8 @@ class RoutingLocalCodeGenerator(
     override fun generate(prompt: String, system: String): LocalCodeResult =
         delegate().generate(prompt, system)
 
+    override fun generateStream(prompt: String, system: String) =
+        delegate().generateStream(prompt, system)
+
     override fun warmUp(): String? = delegate().warmUp()
 }

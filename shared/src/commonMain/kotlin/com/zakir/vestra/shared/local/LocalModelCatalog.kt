@@ -102,6 +102,21 @@ object LocalModelCatalog {
             testingNote = "Download local-sdturbo-v1 in Settings → Model packs. Airplane mode Create Studio should yield a PNG.",
         ),
         LocalModelEntry(
+            id = "local-bonsai-image-v1",
+            displayName = "Bonsai Image 4B (LiteRT)",
+            description = "Ternary-weight diffusion transformer (FLUX.2-klein architecture) via LiteRT " +
+                "CompiledModel/Interpreter — 512x512, fully offline. Several minutes per image on CPU; " +
+                "text-to-image only, no edit.",
+            capability = AiCapability.IMAGE_GEN,
+            packId = "local-bonsai-image-v1",
+            license = "Apache-2.0",
+            approxSizeLabel = "~4.0 GB",
+            runnable = true,
+            testingNote = "Download local-bonsai-image-v1 in Settings → Model packs (~4 GB, CPU/XNNPACK). " +
+                "Airplane mode Create Studio should yield a 512x512 PNG in several minutes; " +
+                "treat 8 GB RAM as the floor, 12 GB+ as the practical target.",
+        ),
+        LocalModelEntry(
             id = "local-sdturbo-edit",
             displayName = "Local image edit (img2img)",
             description = "Same tiny-SD pack with vae_encoder — attach a reference photo and edit offline.",
@@ -165,8 +180,11 @@ object LocalModelCatalog {
             packId = "local-gemma-4-e2b-v1",
             license = "Gemma Terms of Use",
             approxSizeLabel = "~2.6 GB (shared with Code)",
-            runnable = true,
-            testingNote = "Install local-gemma-4-e2b-v1 — Transcribe in Audio Studio uses the same pack.",
+            runnable = false,
+            testingNote = "Not working: the published local-gemma-4-e2b-v1 pack ships with audio " +
+                "disabled (config.json \"audio\": false), so AndroidLocalAudioTranscriber.isReady() is " +
+                "always false regardless of download state. Needs a Gemma 4 pack republished with audio " +
+                "enabled and verified, or should stay off the picker until then.",
         ),
         LocalModelEntry(
             id = "local-functiongemma-v1",
@@ -293,9 +311,6 @@ object LocalModelCatalog {
         entry.id == "local-gemma-v1" && packReady -> "Ready offline · legacy Gemma 3"
         entry.id == "local-gemma-v1" && !packReady ->
             "Download local-gemma-v1 in Model packs (~530 MB)"
-        entry.id == "local-audio-scribe-v1" && packReady -> "Ready offline · transcribe (Gemma 4)"
-        entry.id == "local-audio-scribe-v1" && !packReady ->
-            "Download local-gemma-4-e2b-v1 in Model packs (~2.6 GB)"
         entry.id == "local-stillclip-v1" && packReady -> "Ready offline (still-clip)"
         entry.id == "local-stillclip-v1" && !packReady ->
             "Download local-sdturbo-v1 for offline still-clips"
@@ -312,8 +327,7 @@ object LocalModelCatalog {
             entry.id == "local-stillclip-v1" ||
             entry.id == "local-qwen3-06b-v1" ||
             entry.id == "local-gemma-4-e2b-v1" ||
-            entry.id == "local-gemma-v1" ||
-            entry.id == "local-audio-scribe-v1" -> packReady
+            entry.id == "local-gemma-v1" -> packReady
         entry.id == "local-gemma-4-vision-v1" -> packReady
         entry.runnable && (entry.packId == null || packReady) -> true
         else -> false

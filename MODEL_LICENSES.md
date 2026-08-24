@@ -26,6 +26,19 @@ device rather than bundling them in the APK, and shows the licence on each catal
 **Qwen3 (Apache-2.0)** carries no use restrictions. Attribution and the licence text must travel
 with any redistribution.
 
+## On-device (LiteRT — plain `Interpreter`/`CompiledModel`, not LiteRT-LM)
+
+| Pack | Model | Upstream | Licence |
+|---|---|---|---|
+| `local-bonsai-image-v1` | Bonsai Image 4B — ternary-weight FLUX.2-klein-architecture DiT, int4 | [`litert-community/Bonsai-Image-ternary-4B`](https://huggingface.co/litert-community/Bonsai-Image-ternary-4B), following upstream [`prism-ml/bonsai-image-ternary-4B`](https://huggingface.co/prism-ml/bonsai-image-ternary-4B) | Apache-2.0 |
+
+Text-to-image only (no reference-image conditioning in this export) — `local-bonsai-image-v1`
+never appears under Image Edit. Files link directly to `litert-community/Bonsai-Image-ternary-4B`;
+none of the ~4 GB of weights are re-hosted. The on-device Kotlin pipeline (`BonsaiImageEngine`,
+`BonsaiTokenizer`, `BonsaiMath`) is ported from the Apache-2.0 reference app at
+[`john-rocky/hf-to-litertlm`](https://github.com/john-rocky/hf-to-litertlm/tree/main/bonsai_image_work/device/BonsaiAppAndroid)
+(Daisuke Majima); the ported files carry that attribution in their doc comments.
+
 ## On-device (ONNX Runtime)
 
 | Pack | Model | Origin | Licence |
@@ -45,6 +58,7 @@ the prohibited purposes listed in the licence. It is not an OSI-approved open-so
 | Component | Licence |
 |---|---|
 | LiteRT / LiteRT-LM (`com.google.ai.edge.litertlm`) | Apache-2.0 |
+| LiteRT `Interpreter`/`CompiledModel` (`com.google.ai.edge.litert:litert`) | Apache-2.0 |
 | ONNX Runtime (Android) | MIT |
 | MediaPipe LLM Inference (legacy Gemma 3 `.task` path) | Apache-2.0 |
 

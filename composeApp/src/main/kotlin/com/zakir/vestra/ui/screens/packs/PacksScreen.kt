@@ -54,7 +54,11 @@ fun PacksScreen(
     val scope = rememberCoroutineScope()
     val startDownload = rememberPackDownloadStarter(showToast = true)
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
-    var handshakeBusy by remember { mutableStateOf(false) }
+    // The pack currently being handshaked, or null when idle — one at a time (each check opens
+    // real ONNX/LiteRT sessions), but tracked per-pack so only the row actually being checked
+    // shows "Verifying…"; a single shared boolean made every pack row look busy simultaneously.
+    var handshakingPackId by remember { mutableStateOf<String?>(null) }
+    val handshakeBusy = handshakingPackId != null
     var handshakeBanner by remember { mutableStateOf<String?>(null) }
     var handshakeBannerOk by remember { mutableStateOf<Boolean?>(null) }
     var packHandshake by remember { mutableStateOf<Map<String, PackHandshakeResult>>(emptyMap()) }
@@ -81,12 +85,12 @@ fun PacksScreen(
     fun runHandshake(packId: String) {
         if (handshakeBusy) return
         scope.launch {
-            handshakeBusy = true
+            handshakingPackId = packId
             handshakeBanner = "Handshaking $packId…"
             handshakeBannerOk = null
             val result = withContext(Dispatchers.Default) { packManager.handshake(packId) }
             packHandshake = packHandshake + (packId to result)
-            handshakeBusy = false
+            handshakingPackId = null
             handshakeBannerOk = result.ok
             handshakeBanner = PackHandshakeWires.formatDetail(result)
             Toast.makeText(context, "${result.signal} · ${result.displayName}", Toast.LENGTH_SHORT).show()
@@ -96,12 +100,13 @@ fun PacksScreen(
     fun runHandshakeAll() {
         if (handshakeBusy) return
         scope.launch {
-            handshakeBusy = true
             handshakeBanner = "Handshaking all installed packs…"
             handshakeBannerOk = null
-            val report = withContext(Dispatchers.Default) { packManager.handshakeAll() }
+            val report = withContext(Dispatchers.Default) {
+                packManager.handshakeAll(onPackStarted = { id -> handshakingPackId = id })
+            }
             packHandshake = report.results.associateBy { it.packId }
-            handshakeBusy = false
+            handshakingPackId = null
             handshakeBannerOk = report.allOk && report.results.isNotEmpty()
             handshakeBanner = report.summary + " · " + report.signal
             Toast.makeText(context, report.signal + " · " + report.summary, Toast.LENGTH_LONG).show()
@@ -189,6 +194,7 @@ fun PacksScreen(
                 state = state,
                 handshake = packHandshake[state.pack.id],
                 handshakeBusy = handshakeBusy,
+                handshakingThisPack = handshakingPackId == state.pack.id,
                 onInstall = { startDownload(state.pack.id) },
                 onHandshake = { runHandshake(state.pack.id) },
                 onCancel = {
@@ -221,6 +227,7 @@ private fun PackCard(
     state: PackState,
     handshake: PackHandshakeResult?,
     handshakeBusy: Boolean,
+    handshakingThisPack: Boolean,
     onInstall: () -> Unit,
     onHandshake: () -> Unit,
     onCancel: () -> Unit,
@@ -312,7 +319,7 @@ private fun PackCard(
                     enabled = !handshakeBusy,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Verify device link")
+                    Text(if (handshakingThisPack) "Verifying…" else "Verify device link")
                 }
                 handshake?.let { hs ->
                     Spacer(Modifier.height(6.dp))

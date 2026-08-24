@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 75
-        versionName = "3.1.0-rc17"
+        versionCode = 77
+        versionName = "3.1.0-rc19"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
@@ -135,6 +135,7 @@ dependencies {
 
     // LiteRT-LM — Gemma 4 Code / vision / audio / tools (Gallery-class on-device LLM).
     implementation(libs.litertlm.android)
+    implementation(libs.litert.android)
     // Legacy Gemma 3 1B (MediaPipe) — reflective load for local-gemma-v1 fallback only.
     implementation("com.google.mediapipe:tasks-genai:0.10.27")
 

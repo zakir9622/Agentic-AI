@@ -186,7 +186,9 @@ class GenerativeViewModel(
     val isBusy: Boolean
         get() {
             val s = _state.value
-            return s is GenerativeState.Preparing || s is GenerativeState.Running
+            return s is GenerativeState.Preparing ||
+                s is GenerativeState.Running ||
+                s is GenerativeState.CodeStreaming
         }
 
     fun setPrompt(value: String) {
@@ -378,7 +380,8 @@ class GenerativeViewModel(
             return
         }
         if (!generative.localTranscribeReady()) {
-            _preflightMessage.value = "Download local-gemma-4-e2b-v1 from Model packs for offline transcription."
+            _preflightMessage.value = "Offline transcription isn't available yet — the published " +
+                "Gemma 4 pack doesn't include audio support. Downloading it again won't change that."
             return
         }
         _preflightMessage.value = null
@@ -677,6 +680,11 @@ class GenerativeViewModel(
                                 success = true,
                                 note = "${next.providerId} · ${next.tokensIn}+${next.tokensOut} tokens",
                             )
+                        }
+                        is GenerativeState.CodeStreaming -> {
+                            // _state.value is already updated above — ResultPane renders the
+                            // growing text live. Not appended to the live log: a line per token
+                            // chunk would flood its bounded 40-line window.
                         }
                         is GenerativeState.TranscribeReady -> {
                             appendLive("Transcription ready")

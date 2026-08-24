@@ -73,13 +73,23 @@ class OrtGraph(modelPath: String) : AutoCloseable {
     /**
      * Scalar timestep typed to match [inputName].
      *
-     * Diffusion exports disagree here too — int64 in some, float32 in others — and the same
-     * ORT_INVALID_ARGUMENT that broke local image generation applies. int64 stays the default
-     * because that is what these packs have historically used.
+     * Diffusion exports disagree here too — int64 in some, float32 in others, float16 in the
+     * published local-sdturbo-v1 unet.onnx (verified directly: `timestep tensor(float16)`) —
+     * and the same ORT_INVALID_ARGUMENT that broke local image generation applies. This case was
+     * missing even after floatTensorTyped's FP16 fix, because timestep never routed through it —
+     * a live bug caught by an end-to-end desktop run of the actual pack, not by inspection.
+     * int64 stays the default for graphs that declare neither, matching what these packs have
+     * historically used.
      */
     fun timestepTensor(inputName: String, timestep: Int, vararg shape: Long): OnnxTensor =
         when (inputType(inputName)) {
             OnnxJavaType.FLOAT -> floatTensor(floatArrayOf(timestep.toFloat()), *shape)
+            OnnxJavaType.FLOAT16 -> OnnxTensor.createTensor(
+                env,
+                ShortBuffer.wrap(shortArrayOf(Fp16.fromFloat(timestep.toFloat()))),
+                shape,
+                OnnxJavaType.FLOAT16,
+            )
             OnnxJavaType.INT32 -> intTensor(intArrayOf(timestep), *shape)
             else -> longTensor(longArrayOf(timestep.toLong()), *shape)
         }

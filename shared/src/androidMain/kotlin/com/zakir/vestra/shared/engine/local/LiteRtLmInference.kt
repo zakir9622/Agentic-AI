@@ -5,8 +5,12 @@ import com.google.ai.edge.litertlm.ToolSet
 import com.zakir.vestra.shared.engine.litert.LiteRtLmEngine
 import com.zakir.vestra.shared.engine.litert.LiteRtLmEngineCache
 import com.zakir.vestra.shared.engine.litert.LiteRtLmGenerateResult
+import com.zakir.vestra.shared.engine.litert.LiteRtLmStreamEvent
 import com.zakir.vestra.shared.packs.ModelPackManager
 import java.io.File
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 
 /** Shared warm-engine inference for all LiteRT-LM generators. */
 internal object LiteRtLmInference {
@@ -82,6 +86,31 @@ internal object LiteRtLmInference {
         } finally {
             packs.markPackIdle(packId)
         }
+    }
+
+    /** Streaming counterpart of [runText] — emits partial text as it's generated. */
+    fun runTextStream(
+        context: Context,
+        packs: ModelPackManager,
+        packId: String,
+        modelPath: String,
+        useGpu: Boolean,
+        tools: List<ToolSet> = emptyList(),
+        prompt: String,
+        system: String,
+    ): Flow<LiteRtLmStreamEvent> {
+        val spec = LiteRtLmEngineCache.EngineSpec(
+            modelPath = modelPath,
+            useGpu = useGpu,
+            visionEnabled = false,
+            audioEnabled = false,
+            toolsKey = LiteRtLmEngine.toolsKey(tools),
+        )
+        return LiteRtLmEngineCache.withEngineFlow(context, spec, tools) { engine ->
+            engine.generateTextStream(prompt, system)
+        }
+            .onStart { packs.markPackInUse(packId) }
+            .onCompletion { packs.markPackIdle(packId) }
     }
 
     fun runVision(
