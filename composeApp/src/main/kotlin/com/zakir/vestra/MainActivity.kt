@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
                         generative = app.generative,
                         usageLedger = app.usageLedger,
                         runDiagnostics = app.runDiagnostics,
+                        localJobStore = app.localJobStore,
                         chatRepository = app.chatRepository,
                         deviceRamMb = app.deviceProbe.totalRamMb(),
                         freeCloudDiscovery = app.freeCloudDiscovery,

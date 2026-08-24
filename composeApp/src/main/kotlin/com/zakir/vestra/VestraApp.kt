@@ -63,6 +63,9 @@ class VestraApp : Application() {
     lateinit var runDiagnostics: RunDiagnostics
         private set
 
+    lateinit var localJobStore: com.zakir.vestra.shared.jobs.LocalJobStore
+        private set
+
     lateinit var chatRepository: ChatRepository
         private set
 
@@ -109,6 +112,7 @@ class VestraApp : Application() {
         }
         DiagnosticsHook.store = runDiagnostics
         DiagnosticsHook.deviceRamMb = deviceProbe.totalRamMb()
+        localJobStore = com.zakir.vestra.shared.jobs.LocalJobStore(prefs)
         chatRepository = ChatRepository(prefs)
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 

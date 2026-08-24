@@ -38,6 +38,7 @@ import com.zakir.vestra.ui.screens.person.PersonSourceScreen
 import com.zakir.vestra.ui.screens.result.ResultScreen
 import com.zakir.vestra.shared.chat.ChatRepository
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
+import com.zakir.vestra.shared.jobs.LocalJobStore
 import com.zakir.vestra.ui.screens.settings.DiagnosticsScreen
 import com.zakir.vestra.ui.screens.settings.SettingsSection
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
@@ -85,6 +86,7 @@ fun VestraNavHost(
     generative: GenerativeCloudService,
     usageLedger: UsageLedger,
     runDiagnostics: RunDiagnostics,
+    localJobStore: LocalJobStore,
     chatRepository: ChatRepository,
     deviceRamMb: Long,
     freeCloudDiscovery: FreeCloudDiscovery,
@@ -128,7 +130,15 @@ fun VestraNavHost(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                GenerativeViewModel(generative, appSettings, usageLedger, wardrobe, runDiagnostics, deviceRamMb) as T
+                GenerativeViewModel(
+                    generative,
+                    appSettings,
+                    usageLedger,
+                    wardrobe,
+                    runDiagnostics,
+                    deviceRamMb,
+                    localJobStore,
+                ) as T
         },
     )
 
@@ -192,6 +202,7 @@ fun VestraNavHost(
                 wardrobe = wardrobe,
                 packManager = packManager,
                 generativeViewModel = generativeViewModel,
+                localJobStore = localJobStore,
                 freeCloudDiscovery = freeCloudDiscovery,
                 newsRepository = newsRepository,
                 chatViewModel = chatViewModel,

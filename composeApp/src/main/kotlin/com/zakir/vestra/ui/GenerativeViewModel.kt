@@ -14,6 +14,7 @@ import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.engine.local.LocalStudioToolBridge
+import com.zakir.vestra.shared.jobs.LocalJobStore
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
 import com.zakir.vestra.shared.usage.UsageLedger
@@ -35,7 +36,16 @@ class GenerativeViewModel(
     private val wardrobe: WardrobeRepository,
     private val runDiagnostics: RunDiagnostics? = null,
     private val deviceRamMb: Long? = null,
+    private val localJobStore: LocalJobStore? = null,
 ) : ViewModel() {
+
+    /** The in-flight [LocalJobStore] job id, if the current generation is local — null otherwise. */
+    private var activeLocalJobId: String? = null
+
+    private fun completeLocalJob(success: Boolean) {
+        activeLocalJobId?.let { localJobStore?.complete(it, success) }
+        activeLocalJobId = null
+    }
 
     private val _prompt = MutableStateFlow("")
     val prompt: StateFlow<String> = _prompt
@@ -596,6 +606,8 @@ class GenerativeViewModel(
         generationEpoch++
         _generationStartedAtMs.value = null
         bag(boundKey).generationStartedAtMs = null
+        activeLocalJobId?.let { localJobStore?.cancel(it) }
+        activeLocalJobId = null
         appendLive("Stopped by user")
         _state.value = if (showStopped) {
             GenerativeState.Failed("Stopped. Tap Generate to run again.")
@@ -649,6 +661,7 @@ class GenerativeViewModel(
             modelLabel = modelLabel,
             deviceRamMb = deviceRamMb,
         )
+        activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value) else null
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
@@ -697,17 +710,20 @@ class GenerativeViewModel(
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Create")
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.VideoReady -> {
                             appendLive("Video ready")
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Video")
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.AudioReady -> {
                             appendLive("Audio ready")
                             _lastUsedProviderId.value = next.providerId
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.CodeReady -> {
                             appendLive("Code ready · ${next.tokensIn}+${next.tokensOut} tokens")
@@ -716,6 +732,7 @@ class GenerativeViewModel(
                                 success = true,
                                 note = "${next.providerId} · ${next.tokensIn}+${next.tokensOut} tokens",
                             )
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.CodeStreaming -> {
                             // _state.value is already updated above — ResultPane renders the
@@ -726,10 +743,12 @@ class GenerativeViewModel(
                             appendLive("Transcription ready")
                             _lastUsedProviderId.value = next.providerId
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.Failed -> {
                             appendLive("Failed · ${next.message.take(120)}")
                             builder?.complete(success = false, error = next.message)
+                            completeLocalJob(success = false)
                         }
                     }
                 }
@@ -739,6 +758,7 @@ class GenerativeViewModel(
                 if (epoch == generationEpoch) {
                     val rawMsg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
                     val msg = if (local && builder != null) "$rawMsg (ref ${builder.id})" else rawMsg
+                    completeLocalJob(success = false)
                     if (boundKey == studioKey) {
                         appendLive("Error · $msg")
                         _state.value = GenerativeState.Failed(msg)

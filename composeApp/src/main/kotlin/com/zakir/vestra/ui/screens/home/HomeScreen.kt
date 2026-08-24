@@ -77,6 +77,7 @@ import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.AtelierHero
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.screens.news.NewsChatScreen
@@ -119,6 +120,7 @@ fun HomeScreen(
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
     generativeViewModel: GenerativeViewModel,
+    localJobStore: com.zakir.vestra.shared.jobs.LocalJobStore? = null,
     freeCloudDiscovery: FreeCloudDiscovery? = null,
     newsRepository: NewsRepository? = null,
     chatViewModel: ChatViewModel? = null,
@@ -215,6 +217,9 @@ fun HomeScreen(
                 .safeDrawingPadding()
                 .alpha(fade),
         ) {
+            androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 18.dp)) {
+                InterruptedJobsBanner(localJobStore)
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
