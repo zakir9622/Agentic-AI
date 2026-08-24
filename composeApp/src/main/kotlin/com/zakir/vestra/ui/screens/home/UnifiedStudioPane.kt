@@ -256,7 +256,15 @@ fun UnifiedStudioPane(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 8.dp),
         ) {
-        GlassSectionLabel(subtitle.uppercase())
+        GlassSectionLabel(
+            subtitle.uppercase(),
+            color = when (capability) {
+                AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.TRY_ON -> VestraColors.ModalityImage
+                AiCapability.VIDEO -> VestraColors.ModalityVideo
+                AiCapability.CODE -> VestraColors.ModalityCode
+                AiCapability.AUDIO -> VestraColors.ModalityAudio
+            },
+        )
         Text(
             when (capability) {
                 AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
@@ -265,22 +273,30 @@ fun UnifiedStudioPane(
                             "Local img2img ready offline — Edit runs on-device."
                         reference == null && localImageReady ->
                             "Local tiny-SD ready offline — Create Studio runs on-device."
+                        cloudModelsEnabled ->
+                            "Cloud, until you download a local pack. Settings → Model packs → local-sdturbo-v1 (~1.06 GB) for offline."
                         else ->
-                            "Cloud by default. For offline Create/Edit: Settings → Model packs → download local-sdturbo-v1 (~1.06 GB)."
+                            "On-device only (cloud is off). Download local-sdturbo-v1 (~1.06 GB) in Settings → Model packs to generate."
                     }
                 AiCapability.VIDEO ->
-                    if (localVideoReady) {
-                        "Local still-clip ready — short on-device MP4 from tiny-SD (not diffusion video)."
-                    } else {
-                        "Cloud HF Spaces by default. Offline still-clips: download local-sdturbo-v1."
+                    when {
+                        localVideoReady ->
+                            "Local still-clip ready — short on-device MP4 from tiny-SD (not diffusion video)."
+                        cloudModelsEnabled ->
+                            "Cloud HF Spaces, until you download local-sdturbo-v1 for offline still-clips."
+                        else ->
+                            "On-device only (cloud is off). Download local-sdturbo-v1 in Settings → Model packs to generate."
                     }
                 AiCapability.AUDIO ->
                     "Device TTS works offline + voice-changer knobs. Cloud TTS optional."
                 AiCapability.CODE ->
-                    if (localCodeReady) {
-                        "Local Gemma 4 / legacy Gemma ready offline — Code Studio runs on-device."
-                    } else {
-                        "Cloud LLMs by default. Offline Code: download local-gemma-4-e2b-v1 (~2.6 GB)."
+                    when {
+                        localCodeReady ->
+                            "Local Gemma 4 / legacy Gemma ready offline — Code Studio runs on-device."
+                        cloudModelsEnabled ->
+                            "Cloud, until you download a local pack. local-gemma-4-e2b-v1 (~2.6 GB) for offline."
+                        else ->
+                            "On-device only (cloud is off). Download local-gemma-4-e2b-v1 (~2.6 GB) in Settings → Model packs to generate."
                     }
                 else -> estimate
             },

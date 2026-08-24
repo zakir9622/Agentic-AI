@@ -41,6 +41,20 @@ actually fixed, not when it's merely reworded.
   session than the image path (which had two real device-reported bugs fixed and verified this
   cycle).
 
+## Design/UX parity with the reference app (lookbookweb)
+
+- **`docs/plans/lovable-parity-local-first/PLAN.md` is a large plan; only a slice has landed.**
+  Done: per-modality accent color tokens (partial rollout — only the studio header uses them so
+  far), a derived radius scale, a press-lift micro-interaction on `GlassCard`, and confirmation
+  that cloud generation is off by default everywhere (it was already correct; only misleading
+  "Cloud by default" copy in the studio subtitle was fixed to reflect that). Not done: the
+  bottom-dock navigation pattern (needs a design decision first), resumable job state, version
+  lineage for local generations, correlation-ID-first error UX, consolidated storage rollup,
+  voice-studio DSP depth (meters/scope/latency calibration), safety post-process, and a shared
+  shimmer/skeleton component. Treat any claim that this app "matches lookbookweb's design" as
+  false until those are closed — right now it matches on typography, one interaction pattern,
+  and color-identity direction, not the full UX.
+
 ## Testability
 
 - **Appium/UiAutomator visibility was added this session, not something the app shipped with.**

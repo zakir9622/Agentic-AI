@@ -40,4 +40,11 @@ object TestTags {
 
     // Model picker sheet (ModelPickerSheet.kt) — per-model-id row, cloud and on-device.
     fun modelPickerRow(modelId: String): String = "model_picker_row_$modelId"
+
+    // News & Chat window (NewsChatScreen.kt) — on-device by default (cloud models are hidden
+    // from this screen's picker until the global cloud toggle is on), so Appium can drive the
+    // whole "type a prompt, get a local reply" loop without ever touching a network call.
+    const val CHAT_REFRESH_BUTTON = "chat_news_refresh"
+    fun chatHeadlineCard(index: Int): String = "chat_headline_$index"
+    fun chatMessageBubble(index: Int, role: String): String = "chat_message_${index}_$role"
 }

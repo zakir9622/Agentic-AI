@@ -1,5 +1,24 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc22
+- **Started porting lookbookweb's design/UX language, local-only, per
+  `docs/plans/lovable-parity-local-first/PLAN.md`.** Added four per-modality accent color tokens
+  (`VestraColors.ModalityImage/Video/Code/Audio`, brass-family tints — Loom Ink's identity stays)
+  and a derived `RadiusTokens` corner-radius scale; wired the Studio header label to its
+  modality's accent. Added a subtle press-lift micro-interaction to `GlassCard` (scale to ~97%
+  on press, gated by reduced-motion) — lookbookweb's `press-3d` language ported at Compose-native
+  cost. Confirmed the Syne/Outfit typography pairing this plan called for was already in place.
+- **Fixed misleading "Cloud by default" studio copy.** The Image/Video/Code studio subtitle said
+  "Cloud by default" regardless of whether cloud models were actually enabled — since
+  `cloudModelsEnabled` defaults to `false` app-wide, that text was simply wrong for most users.
+  Now reads "On-device only (cloud is off)" when the master toggle is off, or names the local
+  pack to install either way.
+- **The News/Chat window is now Appium-testable**: refresh button, headline cards, and chat
+  message bubbles carry stable `testTag`s, alongside the generation-flow coverage from rc21.
+- Updated `docs/DRAWBACKS.md` and the plan's own README with an honest status: this is a slice
+  of the full lookbookweb-parity plan, not the whole thing — see those docs for exactly what's
+  landed and what's still open.
+
 ## 3.1.0-rc21
 - **Local LiteRT-LM models now fall back to CPU automatically if the GPU delegate fails to
   initialize**, found via a user's Pixel 9 screenshot: `Local Qwen3 0.6B (fast) could not load:

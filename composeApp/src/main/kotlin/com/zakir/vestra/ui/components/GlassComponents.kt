@@ -4,11 +4,14 @@ import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -38,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +56,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.SpatialElevation
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -144,7 +149,14 @@ fun SpatialBackground(
     }
 }
 
-/** Frosted glass card — semi-transparent fill, highlight border, spatial shadow. */
+/**
+ * Frosted glass card — semi-transparent fill, highlight border, spatial shadow.
+ *
+ * A clickable card gets a subtle press-lift (scale down ~3%, spring back on release) —
+ * lookbookweb's `press-3d`/`lift-3d` micro-interaction language, ported at Compose-native
+ * cost rather than a full 3D perspective tilt. Skipped entirely when the user has reduced
+ * motion enabled (`rememberReduceMotion()`), same as every other animation in this app.
+ */
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
@@ -152,10 +164,21 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(RadiusTokens.lg)
     val glassFill = VestraColors.GlassFill
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val reduceMotion = rememberReduceMotion()
+    val pressScale by animateFloatAsState(
+        targetValue = if (onClick != null && pressed && !reduceMotion) 0.97f else 1f,
+        label = "glassCardPressScale",
+    )
     val base = modifier
         .fillMaxWidth()
+        .graphicsLayer {
+            scaleX = pressScale
+            scaleY = pressScale
+        }
         .then(
             if (elevation > 0.dp) {
                 Modifier.graphicsLayer {
@@ -180,7 +203,13 @@ fun GlassCard(
         )
 
     if (onClick != null) {
-        Surface(onClick = onClick, modifier = base, color = Color.Transparent, shape = shape) {
+        Surface(
+            onClick = onClick,
+            modifier = base,
+            color = Color.Transparent,
+            shape = shape,
+            interactionSource = interactionSource,
+        ) {
             Column(Modifier.padding(18.dp), content = content)
         }
     } else {
@@ -189,11 +218,15 @@ fun GlassCard(
 }
 
 @Composable
-fun GlassSectionLabel(text: String, modifier: Modifier = Modifier) {
+fun GlassSectionLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.primary,
+        color = color,
         modifier = modifier.padding(bottom = 8.dp),
     )
 }

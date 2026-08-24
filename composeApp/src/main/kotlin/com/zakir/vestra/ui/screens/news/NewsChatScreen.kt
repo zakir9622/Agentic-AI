@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -39,6 +40,7 @@ import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.ChatViewModel
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -143,6 +145,7 @@ fun NewsChatScreen(
                         }
                     },
                     enabled = !refreshing,
+                    modifier = Modifier.testTag(TestTags.CHAT_REFRESH_BUTTON),
                 ) {
                     if (refreshing) {
                         CircularProgressIndicator(
@@ -182,12 +185,15 @@ fun NewsChatScreen(
                 Text("No headlines yet — refresh or start a chat below.", style = MaterialTheme.typography.bodyMedium, color = VestraColors.InkMuted)
             }
         } else {
-            newsItems.take(5).forEach { item ->
+            newsItems.take(5).forEachIndexed { index, item ->
                 Spacer(Modifier.height(6.dp))
-                GlassCard(onClick = {
-                    chatInput = "Discuss this headline for modest fashion and on-device AI: ${item.title}"
-                    onHeadlineSelected(item.title)
-                }) {
+                GlassCard(
+                    modifier = Modifier.testTag(TestTags.chatHeadlineCard(index)),
+                    onClick = {
+                        chatInput = "Discuss this headline for modest fashion and on-device AI: ${item.title}"
+                        onHeadlineSelected(item.title)
+                    },
+                ) {
                     Text(
                         "${item.source} · ${item.title}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -202,14 +208,18 @@ fun NewsChatScreen(
         if (chatViewModel != null) {
             Spacer(Modifier.height(20.dp))
             GlassSectionLabel("CHAT")
-            chatMessages.takeLast(6).forEach { msg ->
+            chatMessages.takeLast(6).forEachIndexed { index, msg ->
                 val isUser = msg.role == "user"
                 Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
                 ) {
-                    GlassCard(modifier = Modifier.fillMaxWidth(0.86f)) {
+                    GlassCard(
+                        modifier = Modifier
+                            .fillMaxWidth(0.86f)
+                            .testTag(TestTags.chatMessageBubble(index, msg.role)),
+                    ) {
                         Text(
                             if (isUser) "YOU" else "ASSISTANT",
                             style = MaterialTheme.typography.labelSmall,

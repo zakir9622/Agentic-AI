@@ -13,3 +13,28 @@ capability, and never routes anything to cloud that isn't already cloud-routed t
 
 See [`PLAN.md`](PLAN.md) for the full breakdown (Parts A–D), explicit out-of-scope items, and
 open questions for the user before implementation starts.
+
+## Status: implementation started (3.1.0-rc21)
+
+- **A0 (color tokens) — partial.** Added four per-modality accent tokens (`VestraColors.Modality
+  Image/Video/Code/Audio`) to `VestraPalette`, brass-family tints rather than lookbookweb's own
+  hues (keeps the Loom Ink identity, per the plan's own instruction not to replace it), plus a
+  derived `RadiusTokens` corner-radius scale. Wired into the Studio header label
+  (`UnifiedStudioPane`'s `GlassSectionLabel`) so far — not yet propagated to every chip/progress
+  accent the plan describes; extend call-by-call as those surfaces are touched next.
+- **A1 (typography) — already done**, found already in place when this phase started: `Type.kt`
+  already pairs Syne (display) with Outfit (body), matching lookbookweb's split exactly.
+- **A2 (glass/spatial interaction) — partial.** `GlassCard` now has a subtle press-lift (scale to
+  ~97% on press, spring back on release), gated by `rememberReduceMotion()` — lookbookweb's
+  `press-3d`/`lift-3d` language ported at Compose-native cost. No 3D perspective tilt, no shimmer/
+  skeleton component yet (B8 still open).
+- **B5 (processing mode) — verified already correct, not a new mechanism.** `cloudModelsEnabled`
+  defaults `false` app-wide (confirmed in `AppSettings.kt`); every studio and the News/Chat
+  window already hide cloud model rows and generate on-device only until a user explicitly
+  opts in. Studio subtitle copy that said "Cloud by default" regardless of this setting was
+  corrected to reflect the real state (on-device-only vs. cloud-until-you-install-a-pack).
+- **Appium/chat testability** — see `docs/DRAWBACKS.md` and `TestTags.kt`; the News/Chat window
+  (refresh button, headline cards, chat message bubbles) now carries stable tags alongside the
+  rest of the generation flow tagged in the prior phase.
+- **Not yet started:** A3 (nav pattern — needs the open question in `PLAN.md` answered first),
+  B1–B4, B6–B8, and Part D's real-model output-quality testing for code/audio.
