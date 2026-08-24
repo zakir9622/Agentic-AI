@@ -47,6 +47,7 @@ import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
+import com.zakir.vestra.ui.components.ShimmerRows
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.launch
 
@@ -180,7 +181,11 @@ fun NewsChatScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        if (newsItems.isEmpty() && !refreshing) {
+        if (newsItems.isEmpty() && refreshing) {
+            // Was blank space while the first refresh was in flight — nothing told the user
+            // headlines were actually loading rather than just missing.
+            ShimmerRows(count = 3, rowHeight = 44.dp)
+        } else if (newsItems.isEmpty() && !refreshing) {
             GlassCard(onClick = { onHeadlineSelected(null) }) {
                 Text("No headlines yet — refresh or start a chat below.", style = MaterialTheme.typography.bodyMedium, color = VestraColors.InkMuted)
             }
