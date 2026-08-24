@@ -18,9 +18,12 @@ object TestTags {
     const val ASSIST_CHIP = "composer_assist_chip"
     const val SEND_BUTTON = "composer_send_button"
     const val ADD_REFERENCE_BUTTON = "composer_add_reference"
+    /** The attached reference-image thumbnail — tap to clear it. Drives image-edit/img2img flows. */
+    const val REFERENCE_IMAGE_THUMB = "composer_reference_thumb"
 
     // Home tab navigation (HomeScreen.kt) — one per HomeTab.routeKey.
     fun homeTab(routeKey: String): String = "home_tab_$routeKey"
+    const val OPEN_SETTINGS_BUTTON = "home_open_settings"
 
     // Generation result / live response (ResultPane.kt, LiveGenConsole.kt).
     const val LIVE_CONSOLE = "result_live_console"

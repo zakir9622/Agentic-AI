@@ -1,5 +1,25 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc23
+- **Fixed a real prompt-leak bug, found directly from a user report**: typing a prompt in one
+  studio tab (Image/Video/Code/Audio), then visiting News/Chat and tapping a headline, could
+  overwrite that prompt with the headline's text. Root cause: `HomeScreen.openNewsChat()` and
+  `VestraNavHost`'s `onOpenNewsChat` callback both wrote the headline into
+  `GenerativeViewModel.prompt` — the single `StateFlow` every studio tab reads — even though
+  `NewsChatScreen` already manages its own separate local chat-input state and never reads that
+  flow. Both dead writes deleted; the per-tab isolation mechanism itself
+  (`GenerativeViewModel.bindStudio`/`StudioBag`) was already correct.
+- **Wired the image-edit/img2img entry point for Appium**: the "Add reference image" button and
+  its attached-photo thumbnail on the Image tab (`composer_add_reference`,
+  `composer_reference_thumb`) now carry stable `testTag`s — these existed as constants but were
+  never actually applied to the composables. Also tagged Home's Settings entry button
+  (`home_open_settings`).
+- **Added a real Appium test suite** (`appium/`) covering prompt isolation across tabs (a direct
+  regression test for the leak above), local image/code/chat generation reaching a genuine
+  terminal state, the image-edit flow end to end, and the Processing Mode card. Honestly
+  documented as unexecuted: no device, emulator, or Appium server exists in the environment that
+  wrote it — see `appium/README.md`.
+
 ## 3.1.0-rc22
 - **Started porting lookbookweb's design/UX language, local-only, per
   `docs/plans/lovable-parity-local-first/PLAN.md`.** Added four per-modality accent color tokens

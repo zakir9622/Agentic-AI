@@ -199,11 +199,11 @@ fun HomeScreen(
     }
 
     fun openNewsChat(headline: String?) {
-        headline?.let {
-            generativeViewModel.setPrompt(
-                "Discuss this headline for modest fashion and on-device AI: $it",
-            )
-        }
+        // NewsChatScreen owns its own chat input locally and already fills it with the headline
+        // before this callback runs — writing the headline into GenerativeViewModel.prompt here
+        // too was a real bug: that flow is shared by every studio tab (Image/Video/Code/Audio),
+        // so a headline tap silently overwrote whatever prompt was typed in the currently-bound
+        // studio, which is exactly the "prompts leak between tabs" symptom this was causing.
         onOpenNewsChat(headline)
         scope.launch {
             pagerState.animateScrollToPage(tabs.indexOf(HomeTab.NEWS))
@@ -271,7 +271,10 @@ fun HomeScreen(
                             tint = VestraColors.Ink,
                         )
                     }
-                    IconButton(onClick = onOpenSettings) {
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.testTag(TestTags.OPEN_SETTINGS_BUTTON),
+                    ) {
                         Box(
                             Modifier
                                 .size(36.dp)

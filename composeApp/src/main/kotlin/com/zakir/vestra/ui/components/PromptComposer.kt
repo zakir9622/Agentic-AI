@@ -91,6 +91,7 @@ fun PromptComposer(
                         contentDescription = "Reference",
                         modifier = Modifier
                             .size(56.dp)
+                            .testTag(TestTags.REFERENCE_IMAGE_THUMB)
                             .clip(RoundedCornerShape(14.dp))
                             .clickable(enabled = onClearReference != null) {
                                 onClearReference?.invoke()
@@ -102,6 +103,7 @@ fun PromptComposer(
                     Box(
                         Modifier
                             .size(56.dp)
+                            .testTag(TestTags.ADD_REFERENCE_BUTTON)
                             .clip(RoundedCornerShape(14.dp))
                             .background(VestraColors.GlassFill)
                             .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(14.dp))

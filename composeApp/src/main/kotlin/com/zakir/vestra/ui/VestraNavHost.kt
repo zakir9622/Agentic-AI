@@ -214,9 +214,11 @@ fun VestraNavHost(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
-                onOpenNewsChat = { headline ->
-                    headline?.let { generativeViewModel.setPrompt("Discuss: $it") }
-                },
+                // NewsChatScreen fills its own local chat input with the headline before this
+                // fires — this used to also push the headline into GenerativeViewModel.prompt,
+                // which every studio tab (Image/Video/Code/Audio) shares, silently overwriting
+                // whatever the user had typed in the currently-bound studio.
+                onOpenNewsChat = {},
                 initialTabRoute = tab,
             )
         }

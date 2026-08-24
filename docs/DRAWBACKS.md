@@ -26,6 +26,16 @@ actually fixed, not when it's merely reworded.
 
 ## Reliability
 
+- **Fixed this session: a prompt could leak from the News/Chat headline tap into whichever
+  studio tab (Image/Video/Code/Audio) was active.** `HomeScreen.openNewsChat()` and
+  `VestraNavHost`'s `onOpenNewsChat` callback both wrote the tapped headline's text into
+  `GenerativeViewModel.prompt` — a single `StateFlow` every studio tab reads — even though
+  `NewsChatScreen` already fills its own separate local chat-input state with that same text and
+  never reads `GenerativeViewModel.prompt` at all. Both writes were dead code whose only real
+  effect was overwriting whatever the user had typed in the currently-bound studio. Fixed by
+  deleting both; per-tab prompt isolation itself (`GenerativeViewModel.bindStudio`/`StudioBag`)
+  was already correctly implemented — this was a leak from *outside* that mechanism, not a flaw
+  in it. Regression-covered in `appium/test_prompt_isolation.py` (unexecuted — see Testability).
 - **GPU delegate initialization can fail on some devices for the local LiteRT-LM models**
   (confirmed via a real user device log: a GPU-backend engine-load failure with no fallback).
   This session added an automatic CPU fallback (`LiteRtLmEngine.initialize()`) so a failed GPU
@@ -75,9 +85,14 @@ actually fixed, not when it's merely reworded.
   (report-content sheet, durable-storage prompt) do not yet carry tags. Extend `TestTags.kt`
   and its call sites incrementally as automation needs grow, rather than tagging speculatively
   ahead of an actual test.
-- **No Appium test suite ships in this repo yet.** This session added the hooks that make one
-  possible; writing the actual Appium (or UiAutomator2) test scripts against these tags is
-  follow-up work, not something this change claims to have done.
+- **A real Appium test suite now exists (`appium/`) but has never been run.** No Android device,
+  emulator, or Appium server exists in the environment that authored it (verified directly: no
+  `adb`, no `ANDROID_HOME`, no Appium binary) — every test in it is a first draft that needs a
+  real run on a real device before it's trusted, per `appium/README.md`'s own honesty note. It
+  covers: prompt isolation across studio tabs, local image/code/chat generation reaching a real
+  terminal state, the image-edit/img2img entry point, and the Processing Mode card. Not yet
+  covered: video/audio generation end-to-end, Model Packs install/handshake, Wardrobe history
+  navigation, and anything about generation *quality* rather than "a result exists."
 
 ## Platform
 
