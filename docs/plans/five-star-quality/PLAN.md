@@ -119,18 +119,45 @@ Each cycle:
 
 ---
 
-## Q3 checklist (active · rc13)
+## Q3 checklist (active · rc19)
 
-- [ ] Run [DEVICE_MATRIX.md](./DEVICE_MATRIX.md) on Pixel 8/9 with `latest` APK
+- [ ] Run [DEVICE_MATRIX.md](./DEVICE_MATRIX.md) on Pixel 8/9 with `latest` APK — **still blocked**:
+      this repo's Claude sessions have no `adb`/physical-device access, so the "Stability"/"Offline"
+      cells of the rubric cannot be genuinely scored to 5/5 from here. Closing this line requires a
+      human running the matrix on real hardware; don't claim a device-verified average without it.
 - [x] Automated routing matrix tests (offline + online `prefersLocal`)
 - [x] Hide non-runnable scaffolds from studio ON-DEVICE picker
 - [x] Audio ResultPane Cancel during generation
 - [x] Pro sticky graph-incompat (`markGraphIncompatible`) + handshake UNet probe
 - [x] Skip legacy Pro after ControlNet ORT incompat (AUTO→Lite one shot)
-- [ ] Scorecard ≥4.5 average → tag **3.1.0** (or open Q4 for polish gaps)
-- [ ] Confirm Pro AUTO→Lite on device with installed `pro-v1`
+- [x] Composer honesty: Steps/CFG/Seed removed everywhere they never reached the model (rc14)
+- [x] Model Health uses runtime `effectiveSupport`, not the static catalog table (rc14)
+- [x] Local image/edit generation streams live per-step progress, not one static message (rc19)
+- [x] Real desktop-verified fix for two local Create Studio bugs found by actually running the
+      published `local-sdturbo-v1` weights (FP16 timestep tensor, LCM boundary-condition math +
+      img2img strength/timestep slicing) — see CHANGELOG 3.1.0-rc19
+- [x] Real-ESRGAN quality upscale reaches local Create output, not just try-on (rc19)
+- [x] Per-pack handshake busy state — `PacksScreen` used one shared flag so every installed
+      pack's "Verify device link" button went busy at once with no way to tell which pack was
+      actually being checked; now tracked per-pack (`ModelPackManager.handshakeAll(onPackStarted)`)
+- [ ] Scorecard ≥4.5 average → tag **3.1.0** (or open Q4 for polish gaps) — see honest self-score
+      below; code/desktop-verifiable dimensions are strong, the on-device dimension is the one
+      real gap left, not more code work
+- [ ] Confirm Pro AUTO→Lite on device with installed `pro-v1` — same device-access blocker
 
-**Interim builds:** rc12 polish · **rc13** Pro graph probe.
+**Interim builds:** rc12 polish · rc13 Pro graph probe · **rc19** streaming + verified local
+image-gen fixes + quality upscale + per-pack handshake honesty.
+
+### Honest self-score (code + real desktop model execution, no physical device — 2026-08-24)
+
+| Dimension | Score | Why |
+|---|---|---|
+| Stability | 4/5 | No crash paths found this cycle; ORT/LiteRT sessions soft-fail; two real generation bugs found by actually running the models were fixed and re-verified. Can't reach 5 without the device soak — ARM/XNNPACK-specific behavior is still unverified. |
+| Honesty | 5/5 | Every claim audited this cycle checked out against code, or was fixed to match reality (handshake busy state, quality-upscale catalog description, Real-ESRGAN wiring). No known lying UI copy remains. |
+| Clarity | 4/5 | Live streaming output + per-pack progress close the two biggest "what is it doing" gaps. Not yet re-verified against a fresh design pass (glass-card density / hero height are unverified without a rendered screenshot). |
+| Offline | 4/5 | Local image gen (tiny-SD + Bonsai), code, video, audio, try-on all verified reachable offline in code; the sdturbo pipeline is now verified to actually denoise correctly via real weights, not just load without crashing. |
+| Cloud fallback | 5/5 | Typed `CloudFailure`, health-aware routing, and the fallback-loop tests already in place from earlier cycles are unchanged and still green. |
+| **Avg** | **4.4/5** | One real gap keeps this off ≥4.5: the device matrix. Everything reachable without a physical device has been verified and closed. |
 
 ---
 

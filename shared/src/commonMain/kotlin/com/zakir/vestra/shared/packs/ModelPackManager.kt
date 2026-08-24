@@ -262,13 +262,24 @@ class ModelPackManager(
         }
     }
 
-    /** Handshake every installed pack; returns an aggregate ACK/NACK report. */
-    suspend fun handshakeAll(nowMs: Long = EpochClock.System.nowMs()): PackHandshakeReport {
+    /**
+     * Handshake every installed pack, one at a time; returns an aggregate ACK/NACK report.
+     * [onPackStarted] fires just before each pack's own handshake begins so a caller can show
+     * which specific pack is being checked right now, rather than one shared "busy" flag that
+     * makes every pack row look like it's mid-check at once.
+     */
+    suspend fun handshakeAll(
+        nowMs: Long = EpochClock.System.nowMs(),
+        onPackStarted: (packId: String) -> Unit = {},
+    ): PackHandshakeReport {
         val started = nowMs
         val installed = _states.value.values
             .filter { it.status == PackStatus.INSTALLED }
             .map { it.pack.id }
-        val results = installed.map { handshake(it, nowMs = EpochClock.System.nowMs()) }
+        val results = installed.map { id ->
+            onPackStarted(id)
+            handshake(id, nowMs = EpochClock.System.nowMs())
+        }
         return PackHandshakeReport(
             results = results,
             startedAtMs = started,
