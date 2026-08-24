@@ -22,6 +22,14 @@ data class WardrobeEntry(
     /** Groups the shots of one photoshoot; null on entries from before shot sets. */
     val shootId: String? = null,
     val favorited: Boolean = false,
+    /**
+     * The entry this one was generated as a retry of — set when a new generation runs in the
+     * same studio tab right after a previous one, without navigating away in between. Lets a
+     * chain of "same prompt, tweaked seed" attempts be walked as version history instead of
+     * showing up as unconnected gallery entries. Null on entries with no known parent (the
+     * first attempt in a tab, or entries from before this field existed).
+     */
+    val parentGenerationId: String? = null,
 )
 
 /** Minimal platform file seam; androidMain/iosMain provide actuals. */

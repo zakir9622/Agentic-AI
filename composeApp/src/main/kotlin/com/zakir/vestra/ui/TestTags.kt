@@ -56,4 +56,7 @@ object TestTags {
     // a previous app process, surfaced on Home rather than silently lost.
     const val INTERRUPTED_JOBS_BANNER = "interrupted_jobs_banner"
     fun interruptedJobDismiss(jobId: String): String = "interrupted_job_dismiss_$jobId"
+
+    // Wardrobe look-detail dialog's version-history row (WardrobeScreen.kt).
+    fun wardrobeHistoryRow(entryId: String): String = "wardrobe_history_row_$entryId"
 }

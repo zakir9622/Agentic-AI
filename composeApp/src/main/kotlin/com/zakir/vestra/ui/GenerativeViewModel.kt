@@ -708,14 +708,14 @@ class GenerativeViewModel(
                         is GenerativeState.ImageReady -> {
                             appendLive("Image ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Create")
+                            ingestCreateImage(next.path, label = "Create", studioKey = studioKey, local = local)
                             builder?.complete(success = true, note = next.providerId)
                             completeLocalJob(success = true)
                         }
                         is GenerativeState.VideoReady -> {
                             appendLive("Video ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Video")
+                            ingestCreateImage(next.path, label = "Video", studioKey = studioKey, local = local)
                             builder?.complete(success = true, note = next.providerId)
                             completeLocalJob(success = true)
                         }
@@ -785,21 +785,30 @@ class GenerativeViewModel(
         bag(studioKey).generationEpoch = epoch
     }
 
-    private fun ingestCreateImage(path: String, label: String) {
+    /** Previous Wardrobe entry generated in each studio tab — chains consecutive retries. */
+    private val lastEntryIdByStudioKey = mutableMapOf<AiCapability, String>()
+
+    private fun ingestCreateImage(path: String, label: String, studioKey: AiCapability, local: Boolean) {
         val promptSnippet = _prompt.value.trim().take(80).ifBlank { label.lowercase() }
+        val id = Uuid.random().toString()
         runCatching {
             wardrobe.add(
                 WardrobeEntry(
-                    id = Uuid.random().toString(),
+                    id = id,
                     createdAtEpochMillis = System.currentTimeMillis(),
                     imagePath = path,
                     garmentUri = "${label.lowercase()}:$promptSnippet",
                     personLabel = label,
-                    tier = EngineTier.CLOUD,
+                    // Was hardcoded to CLOUD regardless of how the image was actually generated
+                    // — the same class of mislabeling bug already fixed for diagnostics/live-log
+                    // text, just at a different call site that was missed then.
+                    tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
                     shootId = null,
+                    parentGenerationId = lastEntryIdByStudioKey[studioKey],
                 ),
             )
         }
+        lastEntryIdByStudioKey[studioKey] = id
     }
 
     private fun sanitizePrompt(raw: String): String =
