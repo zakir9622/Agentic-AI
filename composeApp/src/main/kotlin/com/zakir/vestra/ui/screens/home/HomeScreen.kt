@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -77,6 +78,7 @@ import com.zakir.vestra.ui.components.AtelierHero
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.screens.news.NewsChatScreen
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -299,6 +301,7 @@ fun HomeScreen(
                         onClick = {
                             scope.launch { pagerState.animateScrollToPage(index) }
                         },
+                        modifier = Modifier.testTag(TestTags.homeTab(tab.routeKey)),
                         text = {
                             Text(
                                 tab.label,

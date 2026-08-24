@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ import com.zakir.vestra.shared.packs.PackHandshakeResult
 import com.zakir.vestra.shared.packs.PackHandshakeWires
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.storage.DurableStorage
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
@@ -273,10 +275,16 @@ private fun PackCard(
         }
         Spacer(Modifier.height(12.dp))
         when (state.status) {
-            PackStatus.NOT_INSTALLED -> Button(onClick = onInstall) {
+            PackStatus.NOT_INSTALLED -> Button(
+                onClick = onInstall,
+                modifier = Modifier.testTag(TestTags.packInstallButton(state.pack.id)),
+            ) {
                 Text(if (state.progress > 0f) "Resume download" else "Download")
             }
-            PackStatus.UPDATE_AVAILABLE -> Button(onClick = onInstall) { Text("Update") }
+            PackStatus.UPDATE_AVAILABLE -> Button(
+                onClick = onInstall,
+                modifier = Modifier.testTag(TestTags.packInstallButton(state.pack.id)),
+            ) { Text("Update") }
             PackStatus.DOWNLOADING -> {
                 LinearProgressIndicator(
                     progress = { state.progress },
@@ -317,7 +325,9 @@ private fun PackCard(
                 OutlinedButton(
                     onClick = onHandshake,
                     enabled = !handshakeBusy,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.packHandshakeButton(state.pack.id)),
                 ) {
                     Text(if (handshakingThisPack) "Verifying…" else "Verify device link")
                 }

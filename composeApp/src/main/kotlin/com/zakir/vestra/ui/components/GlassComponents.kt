@@ -45,11 +45,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.content.LookbookCopy
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.SpatialElevation
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -518,12 +520,16 @@ fun GlassErrorBanner(
     onDismiss: (() -> Unit)? = null,
     retryLabel: String = LookbookCopy.ACTION_RETRY,
 ) {
-    GlassCard {
+    GlassCard(modifier = Modifier.testTag(TestTags.RESULT_FAILED)) {
         Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
         Spacer(Modifier.padding(top = 8.dp))
         Row {
             if (onRetry != null) {
-                GlassSecondaryButton(text = retryLabel, onClick = onRetry, modifier = Modifier.weight(1f))
+                GlassSecondaryButton(
+                    text = retryLabel,
+                    onClick = onRetry,
+                    modifier = Modifier.weight(1f).testTag(TestTags.RESULT_RETRY_BUTTON),
+                )
             }
             if (onDismiss != null) {
                 if (onRetry != null) Spacer(Modifier.padding(horizontal = 6.dp))
@@ -565,7 +571,11 @@ fun GlassLoadingCard(
         }
         if (onCancel != null) {
             Spacer(Modifier.padding(top = 12.dp))
-            GlassSecondaryButton(text = LookbookCopy.ACTION_CANCEL_GENERATION, onClick = onCancel)
+            GlassSecondaryButton(
+                text = LookbookCopy.ACTION_CANCEL_GENERATION,
+                onClick = onCancel,
+                modifier = Modifier.testTag(TestTags.RESULT_CANCEL_BUTTON),
+            )
         }
     }
 }

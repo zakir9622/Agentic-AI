@@ -33,11 +33,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
 
 /**
@@ -120,7 +122,7 @@ fun PromptComposer(
         OutlinedTextField(
             value = prompt,
             onValueChange = onPromptChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag(TestTags.PROMPT_INPUT),
             enabled = !busy,
             minLines = 2,
             maxLines = 5,
@@ -159,14 +161,19 @@ fun PromptComposer(
             ModelChip(
                 label = modelLabel,
                 onClick = onModelClick,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(TestTags.MODEL_CHIP),
             )
-            AssistChip(count = assistCount, onClick = onAssistsClick)
+            AssistChip(
+                count = assistCount,
+                onClick = onAssistsClick,
+                modifier = Modifier.testTag(TestTags.ASSIST_CHIP),
+            )
             SendOrb(
                 busy = busy,
                 enabled = enabled && (busy || prompt.isNotBlank()),
                 onSend = onSend,
                 onStop = onStop,
+                modifier = Modifier.testTag(TestTags.SEND_BUTTON),
             )
         }
     }
@@ -215,7 +222,7 @@ private fun ModelChip(
 }
 
 @Composable
-private fun AssistChip(count: Int, onClick: (() -> Unit)?) {
+private fun AssistChip(count: Int, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(50)
     val a11y = when {
         count <= 0 -> "No assists active"
@@ -223,7 +230,7 @@ private fun AssistChip(count: Int, onClick: (() -> Unit)?) {
         else -> "$count assists active"
     }
     Row(
-        Modifier
+        modifier
             .clip(shape)
             .background(VestraColors.GlassFill)
             .border(1.dp, VestraColors.GlassBorder, shape)
@@ -253,9 +260,10 @@ private fun SendOrb(
     enabled: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        Modifier
+        modifier
             .size(48.dp)
             .clip(CircleShape)
             .background(

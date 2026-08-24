@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -34,6 +35,7 @@ import com.zakir.vestra.data.ReportReason
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
 import kotlinx.coroutines.delay
@@ -113,7 +115,7 @@ fun ResultPane(
             )
             LiveGenConsole(liveLog, generationStartedAtMs)
         }
-        is GenerativeState.ImageReady -> GlassCard {
+        is GenerativeState.ImageReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
             GlassSectionLabel("RESULT")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI-generated", active = true)
@@ -145,7 +147,7 @@ fun ResultPane(
                 onClick = { reportPath = state.path },
             )
         }
-        is GenerativeState.VideoReady -> GlassCard {
+        is GenerativeState.VideoReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_VIDEO_READY)) {
             GlassSectionLabel("VIDEO READY")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI-generated", active = true)
@@ -185,7 +187,7 @@ fun ResultPane(
                 )
             }
         }
-        is GenerativeState.AudioReady -> GlassCard {
+        is GenerativeState.AudioReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_AUDIO_READY)) {
             GlassSectionLabel("AUDIO READY")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI voice", active = true)
@@ -217,7 +219,7 @@ fun ResultPane(
                 onClick = { reportPath = state.path },
             )
         }
-        is GenerativeState.CodeStreaming -> GlassCard {
+        is GenerativeState.CodeStreaming -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_CODE_STREAMING)) {
             GlassSectionLabel("CODE · generating…")
             Spacer(Modifier.height(8.dp))
             // Live output as the model streams it, not a spinner that resolves into a wall of
@@ -231,7 +233,7 @@ fun ResultPane(
                     .verticalScroll(rememberScrollState()),
             )
         }
-        is GenerativeState.CodeReady -> GlassCard {
+        is GenerativeState.CodeReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_CODE_READY)) {
             GlassSectionLabel("CODE · ${state.tokensIn + state.tokensOut} free tokens")
             Text(
                 "${state.tokensIn} in · ${state.tokensOut} out",
@@ -258,7 +260,7 @@ fun ResultPane(
                 },
             )
         }
-        is GenerativeState.TranscribeReady -> GlassCard {
+        is GenerativeState.TranscribeReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_TRANSCRIBE_READY)) {
             GlassSectionLabel("TRANSCRIPTION")
             Text(
                 "On-device · ${state.providerId}",

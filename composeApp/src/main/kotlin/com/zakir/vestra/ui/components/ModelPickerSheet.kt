@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.CloudModelContracts
@@ -44,6 +45,7 @@ import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.ModelHealthTracker
 import com.zakir.vestra.shared.cloud.ModelSupportLevel
 import com.zakir.vestra.shared.quality.QualityRating
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
 
 data class OnDevicePickerEntry(
@@ -218,6 +220,7 @@ private fun OnDevicePickerRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .testTag(TestTags.modelPickerRow(entry.id))
             .clip(RoundedCornerShape(16.dp))
             .background(
                 if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
@@ -290,6 +293,7 @@ private fun ModelPickerRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .testTag(TestTags.modelPickerRow(model.id))
             .clip(RoundedCornerShape(16.dp))
             .background(
                 if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,

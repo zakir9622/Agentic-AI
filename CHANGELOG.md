@@ -1,5 +1,25 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc21
+- **Local LiteRT-LM models now fall back to CPU automatically if the GPU delegate fails to
+  initialize**, found via a user's Pixel 9 screenshot: `Local Qwen3 0.6B (fast) could not load:
+  Failed to create engine: INTERNAL: ERROR: [...litert_compiled_model_executor.cc...]`. Before
+  this fix, a failed GPU init had no fallback, so tapping "Retry load" repeated the identical
+  failing GPU path forever. `LiteRtLmEngine.initialize()` now tries GPU first when requested,
+  catches a GPU init failure, logs it, and retries on CPU — the model still loads, just slower.
+- **The app is now testable with Appium/UiAutomator and similar external automation tools.**
+  Compose's `Modifier.testTag` is invisible outside Compose's own UI-test framework unless the
+  app opts in via `testTagsAsResourceId`; that flag is now set once at the composable root
+  (`MainActivity.kt`). A new `TestTags` catalog
+  (`composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`) gives every core interactive
+  and result element in the generation flow a stable id: prompt input, model chip, assist
+  toggle, send/stop, each home tab, every `GenerativeState` result card (image/video/audio/code
+  streaming and ready/transcription/failed), the live generation console, retry/cancel, model
+  pack install/handshake buttons, and each row in the model picker sheet (cloud and on-device).
+- **Added `docs/DRAWBACKS.md`** — an honest, non-marketing list of this app's current real
+  limitations (local model quality tradeoffs, partial NNAPI offload, no committed on-device
+  benchmark yet, testability coverage gaps, no iOS target), kept up to date as items close.
+
 ## 3.1.0-rc20
 - **Fixed a real on-device crash in local Create Studio**, found via a user's Pixel 9 screenshots:
   `ORT_INVALID_ARGUMENT — Invalid rank for input: timestep Got: 0 Expected: 1`. The local
