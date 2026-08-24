@@ -72,4 +72,16 @@ class WardrobeRepositoryTest {
         store.files["wardrobe_index.json"] = "{not json"
         assertEquals(emptyList(), WardrobeRepository(store).entries.value)
     }
+
+    @Test
+    fun parentGenerationIdRoundTripsThroughStorage() {
+        val store = InMemoryStore()
+        val repo = WardrobeRepository(store)
+        repo.add(entry("v1"))
+        repo.add(entry("v2").copy(parentGenerationId = "v1"))
+
+        val reloaded = WardrobeRepository(store)
+        assertEquals("v1", reloaded.entries.value.first { it.id == "v2" }.parentGenerationId)
+        assertEquals(null, reloaded.entries.value.first { it.id == "v1" }.parentGenerationId)
+    }
 }

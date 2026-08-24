@@ -14,6 +14,7 @@ import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.engine.local.LocalStudioToolBridge
+import com.zakir.vestra.shared.jobs.LocalJobStore
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
 import com.zakir.vestra.shared.usage.UsageLedger
@@ -35,7 +36,16 @@ class GenerativeViewModel(
     private val wardrobe: WardrobeRepository,
     private val runDiagnostics: RunDiagnostics? = null,
     private val deviceRamMb: Long? = null,
+    private val localJobStore: LocalJobStore? = null,
 ) : ViewModel() {
+
+    /** The in-flight [LocalJobStore] job id, if the current generation is local — null otherwise. */
+    private var activeLocalJobId: String? = null
+
+    private fun completeLocalJob(success: Boolean) {
+        activeLocalJobId?.let { localJobStore?.complete(it, success) }
+        activeLocalJobId = null
+    }
 
     private val _prompt = MutableStateFlow("")
     val prompt: StateFlow<String> = _prompt
@@ -596,6 +606,8 @@ class GenerativeViewModel(
         generationEpoch++
         _generationStartedAtMs.value = null
         bag(boundKey).generationStartedAtMs = null
+        activeLocalJobId?.let { localJobStore?.cancel(it) }
+        activeLocalJobId = null
         appendLive("Stopped by user")
         _state.value = if (showStopped) {
             GenerativeState.Failed("Stopped. Tap Generate to run again.")
@@ -649,11 +661,21 @@ class GenerativeViewModel(
             modelLabel = modelLabel,
             deviceRamMb = deviceRamMb,
         )
+        activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value) else null
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
-                block().collect { next ->
+                block().collect { rawNext ->
                     if (epoch != generationEpoch) return@collect
+                    // Local-generation failures had no way to correlate the message on screen to
+                    // its full record in Settings → Diagnostics — the record itself always had a
+                    // stable id, it just never reached the user-facing string. Cloud failures
+                    // don't need this: CloudFailure already carries enough context in its message.
+                    val next = if (local && rawNext is GenerativeState.Failed && builder != null) {
+                        rawNext.copy(message = "${rawNext.message} (ref ${builder.id})")
+                    } else {
+                        rawNext
+                    }
                     if (boundKey != studioKey) {
                         // User switched tabs — keep updating the owning bag only.
                         val owner = bag(studioKey)
@@ -686,19 +708,22 @@ class GenerativeViewModel(
                         is GenerativeState.ImageReady -> {
                             appendLive("Image ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Create")
+                            ingestCreateImage(next.path, label = "Create", studioKey = studioKey, local = local)
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.VideoReady -> {
                             appendLive("Video ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Video")
+                            ingestCreateImage(next.path, label = "Video", studioKey = studioKey, local = local)
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.AudioReady -> {
                             appendLive("Audio ready")
                             _lastUsedProviderId.value = next.providerId
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.CodeReady -> {
                             appendLive("Code ready · ${next.tokensIn}+${next.tokensOut} tokens")
@@ -707,6 +732,7 @@ class GenerativeViewModel(
                                 success = true,
                                 note = "${next.providerId} · ${next.tokensIn}+${next.tokensOut} tokens",
                             )
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.CodeStreaming -> {
                             // _state.value is already updated above — ResultPane renders the
@@ -717,10 +743,12 @@ class GenerativeViewModel(
                             appendLive("Transcription ready")
                             _lastUsedProviderId.value = next.providerId
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
                         }
                         is GenerativeState.Failed -> {
                             appendLive("Failed · ${next.message.take(120)}")
                             builder?.complete(success = false, error = next.message)
+                            completeLocalJob(success = false)
                         }
                     }
                 }
@@ -728,14 +756,16 @@ class GenerativeViewModel(
                 // Expected on force stop / clear
             } catch (e: Exception) {
                 if (epoch == generationEpoch) {
-                    val msg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
+                    val rawMsg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
+                    val msg = if (local && builder != null) "$rawMsg (ref ${builder.id})" else rawMsg
+                    completeLocalJob(success = false)
                     if (boundKey == studioKey) {
                         appendLive("Error · $msg")
                         _state.value = GenerativeState.Failed(msg)
                     } else {
                         bag(studioKey).state = GenerativeState.Failed(msg)
                     }
-                    builder?.complete(success = false, error = msg)
+                    builder?.complete(success = false, error = rawMsg)
                 }
             } finally {
                 if (boundKey == studioKey) {
@@ -755,21 +785,30 @@ class GenerativeViewModel(
         bag(studioKey).generationEpoch = epoch
     }
 
-    private fun ingestCreateImage(path: String, label: String) {
+    /** Previous Wardrobe entry generated in each studio tab — chains consecutive retries. */
+    private val lastEntryIdByStudioKey = mutableMapOf<AiCapability, String>()
+
+    private fun ingestCreateImage(path: String, label: String, studioKey: AiCapability, local: Boolean) {
         val promptSnippet = _prompt.value.trim().take(80).ifBlank { label.lowercase() }
+        val id = Uuid.random().toString()
         runCatching {
             wardrobe.add(
                 WardrobeEntry(
-                    id = Uuid.random().toString(),
+                    id = id,
                     createdAtEpochMillis = System.currentTimeMillis(),
                     imagePath = path,
                     garmentUri = "${label.lowercase()}:$promptSnippet",
                     personLabel = label,
-                    tier = EngineTier.CLOUD,
+                    // Was hardcoded to CLOUD regardless of how the image was actually generated
+                    // — the same class of mislabeling bug already fixed for diagnostics/live-log
+                    // text, just at a different call site that was missed then.
+                    tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
                     shootId = null,
+                    parentGenerationId = lastEntryIdByStudioKey[studioKey],
                 ),
             )
         }
+        lastEntryIdByStudioKey[studioKey] = id
     }
 
     private fun sanitizePrompt(raw: String): String =

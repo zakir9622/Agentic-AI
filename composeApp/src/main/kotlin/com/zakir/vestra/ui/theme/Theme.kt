@@ -9,6 +9,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /** Spatial Material 3 elevation tokens (dp). Prefer flat glass — shadows are GPU-risky. */
 object SpatialElevation {
@@ -16,6 +18,20 @@ object SpatialElevation {
     const val Raised = 0f
     const val Floating = 2f
     const val GlassOverlay = 0f
+}
+
+/**
+ * Derived corner-radius scale off one base — lookbookweb's `--radius` + `calc(var(--radius) ± N)`
+ * pattern (generous, consistent rounding as the dominant shape language), ported so cards, chips,
+ * and sheets stop each hand-picking a `RoundedCornerShape` value ad hoc. `lg` matches the corner
+ * radius `GlassCard` already used before this token existed, so adopting it is visually a no-op
+ * for existing cards; new components should reach for one of these rather than a bare `.dp` value.
+ */
+object RadiusTokens {
+    val sm: Dp = 12.dp
+    val md: Dp = 16.dp
+    val lg: Dp = 24.dp
+    val xl: Dp = 32.dp
 }
 
 /**
@@ -45,6 +61,14 @@ data class VestraPalette(
     val ivoryMuted: Color,
     val saffronDeep: Color,
     val silkMist: Color,
+    /** Per-modality accent — Create/Image Studio. Brass-family, same as the base [accent]. */
+    val modalityImage: Color,
+    /** Per-modality accent — Video Studio. Warm copper shift off the brass family. */
+    val modalityVideo: Color,
+    /** Per-modality accent — Code Studio. Reuses the existing teal loom ([saffronDeep]). */
+    val modalityCode: Color,
+    /** Per-modality accent — Audio Studio. Muted dusty rose — warm, not the brand's avoided purple. */
+    val modalityAudio: Color,
     val isDark: Boolean,
 )
 
@@ -73,6 +97,10 @@ private val LightPalette = VestraPalette(
     ivoryMuted = Color(0xFF9AADB8),
     saffronDeep = Color(0xFF1A3A42),
     silkMist = Color(0xFFC5D4DC),
+    modalityImage = Color(0xFF9A7340),
+    modalityVideo = Color(0xFFB0693F),
+    modalityCode = Color(0xFF1A3A42),
+    modalityAudio = Color(0xFFA8677A),
     isDark = false,
 )
 
@@ -98,6 +126,10 @@ private val DarkPalette = VestraPalette(
     ivoryMuted = Color(0xFF8FA3AE),
     saffronDeep = Color(0xFF2A5A64),
     silkMist = Color(0xFF243038),
+    modalityImage = Color(0xFFD4A85C),
+    modalityVideo = Color(0xFFD98B5F),
+    modalityCode = Color(0xFF2A5A64),
+    modalityAudio = Color(0xFFC98BA0),
     isDark = true,
 )
 
@@ -134,6 +166,12 @@ object VestraColors {
     val IvoryMuted get() = active.ivoryMuted
     val SaffronDeep get() = active.saffronDeep
     val SilkMist get() = active.silkMist
+
+    /** Per-modality accents (Create/Video/Code/Audio Studio) — see [VestraPalette] docs. */
+    val ModalityImage get() = active.modalityImage
+    val ModalityVideo get() = active.modalityVideo
+    val ModalityCode get() = active.modalityCode
+    val ModalityAudio get() = active.modalityAudio
 }
 
 private fun VestraPalette.toScheme() = if (isDark) {

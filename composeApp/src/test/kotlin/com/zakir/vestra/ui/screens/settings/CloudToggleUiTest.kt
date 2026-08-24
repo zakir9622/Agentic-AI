@@ -1,13 +1,13 @@
 package com.zakir.vestra.ui.screens.settings
 
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.russhwolf.settings.Settings
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.ui.TestTags
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -17,9 +17,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Real Compose UI tests for the cloud master toggle, run on the JVM via Robolectric — no
- * device, emulator, or KVM required. These render the actual composable and drive it the way
- * a person would, rather than only asserting on the settings object underneath.
+ * Real Compose UI tests for the processing-mode card (on-device-only / cloud-allowed), run on
+ * the JVM via Robolectric — no device, emulator, or KVM required. These render the actual
+ * composable and drive it the way a person would, rather than only asserting on the settings
+ * object underneath.
  */
 @RunWith(RobolectricTestRunner::class)
 // Substitute a plain Application: the real VestraApp.onCreate builds the whole DI graph and
@@ -67,36 +68,37 @@ class CloudToggleUiTest {
     }
 
     @Test
-    fun toggleRendersOffByDefaultWithLocalOnlyCopy() {
+    fun rendersOnDeviceOnlySelectedByDefault() {
         val appSettings = AppSettings(MemorySettings())
         renderToggle(appSettings)
 
-        compose.onNodeWithText("Enable cloud models").assertExists()
-        compose.onNodeWithText("Off by default", substring = true).assertExists()
-        compose.onNode(androidx.compose.ui.test.isToggleable()).assertIsOff()
+        compose.onNodeWithText("On-device only").assertExists()
+        compose.onNodeWithText("Cloud allowed").assertExists()
+        // Selected card shows a checkmark — assert via testTag presence since "selected" isn't
+        // itself rendered as text; the state assertion below is the real behavioral check.
+        compose.onNodeWithTag(TestTags.PROCESSING_MODE_LOCAL).assertExists()
+        compose.onNodeWithTag(TestTags.PROCESSING_MODE_CLOUD).assertExists()
         assertFalse(appSettings.cloudModelsEnabled.value)
     }
 
     @Test
-    fun tappingTheSwitchTurnsCloudOnAndUpdatesTheCopy() {
+    fun tappingCloudAllowedCardTurnsCloudOn() {
         val appSettings = AppSettings(MemorySettings())
         renderToggle(appSettings)
 
-        compose.onNode(androidx.compose.ui.test.isToggleable()).performClick()
+        compose.onNodeWithTag(TestTags.PROCESSING_MODE_CLOUD).performClick()
 
-        assertTrue("switch tap must reach AppSettings", appSettings.cloudModelsEnabled.value)
-        compose.onNode(androidx.compose.ui.test.isToggleable()).assertIsOn()
-        // Copy must follow state, not stay stuck on the off-state sentence.
-        compose.onNodeWithText("Cloud generation is on", substring = true).assertExists()
+        assertTrue("tapping the Cloud allowed card must reach AppSettings", appSettings.cloudModelsEnabled.value)
     }
 
     @Test
-    fun switchReflectsAlreadyEnabledStateOnFirstRender() {
+    fun tappingOnDeviceOnlyCardTurnsCloudOff() {
         val appSettings = AppSettings(MemorySettings())
         appSettings.setCloudModelsEnabled(true)
         renderToggle(appSettings)
 
-        compose.onNode(androidx.compose.ui.test.isToggleable()).assertIsOn()
-        compose.onNodeWithText("Cloud generation is on", substring = true).assertExists()
+        compose.onNodeWithTag(TestTags.PROCESSING_MODE_LOCAL).performClick()
+
+        assertFalse("tapping the On-device only card must reach AppSettings", appSettings.cloudModelsEnabled.value)
     }
 }

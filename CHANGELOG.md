@@ -1,5 +1,64 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc23
+- **Fixed a real prompt-leak bug, found directly from a user report**: typing a prompt in one
+  studio tab (Image/Video/Code/Audio), then visiting News/Chat and tapping a headline, could
+  overwrite that prompt with the headline's text. Root cause: `HomeScreen.openNewsChat()` and
+  `VestraNavHost`'s `onOpenNewsChat` callback both wrote the headline into
+  `GenerativeViewModel.prompt` — the single `StateFlow` every studio tab reads — even though
+  `NewsChatScreen` already manages its own separate local chat-input state and never reads that
+  flow. Both dead writes deleted; the per-tab isolation mechanism itself
+  (`GenerativeViewModel.bindStudio`/`StudioBag`) was already correct.
+- **Wired the image-edit/img2img entry point for Appium**: the "Add reference image" button and
+  its attached-photo thumbnail on the Image tab (`composer_add_reference`,
+  `composer_reference_thumb`) now carry stable `testTag`s — these existed as constants but were
+  never actually applied to the composables. Also tagged Home's Settings entry button
+  (`home_open_settings`).
+- **Added a real Appium test suite** (`appium/`) covering prompt isolation across tabs (a direct
+  regression test for the leak above), local image/code/chat generation reaching a genuine
+  terminal state, the image-edit flow end to end, and the Processing Mode card. Honestly
+  documented as unexecuted: no device, emulator, or Appium server exists in the environment that
+  wrote it — see `appium/README.md`.
+
+## 3.1.0-rc22
+- **Started porting lookbookweb's design/UX language, local-only, per
+  `docs/plans/lovable-parity-local-first/PLAN.md`.** Added four per-modality accent color tokens
+  (`VestraColors.ModalityImage/Video/Code/Audio`, brass-family tints — Loom Ink's identity stays)
+  and a derived `RadiusTokens` corner-radius scale; wired the Studio header label to its
+  modality's accent. Added a subtle press-lift micro-interaction to `GlassCard` (scale to ~97%
+  on press, gated by reduced-motion) — lookbookweb's `press-3d` language ported at Compose-native
+  cost. Confirmed the Syne/Outfit typography pairing this plan called for was already in place.
+- **Fixed misleading "Cloud by default" studio copy.** The Image/Video/Code studio subtitle said
+  "Cloud by default" regardless of whether cloud models were actually enabled — since
+  `cloudModelsEnabled` defaults to `false` app-wide, that text was simply wrong for most users.
+  Now reads "On-device only (cloud is off)" when the master toggle is off, or names the local
+  pack to install either way.
+- **The News/Chat window is now Appium-testable**: refresh button, headline cards, and chat
+  message bubbles carry stable `testTag`s, alongside the generation-flow coverage from rc21.
+- Updated `docs/DRAWBACKS.md` and the plan's own README with an honest status: this is a slice
+  of the full lookbookweb-parity plan, not the whole thing — see those docs for exactly what's
+  landed and what's still open.
+
+## 3.1.0-rc21
+- **Local LiteRT-LM models now fall back to CPU automatically if the GPU delegate fails to
+  initialize**, found via a user's Pixel 9 screenshot: `Local Qwen3 0.6B (fast) could not load:
+  Failed to create engine: INTERNAL: ERROR: [...litert_compiled_model_executor.cc...]`. Before
+  this fix, a failed GPU init had no fallback, so tapping "Retry load" repeated the identical
+  failing GPU path forever. `LiteRtLmEngine.initialize()` now tries GPU first when requested,
+  catches a GPU init failure, logs it, and retries on CPU — the model still loads, just slower.
+- **The app is now testable with Appium/UiAutomator and similar external automation tools.**
+  Compose's `Modifier.testTag` is invisible outside Compose's own UI-test framework unless the
+  app opts in via `testTagsAsResourceId`; that flag is now set once at the composable root
+  (`MainActivity.kt`). A new `TestTags` catalog
+  (`composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`) gives every core interactive
+  and result element in the generation flow a stable id: prompt input, model chip, assist
+  toggle, send/stop, each home tab, every `GenerativeState` result card (image/video/audio/code
+  streaming and ready/transcription/failed), the live generation console, retry/cancel, model
+  pack install/handshake buttons, and each row in the model picker sheet (cloud and on-device).
+- **Added `docs/DRAWBACKS.md`** — an honest, non-marketing list of this app's current real
+  limitations (local model quality tradeoffs, partial NNAPI offload, no committed on-device
+  benchmark yet, testability coverage gaps, no iOS target), kept up to date as items close.
+
 ## 3.1.0-rc20
 - **Fixed a real on-device crash in local Create Studio**, found via a user's Pixel 9 screenshots:
   `ORT_INVALID_ARGUMENT — Invalid rank for input: timestep Got: 0 Expected: 1`. The local

@@ -23,9 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.domain.DeviceSpec
 import com.zakir.vestra.shared.domain.PackState
 import com.zakir.vestra.shared.domain.PackStatus
 import com.zakir.vestra.shared.domain.PackVerifyStatus
@@ -35,6 +37,7 @@ import com.zakir.vestra.shared.packs.PackHandshakeResult
 import com.zakir.vestra.shared.packs.PackHandshakeWires
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.storage.DurableStorage
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
@@ -144,6 +147,20 @@ fun PacksScreen(
                 Text("Enable durable storage now")
             }
         }
+        val installedCount = states.values.count { it.status == PackStatus.INSTALLED }
+        if (installedCount > 0) {
+            val usedBytes = states.values
+                .filter { it.status == PackStatus.INSTALLED }
+                .sumOf { it.pack.totalBytes }
+            val freeBytes = remember(states) { packManager.freeBytesOnDevice() }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "${formatBytes(usedBytes)} used across $installedCount pack" +
+                    (if (installedCount == 1) "" else "s") + " · ${formatBytes(freeBytes)} free",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         OutlinedButton(
             onClick = ::runHandshakeAll,
@@ -192,6 +209,11 @@ fun PacksScreen(
             Spacer(Modifier.height(12.dp))
             PackCard(
                 state = state,
+                incompatibleChecklist = if (state.status == PackStatus.INCOMPATIBLE) {
+                    deviceRequirementChecklist(state.pack.minSpec, packManager)
+                } else {
+                    null
+                },
                 handshake = packHandshake[state.pack.id],
                 handshakeBusy = handshakeBusy,
                 handshakingThisPack = handshakingPackId == state.pack.id,
@@ -225,6 +247,7 @@ fun PacksScreen(
 @Composable
 private fun PackCard(
     state: PackState,
+    incompatibleChecklist: String?,
     handshake: PackHandshakeResult?,
     handshakeBusy: Boolean,
     handshakingThisPack: Boolean,
@@ -273,10 +296,16 @@ private fun PackCard(
         }
         Spacer(Modifier.height(12.dp))
         when (state.status) {
-            PackStatus.NOT_INSTALLED -> Button(onClick = onInstall) {
+            PackStatus.NOT_INSTALLED -> Button(
+                onClick = onInstall,
+                modifier = Modifier.testTag(TestTags.packInstallButton(state.pack.id)),
+            ) {
                 Text(if (state.progress > 0f) "Resume download" else "Download")
             }
-            PackStatus.UPDATE_AVAILABLE -> Button(onClick = onInstall) { Text("Update") }
+            PackStatus.UPDATE_AVAILABLE -> Button(
+                onClick = onInstall,
+                modifier = Modifier.testTag(TestTags.packInstallButton(state.pack.id)),
+            ) { Text("Update") }
             PackStatus.DOWNLOADING -> {
                 LinearProgressIndicator(
                     progress = { state.progress },
@@ -317,7 +346,9 @@ private fun PackCard(
                 OutlinedButton(
                     onClick = onHandshake,
                     enabled = !handshakeBusy,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.packHandshakeButton(state.pack.id)),
                 ) {
                     Text(if (handshakingThisPack) "Verifying…" else "Verify device link")
                 }
@@ -334,11 +365,19 @@ private fun PackCard(
                     )
                 }
             }
-            PackStatus.INCOMPATIBLE -> Text(
-                "This device doesn't meet the pack's requirements.",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            PackStatus.INCOMPATIBLE -> Column {
+                Text(
+                    "This device doesn't meet the pack's requirements:",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    incompatibleChecklist ?: "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 }
@@ -347,4 +386,25 @@ private fun formatBytes(bytes: Long): String = when {
     bytes >= 1_000_000_000 -> "%.1f GB".format(bytes / 1e9)
     bytes >= 1_000_000 -> "%.0f MB".format(bytes / 1e6)
     else -> "%.0f KB".format(bytes / 1e3)
+}
+
+/** Scannable RAM/SDK/NPU checklist for PackStatus.INCOMPATIBLE — replaces one terse line. */
+private fun deviceRequirementChecklist(spec: DeviceSpec, packManager: ModelPackManager): String {
+    val lines = mutableListOf<String>()
+    val ramMb = packManager.deviceRamMb()
+    if (spec.minRamMb > 0 && ramMb < spec.minRamMb) {
+        lines += "• RAM: have ${ramMb} MB, need ${spec.minRamMb} MB"
+    }
+    val sdk = packManager.deviceSdkInt()
+    if (sdk < spec.minSdk) {
+        lines += "• Android version: have API $sdk, need API ${spec.minSdk}+"
+    }
+    if (spec.requiresNpu && !packManager.deviceHasNpu()) {
+        lines += "• Needs a hardware accelerator (NNAPI/QNN) this device doesn't have"
+    }
+    return if (lines.isEmpty()) {
+        "Doesn't meet requirements for a reason not yet surfaced here — try re-downloading."
+    } else {
+        lines.joinToString("\n")
+    }
 }

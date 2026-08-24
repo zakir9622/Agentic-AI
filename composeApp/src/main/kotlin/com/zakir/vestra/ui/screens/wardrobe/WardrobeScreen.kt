@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -30,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -44,6 +47,7 @@ import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
+import com.zakir.vestra.ui.TestTags
 import java.io.File
 
 @Composable
@@ -64,6 +68,8 @@ fun WardrobeScreen(
     detail?.let { entry ->
         LookDetailDialog(
             entry = entry,
+            allEntries = entries,
+            onSelectEntry = { detail = it },
             onDismiss = { detail = null },
             onFavorite = {
                 wardrobe.toggleFavorite(entry.id)
@@ -242,9 +248,26 @@ fun WardrobeScreen(
     }
 }
 
+/** Walks `parentGenerationId` pointers back to the first attempt — oldest first. */
+private fun ancestorChain(entry: WardrobeEntry, all: List<WardrobeEntry>): List<WardrobeEntry> {
+    val byId = all.associateBy { it.id }
+    val chain = mutableListOf<WardrobeEntry>()
+    var parentId = entry.parentGenerationId
+    var guard = 0
+    while (parentId != null && guard < 50) {
+        val parent = byId[parentId] ?: break
+        chain += parent
+        parentId = parent.parentGenerationId
+        guard++
+    }
+    return chain.asReversed()
+}
+
 @Composable
 private fun LookDetailDialog(
     entry: WardrobeEntry,
+    allEntries: List<WardrobeEntry> = emptyList(),
+    onSelectEntry: (WardrobeEntry) -> Unit = {},
     onDismiss: () -> Unit,
     onFavorite: () -> Unit,
     onShare: () -> Unit,
@@ -253,6 +276,7 @@ private fun LookDetailDialog(
 ) {
     val file = File(entry.imagePath)
     val isVideo = file.extension.lowercase() in setOf("mp4", "webm")
+    val history = remember(entry, allEntries) { ancestorChain(entry, allEntries) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(entry.personLabel.ifBlank { "Look" }) },
@@ -269,10 +293,47 @@ private fun LookDetailDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "${entry.tier.name.lowercase()} · ${if (isVideo) "video clip" else "still"}",
+                    "${entry.tier.name.lowercase()} · ${if (isVideo) "video clip" else "still"}" +
+                        if (history.isNotEmpty()) " · version ${history.size + 1}" else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (history.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "HISTORY · ${history.size} earlier attempt" + (if (history.size == 1) "" else "s"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    history.forEach { ancestor ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.wardrobeHistoryRow(ancestor.id))
+                                .clickable { onSelectEntry(ancestor) }
+                                .padding(vertical = 4.dp),
+                        ) {
+                            MediaThumb(
+                                file = File(ancestor.imagePath),
+                                contentDescription = "Earlier attempt",
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.height(48.dp)) {
+                                Text(
+                                    "Tap to view",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 GlassSecondaryButton(
                     text = if (entry.favorited) "Remove favorite" else "Add favorite",

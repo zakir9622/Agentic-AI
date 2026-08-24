@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -76,7 +77,9 @@ import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.AtelierHero
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.screens.news.NewsChatScreen
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -117,6 +120,7 @@ fun HomeScreen(
     wardrobe: WardrobeRepository,
     packManager: ModelPackManager,
     generativeViewModel: GenerativeViewModel,
+    localJobStore: com.zakir.vestra.shared.jobs.LocalJobStore? = null,
     freeCloudDiscovery: FreeCloudDiscovery? = null,
     newsRepository: NewsRepository? = null,
     chatViewModel: ChatViewModel? = null,
@@ -195,11 +199,11 @@ fun HomeScreen(
     }
 
     fun openNewsChat(headline: String?) {
-        headline?.let {
-            generativeViewModel.setPrompt(
-                "Discuss this headline for modest fashion and on-device AI: $it",
-            )
-        }
+        // NewsChatScreen owns its own chat input locally and already fills it with the headline
+        // before this callback runs — writing the headline into GenerativeViewModel.prompt here
+        // too was a real bug: that flow is shared by every studio tab (Image/Video/Code/Audio),
+        // so a headline tap silently overwrote whatever prompt was typed in the currently-bound
+        // studio, which is exactly the "prompts leak between tabs" symptom this was causing.
         onOpenNewsChat(headline)
         scope.launch {
             pagerState.animateScrollToPage(tabs.indexOf(HomeTab.NEWS))
@@ -213,6 +217,9 @@ fun HomeScreen(
                 .safeDrawingPadding()
                 .alpha(fade),
         ) {
+            androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 18.dp)) {
+                InterruptedJobsBanner(localJobStore)
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -264,7 +271,10 @@ fun HomeScreen(
                             tint = VestraColors.Ink,
                         )
                     }
-                    IconButton(onClick = onOpenSettings) {
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.testTag(TestTags.OPEN_SETTINGS_BUTTON),
+                    ) {
                         Box(
                             Modifier
                                 .size(36.dp)
@@ -299,6 +309,7 @@ fun HomeScreen(
                         onClick = {
                             scope.launch { pagerState.animateScrollToPage(index) }
                         },
+                        modifier = Modifier.testTag(TestTags.homeTab(tab.routeKey)),
                         text = {
                             Text(
                                 tab.label,

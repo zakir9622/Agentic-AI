@@ -11,7 +11,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.util.Consumer
 import androidx.navigation.compose.rememberNavController
 import com.zakir.vestra.shared.settings.AppearanceMode
@@ -44,24 +49,32 @@ class MainActivity : ComponentActivity() {
             }
 
             VestraTheme(darkTheme = dark) {
-                VestraNavHost(
-                    appSettings = app.appSettings,
-                    engineRouter = app.engineRouter,
-                    wardrobe = app.wardrobe,
-                    packManager = app.packManager,
-                    studioModels = app.studioModels,
-                    generative = app.generative,
-                    usageLedger = app.usageLedger,
-                    runDiagnostics = app.runDiagnostics,
-                    chatRepository = app.chatRepository,
-                    deviceRamMb = app.deviceProbe.totalRamMb(),
-                    freeCloudDiscovery = app.freeCloudDiscovery,
-                    humanParsing = app.humanParsing,
-                    liteEngineIo = app.liteEngineIo,
-                    navController = navController,
-                    pendingDeepLinkIntent = pendingIntent,
-                    onDeepLinkHandled = { pendingIntent = null },
-                )
+                // Compose's testTag is invisible to UiAutomator/Appium unless the app opts in
+                // here — without this, every Modifier.testTag(...) in the UI exists only for
+                // Compose's own UI-test framework, not for external automation tools.
+                Box(
+                    modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
+                ) {
+                    VestraNavHost(
+                        appSettings = app.appSettings,
+                        engineRouter = app.engineRouter,
+                        wardrobe = app.wardrobe,
+                        packManager = app.packManager,
+                        studioModels = app.studioModels,
+                        generative = app.generative,
+                        usageLedger = app.usageLedger,
+                        runDiagnostics = app.runDiagnostics,
+                        localJobStore = app.localJobStore,
+                        chatRepository = app.chatRepository,
+                        deviceRamMb = app.deviceProbe.totalRamMb(),
+                        freeCloudDiscovery = app.freeCloudDiscovery,
+                        humanParsing = app.humanParsing,
+                        liteEngineIo = app.liteEngineIo,
+                        navController = navController,
+                        pendingDeepLinkIntent = pendingIntent,
+                        onDeepLinkHandled = { pendingIntent = null },
+                    )
+                }
             }
         }
     }

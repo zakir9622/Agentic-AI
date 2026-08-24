@@ -12,13 +12,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.ui.TestTags
 
 @Composable
 fun LiveGenConsole(lines: List<String>, generationStartedAtMs: Long? = null) {
     if (lines.isEmpty()) return
     Spacer(Modifier.height(10.dp))
-    GlassCard {
+    GlassCard(modifier = Modifier.testTag(TestTags.LIVE_CONSOLE)) {
         val header = if (generationStartedAtMs != null) {
             val elapsed = ((System.currentTimeMillis() - generationStartedAtMs) / 1_000L).coerceAtLeast(0L)
             "LIVE · ${elapsed}s"
