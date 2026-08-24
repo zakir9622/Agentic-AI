@@ -381,7 +381,7 @@ fun SettingsScreen(
                             handshakeDetail = PackHandshakeWires.formatDetail(result)
                             Toast.makeText(
                                 context,
-                                "${result.signal} · ${result.displayName}",
+                                PackHandshakeWires.formatUserSummary(result),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }
@@ -401,19 +401,13 @@ fun SettingsScreen(
                                 append(report.summary)
                                 report.results.take(4).forEach { r ->
                                     append('\n')
-                                    append(r.signal)
-                                    append(' ')
-                                    append(r.packId)
-                                    if (r.ok && r.wires.isNotEmpty()) {
-                                        append(" → ")
-                                        append(r.wires.first())
-                                    }
+                                    append(PackHandshakeWires.formatUserSummary(r))
                                 }
                                 if (report.results.size > 4) {
                                     append("\n… +${report.results.size - 4} more")
                                 }
                             }
-                            Toast.makeText(context, report.signal + " · " + report.summary, Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, report.summary, Toast.LENGTH_LONG).show()
                         }
                     },
                 )

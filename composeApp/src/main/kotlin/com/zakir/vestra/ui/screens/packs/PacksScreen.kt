@@ -93,7 +93,7 @@ fun PacksScreen(
             handshakingPackId = null
             handshakeBannerOk = result.ok
             handshakeBanner = PackHandshakeWires.formatDetail(result)
-            Toast.makeText(context, "${result.signal} · ${result.displayName}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, PackHandshakeWires.formatUserSummary(result), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -108,8 +108,8 @@ fun PacksScreen(
             packHandshake = report.results.associateBy { it.packId }
             handshakingPackId = null
             handshakeBannerOk = report.allOk && report.results.isNotEmpty()
-            handshakeBanner = report.summary + " · " + report.signal
-            Toast.makeText(context, report.signal + " · " + report.summary, Toast.LENGTH_LONG).show()
+            handshakeBanner = report.summary
+            Toast.makeText(context, report.summary, Toast.LENGTH_LONG).show()
         }
     }
 
