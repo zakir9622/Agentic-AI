@@ -247,9 +247,18 @@ class AndroidTxt2ImgEngine(
         return unet.runSingle(inputs)
     }
 
-    /** Typed from the UNet's own declaration — exports use int64, int32 or float32. */
+    /**
+     * Typed from the UNet's own declaration — exports use int64, int32 or float32.
+     *
+     * The published local-sdturbo-v1 unet.onnx declares `timestep` as rank 1 (shape `[1]`), not
+     * a scalar — confirmed on a real Pixel 9 run: `ORT_INVALID_ARGUMENT ... Invalid rank for
+     * input: timestep Got: 0 Expected: 1`. The shape must be passed explicitly; the shared
+     * pro-pipeline call sites (SdControlNetPipeline.kt) already do this correctly, this one
+     * didn't — a Kotlin-only bug my desktop Python verification couldn't have caught, since the
+     * Python harness always built the tensor with an explicit np.array([timestep]) shape.
+     */
     private fun timestepTensor(timestep: Int, timeName: String): OnnxTensor =
-        unet.timestepTensor(timeName, timestep)
+        unet.timestepTensor(timeName, timestep, 1L)
 
     private fun decodeVae(latentSample: FloatArray): FloatArray {
         val scaled = FloatArray(latentSample.size) { i -> latentSample[i] / vaeScale }
