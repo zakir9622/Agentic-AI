@@ -43,17 +43,22 @@ actually fixed, not when it's merely reworded.
 
 ## Design/UX parity with the reference app (lookbookweb)
 
-- **`docs/plans/lovable-parity-local-first/PLAN.md` is a large plan; only a slice has landed.**
-  Done: per-modality accent color tokens (partial rollout — only the studio header uses them so
-  far), a derived radius scale, a press-lift micro-interaction on `GlassCard`, and confirmation
-  that cloud generation is off by default everywhere (it was already correct; only misleading
-  "Cloud by default" copy in the studio subtitle was fixed to reflect that). Not done: the
-  bottom-dock navigation pattern (needs a design decision first), resumable job state, version
-  lineage for local generations, correlation-ID-first error UX, consolidated storage rollup,
-  voice-studio DSP depth (meters/scope/latency calibration), safety post-process, and a shared
-  shimmer/skeleton component. Treat any claim that this app "matches lookbookweb's design" as
-  false until those are closed — right now it matches on typography, one interaction pattern,
-  and color-identity direction, not the full UX.
+- **`docs/plans/lovable-parity-local-first/PLAN.md` is a large plan; a real slice has landed, not
+  all of it.** Done: per-modality accent color tokens (partial rollout — only the studio header
+  uses them so far), a derived radius scale, a press-lift micro-interaction on `GlassCard`,
+  confirmation that cloud generation is off by default everywhere (it was already correct; only
+  misleading "Cloud by default" copy in the studio subtitle was fixed to reflect that), a
+  resumable-job "interrupted" banner for local generations killed mid-run, correlation-ID-first
+  error messages for local failures, a storage-used rollup + device-requirement checklist in
+  Model Packs, a single honestly-labeled Processing Mode card replacing the old cloud switch, and
+  a shared shimmer-loading component wired into the one real gap found. **Not done:** the
+  bottom-dock navigation pattern (deliberately deferred — needs a design decision, not a
+  unilateral call), version lineage for local generations (retries as a discoverable chain), a
+  voice-studio DSP layer (real-time meters/scope, latency auto-calibration), a local
+  safety/blur post-process, and Part D's planned real-model output-quality testing for code and
+  audio. Treat any claim that this app "matches lookbookweb's design" as false until those close
+  too — it currently matches on typography, several interaction/UX patterns, and color-identity
+  direction, not the complete UX described in the plan.
 
 ## Testability
 
