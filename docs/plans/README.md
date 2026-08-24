@@ -4,6 +4,7 @@ Active roadmaps live in separate directories so parallel workstreams do not coll
 
 | Directory | Source | Baseline | Scope | Status |
 |-----------|--------|----------|-------|--------|
+| [`lovable-parity-local-first/`](lovable-parity-local-first/) | User's `lookbookweb` (Lovable) repo + live app research | **v3.1.0-rc19** | Glass/spatial design tokens, generation-lifecycle UX (resumable jobs, lineage, correlation-ID errors, storage rollup, single processing-mode setting) — local generation only, no cloud parity | **Planning** — see Open questions before implementation |
 | [`five-star-quality/`](five-star-quality/) | Post true-local rc9 audit | **v3.1.0-rc9 → rc10+** | Studio isolation, OrtGraph soft-fail, honesty UI, iterative 5★ cycles | **Active** |
 | [`local-first-mode/`](local-first-mode/) | Claude direct (Cursor usage exhausted) | **v3.1.0-rc17** | News refresh fix, Try-on hidden app-wide, global cloud-models toggle, LiteRT-LM on-device slowness | **Iteration 1 shipped** — 2/3 not started |
 | [`generation-transparency/`](generation-transparency/) | Claude Code read-only audit (post rc9) | **v3.1.0-rc15** | On-device latency benchmark harness, Pro-pack export collision, OrtSessionCache in diffusion path, per-tab generation log + timer, reduced-motion coverage | **rc15 complete** — all code items; Pixel 9 benchmark run after install |

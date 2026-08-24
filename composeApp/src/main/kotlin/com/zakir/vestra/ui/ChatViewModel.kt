@@ -9,6 +9,7 @@ import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.engine.local.LocalCodeStreamEvent
+import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
@@ -90,11 +91,18 @@ class ChatViewModel(
             } + "\n\nUSER: $text"
         }
 
+        // A local run must be recorded under its real local model, not the selected cloud
+        // provider — the diagnostics run history used to tag every local Qwen3/Gemma reply as
+        // whatever cloud model was selected (e.g. "Llama 3.3 70B (Groq)"), confirmed live in a
+        // user's diagnostics export where the record's own note field named the local model that
+        // actually ran while modelId/modelLabel still said the cloud one.
+        val localProviderId = if (localChat) generative.localChatProviderId() else null
         val builder = runDiagnostics?.startRun(
             capability = RunCapability.CHAT,
             tier = null,
-            modelId = provider.id,
-            modelLabel = provider.displayName,
+            modelId = localProviderId ?: provider.id,
+            modelLabel = localProviderId?.let { LocalModelCatalog.byId(it)?.displayName ?: it }
+                ?: provider.displayName,
             deviceRamMb = deviceRamMb,
         )
 
