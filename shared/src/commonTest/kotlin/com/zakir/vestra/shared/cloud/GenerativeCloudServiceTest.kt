@@ -398,6 +398,59 @@ class GenerativeCloudServiceTest {
     }
 
     @Test
+    fun videoGenHardStopsOfflineWhenNoLocalPack() = runTest {
+        // Regression: video used to soft-continue to cloud with "Network probe uncertain —
+        // trying cloud anyway…" when offline, unlike image/code/audio which all hard-stop.
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setCloudModelsEnabled(true)
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+        )
+        val states = service.generateVideo("abaya clip").toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled, "offline with no local pack must not attempt cloud")
+    }
+
+    @Test
+    fun videoGenHardStopsOfflineWhenLocalFails() = runTest {
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setCloudModelsEnabled(true)
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localVideo = object : LocalVideoGenerator {
+                override fun isReady(): Boolean = true
+                override fun generate(prompt: String, seed: Long?) =
+                    LocalVideoResult.Unavailable("pack broken")
+            },
+        )
+        val states = service.generateVideo("abaya clip").toList()
+        val failed = states.filterIsInstance<GenerativeState.Failed>().single()
+        assertTrue(failed.message.contains("offline", ignoreCase = true), failed.message)
+        assertTrue(!httpCalled, "offline with a broken local pack must not attempt cloud")
+    }
+
+    @Test
     fun audioGenUsesLocalWithoutConnectingToCloudMessage() = runTest {
         val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
         val settings = AppSettings(TestMemorySettings()).apply {

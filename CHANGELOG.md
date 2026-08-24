@@ -1,5 +1,25 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc20
+- **Fixed a real on-device crash in local Create Studio**, found via a user's Pixel 9 screenshots:
+  `ORT_INVALID_ARGUMENT — Invalid rank for input: timestep Got: 0 Expected: 1`. The local
+  txt2img engine built the timestep tensor with no shape (defaulting to a scalar); the published
+  `local-sdturbo-v1/unet.onnx` requires rank 1. Reproduced the exact error against the real graph
+  before and after the fix to confirm.
+- **Fixed local generations being mislabeled as cloud**, found via a user's diagnostics export:
+  a CHAT run recorded `modelId: "llama33-70b-groq"` while its own note field said
+  `local-qwen3-06b-v1` actually ran (cloud was off). The live console showed "Connecting to FLUX.1
+  Schnell" / "Connecting to Llama 3.3 70B (Groq)" immediately before local generation actually
+  started. Fixed across image/code/video/audio generation, the Chat and Code Studio diagnostics
+  records, and the Diagnostics screen's "Tier" field (was hardcoded to CLOUD for every run).
+- **Video now hard-stops offline** like image/code/audio already did, instead of a soft "Network
+  probe uncertain — trying cloud anyway…" that burned time with no network to reach.
+- **Local still-clip video holds its pack in use** through both the still-image generation and
+  the MediaCodec encode that follows it, matching the pattern used everywhere else a local pack
+  backs a multi-stage operation.
+- **Pack handshake toasts no longer leak machine ACK strings** (`HANDSHAKE_OK`) — use the existing
+  human-readable summary everywhere a handshake result reaches the user.
+
 ## 3.1.0-rc19
 - **Live generation output, everywhere:** tapping Generate now streams real model output as
   it's produced — News Chat and Code Studio append tokens live (`GenerativeState.CodeStreaming`,

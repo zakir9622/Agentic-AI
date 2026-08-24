@@ -756,6 +756,7 @@ class GenerativeCloudService(
             if (!tryLocalFirst) {
                 emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
             }
+            val networkOk = settings.networkLikelyAvailable()
             if (tryLocalFirst) {
                 emit(GenerativeState.Running(0.08f, "Encoding local still-clip…"))
                 when (val local = localVideo.generate(prompt.trim(), assists.seed)) {
@@ -764,6 +765,19 @@ class GenerativeCloudService(
                         return@flow
                     }
                     is LocalVideoResult.Unavailable -> {
+                        // Same hard-stop as image/code/audio: an offline user with a broken
+                        // local pack must not silently burn time on a cloud attempt that has
+                        // no network to reach — was previously the one capability that kept
+                        // going with a soft "trying cloud anyway…" notice instead.
+                        if (!networkOk) {
+                            emit(
+                                GenerativeState.Failed(
+                                    "You're offline and the on-device still-clip couldn't run. " +
+                                        local.reason,
+                                ),
+                            )
+                            return@flow
+                        }
                         emit(
                             GenerativeState.Running(
                                 0.1f,
@@ -777,13 +791,16 @@ class GenerativeCloudService(
                 emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.VIDEO)))
                 return@flow
             }
-            if (!settings.networkLikelyAvailable()) {
+            // Hard stop when offline with no local pack — do not burn time on cloud, matching
+            // generateImage/generateCode/generateAudio's identical guard.
+            if (!networkOk) {
                 emit(
-                    GenerativeState.Running(
-                        0.05f,
-                        "Network probe uncertain — trying cloud anyway…",
+                    GenerativeState.Failed(
+                        "You're offline. Install local-sdturbo-v1 from Model packs " +
+                            "for offline video still-clips.",
                     ),
                 )
+                return@flow
             }
             val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health)
             val variants = visualPromptVariants(prompt, assists)

@@ -119,7 +119,7 @@ Each cycle:
 
 ---
 
-## Q3 checklist (active · rc19)
+## Q3 checklist (active · rc20)
 
 - [ ] Run [DEVICE_MATRIX.md](./DEVICE_MATRIX.md) on Pixel 8/9 with `latest` APK — **still blocked**:
       this repo's Claude sessions have no `adb`/physical-device access, so the "Stability"/"Offline"
@@ -140,24 +140,43 @@ Each cycle:
 - [x] Per-pack handshake busy state — `PacksScreen` used one shared flag so every installed
       pack's "Verify device link" button went busy at once with no way to tell which pack was
       actually being checked; now tracked per-pack (`ModelPackManager.handshakeAll(onPackStarted)`)
+- [x] Real on-device crash fixed (rc20) — a user's Pixel 9 screenshots caught
+      `ORT_INVALID_ARGUMENT — Invalid rank for input: timestep` in local Create Studio; the local
+      txt2img engine built the timestep tensor with no shape. Reproduced against the real
+      published graph before/after the fix to confirm.
+- [x] Local-vs-cloud mislabeling fixed (rc20) — a user's diagnostics export caught local runs
+      recorded and announced as whatever cloud model was selected (e.g. a CHAT run tagged
+      `llama33-70b-groq` while its own note field said local Qwen3 actually ran, cloud off).
+      Fixed across image/code/video/audio generation and the diagnostics run records/Tier field.
+- [x] Video offline hard-stop (rc20) — video was the one capability still soft-continuing to
+      cloud when offline ("Network probe uncertain — trying cloud anyway…"); now hard-stops like
+      image/code/audio.
+- [x] Video pack-in-use through generate+encode (rc20) — `AndroidLocalVideoGenerator` didn't hold
+      `local-sdturbo-v1` in use across its still-image + MediaCodec encode stages.
+- [x] U5 correction (rc20) — Q1 marked "Human handshake labels" done at rc10, but the actual
+      Toast text in `PacksScreen`/`SettingsScreen` still built `"${result.signal} · ..."` (a raw
+      `HANDSHAKE_OK`/`HANDSHAKE_FAIL` machine string) — the human-readable path
+      (`PackHandshakeWires.formatUserSummary`) existed but was never wired into the toast calls.
+      Fixed; see the Honesty score correction below.
 - [ ] Scorecard ≥4.5 average → tag **3.1.0** (or open Q4 for polish gaps) — see honest self-score
       below; code/desktop-verifiable dimensions are strong, the on-device dimension is the one
       real gap left, not more code work
 - [ ] Confirm Pro AUTO→Lite on device with installed `pro-v1` — same device-access blocker
 
-**Interim builds:** rc12 polish · rc13 Pro graph probe · **rc19** streaming + verified local
-image-gen fixes + quality upscale + per-pack handshake honesty.
+**Interim builds:** rc12 polish · rc13 Pro graph probe · rc19 streaming + verified local image-gen
+fixes + quality upscale + per-pack handshake honesty · **rc20** real user-reported device fixes
+(timestep crash, local/cloud mislabeling, video offline parity, handshake toast honesty).
 
 ### Honest self-score (code + real desktop model execution, no physical device — 2026-08-24)
 
 | Dimension | Score | Why |
 |---|---|---|
-| Stability | 4/5 | No crash paths found this cycle; ORT/LiteRT sessions soft-fail; two real generation bugs found by actually running the models were fixed and re-verified. Can't reach 5 without the device soak — ARM/XNNPACK-specific behavior is still unverified. |
-| Honesty | 5/5 | Every claim audited this cycle checked out against code, or was fixed to match reality (handshake busy state, quality-upscale catalog description, Real-ESRGAN wiring). No known lying UI copy remains. |
+| Stability | 4/5 | ORT/LiteRT sessions soft-fail; a real crash (timestep tensor rank) found via a user's actual device was fixed and re-verified against the real graph. Can't reach 5 without a full device soak — ARM/XNNPACK-specific behavior beyond what's been reported is still unverified. |
+| Honesty | 4/5 | **Corrected from a 5/5 claimed earlier this same cycle** — that score was written before a user's diagnostics export caught two live honesty bugs this doc had not found: local runs mislabeled as cloud everywhere, and a stale `HANDSHAKE_OK`-leaking toast that Q1 had marked fixed but wasn't. Both are now fixed, but the corrected score is the honest one: don't claim 5/5 on a dimension a fresh source of evidence (the actual user, running the actual app) just disproved. |
 | Clarity | 4/5 | Live streaming output + per-pack progress close the two biggest "what is it doing" gaps. Not yet re-verified against a fresh design pass (glass-card density / hero height are unverified without a rendered screenshot). |
-| Offline | 4/5 | Local image gen (tiny-SD + Bonsai), code, video, audio, try-on all verified reachable offline in code; the sdturbo pipeline is now verified to actually denoise correctly via real weights, not just load without crashing. |
+| Offline | 4/5 | Local image gen (tiny-SD + Bonsai), code, video, audio, try-on all verified reachable offline in code; video's offline hard-stop gap (this cycle's finding) is now closed, bringing it to parity with the others. |
 | Cloud fallback | 5/5 | Typed `CloudFailure`, health-aware routing, and the fallback-loop tests already in place from earlier cycles are unchanged and still green. |
-| **Avg** | **4.4/5** | One real gap keeps this off ≥4.5: the device matrix. Everything reachable without a physical device has been verified and closed. |
+| **Avg** | **4.2/5** | Two real gaps keep this off ≥4.5: the device matrix, and the reminder that "verified against code" is not the same bar as "verified against a real device" — the two bugs this cycle fixed were both found by a user, not by this repo's own review process. |
 
 ---
 
