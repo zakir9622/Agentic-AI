@@ -127,7 +127,6 @@ class GenerativeCloudService(
         val capability = if (referenceUri.isNullOrBlank()) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
         val provider = settings.selectedProvider(capability)
         var attempted = provider
-        emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
@@ -141,6 +140,14 @@ class GenerativeCloudService(
                 else -> localImage.isEditReady()
             }
             val tryLocalFirst = localReady && (!networkOk || settings.prefersLocal(capability))
+            // Only announce the cloud provider once it's actually the one about to run — the
+            // old unconditional emit here said "Connecting to FLUX.1 Schnell" (or whichever
+            // cloud model was selected) even when local was about to run instead, confirmed
+            // live in a user's diagnostics export (the message appeared verbatim right before
+            // "Generating on-device…" actually started).
+            if (!tryLocalFirst) {
+                emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
+            }
             // Optional vision assist — describe reference before image gen (L2).
             var enrichedPrompt = prompt.trim()
             if (assists.analyzeReference && !referenceUri.isNullOrBlank() && localVision.isReady()) {
@@ -564,15 +571,19 @@ class GenerativeCloudService(
     ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.CODE)
         var attempted = provider
-        emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            if (localCode.isReady() &&
+            val tryLocalFirst = localCode.isReady() &&
                 (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.CODE))
-            ) {
+            // Same fix as generateImage: only announce the cloud provider once it's actually
+            // the one about to run.
+            if (!tryLocalFirst) {
+                emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
+            }
+            if (tryLocalFirst) {
                 val localLabel = LocalModelCatalog.byId(localCode.providerId())?.displayName
                     ?: "Local on-device"
                 emit(GenerativeState.Running(0.08f, "Loading $localLabel…"))
@@ -733,15 +744,19 @@ class GenerativeCloudService(
     ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.VIDEO)
         var attempted = provider
-        emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         try {
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
                 is SafetyVerdict.Ok -> Unit
             }
-            if (localVideo.isReady() &&
+            val tryLocalFirst = localVideo.isReady() &&
                 (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.VIDEO))
-            ) {
+            // Same fix as generateImage: only announce the cloud provider once it's actually
+            // the one about to run.
+            if (!tryLocalFirst) {
+                emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
+            }
+            if (tryLocalFirst) {
                 emit(GenerativeState.Running(0.08f, "Encoding local still-clip…"))
                 when (val local = localVideo.generate(prompt.trim(), assists.seed)) {
                     is LocalVideoResult.Ok -> {
@@ -951,7 +966,20 @@ class GenerativeCloudService(
         var attempted = provider
         val safeKnobs = knobs.sanitized()
         val spoken = enrichAudioPrompt(prompt.trim(), assists)
-        emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
+        // Mirrors the three unconditional local branches below (voice-changer, scribe, TTS —
+        // TTS is deliberately "always preferred" whenever ready, not gated by online/offline).
+        // Same fix as generateImage/generateCode/generateVideo: only announce the cloud
+        // provider once it's actually the one about to run.
+        val tryLocalFirst = (!referenceAudioUri.isNullOrBlank() && prompt.trim().equals("voice-change", ignoreCase = true)) ||
+            (
+                settings.selectionId(AiCapability.AUDIO) == LiteRtLmPacks.AUDIO_SCRIBE &&
+                    !referenceAudioUri.isNullOrBlank() &&
+                    localTranscriber.isReady()
+                ) ||
+            localAudio.isReady()
+        if (!tryLocalFirst) {
+            emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
+        }
         try {
             when (val safety = InputSafetyGate.checkPrompt(spoken)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)

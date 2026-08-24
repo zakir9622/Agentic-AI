@@ -388,6 +388,7 @@ class GenerativeViewModel(
         startGeneration(
             capability = RunCapability.AUDIO,
             modelLabel = "Local audio scribe (offline)",
+            local = true,
             studio = AiCapability.AUDIO,
         ) {
             generative.generateTranscribe(clip)
@@ -423,14 +424,22 @@ class GenerativeViewModel(
                 is PreflightResult.Ok -> Unit
             }
         }
-        val localLabel = if (_referenceUri.value == null) {
-            "Local SD-Turbo (offline)"
-        } else {
+        // Edit always uses tiny-SD (Bonsai has no reference-image conditioning); Create reflects
+        // whichever engine the user actually selected, matching GenerativeCloudService's own
+        // routing check — was hardcoded to "Local SD-Turbo (offline)" regardless, mislabeling
+        // every Bonsai-selected run in the diagnostics run history the same way local Code runs
+        // were mislabeled "Local Gemma (offline)" regardless of which local model actually ran.
+        val localLabel = if (_referenceUri.value != null) {
             "Local SD-Turbo edit (offline)"
+        } else if (appSettings.selectionId(AiCapability.IMAGE_GEN) == "local-bonsai-image-v1") {
+            "Bonsai Image 4B (LiteRT, offline)"
+        } else {
+            "Local SD-Turbo (offline)"
         }
         startGeneration(
             capability = if (_referenceUri.value == null) RunCapability.IMAGE_GEN else RunCapability.IMAGE_EDIT,
             modelLabel = if (bypassPreflight) localLabel else appSettings.selectedProvider(capability).displayName,
+            local = bypassPreflight,
             studio = capability,
         ) {
             generative.generateImage(p, _referenceUri.value, currentAssists())
@@ -455,9 +464,18 @@ class GenerativeViewModel(
                 is PreflightResult.Ok -> Unit
             }
         }
+        // Reflects whichever engine actually runs (Qwen3, Gemma 3, Gemma 4 E2B, FunctionGemma —
+        // RoutingLocalCodeGenerator picks per the user's selection) — was hardcoded to "Local
+        // Gemma (offline)" regardless, mislabeling every non-Gemma local code run the same way
+        // local image gen used to mislabel every Bonsai output as local-sdturbo-v1. Confirmed
+        // live in a user's diagnostics export: modelLabel said "Local Gemma (offline)" while the
+        // run's own note field said local-qwen3-06b-v1 actually ran.
+        val localCodeLabel = LocalModelCatalog.byId(generative.localCodeProviderId())?.displayName
+            ?: "Local on-device"
         startGeneration(
             capability = RunCapability.CODE,
-            modelLabel = if (bypassPreflight) "Local Gemma (offline)" else appSettings.selectedProvider(AiCapability.CODE).displayName,
+            modelLabel = if (bypassPreflight) localCodeLabel else appSettings.selectedProvider(AiCapability.CODE).displayName,
+            local = bypassPreflight,
             studio = AiCapability.CODE,
         ) {
             generative.generateCode(p, currentAssists())
@@ -499,6 +517,7 @@ class GenerativeViewModel(
         startGeneration(
             capability = RunCapability.AUDIO,
             modelLabel = modelLabel,
+            local = bypassPreflight,
             studio = AiCapability.AUDIO,
         ) {
             generative.generateAudio(
@@ -523,6 +542,7 @@ class GenerativeViewModel(
         startGeneration(
             capability = RunCapability.AUDIO,
             modelLabel = "Local voice changer",
+            local = true,
             studio = AiCapability.AUDIO,
         ) {
             generative.generateAudio(
@@ -559,6 +579,7 @@ class GenerativeViewModel(
             } else {
                 appSettings.selectedProvider(AiCapability.VIDEO).displayName
             },
+            local = bypassPreflight,
             studio = AiCapability.VIDEO,
         ) {
             generative.generateVideo(p, currentAssists())
@@ -601,6 +622,7 @@ class GenerativeViewModel(
         capability: RunCapability,
         modelLabel: String?,
         studio: AiCapability,
+        local: Boolean,
         block: () -> kotlinx.coroutines.flow.Flow<GenerativeState>,
     ) {
         job?.cancel()
@@ -615,9 +637,14 @@ class GenerativeViewModel(
         _generationStartedAtMs.value = startedAt
         bag(studioKey).generationStartedAtMs = startedAt
         appendLive("Start · ${capability.name} · ${modelLabel ?: "model"}")
+        // EngineTier is really a try-on-specific concept (AUTO/LITE/PRO/CLOUD); reused loosely
+        // here as an on-device/cloud signal for the other capabilities since RunDiagnostics has
+        // no dedicated field for it. Was hardcoded to CLOUD unconditionally — the Diagnostics
+        // screen renders this ("Tier: $it"), so every local Image/Code/Video/Audio run showed
+        // "Tier: CLOUD" even when fully offline, confirmed in a user's diagnostics export.
         val builder = runDiagnostics?.startRun(
             capability = capability,
-            tier = EngineTier.CLOUD,
+            tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
             modelId = null,
             modelLabel = modelLabel,
             deviceRamMb = deviceRamMb,

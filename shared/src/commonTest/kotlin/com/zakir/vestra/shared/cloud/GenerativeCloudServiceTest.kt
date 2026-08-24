@@ -344,6 +344,79 @@ class GenerativeCloudServiceTest {
         assertEquals("local-sdturbo-v1", ready.providerId)
         assertEquals("/tmp/local.png", ready.path)
         assertTrue(!httpCalled, "Cloud HTTP should not run when local image succeeds offline")
+        // Regression: a user's real device log showed "Connecting to FLUX.1 Schnell" (the
+        // selected cloud provider) even though this exact scenario ran fully on-device — the
+        // message was emitted unconditionally before the local-vs-cloud decision was made.
+        assertTrue(
+            states.filterIsInstance<GenerativeState.Preparing>().none { it.message.startsWith("Connecting to") },
+            "must not announce a cloud provider when local generation is about to run: $states",
+        )
+    }
+
+    @Test
+    fun codeGenUsesLocalWhenReadyWithoutConnectingToCloudMessage() = runTest {
+        val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setCloudModelsEnabled(true)
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localCode = FakeLocalCode(),
+        )
+        val states = service.generateCode("write a function").toList()
+        assertTrue(states.filterIsInstance<GenerativeState.CodeReady>().isNotEmpty())
+        assertTrue(
+            states.filterIsInstance<GenerativeState.Preparing>().none { it.message.startsWith("Connecting to") },
+            "must not announce a cloud provider when local code generation is about to run: $states",
+        )
+    }
+
+    @Test
+    fun videoGenUsesLocalWhenReadyWithoutConnectingToCloudMessage() = runTest {
+        val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setCloudModelsEnabled(true)
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localVideo = FakeLocalVideo(),
+        )
+        val states = service.generateVideo("a short clip").toList()
+        assertTrue(states.filterIsInstance<GenerativeState.VideoReady>().isNotEmpty())
+        assertTrue(
+            states.filterIsInstance<GenerativeState.Preparing>().none { it.message.startsWith("Connecting to") },
+            "must not announce a cloud provider when local video generation is about to run: $states",
+        )
+    }
+
+    @Test
+    fun audioGenUsesLocalWithoutConnectingToCloudMessage() = runTest {
+        val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setCloudModelsEnabled(true)
+            networkProbe = { false }
+        }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localAudio = FakeLocalAudio(),
+        )
+        val states = service.generateAudio("hello there").toList()
+        assertTrue(states.filterIsInstance<GenerativeState.AudioReady>().isNotEmpty())
+        assertTrue(
+            states.filterIsInstance<GenerativeState.Preparing>().none { it.message.startsWith("Connecting to") },
+            "must not announce a cloud provider when local audio generation is about to run: $states",
+        )
     }
 
     @Test
