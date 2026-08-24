@@ -102,6 +102,21 @@ object LocalModelCatalog {
             testingNote = "Download local-sdturbo-v1 in Settings → Model packs. Airplane mode Create Studio should yield a PNG.",
         ),
         LocalModelEntry(
+            id = "local-bonsai-image-v1",
+            displayName = "Bonsai Image 4B (LiteRT)",
+            description = "Ternary-weight diffusion transformer (FLUX.2-klein architecture) via LiteRT " +
+                "CompiledModel/Interpreter — 512x512, fully offline. Several minutes per image on CPU; " +
+                "text-to-image only, no edit.",
+            capability = AiCapability.IMAGE_GEN,
+            packId = "local-bonsai-image-v1",
+            license = "Apache-2.0",
+            approxSizeLabel = "~4.0 GB",
+            runnable = true,
+            testingNote = "Download local-bonsai-image-v1 in Settings → Model packs (~4 GB, CPU/XNNPACK). " +
+                "Airplane mode Create Studio should yield a 512x512 PNG in several minutes; " +
+                "treat 8 GB RAM as the floor, 12 GB+ as the practical target.",
+        ),
+        LocalModelEntry(
             id = "local-sdturbo-edit",
             displayName = "Local image edit (img2img)",
             description = "Same tiny-SD pack with vae_encoder — attach a reference photo and edit offline.",

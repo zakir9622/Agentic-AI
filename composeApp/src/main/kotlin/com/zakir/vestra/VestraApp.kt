@@ -172,12 +172,21 @@ class VestraApp : Application() {
                 }.getOrNull()
             },
         )
+        val bonsaiImageGen = com.zakir.vestra.shared.engine.local.BonsaiImageEngine(
+            packManager,
+            outputDir = generationsDir,
+        )
+        val routedLocalImageGen = com.zakir.vestra.shared.engine.local.RoutingLocalImageGenerator(
+            appSettings,
+            sdturbo = localImageGen,
+            bonsai = bonsaiImageGen,
+        )
         generative = GenerativeCloudService(
             http,
             cloudIo,
             appSettings,
             usageLedger,
-            localImage = localImageGen,
+            localImage = routedLocalImageGen,
             localAudio = com.zakir.vestra.shared.engine.local.AndroidLocalAudioGenerator(
                 this,
                 packManager,

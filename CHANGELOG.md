@@ -1,5 +1,11 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc18
+- **Bonsai Image 4B (LiteRT):** second on-device text-to-image engine, `local-bonsai-image-v1` —
+  ternary-weight FLUX.2-klein-architecture DiT via LiteRT `Interpreter`/XNNPACK (~4 GB, text-to-image
+  only). Selectable alongside tiny-SD in the Create Studio ON-DEVICE picker; Edit always uses tiny-SD.
+- Plain `com.google.ai.edge.litert:litert` runtime added alongside the existing LiteRT-LM engine.
+
 ## 3.1.0-rc17
 - **LiteRT-LM deep integration:** warm engine cache (no per-shot cold load), 90s inference timeout
 - **Offline hard-stop:** Code Studio and Chat fail closed when offline without local pack
