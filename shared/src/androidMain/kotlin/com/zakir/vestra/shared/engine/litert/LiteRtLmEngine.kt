@@ -37,12 +37,43 @@ class LiteRtLmEngine(
 
     private var engine: Engine? = null
     private var loadMs: Long = 0L
+    private var usedGpu: Boolean = useGpu
 
     fun isInitialized(): Boolean = engine != null
 
+    /** Which backend actually loaded — may differ from the requested [useGpu] after a fallback. */
+    fun usedGpuBackend(): Boolean = usedGpu
+
     fun initialize() {
         val started = System.currentTimeMillis()
-        val backend = if (useGpu) Backend.GPU() else Backend.CPU()
+        if (useGpu) {
+            runCatching { buildAndInitEngine(gpu = true) }
+                .onSuccess { eng ->
+                    engine = eng
+                    usedGpu = true
+                }
+                .onFailure { gpuError ->
+                    // GPU delegate compilation failing for a quantized model is a real, known
+                    // class of Android-device issue (driver/op-support gaps), not necessarily
+                    // transient — confirmed live via a user's device log:
+                    // "Failed to create engine: INTERNAL ... litert_compiled_model_executor.cc".
+                    // Without this fallback, "Retry load" just repeats the identical failing GPU
+                    // path forever; CPU is slower but should load the same weights correctly.
+                    Log.w(TAG, "GPU engine init failed, falling back to CPU: ${gpuError.message}")
+                    val eng = buildAndInitEngine(gpu = false)
+                    engine = eng
+                    usedGpu = false
+                }
+        } else {
+            engine = buildAndInitEngine(gpu = false)
+            usedGpu = false
+        }
+        loadMs = System.currentTimeMillis() - started
+        Log.i(TAG, "Cold load ${loadMs}ms · ${File(modelPath).name} · ${backendLabel(usedGpu)}")
+    }
+
+    private fun buildAndInitEngine(gpu: Boolean): Engine {
+        val backend = if (gpu) Backend.GPU() else Backend.CPU()
         val visionBackend = if (visionEnabled) backend else null
         val audioBackend = if (audioEnabled) Backend.CPU() else null
         val config = EngineConfig(
@@ -54,9 +85,7 @@ class LiteRtLmEngine(
         )
         val eng = Engine(config)
         eng.initialize()
-        engine = eng
-        loadMs = System.currentTimeMillis() - started
-        Log.i(TAG, "Cold load ${loadMs}ms · ${File(modelPath).name} · ${backendLabel(useGpu)}")
+        return eng
     }
 
     fun coldLoadMs(): Long = loadMs
