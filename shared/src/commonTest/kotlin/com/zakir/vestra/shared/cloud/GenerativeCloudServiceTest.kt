@@ -723,28 +723,12 @@ class GenerativeCloudServiceTest {
         assertTrue(!httpCalled)
     }
 
-    @Test
-    fun audioScribePickerTranscribesAttachedClip() = runTest {
-        val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
-            setLocalGenerator(AiCapability.AUDIO, LiteRtLmPacks.AUDIO_SCRIBE)
-        }
-        val service = GenerativeCloudService(
-            httpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
-            FakeIo(),
-            settings,
-            UsageLedger(TestMemorySettings()),
-            localTranscriber = FakeLocalTranscriber("transcribed text"),
-        )
-        val states = service.generateAudio(
-            prompt = "ignored for scribe",
-            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
-            referenceAudioUri = "file:///tmp/recording.wav",
-        ).toList()
-        val ready = states.filterIsInstance<GenerativeState.TranscribeReady>().single()
-        assertEquals("transcribed text", ready.text)
-    }
+    // audioScribePickerTranscribesAttachedClip removed: local-audio-scribe-v1 is no longer
+    // catalog-selectable (the published local-gemma-4-e2b-v1 pack ships with audio disabled, so
+    // AndroidLocalAudioTranscriber.isReady() can never be true). Beyond setLocalGenerator now
+    // rejecting the id, AppSettings.migrateProviderId scrubs any raw-stored non-selectable local
+    // id back to a cloud default at construction time — the state this test built is unreachable
+    // through any path, public API or raw settings store alike.
 
     @Test
     fun audioCloudOfflineRecordsOfflineHealthKind() = runTest {

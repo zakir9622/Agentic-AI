@@ -180,8 +180,11 @@ object LocalModelCatalog {
             packId = "local-gemma-4-e2b-v1",
             license = "Gemma Terms of Use",
             approxSizeLabel = "~2.6 GB (shared with Code)",
-            runnable = true,
-            testingNote = "Install local-gemma-4-e2b-v1 — Transcribe in Audio Studio uses the same pack.",
+            runnable = false,
+            testingNote = "Not working: the published local-gemma-4-e2b-v1 pack ships with audio " +
+                "disabled (config.json \"audio\": false), so AndroidLocalAudioTranscriber.isReady() is " +
+                "always false regardless of download state. Needs a Gemma 4 pack republished with audio " +
+                "enabled and verified, or should stay off the picker until then.",
         ),
         LocalModelEntry(
             id = "local-functiongemma-v1",
@@ -308,9 +311,6 @@ object LocalModelCatalog {
         entry.id == "local-gemma-v1" && packReady -> "Ready offline · legacy Gemma 3"
         entry.id == "local-gemma-v1" && !packReady ->
             "Download local-gemma-v1 in Model packs (~530 MB)"
-        entry.id == "local-audio-scribe-v1" && packReady -> "Ready offline · transcribe (Gemma 4)"
-        entry.id == "local-audio-scribe-v1" && !packReady ->
-            "Download local-gemma-4-e2b-v1 in Model packs (~2.6 GB)"
         entry.id == "local-stillclip-v1" && packReady -> "Ready offline (still-clip)"
         entry.id == "local-stillclip-v1" && !packReady ->
             "Download local-sdturbo-v1 for offline still-clips"
@@ -327,8 +327,7 @@ object LocalModelCatalog {
             entry.id == "local-stillclip-v1" ||
             entry.id == "local-qwen3-06b-v1" ||
             entry.id == "local-gemma-4-e2b-v1" ||
-            entry.id == "local-gemma-v1" ||
-            entry.id == "local-audio-scribe-v1" -> packReady
+            entry.id == "local-gemma-v1" -> packReady
         entry.id == "local-gemma-4-vision-v1" -> packReady
         entry.runnable && (entry.packId == null || packReady) -> true
         else -> false

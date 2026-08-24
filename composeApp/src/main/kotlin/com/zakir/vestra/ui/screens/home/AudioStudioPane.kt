@@ -194,8 +194,8 @@ fun AudioStudioPane(
     ) {
         GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase())
         Text(
-            "Device TTS works offline (system voices + knobs). Transcribe uses local-gemma-4-e2b-v1 when installed. " +
-                "Cloud TTS optional.",
+            "Device TTS works offline (system voices + knobs). Offline transcription isn't available yet " +
+                "— the published Gemma 4 pack doesn't include audio support. Cloud TTS optional.",
             style = MaterialTheme.typography.bodySmall,
             color = VestraColors.InkMuted,
         )

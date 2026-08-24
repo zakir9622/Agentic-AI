@@ -378,7 +378,8 @@ class GenerativeViewModel(
             return
         }
         if (!generative.localTranscribeReady()) {
-            _preflightMessage.value = "Download local-gemma-4-e2b-v1 from Model packs for offline transcription."
+            _preflightMessage.value = "Offline transcription isn't available yet — the published " +
+                "Gemma 4 pack doesn't include audio support. Downloading it again won't change that."
             return
         }
         _preflightMessage.value = null

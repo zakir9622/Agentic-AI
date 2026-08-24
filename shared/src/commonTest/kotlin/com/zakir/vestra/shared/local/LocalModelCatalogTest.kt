@@ -31,9 +31,11 @@ class LocalModelCatalogTest {
     @Test
     fun audioStudioShowsTtsScaffoldAndVoiceChanger() {
         val ids = LocalModelCatalog.forStudioPicker(AiCapability.AUDIO).map { it.id }
-        // Non-runnable scaffolds (local-tts-v1) stay out of the studio picker.
+        // Non-runnable scaffolds (local-tts-v1) stay out of the studio picker. local-audio-scribe-v1
+        // is also excluded: the published local-gemma-4-e2b-v1 pack ships with audio disabled
+        // (config.json "audio": false), so it can never actually transcribe.
         assertEquals(
-            setOf("local-tts-system", "local-voice-changer", "local-audio-scribe-v1"),
+            setOf("local-tts-system", "local-voice-changer"),
             ids.toSet(),
         )
         val system = LocalModelCatalog.entries.first { it.id == "local-tts-system" }
@@ -44,6 +46,8 @@ class LocalModelCatalogTest {
         val changer = LocalModelCatalog.entries.first { it.id == "local-voice-changer" }
         assertTrue(changer.runnable)
         assertEquals("Ready offline", LocalModelCatalog.studioStatusLabel(changer, packReady = false))
+        val scribe = LocalModelCatalog.entries.first { it.id == "local-audio-scribe-v1" }
+        assertFalse(scribe.runnable)
     }
 
     @Test
