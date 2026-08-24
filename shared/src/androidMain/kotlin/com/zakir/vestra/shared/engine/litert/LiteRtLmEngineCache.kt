@@ -4,6 +4,9 @@ import android.content.Context
 import com.google.ai.edge.litertlm.ToolSet
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 
 /**
  * Reuses LiteRT-LM [Engine] instances per model spec — avoids cold-loading ~2.6 GB on every shot.
@@ -47,13 +50,8 @@ object LiteRtLmEngineCache {
         paths.forEach(onClose)
     }
 
-    /** Borrow a warm engine; [block] runs while inference depth is elevated. */
-    fun <T> withEngine(
-        context: Context,
-        spec: EngineSpec,
-        tools: List<ToolSet> = emptyList(),
-        block: (LiteRtLmEngine) -> T,
-    ): T {
+    /** Looks up (or cold-loads) the warm engine for [spec]. Does not touch inference depth. */
+    private fun warmEngine(context: Context, spec: EngineSpec, tools: List<ToolSet>): LiteRtLmEngine {
         val lock = initLocks.getOrPut(spec) { Any() }
         val engine = engines.getOrPut(spec) {
             LiteRtLmEngine(
@@ -71,9 +69,43 @@ object LiteRtLmEngineCache {
                 engine.initialize()
             }
         }
+        return engine
+    }
+
+    /** Borrow a warm engine; [block] runs while inference depth is elevated. */
+    fun <T> withEngine(
+        context: Context,
+        spec: EngineSpec,
+        tools: List<ToolSet> = emptyList(),
+        block: (LiteRtLmEngine) -> T,
+    ): T {
+        val engine = warmEngine(context, spec, tools)
         enterInference()
         return try {
             block(engine)
+        } finally {
+            leaveInference()
+            drainPendingClose { path -> evictModelPath(path) }
+        }
+    }
+
+    /**
+     * Streaming counterpart of [withEngine]. A [Flow] builder runs its body lazily, only once
+     * collected, so `enterInference()` must happen inside that body — calling it before
+     * returning the flow (as a plain `withEngine { engine -> engine.someStreamingCall() }`
+     * would) marks inference "done" before a single chunk has actually streamed, letting
+     * [evictModelPath] close the engine mid-generation.
+     */
+    fun <T> withEngineFlow(
+        context: Context,
+        spec: EngineSpec,
+        tools: List<ToolSet> = emptyList(),
+        block: (LiteRtLmEngine) -> Flow<T>,
+    ): Flow<T> = flow {
+        val engine = warmEngine(context, spec, tools)
+        enterInference()
+        try {
+            emitAll(block(engine))
         } finally {
             leaveInference()
             drainPendingClose { path -> evictModelPath(path) }

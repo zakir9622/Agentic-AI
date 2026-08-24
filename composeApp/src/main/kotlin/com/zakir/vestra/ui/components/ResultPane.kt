@@ -217,6 +217,20 @@ fun ResultPane(
                 onClick = { reportPath = state.path },
             )
         }
+        is GenerativeState.CodeStreaming -> GlassCard {
+            GlassSectionLabel("CODE · generating…")
+            Spacer(Modifier.height(8.dp))
+            // Live output as the model streams it, not a spinner that resolves into a wall of
+            // text only once the whole response is done — the same CodeOutput used for the
+            // finished result, just re-rendered on every chunk while it's still growing.
+            CodeOutput(
+                text = state.text,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            )
+        }
         is GenerativeState.CodeReady -> GlassCard {
             GlassSectionLabel("CODE · ${state.tokensIn + state.tokensOut} free tokens")
             Text(

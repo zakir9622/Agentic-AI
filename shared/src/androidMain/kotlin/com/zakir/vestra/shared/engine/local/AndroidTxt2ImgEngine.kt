@@ -12,6 +12,9 @@ import com.zakir.vestra.shared.engine.pro.DdimScheduler
 import com.zakir.vestra.shared.engine.pro.DiffusionSteps
 import com.zakir.vestra.shared.engine.pro.LcmScheduler
 import com.zakir.vestra.shared.engine.pro.OrtGraph
+import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
+import com.zakir.vestra.shared.quality.QualityEnhancer
+import com.zakir.vestra.shared.quality.QualityPostProcessor
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.cos
@@ -31,6 +34,7 @@ import kotlin.random.Random
 class AndroidTxt2ImgEngine(
     private val packDir: File,
     private val config: LocalImagePackConfig,
+    private val quality: QualityPostProcessor = NoOpQualityPostProcessor,
 ) : AutoCloseable {
 
     private val resolution = config.resolution.coerceIn(256, 768)
@@ -69,6 +73,7 @@ class AndroidTxt2ImgEngine(
         outputDir: File,
         referenceBitmap: Bitmap? = null,
         strength: Float = 0.65f,
+        onStep: (step: Int, totalSteps: Int) -> Unit = { _, _ -> },
     ): LocalImageResult {
         val trimmed = prompt.trim()
         if (trimmed.isEmpty()) {
@@ -97,48 +102,62 @@ class AndroidTxt2ImgEngine(
 
             val useLcm = config.lcmDistilled ||
                 config.scheduler?.type.equals("lcm", ignoreCase = true)
-            val timesteps = if (useLcm) {
+            val fullTimesteps = if (useLcm) {
                 LcmScheduler().timesteps(steps)
             } else {
                 DdimScheduler().timesteps(steps)
             }
 
-            val sample = if (referenceBitmap != null) {
+            // For img2img, only the tail of the schedule matching `strength` actually runs —
+            // mirrors diffusers' StableDiffusionImg2ImgPipeline.get_timesteps(): the reference
+            // latent is noised to a *partial* level (not the schedule's first/highest timestep),
+            // so denoising must start from that same partial timestep, not from t=999 as if the
+            // input were pure noise. Running the full step count against a lightly-noised
+            // input drives the LCM boundary-condition math (and its re-noising step) off the
+            // model's actual noise trajectory and produces garbage output.
+            val timesteps: IntArray
+            val sample: FloatArray
+            if (referenceBitmap != null) {
                 val init = encodeImage(referenceBitmap)
+                val initStepCount = (steps * strength.coerceIn(0.15f, 0.95f)).toInt().coerceIn(1, steps)
+                val tStart = (steps - initStepCount).coerceIn(0, steps - 1)
+                timesteps = fullTimesteps.copyOfRange(tStart, fullTimesteps.size)
                 val noise = FloatArray(4 * plane) { gaussian(rng) }
-                val noiseT = (timesteps.first() * strength.coerceIn(0.15f, 0.95f)).toInt()
-                    .coerceIn(0, timesteps.first())
-                if (useLcm) {
+                val noiseT = timesteps.first()
+                sample = if (useLcm) {
                     LcmScheduler().addNoise(init, noise, noiseT)
                 } else {
                     DdimScheduler().addNoise(init, noise, noiseT)
                 }
             } else {
-                FloatArray(4 * plane) { gaussian(rng) }
+                timesteps = fullTimesteps
+                sample = FloatArray(4 * plane) { gaussian(rng) }
             }
 
             if (useLcm) {
                 val scheduler = LcmScheduler()
-                for (t in timesteps) {
+                for ((i, t) in timesteps.withIndex()) {
+                    onStep(i + 1, timesteps.size)
                     val noiseCond = predictNoise(sample, cond, t)
                     val noisePred = if (uncond != null && guidance > 1.01f) {
                         val noiseUncond = predictNoise(sample, uncond, t)
-                        FloatArray(noiseCond.size) { i ->
-                            noiseUncond[i] + guidance * (noiseCond[i] - noiseUncond[i])
+                        FloatArray(noiseCond.size) { j ->
+                            noiseUncond[j] + guidance * (noiseCond[j] - noiseUncond[j])
                         }
                     } else {
                         noiseCond
                     }
-                    scheduler.step(sample, noisePred, t)
+                    scheduler.step(sample, noisePred, t, timesteps.getOrNull(i + 1), rng)
                 }
             } else {
                 val scheduler = DdimScheduler()
-                for (t in timesteps) {
+                for ((i, t) in timesteps.withIndex()) {
+                    onStep(i + 1, timesteps.size)
                     val noiseCond = predictNoise(sample, cond, t)
                     val noisePred = if (uncond != null && guidance > 1.01f) {
                         val noiseUncond = predictNoise(sample, uncond, t)
-                        FloatArray(noiseCond.size) { i ->
-                            noiseUncond[i] + guidance * (noiseCond[i] - noiseUncond[i])
+                        FloatArray(noiseCond.size) { j ->
+                            noiseUncond[j] + guidance * (noiseCond[j] - noiseUncond[j])
                         }
                     } else {
                         noiseCond
@@ -148,7 +167,8 @@ class AndroidTxt2ImgEngine(
             }
 
             val rgb = decodeVae(sample)
-            val bitmap = fromChw(rgb, resolution, resolution)
+            val rawBitmap = fromChw(rgb, resolution, resolution)
+            val bitmap = QualityEnhancer.upscaleIfInstalled(quality, rawBitmap)
             outputDir.mkdirs()
             val out = File(outputDir, "local_img_${System.currentTimeMillis()}.png")
             FileOutputStream(out).use { fos ->
@@ -156,6 +176,7 @@ class AndroidTxt2ImgEngine(
                     error("Failed to encode PNG")
                 }
             }
+            if (bitmap !== rawBitmap) rawBitmap.recycle()
             bitmap.recycle()
             LocalImageResult.Ok(out.absolutePath)
         }.getOrElse { err ->

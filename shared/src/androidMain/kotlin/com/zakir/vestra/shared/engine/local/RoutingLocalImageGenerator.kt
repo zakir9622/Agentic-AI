@@ -28,4 +28,8 @@ class RoutingLocalImageGenerator(
         val generator = if (!referenceImageUri.isNullOrBlank()) sdturbo else generatorFor(AiCapability.IMAGE_GEN)
         return generator.generate(prompt, seed, referenceImageUri)
     }
+
+    override fun generateStream(prompt: String, seed: Long?, referenceImageUri: String?) =
+        (if (!referenceImageUri.isNullOrBlank()) sdturbo else generatorFor(AiCapability.IMAGE_GEN))
+            .generateStream(prompt, seed, referenceImageUri)
 }

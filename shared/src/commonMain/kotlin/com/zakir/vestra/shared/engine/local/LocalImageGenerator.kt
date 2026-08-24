@@ -1,5 +1,8 @@
 package com.zakir.vestra.shared.engine.local
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+
 /**
  * Offline Create Studio contract (txt2img + optional img2img edit).
  *
@@ -19,11 +22,34 @@ interface LocalImageGenerator {
      * Returns the failure reason, or null on success.
      */
     fun warmUp(): String? = if (isReady()) null else "Local image pack not installed"
+
+    /**
+     * Streaming variant — emits progress per denoising step instead of one static message
+     * before a multi-minute blocking call. Default wraps [generate] as a single terminal
+     * emission for generators that don't report per-step progress.
+     */
+    fun generateStream(
+        prompt: String,
+        seed: Long? = null,
+        referenceImageUri: String? = null,
+    ): Flow<LocalImageStreamEvent> = flow {
+        when (val result = generate(prompt, seed, referenceImageUri)) {
+            is LocalImageResult.Ok -> emit(LocalImageStreamEvent.Done(result.imagePath))
+            is LocalImageResult.Unavailable -> emit(LocalImageStreamEvent.Unavailable(result.reason))
+        }
+    }
 }
 
 sealed class LocalImageResult {
     data class Ok(val imagePath: String) : LocalImageResult()
     data class Unavailable(val reason: String) : LocalImageResult()
+}
+
+/** Emissions from [LocalImageGenerator.generateStream]. */
+sealed class LocalImageStreamEvent {
+    data class Progress(val stage: String, val fraction: Float) : LocalImageStreamEvent()
+    data class Done(val imagePath: String) : LocalImageStreamEvent()
+    data class Unavailable(val reason: String) : LocalImageStreamEvent()
 }
 
 /** Placeholder until SD-Turbo / LCM pack graphs ship. */

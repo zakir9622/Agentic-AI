@@ -171,10 +171,12 @@ class VestraApp : Application() {
                     }
                 }.getOrNull()
             },
+            quality = quality,
         )
         val bonsaiImageGen = com.zakir.vestra.shared.engine.local.BonsaiImageEngine(
             packManager,
             outputDir = generationsDir,
+            quality = quality,
         )
         val routedLocalImageGen = com.zakir.vestra.shared.engine.local.RoutingLocalImageGenerator(
             appSettings,

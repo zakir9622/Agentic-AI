@@ -8,6 +8,7 @@ import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
 import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
+import com.zakir.vestra.shared.engine.local.LocalCodeStreamEvent
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
@@ -100,6 +101,19 @@ class ChatViewModel(
         job?.cancel()
         job = viewModelScope.launch {
             try {
+                if (localChat) {
+                    val streamed = streamLocalReply(composedPrompt, system)
+                    if (streamed != null) {
+                        builder?.complete(
+                            success = true,
+                            note = "${streamed.providerId} · tokens ${streamed.tokensIn}+${streamed.tokensOut}",
+                        )
+                        return@launch
+                    }
+                    // Local streaming failed (or wasn't actually ready by the time we asked) —
+                    // fall through to chatWithFallback, which retries local once more before
+                    // cloud and carries its own offline/cloud-disabled messaging.
+                }
                 val (result, used) = generative.chatWithFallback(
                     prompt = composedPrompt,
                     system = system,
@@ -119,6 +133,37 @@ class ChatViewModel(
                 _busy.value = false
             }
         }
+    }
+
+    private class StreamedReply(val providerId: String, val tokensIn: Int, val tokensOut: Int)
+
+    /**
+     * Streams a local reply into a live-updating assistant bubble. Returns null (after removing
+     * the empty placeholder) when the local model turned out unavailable, so the caller can fall
+     * back to [GenerativeCloudService.chatWithFallback] without leaving a ghost message behind.
+     */
+    private suspend fun streamLocalReply(prompt: String, system: String): StreamedReply? {
+        val providerId = generative.localChatProviderId()
+        val messageId = chat.appendPlaceholder("assistant", providerId)
+        var failure: String? = null
+        var tokensIn = 0
+        var tokensOut = 0
+        generative.localChatStream(prompt, system).collect { event ->
+            when (event) {
+                is LocalCodeStreamEvent.Partial -> chat.updateMessage(messageId, event.textSoFar)
+                is LocalCodeStreamEvent.Done -> {
+                    tokensIn = event.tokensIn
+                    tokensOut = event.tokensOut
+                    chat.updateMessage(messageId, event.text, persist = true)
+                }
+                is LocalCodeStreamEvent.Unavailable -> failure = event.reason
+            }
+        }
+        if (failure != null) {
+            chat.removeMessage(messageId)
+            return null
+        }
+        return StreamedReply(providerId, tokensIn, tokensOut)
     }
 
     fun cancel() {

@@ -1,5 +1,30 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc19
+- **Live generation output, everywhere:** tapping Generate now streams real model output as
+  it's produced — News Chat and Code Studio append tokens live (`GenerativeState.CodeStreaming`,
+  `ChatViewModel.streamLocalReply`), local image generation (tiny-SD/LCM and Bonsai) reports
+  live per-step progress instead of a single static "please wait". No stage is simulated.
+- **Two real, on-device-model-verified bugs fixed in local Create Studio** — found and confirmed
+  by running the actual published `local-sdturbo-v1` ONNX weights end-to-end on real hardware
+  math (not just code review), per the standing "test the models, don't trust the code" rule:
+  - `OrtGraph.timestepTensor` was missing an FP16 branch; the pack's `unet.onnx` declares
+    `timestep tensor(float16)`, so every generation threw `ORT_INVALID_ARGUMENT`.
+  - `LcmScheduler.step()` combined the UNet's raw noise prediction directly instead of first
+    converting it to a predicted denoised sample, and never re-injected noise between steps —
+    both required by the model's LCM distillation. Rewritten to match diffusers'
+    `scheduling_lcm.py` exactly; verified against a real 4-step generation that produces a
+    genuine, if soft, image instead of statistical noise.
+  - Local image-to-image edit additionally ignored `strength`: the denoise loop always started
+    from the schedule's highest timestep even though the reference image was only noised to a
+    partial level. Fixed to slice the timestep schedule to match, mirroring diffusers'
+    `get_timesteps()` — img2img now denoises from the correct noise level instead of collapsing
+    to a near-black frame.
+- **Real-ESRGAN quality upscale now reaches local Create Studio.** `realesrgan-v1`'s own catalog
+  description already promised "auto-upscale after try-on or Create" — it only ever ran for
+  try-on. Wired the same `QualityPostProcessor` into `AndroidTxt2ImgEngine` and
+  `BonsaiImageEngine` so an installed pack now upscales locally-generated images too.
+
 ## 3.1.0-rc18
 - **Bonsai Image 4B (LiteRT):** second on-device text-to-image engine, `local-bonsai-image-v1` —
   ternary-weight FLUX.2-klein-architecture DiT via LiteRT `Interpreter`/XNNPACK (~4 GB, text-to-image

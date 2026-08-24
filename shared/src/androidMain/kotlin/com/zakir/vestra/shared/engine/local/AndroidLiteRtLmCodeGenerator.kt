@@ -2,7 +2,11 @@ package com.zakir.vestra.shared.engine.local
 
 import android.content.Context
 import com.google.ai.edge.litertlm.ToolSet
+import com.zakir.vestra.shared.engine.litert.LiteRtLmStreamEvent
 import com.zakir.vestra.shared.packs.ModelPackManager
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 
 /**
  * Code Studio / chat over a LiteRT-LM `.litertlm` pack (Gallery-class). Defaults to the
@@ -72,5 +76,37 @@ class AndroidLiteRtLmCodeGenerator(
             mapOk = { LocalCodeResult.Ok(it.text, it.tokensIn, it.tokensOut) },
             mapUnavailable = { LocalCodeResult.Unavailable(it) },
         ) as LocalCodeResult
+    }
+
+    override fun generateStream(prompt: String, system: String): Flow<LocalCodeStreamEvent> {
+        if (!isReady()) {
+            return flow {
+                emit(
+                    LocalCodeStreamEvent.Unavailable(
+                        "Download $packId ($downloadHint) from Model packs for offline on-device generation.",
+                    ),
+                )
+            }
+        }
+        val dir = packs.installedDir(packId)
+            ?: return flow { emit(LocalCodeStreamEvent.Unavailable("$packId pack directory missing.")) }
+        val modelPath = LiteRtLmPackConfig.modelPath(java.io.File(dir), primaryFile)
+            ?: return flow { emit(LocalCodeStreamEvent.Unavailable("$primaryFile missing — re-download $packId.")) }
+        return LiteRtLmInference.runTextStream(
+            context = context,
+            packs = packs,
+            packId = packId,
+            modelPath = modelPath,
+            useGpu = useGpu(),
+            tools = tools,
+            prompt = prompt,
+            system = system,
+        ).map { event ->
+            when (event) {
+                is LiteRtLmStreamEvent.Partial -> LocalCodeStreamEvent.Partial(event.textSoFar)
+                is LiteRtLmStreamEvent.Done -> LocalCodeStreamEvent.Done(event.text, event.tokensIn, event.tokensOut)
+                is LiteRtLmStreamEvent.Unavailable -> LocalCodeStreamEvent.Unavailable(event.reason)
+            }
+        }
     }
 }
