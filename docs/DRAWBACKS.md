@@ -50,14 +50,17 @@ actually fixed, not when it's merely reworded.
   misleading "Cloud by default" copy in the studio subtitle was fixed to reflect that), a
   resumable-job "interrupted" banner for local generations killed mid-run, correlation-ID-first
   error messages for local failures, a storage-used rollup + device-requirement checklist in
-  Model Packs, a single honestly-labeled Processing Mode card replacing the old cloud switch, and
-  a shared shimmer-loading component wired into the one real gap found. **Not done:** the
-  bottom-dock navigation pattern (deliberately deferred — needs a design decision, not a
-  unilateral call), version lineage for local generations (retries as a discoverable chain), a
-  voice-studio DSP layer (real-time meters/scope, latency auto-calibration), a local
-  safety/blur post-process, and Part D's planned real-model output-quality testing for code and
-  audio. Treat any claim that this app "matches lookbookweb's design" as false until those close
-  too — it currently matches on typography, several interaction/UX patterns, and color-identity
+  Model Packs, a single honestly-labeled Processing Mode card replacing the old cloud switch, a
+  shared shimmer-loading component wired into the one real gap found, and version lineage for
+  local generations (retries in the same studio tab chain as a discoverable history). **Not
+  done:** the bottom-dock navigation pattern (deliberately deferred — needs a design decision,
+  not a unilateral call), a voice-studio DSP layer (real-time meters/scope, latency
+  auto-calibration — needs a device to verify `AudioRecord`/`Visualizer` behavior), a local
+  safety/blur post-process (this app has no face/region detector to build one on top of — see
+  the plan's own README for why that's a scope mismatch, not a skipped task), and Part D's
+  planned real-model output-quality testing for code and audio. Treat any claim that this app
+  "matches lookbookweb's design" as false until those close too — it currently matches on
+  typography, several interaction/UX patterns, generation-lifecycle UX, and color-identity
   direction, not the complete UX described in the plan.
 
 ## Testability

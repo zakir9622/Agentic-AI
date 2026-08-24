@@ -57,8 +57,23 @@ open questions for the user before implementation starts.
 - **Appium/chat testability** — see `docs/DRAWBACKS.md` and `TestTags.kt`; the News/Chat window,
   the processing-mode card, and the interrupted-jobs banner all carry stable tags alongside the
   rest of the generation flow tagged in the prior phase.
-- **Not yet started:** B2 (version lineage for local generations), B6 (voice studio DSP depth —
-  meters/scope/latency calibration), B7 (safety post-process / local blur-before-save), and Part
-  D's real-model output-quality testing for code/audio. B6/B7 both touch live audio/image
-  pipelines this session cannot verify on a real device — treat as higher-risk than B1–B5/B8 and
-  worth extra scrutiny before landing.
+- **B2 (version lineage) — done.** `WardrobeEntry.parentGenerationId` chains consecutive
+  generations in the same studio tab as retries; the look-detail dialog shows a HISTORY section
+  of earlier attempts, tap to view any of them. While wiring this, found and fixed a real,
+  in-pattern bug: `WardrobeEntry.tier` was hardcoded to `CLOUD` for every Create Studio result
+  regardless of how it was actually generated — the exact "Tier: CLOUD" mislabeling class already
+  fixed for diagnostics in an earlier cycle, at a call site that fix didn't reach.
+- **B7 (safety post-process) — reassessed, not attempted this pass.** The plan describes an
+  "optional on-device blur/redact pass" — but this app has no face/region detector anywhere in
+  its model catalog, and building or bundling one is a materially larger undertaking than "wire
+  into the existing `QualityPostProcessor` insertion point" (which is model-pack-driven for
+  upscale/matte-refine, not a fit for manual region redaction either). A user-drawn manual-blur
+  tool is possible without a new model, but it's gesture/canvas UI this remote session cannot
+  visually verify, so it isn't included here rather than shipped unverified. Scope this as its
+  own follow-up once either a lightweight face detector is added to the local-model catalog, or
+  a manual-region tool is explicitly requested and can be verified on a device.
+- **Not yet started:** A3 (nav pattern — deliberately deferred, needs the user's decision), B6
+  (voice studio DSP depth — real-time meters/scope, latency auto-calibration), and Part D's
+  real-model output-quality testing for code/audio. B6 touches a live `AudioRecord`/`Visualizer`
+  pipeline this session cannot verify without a device — treat as higher-risk than B1–B5/B8/B2
+  and worth extra scrutiny before landing.
