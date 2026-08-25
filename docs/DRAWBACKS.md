@@ -50,6 +50,13 @@ actually fixed, not when it's merely reworded.
   the same typed-failure/health-tracking pattern, but have had less real-device exercise this
   session than the image path (which had two real device-reported bugs fixed and verified this
   cycle).
+- **New voice-studio DSP device I/O is unverified on real hardware** (B6, 3.1.0-rc26). The
+  signal-processing math — `PitchDetector`, `PitchMatcher`, `LatencyCalibrator`'s cross-correlation
+  core, `SimpleFft` — is real and unit-tested against synthetic sine/chirp signals, not stubbed.
+  What's untested is the Android I/O around it: `AndroidMicRecorder`'s new per-buffer RMS
+  amplitude stream, and `AndroidLatencyCalibrator`'s simultaneous `AudioTrack` playback +
+  `AudioRecord` capture, both added this session with no device available to confirm real-world
+  timing behavior — same honesty posture as the GPU-delegate CPU fallback below.
 
 ## Design/UX parity with the reference app (lookbookweb)
 
@@ -65,14 +72,16 @@ actually fixed, not when it's merely reworded.
   device-requirement checklist in Model Packs, a single honestly-labeled Processing Mode card
   replacing the old cloud switch, a shared shimmer-loading component wired into the one real gap
   found, and version lineage for local generations (retries in the same studio tab chain as a
-  discoverable history). **Not done:** a voice-studio DSP layer (real-time meters/scope, latency
-  auto-calibration — needs a device to verify `AudioRecord`/`Visualizer` behavior), the remaining
-  face-detection/manual-blur build-out for local safety/blur post-process, and Part D's planned
-  real-model output-quality testing for code and audio. Treat any claim that this app "matches
-  lookbookweb's design" as false until those close too — it currently matches on typography,
-  navigation pattern, most interaction/UX patterns, generation-lifecycle UX, and color-identity
-  direction (now propagated app-wide, not just the header), not the complete UX described in the
-  plan.
+  discoverable history), and a voice-studio DSP layer — real, unit-tested pitch-detection/
+  latency-estimation/FFT algorithms wired into a live RMS level meter, grouped voice personas,
+  a "Match voice" pitch-matching chip, and a "Calibrate mic latency" chip (see Reliability below
+  for what's unverified on real hardware there). **Not done:** the remaining face-detection/
+  manual-blur build-out for local safety/blur post-process, a live spectrum-scope data source
+  (the renderer exists, nothing feeds it yet), and Part D's planned real-model output-quality
+  testing for code and audio. Treat any claim that this app "matches lookbookweb's design" as
+  false until those close too — it currently matches on typography, navigation pattern, most
+  interaction/UX patterns, generation-lifecycle UX, and color-identity direction (now propagated
+  app-wide, not just the header), not the complete UX described in the plan.
 
 ## Testability
 

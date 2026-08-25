@@ -1,5 +1,31 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc26
+- **B6 — voice studio DSP depth.** Real, unit-tested signal-processing core added to `shared`:
+  `PitchDetector` (autocorrelation-based fundamental-frequency detection), `PitchMatcher`
+  (computes the semitone shift to move a recorded clip's pitch onto a target), `LatencyCalibrator`
+  (cross-correlation round-trip latency estimation), and `SimpleFft` (radix-2 FFT for spectrum
+  magnitude). All four are pure functions over `FloatArray`/`ShortArray`, verified with synthetic
+  sine/chirp signals — 21 new tests, all passing on real math, not mocks.
+- **Wired into Audio Studio:** `AndroidMicRecorder` now exposes a live `StateFlow<Float>` RMS
+  amplitude, driving a new `AudioLevelMeter` (rolling-history bar visualization, reduced-motion
+  gated) shown while recording. Voice personas are grouped into Female/Male/Neutral & character
+  sections (`VoiceCatalog.groupedByVariety()`) using the new `GlassTile` inside the picker. A
+  "Match voice" chip runs `PitchMatcher` against the recorded clip and the selected persona's
+  typical pitch range, auto-setting `VoiceKnobs.pitchSemitones`. A "Calibrate mic latency" chip
+  runs `AndroidLatencyCalibrator` (plays a tone, records it, cross-correlates) and displays the
+  estimated round-trip latency as an informational readout.
+- **Honesty note on hardware verification**, matching this app's established pattern (see the
+  GPU-delegate fallback in `LiteRtLmEngine`): the DSP *algorithms* are real and tested against
+  synthetic signals. The Android I/O around them — simultaneous `AudioTrack`/`AudioRecord` in
+  `AndroidLatencyCalibrator`, and `AndroidMicRecorder`'s new amplitude stream — has not been
+  exercised on a real device in this environment. `SpectrumScope` (playback-side spectrum bars)
+  is built and smoke-tested but not yet wired to a live data source anywhere in the app — no
+  screen calls it yet, since that would require Android's `Visualizer` API on a real playback
+  session this environment cannot verify. Extracted `WavIo` (mono 16-bit PCM read/write) out of
+  `AndroidLocalVoiceChanger`/`AndroidMicRecorder` to remove duplication now that three call sites
+  need it.
+
 ## 3.1.0-rc25
 - **A3 — bottom dock navigation.** Added `LookbookBottomBar` (Home / Library / a raised center
   Create FAB / Chat / Settings), wired into `VestraNavHost` via a `Scaffold`. The in-studio pager

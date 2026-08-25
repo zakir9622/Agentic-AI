@@ -79,8 +79,15 @@ open questions for the user before implementation starts.
   visually verify, so it isn't included here rather than shipped unverified. Scope this as its
   own follow-up once either a lightweight face detector is added to the local-model catalog, or
   a manual-region tool is explicitly requested and can be verified on a device.
-- **Not yet started:** B6 (voice studio DSP depth — real-time meters/scope, latency
-  auto-calibration), B7's remaining face-detection/manual-blur build-out, and Part D's real-model
-  output-quality testing for code/audio. B6 touches a live `AudioRecord`/`Visualizer` pipeline
-  this session cannot verify without a device — treat as higher-risk than the design-system and
-  nav work above, and worth extra scrutiny before landing.
+- **B6 (voice studio DSP depth) — mostly done (3.1.0-rc26), one piece unwired.** The DSP
+  algorithms (`PitchDetector`, `PitchMatcher`, `LatencyCalibrator`, `SimpleFft`) are real and
+  unit-tested against synthetic signals — not stubs. Wired into the UI: a live RMS `AudioLevelMeter`
+  during recording, grouped voice personas (Female/Male/Neutral & character), a "Match voice"
+  chip, and a "Calibrate mic latency" chip. Not wired: `SpectrumScope` (the playback-side FFT bar
+  visualizer) exists and is smoke-tested but no screen calls it — a live spectrum needs Android's
+  `Visualizer` API on an active playback session, which this environment has no device to verify.
+  The `AudioTrack`/`AudioRecord` I/O in `AndroidLatencyCalibrator` and the amplitude stream in
+  `AndroidMicRecorder` are unverified on real hardware for the same reason — the math they call is
+  tested, the device timing around it is not.
+- **Not yet started:** B7's remaining face-detection/manual-blur build-out, and Part D's
+  real-model output-quality testing for code/audio.

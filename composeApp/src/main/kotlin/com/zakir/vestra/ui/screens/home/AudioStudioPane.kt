@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -26,18 +29,25 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.zakir.vestra.shared.audio.AndroidLatencyCalibrator
 import com.zakir.vestra.shared.audio.AndroidMicRecorder
+import com.zakir.vestra.shared.audio.CalibrationResult
+import com.zakir.vestra.shared.audio.PitchDetector
+import com.zakir.vestra.shared.audio.WavIo
 import com.zakir.vestra.audio.AudioClip
 import com.zakir.vestra.audio.AudioClipLibrary
 import com.zakir.vestra.ui.components.AudioClipList
+import com.zakir.vestra.ui.components.AudioLevelMeter
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.audio.VoiceCatalog
 import com.zakir.vestra.shared.audio.VoiceKnobs
@@ -53,6 +63,7 @@ import com.zakir.vestra.ui.components.AtelierFilterChip
 import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.GlassTile
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
@@ -99,6 +110,11 @@ fun AudioStudioPane(
     }
     var isRecording by remember { mutableStateOf(false) }
     var recordHint by remember { mutableStateOf<String?>(null) }
+    val micAmplitude by micRecorder.amplitude.collectAsState()
+    val scope = rememberCoroutineScope()
+    var matchHint by remember { mutableStateOf<String?>(null) }
+    var calibrating by remember { mutableStateOf(false) }
+    var calibrationHint by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -146,6 +162,59 @@ fun AudioStudioPane(
                 }
             } else {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    fun matchVoiceToPersona() {
+        val path = reference
+        if (path == null) {
+            matchHint = "Record a clip first, then Match voice."
+            return
+        }
+        scope.launch {
+            matchHint = "Detecting pitch…"
+            val result = withContext(Dispatchers.Default) {
+                val wav = WavIo.readPcm16MonoWav(File(path))
+                    ?: return@withContext null
+                val sourceHz = PitchDetector.detectPitchHz(wav.samples, wav.sampleRate)
+                    ?: return@withContext null
+                val persona = VoiceCatalog.byId(personaId)
+                val targetHz = VoiceCatalog.typicalHzFor(persona.variety)
+                val semitones = PitchDetector.semitoneDifferenceRounded(sourceHz, targetHz).coerceIn(-12, 12)
+                Triple(sourceHz, targetHz, semitones)
+            }
+            if (result == null) {
+                matchHint = "Couldn't detect a clear pitch in the recorded clip — try a longer, clearer take."
+            } else {
+                val (sourceHz, targetHz, semitones) = result
+                viewModel.setVoiceKnobs(knobs.copy(pitchSemitones = semitones.toFloat()))
+                matchHint = "Matched ${sourceHz.toInt()}Hz → ~${targetHz.toInt()}Hz for ${VoiceCatalog.byId(personaId).displayName} · pitch set to ${if (semitones >= 0) "+" else ""}$semitones"
+            }
+        }
+    }
+
+    fun calibrateLatency() {
+        if (calibrating) return
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            calibrationHint = "Microphone permission is required to calibrate."
+            return
+        }
+        calibrating = true
+        calibrationHint = "Playing a short tone and listening for it…"
+        scope.launch {
+            val result = withContext(Dispatchers.Default) {
+                AndroidLatencyCalibrator().calibrate()
+            }
+            calibrating = false
+            calibrationHint = when (result) {
+                is CalibrationResult.Measured ->
+                    "Estimated round-trip latency: ${result.latencyMs.toInt()}ms · informational only, not yet applied to live monitoring"
+                is CalibrationResult.Unavailable -> "Calibration unavailable: ${result.reason}"
             }
         }
     }
@@ -215,13 +284,25 @@ fun AudioStudioPane(
         Spacer(Modifier.height(12.dp))
         Text("VOICE PERSONA", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(6.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(VoiceCatalog.personas) { persona ->
-                AtelierFilterChip(
-                    selected = personaId == persona.id,
-                    onClick = { viewModel.setVoicePersona(persona.id) },
-                    label = { Text(persona.displayName) },
-                )
+        VoiceCatalog.groupedByVariety().forEach { (section, personas) ->
+            GlassTile(Modifier.padding(bottom = 8.dp)) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text(
+                        section.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(personas) { persona ->
+                            AtelierFilterChip(
+                                selected = personaId == persona.id,
+                                onClick = { viewModel.setVoicePersona(persona.id) },
+                                label = { Text(persona.displayName) },
+                            )
+                        }
+                    }
+                }
             }
         }
         Text(
@@ -239,6 +320,9 @@ fun AudioStudioPane(
             color = VestraColors.InkMuted,
         )
         Spacer(Modifier.height(6.dp))
+        if (isRecording) {
+            AudioLevelMeter(amplitude = micAmplitude, modifier = Modifier.padding(bottom = 8.dp))
+        }
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -269,6 +353,7 @@ fun AudioStudioPane(
                         viewModel.setReference(null)
                         micRecorder.clear()
                         recordHint = null
+                        matchHint = null
                     },
                     label = { Text("Clear clip") },
                 )
@@ -279,6 +364,50 @@ fun AudioStudioPane(
                 "Clip ready · ${reference!!.substringAfterLast('/')}",
                 style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.Accent,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AtelierFilterChip(
+                selected = false,
+                onClick = { matchVoiceToPersona() },
+                label = { Text("Match voice") },
+            )
+            AtelierFilterChip(
+                selected = calibrating,
+                onClick = { calibrateLatency() },
+                enabled = !calibrating,
+                label = {
+                    if (calibrating) {
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Calibrating…")
+                        }
+                    } else {
+                        Text("Calibrate mic latency")
+                    }
+                },
+            )
+        }
+        if (matchHint != null) {
+            Text(
+                matchHint!!,
+                style = MaterialTheme.typography.labelSmall,
+                color = accent,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        if (calibrationHint != null) {
+            Text(
+                calibrationHint!!,
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.InkMuted,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
