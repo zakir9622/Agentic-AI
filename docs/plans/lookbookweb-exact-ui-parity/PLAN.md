@@ -371,6 +371,14 @@ app is fully local and there is no account — not a dead button.
 
 **A4.12 — Project detail** (`routes/project.$id.tsx`) — maps to Wardrobe's existing look-detail
 dialog; audit the media block / detail card / download+delete action-row layout against it.
+**Audited.** `WardrobeScreen.kt`'s `LookDetailDialog` already covers every element this item
+names: a media block (the look's own thumbnail/clip, `MediaThumb`), a detail card (tier · still-
+or-clip · version count), a version-history chain (B2, tap-to-view earlier attempts), and an
+action row (favorite, share, save-to-Photos/save-clip — the download equivalent, delete). No gap
+found against the structure this item describes. Caveat: this session has no live browser access
+to lookbookweb.lovable.app, so this is a structural audit against the item's own description, not
+a pixel-level screenshot comparison the way A0–A4.4/A4.9 were verified — if a future session gets
+screenshot access, worth a follow-up visual pass.
 
 ### A5. Iconography
 
