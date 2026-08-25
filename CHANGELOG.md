@@ -1,5 +1,38 @@
 # Changelog — The Lookbook
 
+## 3.1.0 (stable)
+This is the stable release closing the lovable-parity local-first plan
+(`docs/plans/lovable-parity-local-first/PLAN.md`) — every item A0–A3, B1–B8, D1–D2 is now
+either shipped with test evidence or explicitly and honestly documented as unverified-on-device
+in `docs/DRAWBACKS.md`. No item is left "deferred" or "pending" without a stated reason.
+
+- **D2 — audio DSP verified against the real shipped pipeline, and a real bug found and fixed
+  as a result.** `AudioDspVerificationTest` (JVM/Robolectric, `shared/androidUnitTest`) exercises
+  `AndroidLocalVoiceChanger.transform()` itself — not new test-only math — with synthetic tone
+  fixtures: +12 semitones measures ~880Hz from a 440Hz input, -12 measures ~220Hz, extreme knobs
+  never exceed the 16-bit PCM range, and default knobs preserve both pitch and sample count.
+  Writing the speed tests (2x should roughly halve duration, 0.5x should roughly double it)
+  surfaced a genuine production bug: `applyPitchAndSpeed()` was *dividing* `readStep` by `speed`
+  instead of multiplying, so the "Speed" knob's effect was inverted — a 2.00× setting played
+  audio *slower* (longer), and a 0.50× setting played it *faster* (shorter), the opposite of
+  what the UI's label promised. Fixed in `AndroidLocalVoiceChanger.kt`; all 6 new tests pass
+  against the corrected pipeline, and the full 293-test `shared` suite plus the full
+  `composeApp` suite were re-run afterward to confirm no other behavior depended on the old
+  (wrong) direction.
+- **D1 — local code-generation output-quality test suite.** `LiteRtLmOutputQualityTest`
+  (`composeApp/androidTest`) runs three representative prompts (Kotlin quicksort, a StateFlow-vs-
+  Flow explanation, a Jetpack Compose counter button) against the real installed Gemma 4 pack via
+  `LiteRtLmEngine`, asserting the output is non-empty, substantive, free of leaked `<think>`
+  blocks, and contains prompt-appropriate markers (`fun`, `pivot`/`partition`, `@Composable`,
+  `remember`/`mutableStateOf`). Follows `LiteRtLmBenchmarkTest`'s graceful-skip pattern when no
+  pack is installed on the device. Compiles cleanly (`compileSideloadDebugAndroidTestKotlin`);
+  like the rest of this app's `androidTest` suite, it has not been run on a physical device in
+  this environment — see `docs/DRAWBACKS.md`'s Testability section.
+- **`SettingsTierSmokeTest`** — removed its stale `HomeTabRoute.NEWS` mirror constant, left over
+  from before A3 (3.1.0-rc25) moved Chat out of the `HomeTab` pager and into the bottom dock.
+- Version: drops the `-rc` suffix — this is the stable release the `-rc24`..`-rc27` cycle was
+  building toward.
+
 ## 3.1.0-rc27
 - **B7 — privacy blur post-process.** Fully offline face detection via ML Kit's bundled
   face-detection model (~6MB, no network call, no Play Services dependency — see

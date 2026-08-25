@@ -49,7 +49,11 @@ class AndroidLocalVoiceChanger(
         formant: Float,
     ): ShortArray {
         val pitchRatio = 2.0.pow((pitchSemitones / 12.0)).toFloat()
-        val readStep = (pitchRatio * formant.coerceIn(0.85f, 1.15f) / speed.coerceAtLeast(0.01f))
+        // speed multiplies readStep, same as pitchRatio: a higher value reads through the input
+        // faster, producing fewer output samples — i.e. shorter, faster playback. This was
+        // previously divided, which made a 2x "Speed" setting play *slower* (twice the
+        // duration) instead of faster — the opposite of what the UI's "2.00×" label promised.
+        val readStep = (pitchRatio * formant.coerceIn(0.85f, 1.15f) * speed.coerceAtLeast(0.01f))
             .coerceIn(0.25f, 4f)
         val outLen = (samples.size / readStep).roundToInt().coerceAtLeast(1)
         val out = ShortArray(outLen)

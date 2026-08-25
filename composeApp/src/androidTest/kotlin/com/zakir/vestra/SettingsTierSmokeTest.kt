@@ -21,12 +21,13 @@ class SettingsTierSmokeTest {
 
     @Test
     fun studioTabRoutesMatchHomePager() {
+        // NEWS was removed from the pager in A3 (3.1.0-rc25) — Chat is now a top-level bottom-dock
+        // destination (Routes.CHAT), not a HomeTab route.
         assertEquals("tryon", HomeTabRoute.TRY_ON)
         assertEquals("image", HomeTabRoute.IMAGE)
         assertEquals("video", HomeTabRoute.VIDEO)
         assertEquals("audio", HomeTabRoute.AUDIO)
         assertEquals("code", HomeTabRoute.CODE)
-        assertEquals("news", HomeTabRoute.NEWS)
     }
 }
 
@@ -37,5 +38,4 @@ object HomeTabRoute {
     const val VIDEO = "video"
     const val AUDIO = "audio"
     const val CODE = "code"
-    const val NEWS = "news"
 }

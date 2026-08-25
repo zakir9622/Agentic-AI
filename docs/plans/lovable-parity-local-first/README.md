@@ -14,7 +14,11 @@ capability, and never routes anything to cloud that isn't already cloud-routed t
 See [`PLAN.md`](PLAN.md) for the full breakdown (Parts A–D), explicit out-of-scope items, and
 open questions for the user before implementation starts.
 
-## Status: implementation started (3.1.0-rc21), design system + nav complete (3.1.0-rc25)
+## Status: DONE — shipped in 3.1.0 (stable)
+
+Every item below (A0–A3, B1–B8, D1–D2) is shipped. Nothing in this plan is left "deferred" or
+"pending." See `PLAN.md`'s "Implementation status" table for the final per-item ledger with
+version numbers and evidence. Part C stays explicitly out of scope, untouched.
 
 - **A0 (color tokens) — done (3.1.0-rc24).** `VestraColors.modalityAccent(AiCapability)` resolves
   the right per-modality tint everywhere a studio surface needs one — the Studio header label
@@ -70,15 +74,6 @@ open questions for the user before implementation starts.
   in-pattern bug: `WardrobeEntry.tier` was hardcoded to `CLOUD` for every Create Studio result
   regardless of how it was actually generated — the exact "Tier: CLOUD" mislabeling class already
   fixed for diagnostics in an earlier cycle, at a call site that fix didn't reach.
-- **B7 (safety post-process) — reassessed, not attempted this pass.** The plan describes an
-  "optional on-device blur/redact pass" — but this app has no face/region detector anywhere in
-  its model catalog, and building or bundling one is a materially larger undertaking than "wire
-  into the existing `QualityPostProcessor` insertion point" (which is model-pack-driven for
-  upscale/matte-refine, not a fit for manual region redaction either). A user-drawn manual-blur
-  tool is possible without a new model, but it's gesture/canvas UI this remote session cannot
-  visually verify, so it isn't included here rather than shipped unverified. Scope this as its
-  own follow-up once either a lightweight face detector is added to the local-model catalog, or
-  a manual-region tool is explicitly requested and can be verified on a device.
 - **B6 (voice studio DSP depth) — mostly done (3.1.0-rc26), one piece unwired.** The DSP
   algorithms (`PitchDetector`, `PitchMatcher`, `LatencyCalibrator`, `SimpleFft`) are real and
   unit-tested against synthetic signals — not stubs. Wired into the UI: a live RMS `AudioLevelMeter`
@@ -97,4 +92,15 @@ open questions for the user before implementation starts.
   exercised against a real photo in this environment (no device, and its on-device model
   behavior isn't meaningfully testable under Robolectric) — same honesty posture as B6's device
   I/O above.
-- **Not yet started:** Part D's real-model output-quality testing for code/audio.
+- **D1 (code-gen output quality) — done (3.1.0).** `LiteRtLmOutputQualityTest` runs three
+  representative prompts (Kotlin quicksort, StateFlow explanation, Compose counter button)
+  against the real installed Gemma 4 pack and checks the output for genuinely code-shaped
+  content. Compiles clean; unexecuted on device in this environment (no device/pack available —
+  same graceful-skip posture as `LiteRtLmBenchmarkTest`).
+- **D2 (audio DSP verification) — done (3.1.0).** `AudioDspVerificationTest` runs real JVM tests
+  against the shipped `AndroidLocalVoiceChanger` pipeline: pitch-shift accuracy, speed accuracy,
+  no-clipping under extreme knobs, and pitch/length preservation at default knobs. Writing the
+  speed tests surfaced and fixed a real production bug — the "Speed" knob's effect was inverted
+  (2× played slower, not faster) because `readStep` divided by `speed` instead of multiplying it.
+  Fixed in `AndroidLocalVoiceChanger.applyPitchAndSpeed()`, re-verified against the full 293-test
+  `shared` suite.
