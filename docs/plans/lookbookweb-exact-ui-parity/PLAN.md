@@ -201,7 +201,30 @@ Each subsection cites the exact source file/lines cataloged from `lookbookweb`. 
 Agentic-AI's local-first architecture means the underlying data source differs, that's called
 out explicitly — the **visual layout is still the exact-match target**.
 
-**A4.1 — Home** (`routes/index.tsx`, → `HomeScreen.kt`)
+**A4.1 — Home: real architecture gap found during audit, re-scoped as its own sub-phase (A4.1a).**
+lookbookweb's `index.tsx` is a distinct **landing page** (hero + 2×2 tool-tile grid + Recent
+Projects list) that is *separate* from `studio.tsx` (the tabbed Image/Video/Chat/Audio working
+surface). In Agentic-AI today, the bottom dock's Home destination goes **directly** into
+`HomeScreen.kt`'s tabbed pager (`UnifiedStudioPane`/`AudioStudioPane` behind
+`ScrollableTabRow`+`HorizontalPager`) — there is no separate landing page; Home *is* the studio
+pager. Building the landing page for real means: a new composable, repointing the dock's Home
+destination at it, and moving the pager one level deeper (behind a tile tap or the existing
+Create-FAB dialog) — a navigation-architecture change, not a visual tweak, and one that touches
+code several existing tests assert against directly (`HomeTabVisibilityTest`,
+`StudioIsolationAfterNavTest`, `BottomBarNavigationTest`, `ScreenshotTest`'s
+`studio-header-and-dock` case, `appium/test_bottom_bar.py`). Doing this safely needs its own
+focused pass — auditing and updating every one of those tests alongside the change — not a
+rushed edit folded into an already-large phase. **Scoped as A4.1a, sequenced before the rest of
+A4.1's content below** (which describes the landing page's own layout once it exists). Recent
+Projects sourcing has its own honest gap too: `WardrobeRepository` (the natural local-first
+analog to lookbookweb's cross-tool `projects` table) only receives entries from the Image and
+Video paths (confirmed via `GenerativeViewModel.ingestCreateImage`, called from both the
+Create-image and Video result branches) — Code and Audio results never reach it. Until a unified
+local "recent activity across all tools" store exists, the landing page's Recent list will
+under-represent Code/Audio activity; note this honestly rather than fabricate coverage or
+silently expand `WardrobeRepository`'s scope beyond what its name implies.
+
+**A4.1 — Home page layout** (`routes/index.tsx`, → new landing composable once A4.1a lands)
 - Hero card: `soft-card` with a single `float-slow` orb (brand-image tint, 160×160dp,
   top-right), H1 "What's your next creation?" with "next creation?" rendered in
   `gradient-text`, subhead "Images, motion, live voice, code and chat with memory — one spatial
