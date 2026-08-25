@@ -178,6 +178,21 @@ every step (not claimed from reading the code).
   it) is untouched — only the relative order within the combined `ALL` page changed. Account and
   a sample-data toggle stay omitted, matching A4.11's "no accounts exist" and A4.4's "no
   demo-content banner to gate" decisions.
+- **A4.10 — Changelog screen.** lookbookweb's `changelog.tsx` shows release history; added the
+  equivalent read directly from this app's real `CHANGELOG.md`, not a hand-maintained parallel
+  list — `copyChangelogAsset` (new Gradle task in `composeApp/build.gradle.kts`) bundles the
+  actual root `CHANGELOG.md` into the APK as an asset at build time, so the in-app list can never
+  drift out of sync with what actually shipped. `ChangelogParser` (`shared/commonMain`) splits it
+  into per-version sections; `ChangelogScreen` renders them and links from Settings → About
+  ("Changelog" button, alongside Help/Privacy) with adapted "install the latest release manually"
+  copy in place of lookbookweb's git-pull instructions, since this app ships as an APK.
+  Fixed during review, before landing: (1) the parser treated every `## ` heading as a release,
+  including this file's own non-version `## CI / releases` note — it would have rendered as a
+  fabricated release card between two real versions; now only headings starting with a digit are
+  treated as releases, and non-version headings are dropped rather than folded into whichever
+  version happens to precede them. (2) the screen read and parsed the asset file synchronously
+  inside `remember { }`, blocking the composition/UI thread; moved to `produceState` on
+  `Dispatchers.IO`, matching this codebase's established IO-hoisting pattern.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

@@ -75,6 +75,7 @@ fun SettingsScreen(
     onOpenUsage: () -> Unit,
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenChangelog: () -> Unit = {},
     onOpenDiagnostics: (() -> Unit)? = null,
     onBack: () -> Unit,
     section: SettingsSection = SettingsSection.ALL,
@@ -451,6 +452,7 @@ fun SettingsScreen(
                 settingsGeneralSection(
                     onOpenHelp = onOpenHelp,
                     onOpenPrivacy = onOpenPrivacy,
+                    onOpenChangelog = onOpenChangelog,
                     onOpenDiagnostics = onOpenDiagnostics,
                 )
                 if (memoryRepository != null) {

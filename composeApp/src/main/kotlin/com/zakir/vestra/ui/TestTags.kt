@@ -142,4 +142,7 @@ object TestTags {
     const val MEMORY_CLEAR_ALL_BUTTON = "memory_clear_all_button"
     fun memoryFactRow(id: String): String = "memory_fact_row_$id"
     fun memoryFactRemove(id: String): String = "memory_fact_remove_$id"
+
+    // Changelog screen (ChangelogScreen.kt) — Part A4.10.
+    fun changelogRelease(version: String): String = "changelog_release_${version.replace(' ', '_')}"
 }

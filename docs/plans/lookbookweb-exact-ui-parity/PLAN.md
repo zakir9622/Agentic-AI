@@ -503,7 +503,12 @@ renders correctly without a device) and unit tests for every new non-UI capabili
    audited and left unbuilt — lookbookweb artifacts of its account-based cloud storage with no
    honest local-first equivalent. **A4.9 — Settings order.** Done: reordered to match
    Appearance → Engines → Cloud → Diagnostics → Memory; gates unchanged, order-only change,
-   code-review clean. **A4.10 — Changelog screen** still pending.
+   code-review clean. **A4.10 — Changelog screen.** Done: `ChangelogParser` (pure, tested)
+   parses the real `CHANGELOG.md`, bundled into the APK as a build-time asset via a new
+   `copyChangelogAsset` Gradle task so it can't drift from what shipped; `ChangelogScreen`
+   renders the release list, linked from Settings → About. Code-review caught and fixed two
+   real bugs before landing: a non-version `## CI / releases` heading being mis-parsed as a
+   fake release, and synchronous asset I/O blocking the composition thread.
 8. **A4.5–A4.7 — Create screens** (Image/Video/Voice), scoping each engine-dependent item
    honestly per the notes above rather than adding UI for capabilities that don't exist yet.
 9. **A4.8 — Sources** (new source-management screen).

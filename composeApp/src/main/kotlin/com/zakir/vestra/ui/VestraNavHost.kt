@@ -58,6 +58,7 @@ import com.zakir.vestra.ui.screens.home.HomeScreen
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.ui.screens.usage.UsageScreen
+import com.zakir.vestra.ui.screens.changelog.ChangelogScreen
 import com.zakir.vestra.ui.screens.help.HelpScreen
 import com.zakir.vestra.ui.screens.privacy.PrivacyScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
@@ -85,6 +86,7 @@ object Routes {
     const val HELP = "help"
     const val PRIVACY = "privacy"
     const val CHAT = "chat"
+    const val CHANGELOG = "changelog"
 
     fun deepLink(route: String) = "lookbook://screen/$route"
 }
@@ -415,6 +417,14 @@ fun VestraNavHost(
             )
         }
         composable(
+            route = Routes.CHANGELOG,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CHANGELOG) }),
+        ) {
+            ChangelogScreen(
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
             route = Routes.WARDROBE,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.WARDROBE) }),
         ) {
@@ -440,6 +450,7 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.HUB,
@@ -467,6 +478,7 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.CLOUD,
@@ -484,6 +496,7 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.ENGINES,
@@ -501,6 +514,7 @@ fun VestraNavHost(
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.APPEARANCE,
