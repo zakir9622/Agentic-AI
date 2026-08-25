@@ -22,6 +22,7 @@ from appium.webdriver.common.appiumby import AppiumBy
 from conftest import by_tag, tag_exists
 
 HOME_TAB_IMAGE = "home_tab_image"
+HOME_TAB_VIDEO = "home_tab_video"
 HOME_TAB_CODE = "home_tab_code"
 HOME_TAB_AUDIO = "home_tab_audio"
 BOTTOM_BAR_CHAT = "bottom_bar_chat"
@@ -31,6 +32,7 @@ SEND_BUTTON = "composer_send_button"
 LIVE_CONSOLE = "result_live_console"
 
 RESULT_IMAGE_READY = "result_image_ready"
+RESULT_VIDEO_READY = "result_video_ready"
 RESULT_CODE_STREAMING = "result_code_streaming"
 RESULT_CODE_READY = "result_code_ready"
 RESULT_TRANSCRIBE_READY = "result_transcribe_ready"
@@ -131,7 +133,62 @@ class TestCodeGeneration:
         )
 
 
+class TestVideoGeneration:
+    def test_local_video_generation_reaches_a_terminal_state(self, driver):
+        _goto_tab(driver, HOME_TAB_VIDEO)
+        _generate(driver, "a slow pan across a modest emerald abaya on a mannequin, studio light")
+
+        outcome = _wait_for_any_tag(
+            driver, [RESULT_VIDEO_READY, RESULT_FAILED], GENERATION_TIMEOUT_SECONDS
+        )
+
+        if outcome == RESULT_FAILED:
+            message = by_tag(driver, RESULT_FAILED).text
+            assert message.strip(), "Failed state rendered with no message at all"
+            assert "Exception" not in message and "\tat " not in message, (
+                f"Failure message looks like a raw stack trace, not a user-facing string: {message!r}"
+            )
+            pytest.fail(
+                f"Local video generation failed (legibly) rather than succeeding: {message!r}. "
+                "This may be an expected 'no pack installed' state on a fresh device — install "
+                "a local video-gen pack in Model Packs and re-run to distinguish that from a "
+                "real bug."
+            )
+
+        # RESULT_VIDEO_READY reached — the card shows the saved file path as proof of a real
+        # written artifact, not just a static "done" label (see ResultPane.kt's VideoReady branch).
+        video_card = by_tag(driver, RESULT_VIDEO_READY)
+        assert video_card.text.strip(), "VideoReady state rendered with no path/content text"
+
+
 class TestAudioAndChat:
+    def test_local_audio_generation_reaches_a_terminal_state(self, driver):
+        # Audio Studio's PromptComposer drives the TTS-first path (type text, get speech) —
+        # the same composer used by Image/Code, distinct from the mic-record/voice-changer flow
+        # which needs real microphone hardware and isn't covered here.
+        _goto_tab(driver, HOME_TAB_AUDIO)
+        _generate(driver, "Welcome to The Lookbook, your on-device styling assistant.")
+
+        outcome = _wait_for_any_tag(
+            driver, [RESULT_AUDIO_READY, RESULT_FAILED], GENERATION_TIMEOUT_SECONDS
+        )
+
+        if outcome == RESULT_FAILED:
+            message = by_tag(driver, RESULT_FAILED).text
+            assert message.strip(), "Failed state rendered with no message at all"
+            assert "Exception" not in message and "\tat " not in message, (
+                f"Failure message looks like a raw stack trace, not a user-facing string: {message!r}"
+            )
+            pytest.fail(
+                f"Local audio generation failed (legibly) rather than succeeding: {message!r}. "
+                "System TTS should work with no pack installed — if this fails on a fresh "
+                "device it is more likely a real bug than a missing-pack state."
+            )
+
+        audio_card = by_tag(driver, RESULT_AUDIO_READY)
+        assert audio_card.text.strip(), "AudioReady state rendered with no path/content text"
+
+
     def test_local_chat_reply_appears_for_a_real_question(self, driver):
         # Chat is a standalone bottom-dock destination (A3), not a studio pager tab.
         _goto_tab(driver, BOTTOM_BAR_CHAT)

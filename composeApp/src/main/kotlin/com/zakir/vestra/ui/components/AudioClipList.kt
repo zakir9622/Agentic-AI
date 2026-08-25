@@ -34,8 +34,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.audio.AudioClip
 import com.zakir.vestra.audio.AudioClipKind
+import com.zakir.vestra.shared.audio.AndroidPlaybackVisualizer
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 /**
  * Produced-audio list with in-place playback.
@@ -67,15 +70,20 @@ fun AudioClipList(
     var playingPath by remember { mutableStateOf<String?>(null) }
     var positionMs by remember { mutableStateOf(0) }
     var durationMs by remember { mutableStateOf(0) }
+    var magnitudes by remember { mutableStateOf(FloatArray(0)) }
     val player = remember { mutableStateOf<MediaPlayer?>(null) }
+    val visualizer = remember { mutableStateOf<AndroidPlaybackVisualizer?>(null) }
 
     fun stop() {
         runCatching { player.value?.stop() }
         runCatching { player.value?.release() }
         player.value = null
+        visualizer.value?.stop()
+        visualizer.value = null
         playingPath = null
         positionMs = 0
         durationMs = 0
+        magnitudes = FloatArray(0)
     }
 
     // Release the player when the list leaves composition, otherwise audio keeps playing after
@@ -97,12 +105,17 @@ fun AudioClipList(
                 player.value = this
                 playingPath = clip.path
                 durationMs = duration.coerceAtLeast(0)
+                visualizer.value = AndroidPlaybackVisualizer(audioSessionId).also { it.start() }
             }
         }.onFailure { stop() }
     }
 
-    // Drive the progress bar while something is playing.
+    // Drive the progress bar and the spectrum scope while something is playing.
     LaunchedEffect(playingPath) {
+        if (playingPath == null) return@LaunchedEffect
+        launch {
+            visualizer.value?.magnitudes?.collectLatest { magnitudes = it }
+        }
         while (playingPath != null) {
             positionMs = runCatching { player.value?.currentPosition ?: 0 }.getOrDefault(0)
             delay(200)
@@ -184,6 +197,10 @@ fun AudioClipList(
                         modifier = Modifier.fillMaxWidth(),
                         color = VestraColors.Accent,
                     )
+                }
+                if (isPlaying) {
+                    Spacer(Modifier.height(8.dp))
+                    SpectrumScope(magnitudes = magnitudes)
                 }
             }
             Spacer(Modifier.height(8.dp))

@@ -114,10 +114,14 @@ fun WardrobeScreen(
                         pendingDelete = null
                         Toast.makeText(context, "Removed", Toast.LENGTH_SHORT).show()
                     },
+                    modifier = Modifier.testTag(TestTags.WARDROBE_DELETE_CONFIRM),
                 ) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                TextButton(
+                    onClick = { pendingDelete = null },
+                    modifier = Modifier.testTag(TestTags.WARDROBE_DELETE_CANCEL),
+                ) { Text("Cancel") }
             },
         )
     }
@@ -143,11 +147,13 @@ fun WardrobeScreen(
                     selected = !favoritesOnly,
                     onClick = { favoritesOnly = false },
                     label = { Text("All (${entries.size})") },
+                    modifier = Modifier.testTag(TestTags.WARDROBE_FILTER_ALL),
                 )
                 AtelierFilterChip(
                     selected = favoritesOnly,
                     onClick = { favoritesOnly = true },
                     label = { Text("Favorites (${entries.count { it.favorited }})") },
+                    modifier = Modifier.testTag(TestTags.WARDROBE_FILTER_FAVORITES),
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -167,7 +173,7 @@ fun WardrobeScreen(
                     items(visible, key = { it.id }) { entry ->
                         val file = File(entry.imagePath)
                         val isVideo = file.extension.lowercase() in setOf("mp4", "webm")
-                        GlassCard {
+                        GlassCard(modifier = Modifier.testTag(TestTags.wardrobeGalleryItem(entry.id))) {
                             MediaThumb(
                                 file = file,
                                 contentDescription = if (isVideo) {
@@ -201,6 +207,7 @@ fun WardrobeScreen(
                                     onClick = { wardrobe.toggleFavorite(entry.id) },
                                     modifier = Modifier
                                         .weight(1f)
+                                        .testTag(TestTags.wardrobeFavoriteButton(entry.id))
                                         .semantics {
                                             contentDescription = if (entry.favorited) {
                                                 "Remove from favorites"
@@ -237,7 +244,7 @@ fun WardrobeScreen(
                                 GlassSecondaryButton(
                                     text = "Delete",
                                     onClick = { pendingDelete = entry },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).testTag(TestTags.wardrobeDeleteButton(entry.id)),
                                 )
                             }
                         }

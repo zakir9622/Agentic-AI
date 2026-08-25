@@ -1,9 +1,7 @@
 package com.zakir.vestra.shared.logging
 
 import com.zakir.vestra.shared.time.EpochClock
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.zakir.vestra.shared.time.formatHms
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,12 +30,7 @@ data class LogEntry(
     val message: String,
 ) {
     fun formatDisplay(): String {
-        val timeStr = timeFormat.format(Date(timestampMs))
-        return "[$timeStr] [${source.label}] $message"
-    }
-
-    companion object {
-        private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.US)
+        return "[${formatHms(timestampMs)}] [${source.label}] $message"
     }
 }
 

@@ -83,12 +83,16 @@ fun ResultPane(
                                 reportPath = null
                                 Toast.makeText(context, "Report saved locally", Toast.LENGTH_SHORT).show()
                             },
+                            modifier = Modifier.testTag(TestTags.reportReason(reason.name)),
                         ) { Text(reason.label) }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { reportPath = null }) { Text("Cancel") }
+                TextButton(
+                    onClick = { reportPath = null },
+                    modifier = Modifier.testTag(TestTags.REPORT_CANCEL_BUTTON),
+                ) { Text("Cancel") }
             },
         )
     }
@@ -166,6 +170,7 @@ fun ResultPane(
             GlassSecondaryButton(
                 text = LookbookCopy.ACTION_REPORT,
                 onClick = { reportPath = state.path },
+                modifier = Modifier.testTag(TestTags.REPORT_BUTTON),
             )
         }
         is GenerativeState.VideoReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_VIDEO_READY)) {
@@ -204,7 +209,7 @@ fun ResultPane(
                 GlassSecondaryButton(
                     text = LookbookCopy.ACTION_REPORT,
                     onClick = { reportPath = state.path },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.REPORT_BUTTON),
                 )
             }
         }
@@ -238,6 +243,7 @@ fun ResultPane(
             GlassSecondaryButton(
                 text = LookbookCopy.ACTION_REPORT,
                 onClick = { reportPath = state.path },
+                modifier = Modifier.testTag(TestTags.REPORT_BUTTON),
             )
         }
         is GenerativeState.CodeStreaming -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_CODE_STREAMING)) {

@@ -242,18 +242,21 @@ internal fun LazyListScope.settingsCloudKeysSection(
             KeyField("Hugging Face API key", hfInput, onHfInput)
             ConnectivityTestRow(
                 label = "Test Hugging Face key",
+                testTag = TestTags.connectivityTestButton("huggingface"),
                 onTest = { connectivityChecker.checkHuggingFace(hfInput.ifBlank { null }) },
             )
             Spacer(Modifier.height(4.dp))
             KeyField("Groq API key", groqInput, onGroqInput)
             ConnectivityTestRow(
                 label = "Test Groq key",
+                testTag = TestTags.connectivityTestButton("groq"),
                 onTest = { connectivityChecker.checkGroq(groqInput.ifBlank { null }) },
             )
             Spacer(Modifier.height(4.dp))
             KeyField("OpenRouter API key (free models)", openRouterInput, onOpenRouterInput)
             ConnectivityTestRow(
                 label = "Test OpenRouter key",
+                testTag = TestTags.connectivityTestButton("openrouter"),
                 onTest = { connectivityChecker.checkOpenRouter(openRouterInput.ifBlank { null }) },
             )
             Spacer(Modifier.height(8.dp))
@@ -351,6 +354,7 @@ internal fun LazyListScope.settingsCloudCapabilitiesSection(
 @androidx.compose.runtime.Composable
 private fun ConnectivityTestRow(
     label: String,
+    testTag: String,
     onTest: suspend () -> ConnectivityResult,
 ) {
     var testing by remember { mutableStateOf(false) }
@@ -373,6 +377,7 @@ private fun ConnectivityTestRow(
                 }
             },
             enabled = !testing,
+            modifier = Modifier.testTag(testTag),
         ) {
             Text(if (testing) "Testing…" else label)
         }

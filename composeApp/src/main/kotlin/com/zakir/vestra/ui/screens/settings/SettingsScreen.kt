@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -273,10 +274,14 @@ fun SettingsScreen(
                         confirmClearTokens = false
                         Toast.makeText(context, "API keys cleared", Toast.LENGTH_SHORT).show()
                     },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.SETTINGS_CLEAR_TOKENS_CONFIRM),
                 ) { Text("Clear") }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClearTokens = false }) { Text("Cancel") }
+                TextButton(
+                    onClick = { confirmClearTokens = false },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.SETTINGS_CLEAR_TOKENS_CANCEL),
+                ) { Text("Cancel") }
             },
         )
     }

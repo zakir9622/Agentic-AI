@@ -75,9 +75,11 @@ actually fixed, not when it's merely reworded.
   signal-processing math — `PitchDetector`, `PitchMatcher`, `LatencyCalibrator`'s cross-correlation
   core, `SimpleFft` — is real and unit-tested against synthetic sine/chirp signals, not stubbed.
   What's untested is the Android I/O around it: `AndroidMicRecorder`'s new per-buffer RMS
-  amplitude stream, and `AndroidLatencyCalibrator`'s simultaneous `AudioTrack` playback +
-  `AudioRecord` capture, both added this session with no device available to confirm real-world
-  timing behavior — same honesty posture as the GPU-delegate CPU fallback below.
+  amplitude stream, `AndroidLatencyCalibrator`'s simultaneous `AudioTrack` playback +
+  `AudioRecord` capture, and (added in 3.1.2) `AndroidPlaybackVisualizer`'s
+  `android.media.audiofx.Visualizer` capture callback — all added with no device available to
+  confirm real-world timing/behavior — same honesty posture as the GPU-delegate CPU fallback
+  below.
 - **ML Kit's face detector (B7, 3.1.0-rc27) is not exercised against a real photo with a real
   face in this environment.** `FaceBlurProcessor.detectFaces()` wraps ML Kit's bundled on-device
   detector correctly per its documented API, and `BoxBlur` (the actual pixel-blur math applied to
@@ -109,9 +111,14 @@ actually fixed, not when it's merely reworded.
   ML Kit face detection + a real box-blur, plus a manual drag-to-draw region tool, wired into a
   "Privacy blur" button on every image result. Part D's real-model output-quality testing for code
   (D1) and audio (D2) is also closed — see the D1/D2 entries above. **Still explicitly
-  unfinished within an otherwise-done plan:** a live spectrum-scope data source (`SpectrumScope`
-  is built and smoke-tested, but nothing feeds it real playback FFT data yet — recorded above as
-  part of B6's device-I/O caveat, not a blocking gap). "Matches lookbookweb's design" now holds
+  unfinished within an otherwise-done plan, now closed:** `SpectrumScope` was built and
+  smoke-tested but nothing fed it real playback FFT data — closed by wiring
+  `AndroidPlaybackVisualizer` (`android.media.audiofx.Visualizer` attached to the playing clip's
+  `MediaPlayer` session) into `AudioClipList`, rendering a live spectrum scope under whichever
+  clip is currently playing. The byte→magnitude conversion (`magnitudesFromFft`) is a pure
+  function, unit-tested against known real/imaginary byte patterns; only the platform capture
+  registration itself is unverified on a real device (same honesty posture as the mic-amplitude
+  and latency-calibration I/O below). "Matches lookbookweb's design" now holds
   for typography, navigation pattern, interaction/UX patterns, generation-lifecycle UX, and
   color-identity direction, with the caveats above the only remaining honesty notes.
 - **3.1.1 UI port from `zakir9622/GoogleLookBookUI`.** That repo turned out to be an earlier
@@ -148,26 +155,47 @@ actually fixed, not when it's merely reworded.
   input, model chip, assist toggle, send/stop, home tabs, every `GenerativeState` result card,
   the live generation console, retry/cancel, model-pack install/handshake buttons, and the
   model picker's per-model rows — now carry stable `testTag`s (see
-  `composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`). Coverage is not yet
-  exhaustive: Settings screens, Wardrobe/gallery browsing, and some secondary dialogs
-  (report-content sheet, durable-storage prompt) do not yet carry tags. Extend `TestTags.kt`
-  and its call sites incrementally as automation needs grow, rather than tagging speculatively
-  ahead of an actual test.
+  `composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`). **Extended in 3.1.2:** the
+  Settings clear-API-keys button and its confirm dialog, the three cloud connectivity-test
+  buttons, the durable-storage-access prompt in Model Packs, the report-content dialog (all
+  three trigger buttons across Image/Video/Audio results, every reason button, and Cancel), and
+  the Wardrobe gallery (per-look tap target, per-look Favorite/Delete buttons, the delete-confirm
+  dialog, and the All/Favorites filter chips) now carry tags too. Coverage is still not
+  exhaustive — e.g. Settings' appearance-mode picker and the model-pack list rows beyond
+  install/handshake remain untagged. Extend `TestTags.kt` and its call sites incrementally as
+  automation needs grow, rather than tagging speculatively ahead of an actual test.
 - **A real Appium test suite now exists (`appium/`) but has never been run.** No Android device,
   emulator, or Appium server exists in the environment that authored it (verified directly: no
   `adb`, no `ANDROID_HOME`, no Appium binary) — every test in it is a first draft that needs a
   real run on a real device before it's trusted, per `appium/README.md`'s own honesty note. It
   covers: prompt isolation across studio tabs, local image/code/chat generation reaching a real
-  terminal state, the image-edit/img2img entry point, and the Processing Mode card. Not yet
-  covered: video/audio generation end-to-end, Model Packs install/handshake, Wardrobe history
-  navigation, and anything about generation *quality* rather than "a result exists."
+  terminal state, the image-edit/img2img entry point, and the Processing Mode card. **Extended
+  in 3.1.2** with the three areas previously named here as gaps: video and audio (TTS-first)
+  generation reaching a real terminal state (`test_generation_flows.py`), Model Packs — screen
+  reachability, the durable-storage prompt, and an already-installed pack's real handshake
+  verification (`test_model_packs.py`, new), and Wardrobe — gallery browsing, favoriting, opening
+  a look's version history, and delete-confirm/cancel (`test_wardrobe.py`, new). The Model Packs
+  and Wardrobe suites both skip (not fail) states this suite deliberately doesn't try to create
+  on its own — an already-installed pack, or a non-empty wardrobe — rather than asserting against
+  a scenario nothing set up; still nothing about generation *quality* rather than "a result
+  exists" beyond the prompt-shape checks already present (e.g. code output containing `def `).
+  None of this — old or new — has actually executed on a device, same caveat as before.
 
 ## Platform
 
-- **iOS is not supported.** `shared/build.gradle.kts` does not declare an iOS target, and
-  several commonMain files still call JVM-only APIs (e.g. `System.currentTimeMillis()`
-  directly rather than through a `Clock` abstraction), so commonMain would not compile for iOS
-  without further work.
+- **iOS is not supported.** `shared/build.gradle.kts` does not declare an iOS target — adding
+  `iosArm64`/`iosSimulatorArm64` is real, non-trivial work (a macOS host to compile on, an
+  iosMain source set, platform implementations for every engine/audio/pack class this app's
+  local generation depends on) that has not been attempted. **Narrowed in 3.1.2:** the two
+  concrete JVM-only calls that existed directly in commonMain — `EpochClock.System`'s
+  `java.lang.System.currentTimeMillis()`, and `LogEntry.formatDisplay()`'s
+  `java.text.SimpleDateFormat`/`java.util.Date`/`java.util.Locale` — are now behind
+  `expect`/`actual` (`wallClockMs()`, `formatHms()`), mirroring the existing
+  `createQualityPostProcessor` pattern, with only an `androidMain` actual so far. A full
+  `git grep -rn "java\."` across `shared/src/commonMain` now returns only these two
+  intentional `expect` declarations and one pre-existing, already-documented `PackPlatform.kt`
+  comment — not evidence iOS compiles, just that commonMain's JVM-API surface is now fully
+  accounted for rather than partially audited.
 - **`minSdk` is high (Android 15)** relative to some of the app's own documentation, which in
   places still describes broader device support. Treat any "works on Android 8+" style claim
   elsewhere in the docs as aspirational until the `minSdk` and the docs are reconciled.

@@ -31,6 +31,37 @@ deliberately not ported (its fake connectivity ping).
   click-to-result state within a test (the same class of coroutine/idle-timing limitation
   documented for `PrivacyBlurFlowTest` earlier in this project) — the underlying network logic
   that actually matters is still fully covered by the 10 `ProviderConnectivityCheckerTest` cases.
+- **Live spectrum scope in Audio Studio playback, closing the one gap the lovable-parity plan
+  left open.** `SpectrumScope` existed as a rendering component with a smoke test but nothing fed
+  it real data. `AndroidPlaybackVisualizer` (new, `shared/androidMain`) attaches
+  `android.media.audiofx.Visualizer` to whichever clip's `MediaPlayer` session is currently
+  playing in `AudioClipList` and streams its FFT output into the scope live. The byte→magnitude
+  conversion (`magnitudesFromFft`, `shared/commonMain`) is a pure function — no `android.media`
+  dependency — so it's unit-tested directly (6 new tests: DC/Nyquist bins, packed real/imaginary
+  middle bins, all-zero input, output length, and a direct sqrt cross-check) rather than only
+  smoke-tested through Compose.
+- **Narrowed the iOS-target blocker in commonMain.** `EpochClock.System`'s wall-clock source and
+  `LogEntry.formatDisplay()`'s `HH:mm:ss` formatting were the two remaining direct
+  `java.text`/`java.util`/`java.lang.System` calls in `shared/commonMain` — moved behind
+  `expect`/`actual` (`wallClockMs()`, `formatHms()` in `shared/src/commonMain/.../time/`, Android
+  actuals alongside), mirroring the existing `createQualityPostProcessor` pattern. Incidentally
+  fixes a latent thread-safety bug: the old code shared one `SimpleDateFormat` instance (not
+  thread-safe) across every `LogEntry`; the new Android actual uses a `ThreadLocal`. iOS itself is
+  still not a declared target — this closes two concrete, named instances of the blocker, not the
+  blocker itself.
+- **Extended Appium/UiAutomator `testTag` coverage** into the areas `docs/DRAWBACKS.md`
+  explicitly flagged as untagged: Settings' clear-API-keys button and confirm dialog, the three
+  new cloud connectivity-test buttons, the durable-storage-access prompt in Model Packs, the
+  report-content dialog (every trigger button, every reason, Cancel), and the Wardrobe gallery
+  (per-look tap target, Favorite/Delete buttons, delete-confirm dialog, All/Favorites filter
+  chips). All new tags follow the existing `TestTags.kt` per-entity-id pattern.
+- **Extended the Appium suite** (`appium/`) to cover the three gaps `docs/DRAWBACKS.md` named
+  explicitly: video and audio (TTS-first) generation reaching a real terminal state, Model Packs
+  (screen reachability, the durable-storage prompt, and an already-installed pack's real
+  handshake verification — `test_model_packs.py`, new), and Wardrobe (gallery browsing,
+  favoriting, opening a look's version history, delete-confirm/cancel — `test_wardrobe.py`, new).
+  Still unexecuted in this environment (no device/emulator/Appium server) — same honesty note as
+  the rest of this suite.
 
 ## 3.1.1
 UI pieces ported over from `zakir9622/GoogleLookBookUI` (a Google AI Studio–generated build of
