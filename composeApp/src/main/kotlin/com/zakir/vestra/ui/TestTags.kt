@@ -49,6 +49,14 @@ object TestTags {
     const val CHAT_REFRESH_BUTTON = "chat_news_refresh"
     fun chatHeadlineCard(index: Int): String = "chat_headline_$index"
     fun chatMessageBubble(index: Int, role: String): String = "chat_message_${index}_$role"
+    const val CHAT_TYPING_INDICATOR = "chat_typing_indicator"
+    const val CHAT_EMPTY_STATE = "chat_empty_state"
+    fun chatStarterPrompt(index: Int): String = "chat_starter_prompt_$index"
+    const val QUICK_PROMPT_CAROUSEL = "quick_prompt_carousel"
+    fun quickPromptChip(index: Int): String = "quick_prompt_chip_$index"
+
+    // Audio Studio (AudioStudioPane.kt) — import an existing audio file from device storage.
+    const val AUDIO_IMPORT_BUTTON = "audio_import_button"
 
     // Processing mode card (SettingsCloudSection.kt) — the on-device-only / cloud-allowed choice.
     const val PROCESSING_MODE_LOCAL = "processing_mode_local"

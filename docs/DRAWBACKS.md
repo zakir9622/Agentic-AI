@@ -114,6 +114,17 @@ actually fixed, not when it's merely reworded.
   part of B6's device-I/O caveat, not a blocking gap). "Matches lookbookweb's design" now holds
   for typography, navigation pattern, interaction/UX patterns, generation-lifecycle UX, and
   color-identity direction, with the caveats above the only remaining honesty notes.
+- **3.1.1 UI port from `zakir9622/GoogleLookBookUI`.** That repo turned out to be an earlier
+  snapshot of this same codebase (same package, same architecture, frozen around v3.1.0-rc23),
+  not a separate product — most of it was already behind 3.1.0. A real file-level diff found five
+  genuinely additive pieces (richer chat bubbles/typing indicator/empty state/headlines bar,
+  quick-prompt carousel, audio file import, a real on-device model status chip, and a "Create"
+  tool-picker sheet) and ported them; see `CHANGELOG.md`'s 3.1.1 entry for the full list and 18
+  new tests. **Deliberately not ported:** the source repo's `ModelConfigScreen.kt` shows
+  per-provider connectivity "ping" status, but the check is fake — `delay(600)` then a random
+  65–115ms number presented as a real measurement, exactly the kind of fabricated-status UI this
+  file exists to flag rather than import quietly. If a real unified cloud-provider settings screen
+  is wanted later, it needs a real connectivity check behind it, not this pattern.
 
 ## Testability
 

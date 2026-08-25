@@ -1,5 +1,48 @@
 # Changelog — The Lookbook
 
+## 3.1.1
+UI pieces ported over from `zakir9622/GoogleLookBookUI` (a Google AI Studio–generated build of
+this same app, frozen around v3.1.0-rc23). That repo turned out to be an earlier snapshot of this
+codebase, not a separate product — most of it is behind what shipped in 3.1.0, but a real
+file-level diff found five genuinely distinct, additive pieces worth bringing forward:
+
+- **Richer News/Chat UI.** Replaced the plain "YOU"/"ASSISTANT" label-and-text rows with real
+  chat-tail bubble shapes, an AI avatar, per-message timestamps, and a copy-to-clipboard action
+  (`ChatComponents.kt`). Added a proper empty state with tap-to-start conversation starters
+  (`ChatEmptyState`), a pulsing typing indicator while a reply streams in (`ChatTypingIndicator`),
+  and a collapsible live-headlines strip (`NewsHeadlinesBar`) replacing the old plain headline
+  list. Dropped the source repo's token-throughput metrics block (TTFT/duration/tokens-per-second)
+  since our `ChatMessage` doesn't carry that data — not faked in.
+- **Quick-prompt carousel.** `PromptComposer` now takes an optional `quickPrompts` row of one-tap
+  starter chips, wired into News/Chat with the two most recent headlines plus a generic
+  "What can this app do on-device?" prompt.
+- **Import an existing audio file into the voice changer.** `AudioStudioPane` was mic-only;
+  `AudioImportHelper.copyUriToCache` + a new "Import audio" chip let a user pick any audio file
+  from device storage and run it through the same voice-change/transcribe pipeline as a
+  recording.
+- **Real on-device model status chip.** `LiteRtStatusIndicator`/`LiteRtGemmaStatusIndicator` show
+  installed/warm/loading/error state for the local Gemma/Qwen/FunctionGemma packs directly in
+  Code Studio, bound to the actual `GenerativeViewModel.warmup` state — not simulated.
+- **A real "Create" tool picker.** The bottom dock's center FAB used to jump straight to the
+  last-used studio tab. `QuickCreateSheet` now opens a 2-column grid of every local generation
+  surface (Image/Video/Code/Audio, News & Chat, and Try-On when that flag is re-enabled) with a
+  short description and capability badge each — closing a gap the original A3 bottom-dock work
+  left open (the plan's own research had called for exactly this "one obvious button starts
+  anything" pattern).
+- **Bottom dock restyled** from a full-width bar to a floating glass pill with a radial-gradient
+  center FAB and spring-animated item selection, matching the reference app's dock language. Pure
+  visual change — navigation logic, `BottomBarDestination`, and every existing test/testTag are
+  unchanged; `BottomBarNavigationTest` passes against the restyled bar unmodified.
+- **Not ported, flagged instead:** the source repo's `ModelConfigScreen.kt` (a unified cloud
+  provider/API-key settings screen) shows connectivity "ping" status per provider, but the check
+  is fake — `delay(600)` followed by a random 65–115ms latency presented as a real measurement.
+  That conflicts with this project's own no-fabricated-status discipline (see `DRAWBACKS.md`), so
+  it wasn't imported as-is.
+- 18 new tests covering every ported/wired piece: `QuickPromptCarouselTest`,
+  `LiteRtStatusIndicatorTest`, `ChatComponentsTest`, `AudioImportHelperTest` — all real
+  interaction/render tests, no stubs, all passing alongside the existing `BottomBarNavigationTest`
+  (unmodified, still green against the restyled dock).
+
 ## 3.1.0 (stable)
 This is the stable release closing the lovable-parity local-first plan
 (`docs/plans/lovable-parity-local-first/PLAN.md`) — every item A0–A3, B1–B8, D1–D2 is now

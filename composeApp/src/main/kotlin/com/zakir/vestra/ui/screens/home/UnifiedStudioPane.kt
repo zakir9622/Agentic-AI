@@ -54,6 +54,7 @@ import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.LiteRtGemmaStatusIndicator
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
@@ -302,6 +303,14 @@ fun UnifiedStudioPane(
             color = VestraColors.InkMuted,
         )
         Spacer(Modifier.height(4.dp))
+        if (capability == AiCapability.CODE) {
+            LiteRtGemmaStatusIndicator(
+                viewModel = viewModel,
+                packManager = packManager,
+                onOpenPacks = onOpenSettings,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
         // FlowRow, not Row: `estimate` can be a long provider sentence, and in a plain Row it
         // consumed the full width and squeezed the chips beside it down to one-character-wide
         // columns of vertical text. FlowRow wraps them onto the next line instead.

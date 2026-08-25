@@ -36,6 +36,10 @@ import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.BottomBarDestination
 import com.zakir.vestra.ui.components.LookbookBottomBar
+import com.zakir.vestra.ui.components.QuickCreateSheet
+import com.zakir.vestra.ui.screens.home.HomeTab
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
 import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
 import com.zakir.vestra.ui.screens.onboarding.OnboardingScreen
@@ -180,6 +184,8 @@ fun VestraNavHost(
         }
     }
 
+    var showQuickCreate by remember { mutableStateOf(false) }
+
     Scaffold(
         // Zeroed out deliberately: each screen already calls its own `.safeDrawingPadding()` for
         // status/nav-bar insets. Leaving Scaffold's default `WindowInsets.safeDrawing` here would
@@ -192,8 +198,8 @@ fun VestraNavHost(
                     selected = bottomBarSelected,
                     onSelect = { destination ->
                         when (destination) {
-                            BottomBarDestination.HOME, BottomBarDestination.CREATE ->
-                                navigateToTopLevel(Routes.studioHome())
+                            BottomBarDestination.HOME -> navigateToTopLevel(Routes.studioHome())
+                            BottomBarDestination.CREATE -> showQuickCreate = true
                             BottomBarDestination.LIBRARY -> navigateToTopLevel(Routes.WARDROBE)
                             BottomBarDestination.CHAT -> navigateToTopLevel(Routes.CHAT)
                             BottomBarDestination.SETTINGS -> navigateToTopLevel(Routes.SETTINGS)
@@ -512,5 +518,19 @@ fun VestraNavHost(
             )
         }
     }
+    }
+
+    if (showQuickCreate) {
+        QuickCreateSheet(
+            onSelectTab = { tab ->
+                showQuickCreate = false
+                navigateToTopLevel(Routes.studioHome(tab.routeKey))
+            },
+            onOpenChat = {
+                showQuickCreate = false
+                navigateToTopLevel(Routes.CHAT)
+            },
+            onDismiss = { showQuickCreate = false },
+        )
     }
 }
