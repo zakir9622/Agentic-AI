@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.chat.ContextBudget
+import com.zakir.vestra.shared.chat.MemoryRepository
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
@@ -48,9 +49,12 @@ fun NewsChatScreen(
     appSettings: AppSettings? = null,
     freeCloudDiscovery: FreeCloudDiscovery? = null,
     packManager: ModelPackManager? = null,
+    memoryRepository: MemoryRepository? = null,
     onHeadlineSelected: (String?) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    val memoryFacts by memoryRepository?.facts?.collectAsState()
+        ?: remember { mutableStateOf(emptyList<com.zakir.vestra.shared.chat.MemoryFact>()) }
     val newsItems by newsRepository?.items?.collectAsState()
         ?: remember { mutableStateOf(emptyList<NewsItem>()) }
     val newsError by newsRepository?.error?.collectAsState()
@@ -141,6 +145,11 @@ fun NewsChatScreen(
                 Text(newsError ?: "Could not load headlines.", style = MaterialTheme.typography.bodyMedium, color = VestraColors.InkMuted)
             }
             Spacer(Modifier.height(12.dp))
+        }
+
+        if (chatViewModel != null && memoryFacts.isNotEmpty()) {
+            MemoryPill(factCount = memoryFacts.size)
+            Spacer(Modifier.height(8.dp))
         }
 
         NewsHeadlinesBar(

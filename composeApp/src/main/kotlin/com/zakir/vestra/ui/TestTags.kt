@@ -50,6 +50,8 @@ object TestTags {
     fun chatHeadlineCard(index: Int): String = "chat_headline_$index"
     fun chatMessageBubble(index: Int, role: String): String = "chat_message_${index}_$role"
     const val CHAT_TYPING_INDICATOR = "chat_typing_indicator"
+    // "Remembering N things" header pill (ChatComponents.kt) — A4.2/A5, Part B.1's memory count.
+    const val CHAT_MEMORY_PILL = "chat_memory_pill"
     const val CHAT_EMPTY_STATE = "chat_empty_state"
     fun chatStarterPrompt(index: Int): String = "chat_starter_prompt_$index"
     const val QUICK_PROMPT_CAROUSEL = "quick_prompt_carousel"

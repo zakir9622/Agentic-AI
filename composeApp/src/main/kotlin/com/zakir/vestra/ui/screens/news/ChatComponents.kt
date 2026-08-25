@@ -41,6 +41,7 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.CircularProgressIndicator
@@ -524,6 +525,30 @@ fun ContextBudgetBar(
             )
         }
     }
+}
+
+/**
+ * "Remembering N things" header pill — the local analog of lookbookweb's chat-header memory
+ * indicator (`Brain` icon there; `Psychology` is the closest Material Symbols intent match).
+ * Hidden entirely at zero facts rather than showing a "Remembering 0 things" pill with no
+ * informational value — never fabricates a nonzero count.
+ */
+@Composable
+fun MemoryPill(factCount: Int, modifier: Modifier = Modifier) {
+    if (factCount <= 0) return
+    com.zakir.vestra.ui.components.GlassPill(
+        text = if (factCount == 1) "Remembering 1 thing" else "Remembering $factCount things",
+        active = true,
+        modifier = modifier.testTag(TestTags.CHAT_MEMORY_PILL),
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Psychology,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = VestraColors.Accent,
+            )
+        },
+    )
 }
 
 /** Collapsible top strip of live headlines, tap any card to seed a chat discussion. */

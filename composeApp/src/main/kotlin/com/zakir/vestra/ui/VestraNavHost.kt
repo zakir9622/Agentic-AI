@@ -289,6 +289,7 @@ fun VestraNavHost(
                 appSettings = appSettings,
                 freeCloudDiscovery = freeCloudDiscovery,
                 packManager = packManager,
+                memoryRepository = memoryRepository,
             )
         }
         composable(

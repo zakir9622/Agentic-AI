@@ -241,8 +241,9 @@ silently expand `WardrobeRepository`'s scope beyond what its name implies.
   look-detail dialog instead of a `/project/$id` route.
 
 **A4.2 — Chat** (`routes/chat.tsx`, → `NewsChatScreen.kt`)
-- Header pill row: "Remembering N things" (`Brain` icon) — wire to Part B's local memory count
-  once it exists, hide the pill until then rather than showing a fake "0". "N live items" /
+- Header pill row: "Remembering N things" (`Brain` icon). **Done** — Part B.1's local memory
+  count now exists, so `MemoryPill` wires to `MemoryRepository.facts`, hidden entirely at zero
+  facts. `Brain` → Material Symbols `Psychology` (A5's icon-intent audit). "N live items" /
   "Add live sources" pill → maps to the existing News headline-sync affordance.
 - Message list: user bubbles `rounded-br-lg` (tail bottom-right) filled `primary`/
   `primary-foreground`; assistant messages plain text, code fences split into `pre` blocks with

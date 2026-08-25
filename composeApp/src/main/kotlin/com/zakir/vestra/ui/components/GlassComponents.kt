@@ -307,6 +307,7 @@ fun GlassPill(
     active: Boolean,
     modifier: Modifier = Modifier,
     accent: Color = VestraColors.Accent,
+    leadingIcon: (@Composable () -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(50)
     Row(
@@ -321,13 +322,17 @@ fun GlassPill(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .padding(end = 8.dp)
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(if (active) accent else VestraColors.InkMuted.copy(alpha = 0.4f)),
-        )
+        if (leadingIcon != null) {
+            Box(Modifier.padding(end = 8.dp)) { leadingIcon() }
+        } else {
+            Box(
+                Modifier
+                    .padding(end = 8.dp)
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (active) accent else VestraColors.InkMuted.copy(alpha = 0.4f)),
+            )
+        }
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,

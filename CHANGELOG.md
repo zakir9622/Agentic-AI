@@ -193,6 +193,17 @@ every step (not claimed from reading the code).
   version happens to precede them. (2) the screen read and parsed the asset file synchronously
   inside `remember { }`, blocking the composition/UI thread; moved to `produceState` on
   `Dispatchers.IO`, matching this codebase's established IO-hoisting pattern.
+- **A4.2/A5 — Chat header "Remembering N things" pill.** lookbookweb's chat header shows a
+  memory-count pill with a `Brain` icon; Part B.1 (this app's on-device chat memory) shipped
+  earlier without the header affordance surfacing it. Added `MemoryPill` to `ChatComponents.kt`,
+  wired into `NewsChatScreen` from the real `MemoryRepository.facts` count — hidden entirely at
+  zero facts rather than showing a "Remembering 0 things" pill with no informational value, never
+  a fabricated nonzero count. Icon is Material Symbols `Psychology`, the closest available intent
+  match for lookbookweb's `Brain` (A5's icon audit: exact `lucide-react` glyphs aren't portable,
+  intent-matching is). Code-review flagged the first pass for hand-duplicating `GlassPill`'s
+  container styling a third time (`GlassPill`, `ProTierPill`, now this) — fixed by adding an
+  optional `leadingIcon` slot to `GlassPill` itself and having `MemoryPill` reuse it, so the
+  pill's shape/fill/border styling has one source of truth again.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 
