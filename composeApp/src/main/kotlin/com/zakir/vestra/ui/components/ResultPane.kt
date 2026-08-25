@@ -55,6 +55,18 @@ fun ResultPane(
     val context = LocalContext.current
     val reportStore = remember { LocalReportStore(context) }
     var reportPath by remember { mutableStateOf<String?>(null) }
+    var privacyBlurPath by remember { mutableStateOf<String?>(null) }
+
+    privacyBlurPath?.let { path ->
+        PrivacyBlurSheet(
+            imagePath = path,
+            onDismiss = { privacyBlurPath = null },
+            onSaved = {
+                privacyBlurPath = null
+                Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
 
     reportPath?.let { path ->
         AlertDialog(
@@ -144,6 +156,12 @@ fun ResultPane(
                     modifier = Modifier.weight(1f),
                 )
             }
+            Spacer(Modifier.height(10.dp))
+            GlassSecondaryButton(
+                text = "Privacy blur",
+                onClick = { privacyBlurPath = state.path },
+                modifier = Modifier.testTag(TestTags.PRIVACY_BLUR_BUTTON),
+            )
             Spacer(Modifier.height(10.dp))
             GlassSecondaryButton(
                 text = LookbookCopy.ACTION_REPORT,

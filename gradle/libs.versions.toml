@@ -17,6 +17,7 @@ coil = "3.2.0"
 workManager = "2.10.1"
 onnxruntime = "1.20.0"
 exifinterface = "1.4.1"
+mlkitFaceDetection = "16.1.7"
 
 junit = "4.13.2"
 androidxTestJunit = "1.2.1"
@@ -54,6 +55,7 @@ androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", vers
 onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litertlm" }
 litert-android = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
+mlkit-face-detection = { module = "com.google.mlkit:face-detection", version.ref = "mlkitFaceDetection" }
 
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }

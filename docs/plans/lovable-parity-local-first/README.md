@@ -89,5 +89,12 @@ open questions for the user before implementation starts.
   The `AudioTrack`/`AudioRecord` I/O in `AndroidLatencyCalibrator` and the amplitude stream in
   `AndroidMicRecorder` are unverified on real hardware for the same reason — the math they call is
   tested, the device timing around it is not.
-- **Not yet started:** B7's remaining face-detection/manual-blur build-out, and Part D's
-  real-model output-quality testing for code/audio.
+- **B7 (safety post-process) — done (3.1.0-rc27).** `FaceBlurProcessor` (ML Kit face detection,
+  fully offline/bundled) + `BoxBlur` (real box-blur math, no RenderScript) auto-blur detected
+  faces; `RegionBlurOverlay` adds a manual drag-to-draw fallback. `PrivacyBlurSheet` wires both
+  into a "Privacy blur" button on every image result, keeping the same EXIF provenance tag. The
+  blur math (`BoxBlur`) is unit-tested against real bitmaps; ML Kit's actual face detector is not
+  exercised against a real photo in this environment (no device, and its on-device model
+  behavior isn't meaningfully testable under Robolectric) — same honesty posture as B6's device
+  I/O above.
+- **Not yet started:** Part D's real-model output-quality testing for code/audio.

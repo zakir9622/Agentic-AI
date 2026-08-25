@@ -57,6 +57,14 @@ actually fixed, not when it's merely reworded.
   amplitude stream, and `AndroidLatencyCalibrator`'s simultaneous `AudioTrack` playback +
   `AudioRecord` capture, both added this session with no device available to confirm real-world
   timing behavior — same honesty posture as the GPU-delegate CPU fallback below.
+- **ML Kit's face detector (B7, 3.1.0-rc27) is not exercised against a real photo with a real
+  face in this environment.** `FaceBlurProcessor.detectFaces()` wraps ML Kit's bundled on-device
+  detector correctly per its documented API, and `BoxBlur` (the actual pixel-blur math applied to
+  each detected region) is unit-tested against real `Bitmap`s — but whether the detector itself
+  finds faces reliably, at what confidence, and how it behaves on partial/angled/multiple faces
+  is unverified: no device, and ML Kit's native detection model doesn't run meaningfully under
+  Robolectric. Treat detection accuracy as unverified until tested on a real device with real
+  photos.
 
 ## Design/UX parity with the reference app (lookbookweb)
 
@@ -72,11 +80,12 @@ actually fixed, not when it's merely reworded.
   device-requirement checklist in Model Packs, a single honestly-labeled Processing Mode card
   replacing the old cloud switch, a shared shimmer-loading component wired into the one real gap
   found, and version lineage for local generations (retries in the same studio tab chain as a
-  discoverable history), and a voice-studio DSP layer — real, unit-tested pitch-detection/
+  discoverable history), a voice-studio DSP layer — real, unit-tested pitch-detection/
   latency-estimation/FFT algorithms wired into a live RMS level meter, grouped voice personas,
   a "Match voice" pitch-matching chip, and a "Calibrate mic latency" chip (see Reliability below
-  for what's unverified on real hardware there). **Not done:** the remaining face-detection/
-  manual-blur build-out for local safety/blur post-process, a live spectrum-scope data source
+  for what's unverified on real hardware there) — and a privacy-blur post-process: fully offline
+  ML Kit face detection + a real box-blur, plus a manual drag-to-draw region tool, wired into a
+  "Privacy blur" button on every image result. **Not done:** a live spectrum-scope data source
   (the renderer exists, nothing feeds it yet), and Part D's planned real-model output-quality
   testing for code and audio. Treat any claim that this app "matches lookbookweb's design" as
   false until those close too — it currently matches on typography, navigation pattern, most

@@ -69,4 +69,11 @@ object TestTags {
     const val BOTTOM_BAR_CREATE = "bottom_bar_create"
     const val BOTTOM_BAR_CHAT = "bottom_bar_chat"
     const val BOTTOM_BAR_SETTINGS = "bottom_bar_settings"
+
+    // Privacy blur post-process (PrivacyBlurSheet.kt, RegionBlurOverlay.kt) — B7.
+    const val PRIVACY_BLUR_BUTTON = "privacy_blur_button"
+    const val PRIVACY_BLUR_TOGGLE = "privacy_blur_toggle"
+    const val PRIVACY_BLUR_APPLY = "privacy_blur_apply"
+    const val PRIVACY_BLUR_CANVAS = "privacy_blur_canvas"
+    const val PRIVACY_BLUR_SAVE_ORIGINAL = "privacy_blur_save_original"
 }

@@ -1,5 +1,29 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc27
+- **B7 — privacy blur post-process.** Fully offline face detection via ML Kit's bundled
+  face-detection model (~6MB, no network call, no Play Services dependency — see
+  `libface_detector_v2_jni.so` now packaged into the APK). `FaceBlurProcessor.detectAndBlur()`
+  detects faces and applies a real box-blur (`BoxBlur` — no RenderScript, several passes
+  approximating gaussian) to each region. `RegionBlurOverlay` adds a drag-to-draw manual blur
+  tool for anything the detector misses. `PrivacyBlurSheet` (opened via the new "Privacy blur"
+  button on every `GenerativeState.ImageReady` result) combines both: an auto-blur toggle, a
+  blur-strength slider, drawn regions, and "Save original"/"Save blurred" actions. Blurred output
+  keeps the same EXIF provenance tag as every other generated image (`Provenance.ensureImageFile`).
+- 11 new tests: `BoxBlurTest` (real pixel-level blur math on actual `Bitmap`s — a sharp edge
+  measurably smooths, a uniform region stays uniform, out-of-bounds/zero-radius/empty-region
+  inputs don't crash), `RegionBlurOverlayTest` (a real drag adds a region, a tiny drag doesn't,
+  clearing renders correctly), `PrivacyBlurFlowTest` (the auto-blur toggle and "Save original"
+  pass-through, exercised against `PrivacyBlurContent` directly rather than through
+  `ModalBottomSheet` — Robolectric's Compose harness doesn't reliably dispatch clicks into a live
+  bottom sheet's window layer, and a real device-size root window is needed too, or every button
+  in the sheet measures to zero size and silently swallows clicks with no exception; both
+  findings are documented in the test file for the next time this pattern is needed).
+- **Honesty note**: `FaceBlurProcessor`'s ML Kit detector itself is not exercised on a real image
+  with real faces in this environment (no device, and ML Kit's on-device model behavior isn't
+  meaningfully testable under Robolectric) — the blur *math* it calls (`BoxBlur`) is real and
+  tested against actual bitmaps, not stubbed.
+
 ## 3.1.0-rc26
 - **B6 — voice studio DSP depth.** Real, unit-tested signal-processing core added to `shared`:
   `PitchDetector` (autocorrelation-based fundamental-frequency detection), `PitchMatcher`
