@@ -37,6 +37,7 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
+import androidx.compose.ui.graphics.Color
 import java.io.File
 import kotlinx.coroutines.delay
 
@@ -49,10 +50,23 @@ fun ResultPane(
     onDismiss: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
     retryLabel: String = LookbookCopy.ACTION_RETRY,
+    accent: Color = VestraColors.Accent,
 ) {
     val context = LocalContext.current
     val reportStore = remember { LocalReportStore(context) }
     var reportPath by remember { mutableStateOf<String?>(null) }
+    var privacyBlurPath by remember { mutableStateOf<String?>(null) }
+
+    privacyBlurPath?.let { path ->
+        PrivacyBlurSheet(
+            imagePath = path,
+            onDismiss = { privacyBlurPath = null },
+            onSaved = {
+                privacyBlurPath = null
+                Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
 
     reportPath?.let { path ->
         AlertDialog(
@@ -82,7 +96,7 @@ fun ResultPane(
     when (state) {
         null -> Unit
         is GenerativeState.Preparing -> {
-            GlassLoadingCard(state.message, onCancel = onCancel)
+            GlassLoadingCard(state.message, onCancel = onCancel, accent = accent)
             LiveGenConsole(liveLog, generationStartedAtMs)
         }
         is GenerativeState.Running -> {
@@ -112,6 +126,7 @@ fun ResultPane(
                 message = message,
                 progress = state.fraction,
                 onCancel = onCancel,
+                accent = accent,
             )
             LiveGenConsole(liveLog, generationStartedAtMs)
         }
@@ -119,7 +134,7 @@ fun ResultPane(
             GlassSectionLabel("RESULT")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI-generated", active = true)
-                GlassPill(text = "In looks gallery", active = true, accent = VestraColors.Accent)
+                GlassPill(text = "In looks gallery", active = true, accent = accent)
             }
             Spacer(Modifier.height(8.dp))
             AsyncImage(
@@ -143,6 +158,12 @@ fun ResultPane(
             }
             Spacer(Modifier.height(10.dp))
             GlassSecondaryButton(
+                text = "Privacy blur",
+                onClick = { privacyBlurPath = state.path },
+                modifier = Modifier.testTag(TestTags.PRIVACY_BLUR_BUTTON),
+            )
+            Spacer(Modifier.height(10.dp))
+            GlassSecondaryButton(
                 text = LookbookCopy.ACTION_REPORT,
                 onClick = { reportPath = state.path },
             )
@@ -151,7 +172,7 @@ fun ResultPane(
             GlassSectionLabel("VIDEO READY")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI-generated", active = true)
-                GlassPill(text = "In looks gallery", active = true, accent = VestraColors.Accent)
+                GlassPill(text = "In looks gallery", active = true, accent = accent)
             }
             Spacer(Modifier.height(8.dp))
             Text(
@@ -191,7 +212,7 @@ fun ResultPane(
             GlassSectionLabel("AUDIO READY")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI voice", active = true)
-                GlassPill(text = "Knobs applied locally", active = true, accent = VestraColors.Accent)
+                GlassPill(text = "Knobs applied locally", active = true, accent = accent)
             }
             Spacer(Modifier.height(8.dp))
             Text(

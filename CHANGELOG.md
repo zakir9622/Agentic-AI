@@ -1,5 +1,131 @@
 # Changelog — The Lookbook
 
+## 3.1.0 (stable)
+This is the stable release closing the lovable-parity local-first plan
+(`docs/plans/lovable-parity-local-first/PLAN.md`) — every item A0–A3, B1–B8, D1–D2 is now
+either shipped with test evidence or explicitly and honestly documented as unverified-on-device
+in `docs/DRAWBACKS.md`. No item is left "deferred" or "pending" without a stated reason.
+
+- **D2 — audio DSP verified against the real shipped pipeline, and a real bug found and fixed
+  as a result.** `AudioDspVerificationTest` (JVM/Robolectric, `shared/androidUnitTest`) exercises
+  `AndroidLocalVoiceChanger.transform()` itself — not new test-only math — with synthetic tone
+  fixtures: +12 semitones measures ~880Hz from a 440Hz input, -12 measures ~220Hz, extreme knobs
+  never exceed the 16-bit PCM range, and default knobs preserve both pitch and sample count.
+  Writing the speed tests (2x should roughly halve duration, 0.5x should roughly double it)
+  surfaced a genuine production bug: `applyPitchAndSpeed()` was *dividing* `readStep` by `speed`
+  instead of multiplying, so the "Speed" knob's effect was inverted — a 2.00× setting played
+  audio *slower* (longer), and a 0.50× setting played it *faster* (shorter), the opposite of
+  what the UI's label promised. Fixed in `AndroidLocalVoiceChanger.kt`; all 6 new tests pass
+  against the corrected pipeline, and the full 293-test `shared` suite plus the full
+  `composeApp` suite were re-run afterward to confirm no other behavior depended on the old
+  (wrong) direction.
+- **D1 — local code-generation output-quality test suite.** `LiteRtLmOutputQualityTest`
+  (`composeApp/androidTest`) runs three representative prompts (Kotlin quicksort, a StateFlow-vs-
+  Flow explanation, a Jetpack Compose counter button) against the real installed Gemma 4 pack via
+  `LiteRtLmEngine`, asserting the output is non-empty, substantive, free of leaked `<think>`
+  blocks, and contains prompt-appropriate markers (`fun`, `pivot`/`partition`, `@Composable`,
+  `remember`/`mutableStateOf`). Follows `LiteRtLmBenchmarkTest`'s graceful-skip pattern when no
+  pack is installed on the device. Compiles cleanly (`compileSideloadDebugAndroidTestKotlin`);
+  like the rest of this app's `androidTest` suite, it has not been run on a physical device in
+  this environment — see `docs/DRAWBACKS.md`'s Testability section.
+- **`SettingsTierSmokeTest`** — removed its stale `HomeTabRoute.NEWS` mirror constant, left over
+  from before A3 (3.1.0-rc25) moved Chat out of the `HomeTab` pager and into the bottom dock.
+- Version: drops the `-rc` suffix — this is the stable release the `-rc24`..`-rc27` cycle was
+  building toward.
+
+## 3.1.0-rc27
+- **B7 — privacy blur post-process.** Fully offline face detection via ML Kit's bundled
+  face-detection model (~6MB, no network call, no Play Services dependency — see
+  `libface_detector_v2_jni.so` now packaged into the APK). `FaceBlurProcessor.detectAndBlur()`
+  detects faces and applies a real box-blur (`BoxBlur` — no RenderScript, several passes
+  approximating gaussian) to each region. `RegionBlurOverlay` adds a drag-to-draw manual blur
+  tool for anything the detector misses. `PrivacyBlurSheet` (opened via the new "Privacy blur"
+  button on every `GenerativeState.ImageReady` result) combines both: an auto-blur toggle, a
+  blur-strength slider, drawn regions, and "Save original"/"Save blurred" actions. Blurred output
+  keeps the same EXIF provenance tag as every other generated image (`Provenance.ensureImageFile`).
+- 11 new tests: `BoxBlurTest` (real pixel-level blur math on actual `Bitmap`s — a sharp edge
+  measurably smooths, a uniform region stays uniform, out-of-bounds/zero-radius/empty-region
+  inputs don't crash), `RegionBlurOverlayTest` (a real drag adds a region, a tiny drag doesn't,
+  clearing renders correctly), `PrivacyBlurFlowTest` (the auto-blur toggle and "Save original"
+  pass-through, exercised against `PrivacyBlurContent` directly rather than through
+  `ModalBottomSheet` — Robolectric's Compose harness doesn't reliably dispatch clicks into a live
+  bottom sheet's window layer, and a real device-size root window is needed too, or every button
+  in the sheet measures to zero size and silently swallows clicks with no exception; both
+  findings are documented in the test file for the next time this pattern is needed).
+- **Honesty note**: `FaceBlurProcessor`'s ML Kit detector itself is not exercised on a real image
+  with real faces in this environment (no device, and ML Kit's on-device model behavior isn't
+  meaningfully testable under Robolectric) — the blur *math* it calls (`BoxBlur`) is real and
+  tested against actual bitmaps, not stubbed.
+
+## 3.1.0-rc26
+- **B6 — voice studio DSP depth.** Real, unit-tested signal-processing core added to `shared`:
+  `PitchDetector` (autocorrelation-based fundamental-frequency detection), `PitchMatcher`
+  (computes the semitone shift to move a recorded clip's pitch onto a target), `LatencyCalibrator`
+  (cross-correlation round-trip latency estimation), and `SimpleFft` (radix-2 FFT for spectrum
+  magnitude). All four are pure functions over `FloatArray`/`ShortArray`, verified with synthetic
+  sine/chirp signals — 21 new tests, all passing on real math, not mocks.
+- **Wired into Audio Studio:** `AndroidMicRecorder` now exposes a live `StateFlow<Float>` RMS
+  amplitude, driving a new `AudioLevelMeter` (rolling-history bar visualization, reduced-motion
+  gated) shown while recording. Voice personas are grouped into Female/Male/Neutral & character
+  sections (`VoiceCatalog.groupedByVariety()`) using the new `GlassTile` inside the picker. A
+  "Match voice" chip runs `PitchMatcher` against the recorded clip and the selected persona's
+  typical pitch range, auto-setting `VoiceKnobs.pitchSemitones`. A "Calibrate mic latency" chip
+  runs `AndroidLatencyCalibrator` (plays a tone, records it, cross-correlates) and displays the
+  estimated round-trip latency as an informational readout.
+- **Honesty note on hardware verification**, matching this app's established pattern (see the
+  GPU-delegate fallback in `LiteRtLmEngine`): the DSP *algorithms* are real and tested against
+  synthetic signals. The Android I/O around them — simultaneous `AudioTrack`/`AudioRecord` in
+  `AndroidLatencyCalibrator`, and `AndroidMicRecorder`'s new amplitude stream — has not been
+  exercised on a real device in this environment. `SpectrumScope` (playback-side spectrum bars)
+  is built and smoke-tested but not yet wired to a live data source anywhere in the app — no
+  screen calls it yet, since that would require Android's `Visualizer` API on a real playback
+  session this environment cannot verify. Extracted `WavIo` (mono 16-bit PCM read/write) out of
+  `AndroidLocalVoiceChanger`/`AndroidMicRecorder` to remove duplication now that three call sites
+  need it.
+
+## 3.1.0-rc25
+- **A3 — bottom dock navigation.** Added `LookbookBottomBar` (Home / Library / a raised center
+  Create FAB / Chat / Settings), wired into `VestraNavHost` via a `Scaffold`. The in-studio pager
+  (Image/Video/Audio/Code) is unchanged — it's a second, lower level of navigation nested inside
+  the Home destination, exactly as before. News/Chat is promoted from a pager tab to its own
+  top-level route (`Routes.CHAT`), reachable via the dock's Chat item instead of a `HomeTab.NEWS`
+  entry; `NewsChatScreen` now wraps itself in `SpatialBackground`/`.safeDrawingPadding()` since
+  it's no longer nested inside `HomeScreen`'s own background. The header's Wardrobe and Settings
+  icon buttons were removed from `HomeScreen` (redundant with the dock's Library/Settings items);
+  Help stays in the header since it has no dock slot.
+- **Session isolation verified safe by construction, not by luck.** `GenerativeViewModel` is
+  created once in `VestraNavHost`'s own composable scope and passed down as a parameter — it is
+  never scoped to a `NavBackStackEntry`, so `StudioBag`/`bindStudio` per-tab prompt state is
+  unaffected by bottom-bar navigation regardless of the back stack's save/restore behavior. The
+  dock itself uses the standard `popUpTo(startDestination) { saveState = true }` +
+  `restoreState = true` pattern so the studio pager's own position (`rememberPagerState`, which is
+  `rememberSaveable`-backed) survives a round trip through Library/Chat/Settings too.
+- Added `appium/test_bottom_bar.py` (dock visibility, per-item navigation, Create FAB, and a
+  studio-prompt round-trip regression guard) and `BottomBarNavigationTest.kt` (Robolectric).
+  Updated `test_prompt_isolation.py` and `test_generation_flows.py` for Chat's new location, and
+  `test_processing_mode.py` for Settings now opening via the dock's `bottom_bar_settings` tag.
+
+## 3.1.0-rc24
+- **A0 completion — modality accents now reach every studio surface**, not just the header
+  label: `VestraColors.modalityAccent(AiCapability)` resolves the right per-modality tint (brass
+  for Image/Edit/Try-on, copper for Video, teal for Code, dusty rose for Audio) and is now
+  threaded through `PromptComposer` (border, model chip, reference-image icon), `ResultPane`
+  (loading spinner/progress bar, result pills), `HomeScreen`'s tab row (selected-tab color),
+  `ModelPickerSheet` (search field, section headers, selection state, status dots), and
+  `AudioStudioPane`'s voice-changer knob readouts. Image/Video/Code studios pick this up via
+  `UnifiedStudioPane`; Audio wires its own `VestraColors.ModalityAudio` since it isn't routed
+  through that shared pane.
+- **Added `SpacingTokens`** (`xxs`…`xxl`, plus `section` for the historical 18.dp card padding) —
+  replaces ad hoc `18.dp` literals in `GlassCard`, `HomeScreen`, and `UnifiedStudioPane`/
+  `AudioStudioPane`'s outer padding.
+- **A2 completion — `Modifier.tilt3d()`**: a lightweight 3D perspective-tilt micro-interaction
+  (pointer-driven `rotationX`/`rotationY` via `graphicsLayer`, springs back to flat on release),
+  gated by `rememberReduceMotion()` like every other animation in this app — an exact no-op
+  Modifier when reduced motion is on. Applied to the try-on hero card.
+- **Added `GlassTile`** — a lighter nested-content variant of `GlassCard` (stronger fill,
+  `RadiusTokens.md`, no press-lift/shadow) for future list-row use inside existing glass cards.
+- New tests: `SpacingTokensTest`, `ModalityAccentTest`, `TiltModifierTest` (Robolectric).
+
 ## 3.1.0-rc23
 - **Fixed a real prompt-leak bug, found directly from a user report**: typing a prompt in one
   studio tab (Image/Video/Code/Audio), then visiting News/Chat and tapping a headline, could

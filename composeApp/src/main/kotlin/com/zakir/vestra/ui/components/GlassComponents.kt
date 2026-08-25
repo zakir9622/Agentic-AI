@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.RadiusTokens
+import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.SpatialElevation
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -210,10 +211,10 @@ fun GlassCard(
             shape = shape,
             interactionSource = interactionSource,
         ) {
-            Column(Modifier.padding(18.dp), content = content)
+            Column(Modifier.padding(SpacingTokens.section), content = content)
         }
     } else {
-        Column(base.padding(18.dp), content = content)
+        Column(base.padding(SpacingTokens.section), content = content)
     }
 }
 
@@ -577,6 +578,7 @@ fun GlassLoadingCard(
     message: String,
     progress: Float? = null,
     onCancel: (() -> Unit)? = null,
+    accent: Color = VestraColors.Accent,
 ) {
     val progressLabel = progress?.let { "Generation progress ${(it.coerceIn(0f, 1f) * 100).toInt()} percent" }
         ?: "Generation in progress"
@@ -593,12 +595,12 @@ fun GlassLoadingCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = progressLabel },
-                color = VestraColors.Accent,
+                color = accent,
                 trackColor = VestraColors.GlassBorder,
             )
         } else {
             androidx.compose.material3.CircularProgressIndicator(
-                color = VestraColors.Accent,
+                color = accent,
                 modifier = Modifier.semantics { contentDescription = progressLabel },
             )
         }
@@ -611,4 +613,21 @@ fun GlassLoadingCard(
             )
         }
     }
+}
+
+@Composable
+fun GlassTile(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(RadiusTokens.md)
+    Row(
+        modifier
+            .clip(shape)
+            .background(VestraColors.GlassFillStrong)
+            .border(1.dp, VestraColors.GlassBorder, shape)
+            .padding(SpacingTokens.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
 }

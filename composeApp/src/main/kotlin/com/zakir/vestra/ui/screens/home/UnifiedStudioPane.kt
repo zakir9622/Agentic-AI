@@ -58,6 +58,7 @@ import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
+import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -245,6 +246,8 @@ fun UnifiedStudioPane(
         else -> Unit
     }
 
+    val accent = VestraColors.modalityAccent(effectiveCapability)
+
     // Two regions, not one long scroll: generated content scrolls in the top region while the
     // composer stays docked at the bottom of the screen. Previously everything lived in a single
     // verticalScroll column, so the composer drifted mid-scroll and results pushed it off-screen.
@@ -254,16 +257,11 @@ fun UnifiedStudioPane(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 8.dp),
+                .padding(horizontal = SpacingTokens.section, vertical = 8.dp),
         ) {
         GlassSectionLabel(
             subtitle.uppercase(),
-            color = when (capability) {
-                AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.TRY_ON -> VestraColors.ModalityImage
-                AiCapability.VIDEO -> VestraColors.ModalityVideo
-                AiCapability.CODE -> VestraColors.ModalityCode
-                AiCapability.AUDIO -> VestraColors.ModalityAudio
-            },
+            color = accent,
         )
         Text(
             when (capability) {
@@ -406,7 +404,7 @@ fun UnifiedStudioPane(
             Text(
                 "EXAMPLES",
                 style = MaterialTheme.typography.labelSmall,
-                color = VestraColors.Accent,
+                color = accent,
             )
             Spacer(Modifier.height(6.dp))
             ExamplePromptRow(
@@ -447,6 +445,7 @@ fun UnifiedStudioPane(
                 },
                 retryLabel = if (quotaOrCredits) "Choose model" else LookbookCopy.ACTION_RETRY,
                 onDismiss = viewModel::clearResult,
+                accent = accent,
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -457,12 +456,13 @@ fun UnifiedStudioPane(
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp)
+                .padding(horizontal = SpacingTokens.section)
                 .padding(bottom = 10.dp, top = 4.dp),
         ) {
             PromptComposer(
                 prompt = prompt,
                 onPromptChange = viewModel::setPrompt,
+                accent = accent,
                 modelLabel = when {
                     effectiveCapability == AiCapability.IMAGE_GEN && localImageReady && reference == null ->
                         "Local tiny-SD (offline)"
@@ -512,6 +512,7 @@ fun UnifiedStudioPane(
             selectedId = selectedId,
             onDeviceEntries = onDeviceEntries,
             health = viewModel.appSettings.modelHealth,
+            accent = accent,
             onSelect = { chosen ->
                 when (effectiveCapability) {
                     AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)

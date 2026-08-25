@@ -24,7 +24,7 @@ from conftest import by_tag, tag_exists
 HOME_TAB_IMAGE = "home_tab_image"
 HOME_TAB_CODE = "home_tab_code"
 HOME_TAB_AUDIO = "home_tab_audio"
-HOME_TAB_NEWS = "home_tab_news"
+BOTTOM_BAR_CHAT = "bottom_bar_chat"
 
 PROMPT_INPUT = "composer_prompt_input"
 SEND_BUTTON = "composer_send_button"
@@ -133,7 +133,8 @@ class TestCodeGeneration:
 
 class TestAudioAndChat:
     def test_local_chat_reply_appears_for_a_real_question(self, driver):
-        _goto_tab(driver, HOME_TAB_NEWS)
+        # Chat is a standalone bottom-dock destination (A3), not a studio pager tab.
+        _goto_tab(driver, BOTTOM_BAR_CHAT)
         # NewsChatScreen's own message bubbles are tagged chat_message_{index}_{role}.
         chat_input_tag = PROMPT_INPUT  # NewsChatScreen reuses PromptComposer for its input
         if not tag_exists(driver, chat_input_tag):

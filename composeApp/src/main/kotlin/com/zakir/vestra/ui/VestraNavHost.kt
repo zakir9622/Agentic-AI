@@ -2,15 +2,20 @@ package com.zakir.vestra.ui
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -29,11 +34,14 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
+import com.zakir.vestra.ui.components.BottomBarDestination
+import com.zakir.vestra.ui.components.LookbookBottomBar
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
 import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
 import com.zakir.vestra.ui.screens.onboarding.OnboardingScreen
 import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
+import com.zakir.vestra.ui.screens.news.NewsChatScreen
 import com.zakir.vestra.ui.screens.person.PersonSourceScreen
 import com.zakir.vestra.ui.screens.result.ResultScreen
 import com.zakir.vestra.shared.chat.ChatRepository
@@ -72,6 +80,7 @@ object Routes {
     const val USAGE = "usage"
     const val HELP = "help"
     const val PRIVACY = "privacy"
+    const val CHAT = "chat"
 
     fun deepLink(route: String) = "lookbook://screen/$route"
 }
@@ -150,9 +159,54 @@ fun VestraNavHost(
         val tab = navEntry?.arguments?.getString("tab")
         CrashReporter.breadcrumb(if (tab != null) "$route#$tab" else route)
     }
+
+    // The bottom dock only appears on the five top-level destinations it navigates between —
+    // hidden on the try-on capture flow, nested Settings sections, Packs, Usage, Help, and
+    // Privacy, where a back arrow is the right affordance instead.
+    val currentRoute = navEntry?.destination?.route
+    val bottomBarSelected = when (currentRoute) {
+        Routes.STUDIO -> BottomBarDestination.HOME
+        Routes.WARDROBE -> BottomBarDestination.LIBRARY
+        Routes.CHAT -> BottomBarDestination.CHAT
+        Routes.SETTINGS -> BottomBarDestination.SETTINGS
+        else -> null
+    }
+
+    fun navigateToTopLevel(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    Scaffold(
+        // Zeroed out deliberately: each screen already calls its own `.safeDrawingPadding()` for
+        // status/nav-bar insets. Leaving Scaffold's default `WindowInsets.safeDrawing` here would
+        // double-apply that padding once via Scaffold's innerPadding and again inside the screen.
+        // `innerPadding` below then reflects only the bottom bar's own measured height.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            if (bottomBarSelected != null) {
+                LookbookBottomBar(
+                    selected = bottomBarSelected,
+                    onSelect = { destination ->
+                        when (destination) {
+                            BottomBarDestination.HOME, BottomBarDestination.CREATE ->
+                                navigateToTopLevel(Routes.studioHome())
+                            BottomBarDestination.LIBRARY -> navigateToTopLevel(Routes.WARDROBE)
+                            BottomBarDestination.CHAT -> navigateToTopLevel(Routes.CHAT)
+                            BottomBarDestination.SETTINGS -> navigateToTopLevel(Routes.SETTINGS)
+                        }
+                    },
+                )
+            }
+        },
+    ) { innerPadding ->
     NavHost(
         navController = navController,
         startDestination = start,
+        modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
         enterTransition = { EnterTransition.None },
         exitTransition = { ExitTransition.None },
         popEnterTransition = { EnterTransition.None },
@@ -178,8 +232,30 @@ fun VestraNavHost(
             ),
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink("studio") }),
         ) { backStackEntry ->
-            val context = LocalContext.current
             val tab = backStackEntry.arguments?.getString("tab")
+            HomeScreen(
+                appSettings = appSettings,
+                wardrobe = wardrobe,
+                packManager = packManager,
+                generativeViewModel = generativeViewModel,
+                localJobStore = localJobStore,
+                freeCloudDiscovery = freeCloudDiscovery,
+                onNewLook = {
+                    tryOnViewModel.resetSession()
+                    navController.navigate(Routes.GARMENT)
+                },
+                onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenPacks = { navController.navigate(Routes.PACKS) },
+                onOpenHelp = { navController.navigate(Routes.HELP) },
+                initialTabRoute = tab,
+            )
+        }
+        composable(
+            route = Routes.CHAT,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CHAT) }),
+        ) {
+            val context = LocalContext.current
             val newsRepository = remember(context) {
                 NewsRepository(platformHttpClient(), NewsFeedConfig.load(context))
             }
@@ -197,29 +273,12 @@ fun VestraNavHost(
                         ) as T
                 },
             )
-            HomeScreen(
-                appSettings = appSettings,
-                wardrobe = wardrobe,
-                packManager = packManager,
-                generativeViewModel = generativeViewModel,
-                localJobStore = localJobStore,
-                freeCloudDiscovery = freeCloudDiscovery,
+            NewsChatScreen(
                 newsRepository = newsRepository,
                 chatViewModel = chatViewModel,
-                onNewLook = {
-                    tryOnViewModel.resetSession()
-                    navController.navigate(Routes.GARMENT)
-                },
-                onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenHelp = { navController.navigate(Routes.HELP) },
-                // NewsChatScreen fills its own local chat input with the headline before this
-                // fires — this used to also push the headline into GenerativeViewModel.prompt,
-                // which every studio tab (Image/Video/Code/Audio) shares, silently overwriting
-                // whatever the user had typed in the currently-bound studio.
-                onOpenNewsChat = {},
-                initialTabRoute = tab,
+                appSettings = appSettings,
+                freeCloudDiscovery = freeCloudDiscovery,
+                packManager = packManager,
             )
         }
         composable(
@@ -452,5 +511,6 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
+    }
     }
 }

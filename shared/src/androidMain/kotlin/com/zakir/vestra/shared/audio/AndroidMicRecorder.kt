@@ -4,10 +4,13 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import java.io.ByteArrayOutputStream
-import java.io.DataOutputStream
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
+import kotlin.math.sqrt
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Short on-device PCM → WAV recorder for Audio Studio voice-change.
@@ -24,6 +27,10 @@ class AndroidMicRecorder(
     private var lastPath: String? = null
     @Volatile
     private var lastError: String? = null
+
+    private val _amplitude = MutableStateFlow(0f)
+    /** Live RMS amplitude (0f..1f) of the buffer chunk most recently read while recording. */
+    val amplitude: StateFlow<Float> = _amplitude.asStateFlow()
 
     val isRecording: Boolean get() = recording.get()
     val lastRecordingPath: String? get() = lastPath
@@ -74,7 +81,10 @@ class AndroidMicRecorder(
                 val deadline = System.currentTimeMillis() + maxDurationMs
                 while (recording.get() && System.currentTimeMillis() < deadline) {
                     val n = recorder.read(buf, 0, buf.size)
-                    if (n > 0) pcm.write(buf, 0, n)
+                    if (n > 0) {
+                        pcm.write(buf, 0, n)
+                        _amplitude.value = rmsAmplitude(buf, n)
+                    }
                 }
             } catch (error: Exception) {
                 lastError = error.message?.take(120) ?: "Recording failed"
@@ -84,6 +94,7 @@ class AndroidMicRecorder(
                 }
                 recorder.release()
                 recording.set(false)
+                _amplitude.value = 0f
                 val samples = pcm.toByteArray()
                 if (samples.size < sampleRate) {
                     if (lastError == null) lastError = "Recording too short — hold the mic longer."
@@ -91,7 +102,7 @@ class AndroidMicRecorder(
                 }
                 val out = File(outputDir, "mic_${System.currentTimeMillis()}.wav")
                 runCatching {
-                    writePcm16MonoWav(out, samples, sampleRate)
+                    WavIo.writePcm16MonoWav(out, samples, sampleRate)
                     lastPath = out.absolutePath
                 }.onFailure { err ->
                     lastError = err.message?.take(120) ?: "Could not save recording"
@@ -113,37 +124,18 @@ class AndroidMicRecorder(
         lastError = null
     }
 
-    private fun writePcm16MonoWav(file: File, pcm: ByteArray, rate: Int) {
-        val dataSize = pcm.size
-        val out = ByteArrayOutputStream()
-        DataOutputStream(out).use { dos ->
-            fun writeString(s: String) = dos.writeBytes(s)
-            fun writeIntLE(v: Int) {
-                dos.write(v and 0xff)
-                dos.write((v shr 8) and 0xff)
-                dos.write((v shr 16) and 0xff)
-                dos.write((v shr 24) and 0xff)
-            }
-            fun writeShortLE(v: Int) {
-                dos.write(v and 0xff)
-                dos.write((v shr 8) and 0xff)
-            }
-            writeString("RIFF")
-            writeIntLE(36 + dataSize)
-            writeString("WAVE")
-            writeString("fmt ")
-            writeIntLE(16)
-            writeShortLE(1)
-            writeShortLE(1)
-            writeIntLE(rate)
-            writeIntLE(rate * 2)
-            writeShortLE(2)
-            writeShortLE(16)
-            writeString("data")
-            writeIntLE(dataSize)
-            dos.write(pcm)
+    /** RMS of the 16-bit little-endian PCM samples in `buf[0 until n]`, normalized to 0f..1f. */
+    private fun rmsAmplitude(buf: ByteArray, n: Int): Float {
+        val sampleCount = n / 2
+        if (sampleCount <= 0) return 0f
+        var sumSquares = 0.0
+        for (i in 0 until sampleCount) {
+            val lo = buf[i * 2].toInt() and 0xff
+            val hi = buf[i * 2 + 1].toInt()
+            val sample = ((hi shl 8) or lo).toShort().toInt()
+            sumSquares += (sample * sample).toDouble()
         }
-        file.parentFile?.mkdirs()
-        file.writeBytes(out.toByteArray())
+        val rms = sqrt(sumSquares / sampleCount)
+        return (rms / 32768.0).coerceIn(0.0, 1.0).toFloat()
     }
 }

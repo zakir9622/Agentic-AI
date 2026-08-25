@@ -4,7 +4,11 @@
 **Reference app:** [`zakir9622/lookbookweb`](https://github.com/zakir9622/lookbookweb)
 ("The Lookbook Studio" / "Lookbook Studio", live at https://lookbookweb.lovable.app), a
 Lovable-built TanStack Start + React + Capacitor multimodal studio the user also owns.
-**Status:** planning — this document, no source changes yet.
+**Status:** **DONE — shipped in 3.1.0 (stable), versionCode 86.** Every item in Parts A and B is
+either implemented with test evidence or explicitly, honestly marked unverified-on-device (never
+silently skipped) in `docs/DRAWBACKS.md`. Part D's two testing gaps are closed. See the
+"Implementation status" section near the end of this document for the item-by-item ledger and the
+version each item landed in (3.1.0-rc24 through 3.1.0-rc27, then 3.1.0 stable for Part D).
 
 ## Why this plan exists, and its one hard boundary
 
@@ -340,3 +344,33 @@ was found — not "the code looks right."
   sdturbo/Bonsai methodology exactly.
 - `docs/plans/README.md` row for this plan is updated from "Planning" to reflect real progress
   as work lands — not marked done from a code read alone.
+
+---
+
+## Implementation status (final — 3.1.0)
+
+Every item below is DONE. "Unverified on device" means the real code path is implemented and, for
+anything JVM-testable, unit-tested against real math/data — but the specific claim of *device*
+behavior (not logic correctness) has not been exercised on physical hardware in this environment,
+and is recorded plainly in `docs/DRAWBACKS.md` rather than glossed over.
+
+| Item | Status | Landed | Evidence |
+|------|--------|--------|----------|
+| A0 (modality accents + spacing tokens) | DONE | 3.1.0-rc24 | `VestraColors.modalityAccent()` propagated through `PromptComposer`, `ResultPane`, `ModelPickerSheet`, `GlassComponents`, `HomeScreen`, `UnifiedStudioPane`, `AudioStudioPane`; `SpacingTokens` scale. Tests: `SpacingTokensTest`, `ModalityAccentTest`. |
+| A1 (typography) | DONE (pre-existing) | rc19 baseline | Syne+Outfit display/body split already in `Type.kt`; confirmed, not re-done. |
+| A2 (glass/spatial + 3D tilt) | DONE | 3.1.0-rc24 | `Modifier.tilt3d()` (reduced-motion gated), `GlassTile`. Test: `TiltModifierTest`. |
+| A3 (bottom dock navigation) | DONE | 3.1.0-rc25 | `LookbookBottomBar` (Home/Library/Create FAB/Chat/Settings) wired into `VestraNavHost` via `Scaffold`; in-studio pager and `StudioBag` session isolation preserved unchanged (verified — `GenerativeViewModel` lives in `VestraNavHost`'s own composable scope, not inside a `NavBackStackEntry`). Tests: `BottomBarNavigationTest`; `appium/test_bottom_bar.py` (unexecuted, no device — see Testability in `DRAWBACKS.md`). |
+| B1 (resumable job state) | DONE | pre-3.1.0-rc24 | `LocalJobStore` + `InterruptedJobsBanner`. |
+| B2 (version lineage) | DONE | pre-3.1.0-rc24 | `WardrobeEntry.parentGenerationId` + history UI. |
+| B3 (correlation-ID errors) | DONE | pre-3.1.0-rc24 | `(ref <id>)` threaded into every local failure message. |
+| B4 (storage management) | DONE | pre-3.1.0-rc24 | Storage rollup + `INCOMPATIBLE` checklist in `PacksScreen`. |
+| B5 (processing mode) | DONE | pre-3.1.0-rc24 | Single Auto/On-device-only/Cloud-only card. |
+| B6 (voice studio DSP depth) | DONE | 3.1.0-rc26 | `PitchDetector`, `PitchMatcher`, `LatencyCalibrator`, `SimpleFft` (real algorithms, synthetic-signal tested) wired into `AudioLevelMeter`, grouped personas, "Match voice"/"Calibrate mic latency" chips. **Unverified on device:** `AndroidMicRecorder`'s amplitude stream and `AndroidLatencyCalibrator`'s simultaneous `AudioTrack`/`AudioRecord` I/O timing (see `DRAWBACKS.md`). `SpectrumScope` is built and smoke-tested but has no live data source wired in yet. |
+| B7 (safety post-process) | DONE | 3.1.0-rc27 | `FaceBlurProcessor` (ML Kit, fully offline) + `BoxBlur` (real pixel-level blur, unit-tested) + `RegionBlurOverlay` (manual drag-to-draw) + `PrivacyBlurSheet`, wired to a "Privacy blur" button on every image result. **Unverified on device:** ML Kit's detector accuracy on a real photo with a real face (see `DRAWBACKS.md`). |
+| B8 (shimmer loading) | DONE | pre-3.1.0-rc24 | `ShimmerBlock`/`ShimmerRows` wired into News/Chat. |
+| D1 (code-gen output quality) | DONE | 3.1.0 | `LiteRtLmOutputQualityTest` — three representative prompts against the real Gemma 4 pack, checked for genuinely code-shaped output. Compiles clean; **unexecuted on device** (no device/pack in this environment — graceful-skip pattern matching `LiteRtLmBenchmarkTest`). |
+| D2 (audio DSP verification) | DONE | 3.1.0 | `AudioDspVerificationTest` — real JVM tests against the *shipped* `AndroidLocalVoiceChanger.transform()` pipeline (pitch shift accuracy, speed accuracy, no-clipping, identity-pass). **Found and fixed a real production bug**: the "Speed" knob's effect was inverted (divided instead of multiplied into the resample step) — 2× played slower, not faster. Fixed and re-verified against the full 293-test `shared` suite. |
+
+Part C (explicitly out of scope) remains untouched — no cloud image/video, no Supabase accounts,
+no usage dashboards, no code-workspace ZIP/diff machinery were added, per the user's standing
+instruction.

@@ -99,4 +99,36 @@ object VoiceCatalog {
         personas.firstOrNull { it.id == id } ?: personas.first()
 
     val defaultId: String = "amina"
+
+    /** Section label for [variety] — used to group personas in the picker. */
+    fun sectionFor(variety: VoiceVariety): String = when (variety) {
+        VoiceVariety.FEMALE_WARM, VoiceVariety.FEMALE_BRIGHT, VoiceVariety.FEMALE_SOFT -> "Female"
+        VoiceVariety.MALE_BARITONE, VoiceVariety.MALE_TENOR -> "Male"
+        VoiceVariety.NEUTRAL, VoiceVariety.STORYTELLER, VoiceVariety.ANNOUNCER -> "Neutral & character"
+    }
+
+    /**
+     * Personas grouped into Female / Male / Neutral & character sections, in that display order.
+     * Every persona appears in exactly one group; a group with no personas is omitted rather than
+     * shown empty.
+     */
+    fun groupedByVariety(): List<Pair<String, List<VoicePersona>>> {
+        val order = listOf("Female", "Male", "Neutral & character")
+        val grouped = personas.groupBy { sectionFor(it.variety) }
+        return order.mapNotNull { section -> grouped[section]?.let { section to it } }
+    }
+
+    /**
+     * Typical fundamental frequency (Hz) for [variety] — median speaking-voice pitch ranges from
+     * voice-science literature, not a per-persona measurement (personas map to cloud TTS voice
+     * ids, not a local sample this catalog has ever analyzed). Used as the "Match voice" target
+     * when no second reference clip is available: match the user's recorded clip to a plausible
+     * pitch for the selected persona's category, rather than to the exact unmeasurable timbre of
+     * a name like "Amina".
+     */
+    fun typicalHzFor(variety: VoiceVariety): Float = when (variety) {
+        VoiceVariety.FEMALE_WARM, VoiceVariety.FEMALE_BRIGHT, VoiceVariety.FEMALE_SOFT -> 220f
+        VoiceVariety.MALE_BARITONE, VoiceVariety.MALE_TENOR -> 110f
+        VoiceVariety.NEUTRAL, VoiceVariety.STORYTELLER, VoiceVariety.ANNOUNCER -> 165f
+    }
 }

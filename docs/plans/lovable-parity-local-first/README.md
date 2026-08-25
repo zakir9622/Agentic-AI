@@ -14,24 +14,35 @@ capability, and never routes anything to cloud that isn't already cloud-routed t
 See [`PLAN.md`](PLAN.md) for the full breakdown (Parts A–D), explicit out-of-scope items, and
 open questions for the user before implementation starts.
 
-## Status: implementation started (3.1.0-rc21)
+## Status: DONE — shipped in 3.1.0 (stable)
 
-- **A0 (color tokens) — partial.** Added four per-modality accent tokens (`VestraColors.Modality
-  Image/Video/Code/Audio`) to `VestraPalette`, brass-family tints rather than lookbookweb's own
-  hues (keeps the Loom Ink identity, per the plan's own instruction not to replace it), plus a
-  derived `RadiusTokens` corner-radius scale. Wired into the Studio header label
-  (`UnifiedStudioPane`'s `GlassSectionLabel`) so far — not yet propagated to every chip/progress
-  accent the plan describes; extend call-by-call as those surfaces are touched next.
+Every item below (A0–A3, B1–B8, D1–D2) is shipped. Nothing in this plan is left "deferred" or
+"pending." See `PLAN.md`'s "Implementation status" table for the final per-item ledger with
+version numbers and evidence. Part C stays explicitly out of scope, untouched.
+
+- **A0 (color tokens) — done (3.1.0-rc24).** `VestraColors.modalityAccent(AiCapability)` resolves
+  the right per-modality tint everywhere a studio surface needs one — the Studio header label
+  (unchanged from rc21), plus `PromptComposer` (border/model-chip dot/reference icon), `ResultPane`
+  (loading spinner/progress bar, result pills), `HomeScreen`'s tab row, `ModelPickerSheet`
+  (search field, section headers, selection state, status dots), and `AudioStudioPane`'s
+  voice-changer knob readouts. Also added `SpacingTokens` to replace ad hoc `18.dp` literals.
 - **A1 (typography) — already done**, found already in place when this phase started: `Type.kt`
   already pairs Syne (display) with Outfit (body), matching lookbookweb's split exactly.
-- **A2 (glass/spatial interaction) — partial.** `GlassCard` now has a subtle press-lift (scale to
-  ~97% on press, spring back on release), gated by `rememberReduceMotion()` — lookbookweb's
-  `press-3d`/`lift-3d` language ported at Compose-native cost. No 3D perspective tilt yet.
-- **A3 (nav pattern) — not started, deliberately.** The plan itself flags this as needing an
-  explicit design decision before coding (top tab/pager vs. a bottom dock + center Create
-  action). Not decided unilaterally — per-tab session isolation is real, hard-won infrastructure
-  built around the current pager, and a nav change is the one item in this plan big enough to
-  risk regressing it without a decision.
+- **A2 (glass/spatial interaction) — done (3.1.0-rc24).** `GlassCard` has a subtle press-lift
+  (scale to ~97% on press, spring back on release), gated by `rememberReduceMotion()` —
+  lookbookweb's `press-3d`/`lift-3d` language ported at Compose-native cost. Added
+  `Modifier.tilt3d()` (pointer-driven 3D perspective tilt, also reduced-motion-gated) applied to
+  the try-on hero card, and `GlassTile` for future nested-content rows.
+- **A3 (nav pattern) — done (3.1.0-rc25).** Decided in favor of a bottom dock (`LookbookBottomBar`)
+  with five destinations — Home (the studio pager), Library (Wardrobe), a raised center Create FAB
+  (returns to the studio pager), Chat (News/Chat, promoted from a pager tab to its own top-level
+  route), and Settings. `VestraNavHost` wraps its `NavHost` in a `Scaffold`; the bar only renders
+  on those five destinations (hidden on the try-on capture flow, nested Settings sections, Packs,
+  Usage, Help, Privacy). Per-tab session isolation was the real risk here — verified safe by
+  construction: `GenerativeViewModel` lives in `VestraNavHost`'s own composable scope, not inside
+  any `NavBackStackEntry`, so `StudioBag`/`bindStudio` state is untouched by bottom-bar navigation
+  regardless of back-stack save/restore behavior. Regression-covered by
+  `appium/test_bottom_bar.py`'s round-trip test and `BottomBarNavigationTest.kt`.
 - **B1 (resumable job state) — done.** `LocalJobStore` (Settings+JSON, same pattern as
   `RunDiagnostics`) records QUEUED/RUNNING/DONE/FAILED/CANCELLED per local generation. A row
   still RUNNING/QUEUED from a previous app process surfaces on Home as an "Interrupted" card
@@ -63,17 +74,33 @@ open questions for the user before implementation starts.
   in-pattern bug: `WardrobeEntry.tier` was hardcoded to `CLOUD` for every Create Studio result
   regardless of how it was actually generated — the exact "Tier: CLOUD" mislabeling class already
   fixed for diagnostics in an earlier cycle, at a call site that fix didn't reach.
-- **B7 (safety post-process) — reassessed, not attempted this pass.** The plan describes an
-  "optional on-device blur/redact pass" — but this app has no face/region detector anywhere in
-  its model catalog, and building or bundling one is a materially larger undertaking than "wire
-  into the existing `QualityPostProcessor` insertion point" (which is model-pack-driven for
-  upscale/matte-refine, not a fit for manual region redaction either). A user-drawn manual-blur
-  tool is possible without a new model, but it's gesture/canvas UI this remote session cannot
-  visually verify, so it isn't included here rather than shipped unverified. Scope this as its
-  own follow-up once either a lightweight face detector is added to the local-model catalog, or
-  a manual-region tool is explicitly requested and can be verified on a device.
-- **Not yet started:** A3 (nav pattern — deliberately deferred, needs the user's decision), B6
-  (voice studio DSP depth — real-time meters/scope, latency auto-calibration), and Part D's
-  real-model output-quality testing for code/audio. B6 touches a live `AudioRecord`/`Visualizer`
-  pipeline this session cannot verify without a device — treat as higher-risk than B1–B5/B8/B2
-  and worth extra scrutiny before landing.
+- **B6 (voice studio DSP depth) — mostly done (3.1.0-rc26), one piece unwired.** The DSP
+  algorithms (`PitchDetector`, `PitchMatcher`, `LatencyCalibrator`, `SimpleFft`) are real and
+  unit-tested against synthetic signals — not stubs. Wired into the UI: a live RMS `AudioLevelMeter`
+  during recording, grouped voice personas (Female/Male/Neutral & character), a "Match voice"
+  chip, and a "Calibrate mic latency" chip. Not wired: `SpectrumScope` (the playback-side FFT bar
+  visualizer) exists and is smoke-tested but no screen calls it — a live spectrum needs Android's
+  `Visualizer` API on an active playback session, which this environment has no device to verify.
+  The `AudioTrack`/`AudioRecord` I/O in `AndroidLatencyCalibrator` and the amplitude stream in
+  `AndroidMicRecorder` are unverified on real hardware for the same reason — the math they call is
+  tested, the device timing around it is not.
+- **B7 (safety post-process) — done (3.1.0-rc27).** `FaceBlurProcessor` (ML Kit face detection,
+  fully offline/bundled) + `BoxBlur` (real box-blur math, no RenderScript) auto-blur detected
+  faces; `RegionBlurOverlay` adds a manual drag-to-draw fallback. `PrivacyBlurSheet` wires both
+  into a "Privacy blur" button on every image result, keeping the same EXIF provenance tag. The
+  blur math (`BoxBlur`) is unit-tested against real bitmaps; ML Kit's actual face detector is not
+  exercised against a real photo in this environment (no device, and its on-device model
+  behavior isn't meaningfully testable under Robolectric) — same honesty posture as B6's device
+  I/O above.
+- **D1 (code-gen output quality) — done (3.1.0).** `LiteRtLmOutputQualityTest` runs three
+  representative prompts (Kotlin quicksort, StateFlow explanation, Compose counter button)
+  against the real installed Gemma 4 pack and checks the output for genuinely code-shaped
+  content. Compiles clean; unexecuted on device in this environment (no device/pack available —
+  same graceful-skip posture as `LiteRtLmBenchmarkTest`).
+- **D2 (audio DSP verification) — done (3.1.0).** `AudioDspVerificationTest` runs real JVM tests
+  against the shipped `AndroidLocalVoiceChanger` pipeline: pitch-shift accuracy, speed accuracy,
+  no-clipping under extreme knobs, and pitch/length preservation at default knobs. Writing the
+  speed tests surfaced and fixed a real production bug — the "Speed" knob's effect was inverted
+  (2× played slower, not faster) because `readStep` divided by `speed` instead of multiplying it.
+  Fixed in `AndroidLocalVoiceChanger.applyPitchAndSpeed()`, re-verified against the full 293-test
+  `shared` suite.

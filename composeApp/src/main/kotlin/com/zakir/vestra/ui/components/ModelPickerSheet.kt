@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +72,7 @@ fun ModelPickerSheet(
     onDeviceEntries: List<OnDevicePickerEntry> = emptyList(),
     onSelectDevice: ((OnDevicePickerEntry) -> Unit)? = null,
     health: ModelHealthTracker? = null,
+    accent: Color = VestraColors.Accent,
 ) {
     var query by remember { mutableStateOf("") }
     val selectable = remember(models) {
@@ -139,11 +141,11 @@ fun ModelPickerSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 leadingIcon = {
-                    Icon(Icons.Outlined.Search, contentDescription = null, tint = VestraColors.Accent)
+                    Icon(Icons.Outlined.Search, contentDescription = null, tint = accent)
                 },
                 placeholder = { Text("Search by name…") },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
+                    focusedBorderColor = accent.copy(alpha = 0.55f),
                     unfocusedBorderColor = VestraColors.GlassBorder,
                     focusedContainerColor = VestraColors.GlassFill,
                     unfocusedContainerColor = VestraColors.GlassFill,
@@ -159,7 +161,7 @@ fun ModelPickerSheet(
             ) {
                 if (query.isNotBlank()) {
                     items(filtered, key = { it.id }) { model ->
-                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health)
+                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent)
                     }
                 } else {
                     if (onDeviceEntries.isNotEmpty()) {
@@ -167,7 +169,7 @@ fun ModelPickerSheet(
                             Text(
                                 "ON-DEVICE",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = VestraColors.Accent,
+                                color = accent,
                                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                             )
                         }
@@ -177,6 +179,7 @@ fun ModelPickerSheet(
                                 selected = entry.id == selectedId,
                                 onSelect = onSelectDevice,
                                 onDismiss = onDismiss,
+                                accent = accent,
                             )
                         }
                     }
@@ -185,12 +188,12 @@ fun ModelPickerSheet(
                             Text(
                                 section.uppercase(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = VestraColors.Accent,
+                                color = accent,
                                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                             )
                         }
                         items(models, key = { it.id }) { model ->
-                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health)
+                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent)
                         }
                     }
                 }
@@ -215,6 +218,7 @@ private fun OnDevicePickerRow(
     selected: Boolean,
     onSelect: ((OnDevicePickerEntry) -> Unit)?,
     onDismiss: () -> Unit,
+    accent: Color = VestraColors.Accent,
 ) {
     val enabled = onSelect != null && entry.ready
     Row(
@@ -223,11 +227,11 @@ private fun OnDevicePickerRow(
             .testTag(TestTags.modelPickerRow(entry.id))
             .clip(RoundedCornerShape(16.dp))
             .background(
-                if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
+                if (selected) accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
             )
             .border(
                 1.dp,
-                if (selected) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
+                if (selected) accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
                 RoundedCornerShape(16.dp),
             )
             .then(
@@ -247,14 +251,14 @@ private fun OnDevicePickerRow(
             Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(VestraColors.Accent.copy(alpha = 0.18f)),
+                .background(accent.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(if (entry.ready) VestraColors.Accent else VestraColors.InkMuted),
+                    .background(if (entry.ready) accent else VestraColors.InkMuted),
             )
         }
         Spacer(Modifier.size(12.dp))
@@ -286,6 +290,7 @@ private fun ModelPickerRow(
     onSelect: (CloudModelProvider) -> Unit,
     onDismiss: () -> Unit,
     health: ModelHealthTracker?,
+    accent: Color = VestraColors.Accent,
 ) {
     val selected = model.id == selectedId
     val support = health?.effectiveSupport(model) ?: CloudModelContracts.forProvider(model).support
@@ -296,11 +301,11 @@ private fun ModelPickerRow(
             .testTag(TestTags.modelPickerRow(model.id))
             .clip(RoundedCornerShape(16.dp))
             .background(
-                if (selected) VestraColors.Accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
+                if (selected) accent.copy(alpha = 0.14f) else VestraColors.GlassFill,
             )
             .border(
                 1.dp,
-                if (selected) VestraColors.Accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
+                if (selected) accent.copy(alpha = 0.55f) else VestraColors.GlassBorder,
                 RoundedCornerShape(16.dp),
             )
             .clickable(enabled = !blocked) {
@@ -314,7 +319,7 @@ private fun ModelPickerRow(
             Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(VestraColors.Accent.copy(alpha = 0.18f)),
+                .background(accent.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -323,7 +328,7 @@ private fun ModelPickerRow(
                     .clip(CircleShape)
                     .background(
                         when (support) {
-                            ModelSupportLevel.READY -> VestraColors.Accent
+                            ModelSupportLevel.READY -> accent
                             ModelSupportLevel.DEGRADED -> VestraColors.AccentSoft
                             ModelSupportLevel.UNSUPPORTED -> VestraColors.InkMuted
                         },
@@ -358,13 +363,13 @@ private fun ModelPickerRow(
             Icon(
                 Icons.Outlined.Check,
                 contentDescription = "Selected",
-                tint = VestraColors.Accent,
+                tint = accent,
             )
         } else if (!blocked) {
             Text(
                 "Use",
                 style = MaterialTheme.typography.labelMedium,
-                color = VestraColors.Accent,
+                color = accent,
             )
         }
     }

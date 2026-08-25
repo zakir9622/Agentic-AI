@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 81
-        versionName = "3.1.0-rc23"
+        versionCode = 86
+        versionName = "3.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
@@ -138,6 +138,9 @@ dependencies {
     implementation(libs.litert.android)
     // Legacy Gemma 3 1B (MediaPipe) — reflective load for local-gemma-v1 fallback only.
     implementation("com.google.mediapipe:tasks-genai:0.10.27")
+
+    // Bundled, fully-offline face detector for the privacy-blur post-process (B7).
+    implementation(libs.mlkit.face.detection)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
