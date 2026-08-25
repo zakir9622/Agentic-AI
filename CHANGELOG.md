@@ -1,5 +1,37 @@
 # Changelog — The Lookbook
 
+## 3.1.2
+Two follow-ups requested after 3.1.1 shipped: real screenshots confirming the ported UI actually
+renders correctly, and a genuine replacement for the one piece of GoogleLookBookUI's UI that was
+deliberately not ported (its fake connectivity ping).
+
+- **Real "Test connection" checks in Settings → Cloud, replacing the fake ping this app never
+  had.** `ProviderConnectivityChecker` (new, `shared/commonMain`) makes an actual read-only HTTP
+  request per provider — `GET /models` (Groq), `GET /auth/key` (OpenRouter), `GET
+  /api/whoami-v2` (Hugging Face) — against the exact same hosts this app's real generation code
+  already calls (`LlmClient`, `FreeCloudDiscovery`). A "Test Hugging Face/Groq/OpenRouter key"
+  button now sits under each API key field in Settings → Cloud → API Keys; the result pill shows
+  a real measured round-trip latency on success, or the real HTTP status meaning on failure
+  (unauthorized, rate-limited, unreachable) — never a `delay()` and a random number. This is the
+  real version of the check GoogleLookBookUI's `ModelConfigScreen.kt` faked and that 3.1.1
+  explicitly declined to port as-is (see that entry, and `docs/DRAWBACKS.md`).
+- **Real pixel screenshots of the 3.1.1 UI port, rendered on the JVM.** Extended the existing
+  `ScreenshotTest` suite (Robolectric `GraphicsMode.NATIVE` — genuine Skia rasterization, no
+  device/emulator/KVM needed) with 9 new screenshots covering every piece shipped in 3.1.1: the
+  floating-pill bottom dock, both chat bubble roles, the typing indicator, the empty state, the
+  headlines bar, the quick-prompt carousel, and all three `LiteRtStatusIndicator` states, plus one
+  more for this release's new connectivity-test row. All are real, non-blank, correctly-styled
+  renders confirmed by direct visual inspection — not claimed from reading the code.
+- 13 new tests: `ProviderConnectivityCheckerTest` (10, mock-HTTP-engine tests covering every real
+  status-code branch and exception path — success, 401/403, 429, 5xx, thrown exceptions, and the
+  exact Bearer-auth header/host per provider) and `ConnectivityTestRowTest` (3, the UI wiring:
+  three test buttons render, no stale result before a test runs, and a tap drives the real code
+  path without crashing). One honesty note in `ConnectivityTestRowTest`'s own doc comment: this
+  environment's Robolectric Compose harness could not reliably observe the *async-completed*
+  click-to-result state within a test (the same class of coroutine/idle-timing limitation
+  documented for `PrivacyBlurFlowTest` earlier in this project) — the underlying network logic
+  that actually matters is still fully covered by the 10 `ProviderConnectivityCheckerTest` cases.
+
 ## 3.1.1
 UI pieces ported over from `zakir9622/GoogleLookBookUI` (a Google AI Studio–generated build of
 this same app, frozen around v3.1.0-rc23). That repo turned out to be an earlier snapshot of this

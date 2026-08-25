@@ -14,8 +14,8 @@ android {
         applicationId = "com.zakir.vestra"
         minSdk = 35
         targetSdk = 36
-        versionCode = 87
-        versionName = "3.1.1"
+        versionCode = 88
+        versionName = "3.1.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         // Never bake secrets into release APKs — debug/sideloadDebug may seed from local.properties.
@@ -151,6 +151,7 @@ dependencies {
     testImplementation(libs.androidx.test.junit)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.ktor.client.mock)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)

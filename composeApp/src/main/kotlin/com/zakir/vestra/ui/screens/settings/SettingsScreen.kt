@@ -92,6 +92,9 @@ fun SettingsScreen(
         return
     }
 
+    val connectivityChecker = remember {
+        com.zakir.vestra.shared.cloud.ProviderConnectivityChecker(com.zakir.vestra.shared.platformHttpClient())
+    }
     val showCloud = section == SettingsSection.ALL || section == SettingsSection.CLOUD
     val showEngines = section == SettingsSection.ALL || section == SettingsSection.ENGINES
     val showAppearance = section == SettingsSection.ALL || section == SettingsSection.APPEARANCE
@@ -314,6 +317,7 @@ fun SettingsScreen(
             if (showCloud && cloudModelsEnabled) {
                 settingsCloudKeysSection(
                     appSettings = appSettings,
+                    connectivityChecker = connectivityChecker,
                     hfTokenSaved = !hfToken.isNullOrBlank(),
                     hfInput = hfInput,
                     groqInput = groqInput,

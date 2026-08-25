@@ -15,12 +15,24 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.runtime.Composable
 import com.russhwolf.settings.Settings
+import com.zakir.vestra.shared.chat.ChatMessage
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
+import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.ui.components.BottomBarDestination
+import com.zakir.vestra.ui.components.LiteRtStatusIndicator
+import com.zakir.vestra.ui.components.LookbookBottomBar
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
+import com.zakir.vestra.ui.components.QuickPromptCarousel
+import com.zakir.vestra.ui.components.QuickPromptItem
+import com.zakir.vestra.ui.screens.news.ChatEmptyState
+import com.zakir.vestra.ui.screens.news.ChatMessageBubble
+import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
+import com.zakir.vestra.ui.screens.news.NewsHeadlinesBar
+import com.zakir.vestra.ui.screens.settings.settingsCloudKeysSection
 import com.zakir.vestra.ui.screens.settings.settingsCloudMasterToggleSection
 import com.zakir.vestra.ui.theme.VestraTheme
 import java.io.File
@@ -372,6 +384,174 @@ class ScreenshotTest {
                 onSend = {},
                 onStop = {},
             )
+        }
+    }
+
+    // --- 3.1.1 GoogleLookBookUI-ported UI, rendered for real to confirm the port visually ---
+
+    @Test
+    fun bottomDockFloatingPill() {
+        shoot("11-bottom-dock-floating-pill") {
+            Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                LookbookBottomBar(
+                    selected = BottomBarDestination.HOME,
+                    onSelect = {},
+                    modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun chatBubbleUserAndAssistant() {
+        shoot("12-chat-bubbles") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                ChatMessageBubble(
+                    message = ChatMessage(
+                        id = "1",
+                        role = "user",
+                        text = "Discuss modest winter layering for a client shoot in Lahore.",
+                        timestampMs = 1787500000000L,
+                    ),
+                    index = 0,
+                )
+                ChatMessageBubble(
+                    message = ChatMessage(
+                        id = "2",
+                        role = "assistant",
+                        text = "Layer a merino base under a structured wool abaya, keep the palette " +
+                            "muted, and add a textured shawl for warmth without bulk.",
+                        timestampMs = 1787500030000L,
+                        providerId = "local-gemma-4-e2b-v1",
+                    ),
+                    index = 1,
+                    modelDisplayName = "Local Gemma 4 (offline)",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun chatTypingIndicator() {
+        shoot("13-chat-typing-indicator") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                ChatTypingIndicator(modelLabel = "Local Gemma 4 (offline)")
+            }
+        }
+    }
+
+    @Test
+    fun chatEmptyStateWithStarterPrompts() {
+        shoot("14-chat-empty-state") {
+            ChatEmptyState(onPromptSelected = {})
+        }
+    }
+
+    @Test
+    fun newsHeadlinesBarExpanded() {
+        shoot("15-news-headlines-bar") {
+            NewsHeadlinesBar(
+                newsItems = listOf(
+                    NewsItem(id = "1", title = "Modest fashion trends for 2026", link = "https://example.com/1", publishedMs = 0L, source = "Vogue"),
+                    NewsItem(id = "2", title = "On-device AI reshapes mobile creative tools", link = "https://example.com/2", publishedMs = 0L, source = "TechCrunch"),
+                    NewsItem(id = "3", title = "Runway silhouettes: structured drape returns", link = "https://example.com/3", publishedMs = 0L, source = "WWD"),
+                ),
+                refreshing = false,
+                onRefresh = {},
+                onHeadlineClick = { _, _ -> },
+            )
+        }
+    }
+
+    @Test
+    fun quickPromptCarouselChips() {
+        shoot("16-quick-prompt-carousel") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                QuickPromptCarousel(
+                    prompts = listOf(
+                        QuickPromptItem("Discuss this headline for modest fashion and on-device AI: Modest fashion trends for 2026", "Vogue"),
+                        QuickPromptItem("What can this app do on-device?", "HELP"),
+                    ),
+                    onSelectPrompt = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun liteRtStatusIndicatorReady() {
+        shoot("17-litert-status-ready") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                LiteRtStatusIndicator(
+                    modelName = "LiteRT Gemma 4 2B",
+                    isInstalled = true,
+                    isLoaded = true,
+                    backend = "LiteRT GPU / CPU Fallback",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun liteRtStatusIndicatorNotInstalled() {
+        shoot("18-litert-status-not-installed") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                LiteRtStatusIndicator(
+                    modelName = "LiteRT Gemma 4 2B",
+                    isInstalled = false,
+                    isLoaded = false,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun cloudKeysConnectivityTest() {
+        val settings = AppSettings(MemorySettings()).apply {
+            setGroqApiKey("gsk_example_key_not_real")
+        }
+        val checker = com.zakir.vestra.shared.cloud.ProviderConnectivityChecker(
+            com.zakir.vestra.shared.platformHttpClient(),
+        )
+        shoot("20-cloud-keys-connectivity") {
+            val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+            ) {}
+            LazyColumn {
+                settingsCloudKeysSection(
+                    appSettings = settings,
+                    connectivityChecker = checker,
+                    hfTokenSaved = false,
+                    hfInput = "",
+                    groqInput = "gsk_example_key_not_real",
+                    openRouterInput = "",
+                    onHfInput = {},
+                    onGroqInput = {},
+                    onOpenRouterInput = {},
+                    keysSavedFlash = false,
+                    clipboardHint = null,
+                    durableReady = false,
+                    onApplyClipboard = { false },
+                    onOpenPortal = {},
+                    onSaveTokens = {},
+                    importTokensLauncher = launcher,
+                    onKeysLoadedFromDocuments = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun liteRtStatusIndicatorError() {
+        shoot("19-litert-status-error") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                LiteRtStatusIndicator(
+                    modelName = "LiteRT Gemma 4 2B",
+                    isInstalled = true,
+                    isLoaded = false,
+                    errorMessage = "Engine init failed: GPU delegate unavailable, CPU fallback also failed.",
+                )
+            }
         }
     }
 }

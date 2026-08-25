@@ -123,8 +123,23 @@ actually fixed, not when it's merely reworded.
   new tests. **Deliberately not ported:** the source repo's `ModelConfigScreen.kt` shows
   per-provider connectivity "ping" status, but the check is fake — `delay(600)` then a random
   65–115ms number presented as a real measurement, exactly the kind of fabricated-status UI this
-  file exists to flag rather than import quietly. If a real unified cloud-provider settings screen
-  is wanted later, it needs a real connectivity check behind it, not this pattern.
+  file exists to flag rather than import quietly.
+- **Closed in 3.1.2: a real connectivity check now exists, verified by real screenshots and 13
+  new tests.** `ProviderConnectivityChecker` (`shared/commonMain`) makes an actual `GET` request
+  per provider against the same hosts this app's real generation code calls, and a "Test
+  [Provider] key" button in Settings → Cloud → API Keys shows the real result — a genuinely
+  measured latency on success, or the real HTTP status meaning on failure. 10 tests
+  (`ProviderConnectivityCheckerTest`) exercise every real response branch (200/401/403/429/5xx/
+  thrown exception) against a mock HTTP engine — no live network calls in the test suite, but
+  every branch matches an actual HTTP outcome the checker can hit for real. `ScreenshotTest` was
+  also extended with 10 new real pixel renders (Robolectric `GraphicsMode.NATIVE`) covering every
+  piece of the 3.1.1 port plus this screen — confirmed correct by direct visual inspection, not
+  claimed from reading the code. **One remaining honesty note:** `ConnectivityTestRowTest` could
+  not reliably assert on the *async-completed* click-to-result UI state within this
+  environment's Robolectric Compose harness (a coroutine-scheduling/idle-detection limitation,
+  same class as the one documented for `PrivacyBlurFlowTest`) — it verifies the UI renders and a
+  tap drives the real code path without crashing, while the actual network-logic correctness is
+  covered by the 10 mock-engine tests instead.
 
 ## Testability
 
