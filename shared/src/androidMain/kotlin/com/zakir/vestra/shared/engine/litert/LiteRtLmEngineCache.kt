@@ -18,6 +18,13 @@ object LiteRtLmEngineCache {
     private val engines = ConcurrentHashMap<EngineSpec, LiteRtLmEngine>()
     private val initLocks = ConcurrentHashMap<EngineSpec, Any>()
 
+    // A pack/backend mismatch (e.g. a model file whose vision encoder the SDK rejects) fails
+    // identically on every attempt — caching the reason turns a repeated multi-second native
+    // init-and-crash into an immediate, honest failure instead of silently retrying it on every
+    // single generation. Cleared alongside the engine on evictModelPath/clearAll (pack reinstall),
+    // never on a bare "Retry load" — retrying a deterministic mismatch can't succeed differently.
+    private val failed = ConcurrentHashMap<EngineSpec, String>()
+
     data class EngineSpec(
         val modelPath: String,
         val useGpu: Boolean,
@@ -52,6 +59,7 @@ object LiteRtLmEngineCache {
 
     /** Looks up (or cold-loads) the warm engine for [spec]. Does not touch inference depth. */
     private fun warmEngine(context: Context, spec: EngineSpec, tools: List<ToolSet>): LiteRtLmEngine {
+        failed[spec]?.let { reason -> throw IllegalStateException(reason) }
         val lock = initLocks.getOrPut(spec) { Any() }
         val engine = engines.getOrPut(spec) {
             LiteRtLmEngine(
@@ -66,7 +74,21 @@ object LiteRtLmEngineCache {
         }
         synchronized(lock) {
             if (!engine.isInitialized()) {
-                engine.initialize()
+                try {
+                    engine.initialize()
+                } catch (err: Throwable) {
+                    engines.remove(spec)
+                    initLocks.remove(spec)
+                    // OutOfMemoryError is exactly the transient case the class comment above
+                    // rules out caching for — another studio's model still resident, a large app
+                    // heap at that moment — not a deterministic pack/backend mismatch. Leaving it
+                    // uncached lets the next attempt retry for real once memory is freed, instead
+                    // of permanently wedging this studio until a pack reinstall.
+                    if (err !is OutOfMemoryError) {
+                        failed[spec] = err.message ?: "LiteRT-LM engine failed to initialize."
+                    }
+                    throw err
+                }
             }
         }
         return engine
@@ -123,6 +145,7 @@ object LiteRtLmEngineCache {
                 false
             }
         }
+        failed.keys.removeIf { it.modelPath == modelPath }
     }
 
     fun clearAll() {
@@ -133,5 +156,6 @@ object LiteRtLmEngineCache {
         engines.values.forEach { it.closeNow() }
         engines.clear()
         initLocks.clear()
+        failed.clear()
     }
 }

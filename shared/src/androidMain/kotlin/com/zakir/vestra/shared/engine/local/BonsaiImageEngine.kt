@@ -182,11 +182,17 @@ class BonsaiImageEngine(
             val txtIds = fbuf(BonsaiMath.txtIds())
             val embedsBuf = fbuf(embeds)
             var lat = BonsaiMath.noise(seed)
+            // Reused across every step instead of a fresh fbuf(lat)/fbuf(sigma) allocation each
+            // iteration — see the Graph.outputBuffer comment for why that churn matters here.
+            val latBuf = ByteBuffer.allocateDirect(lat.size * 4).order(ByteOrder.nativeOrder())
+            val sigmaBuf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
             Graph(File(dir, meta.ditFile), THREADS).use { dit ->
                 for (k in 0 until steps) {
                     onStage("Step ${k + 1} of $steps…", 0.16f + 0.72f * k / steps)
+                    latBuf.rewind(); latBuf.asFloatBuffer().put(lat); latBuf.rewind()
+                    sigmaBuf.rewind(); sigmaBuf.asFloatBuffer().put(sigmas[k]); sigmaBuf.rewind()
                     val v = dit.run(
-                        listOf(fbuf(lat), embedsBuf, fbuf(floatArrayOf(sigmas[k])), imgIds, txtIds),
+                        listOf(latBuf, embedsBuf, sigmaBuf, imgIds, txtIds),
                         BonsaiMath.TOKENS * BonsaiMath.PACKED_CHANNELS,
                     )
                     val ds = sigmas[k + 1] - sigmas[k]
@@ -271,6 +277,15 @@ class BonsaiImageEngine(
             },
         ).apply { allocateTensors() }
 
+        // Reused across calls with the same outCount (every DiT step in runGeneration's loop
+        // shares one shape) instead of allocating fresh each time. Direct ByteBuffers are
+        // off-heap and only reclaimed when the GC gets around to running their Cleaner — with a
+        // ~2.9 GiB graph already resident, that reclamation can lag badly, and a live crash
+        // bundle showed exactly this: DiT step timings ballooning from ~46s to 8m44s between
+        // steps before the process was natively killed. Reusing the buffer removes this as a
+        // contributor; it doesn't by itself guarantee the run fits in memory on every device.
+        private var outputBuffer: ByteBuffer? = null
+
         // Input order by serving_default_args_<n>, NEVER by shape/index — the text encoder's
         // input_ids and attention_mask are both (1, 256), so a shape-keyed map would silently
         // drop one of them.
@@ -298,7 +313,10 @@ class BonsaiImageEngine(
                 }
                 byGraphIndex[graphIdx] = buf
             }
-            val out = ByteBuffer.allocateDirect(outCount * 4).order(ByteOrder.nativeOrder())
+            val out = outputBuffer?.takeIf { it.capacity() == outCount * 4 }
+                ?: ByteBuffer.allocateDirect(outCount * 4).order(ByteOrder.nativeOrder())
+                    .also { outputBuffer = it }
+            out.rewind()
             interp.runForMultipleInputsOutputs(byGraphIndex, mapOf(0 to out))
             out.rewind()
             val floats = FloatArray(outCount)

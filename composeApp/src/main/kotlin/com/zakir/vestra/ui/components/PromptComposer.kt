@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -57,6 +58,10 @@ fun PromptComposer(
     assistCount: Int = 0,
     onAssistsClick: (() -> Unit)? = null,
     busy: Boolean,
+    // The model is cold-loading — not generating yet, nothing to cancel. Shown as a spinner on
+    // the send button itself rather than a separate status card, so loading/generating/idle are
+    // all one place instead of three.
+    loading: Boolean = false,
     enabled: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
@@ -186,7 +191,8 @@ fun PromptComposer(
             )
             SendOrb(
                 busy = busy,
-                enabled = enabled && (busy || prompt.isNotBlank()),
+                loading = loading,
+                enabled = enabled && !loading && (busy || prompt.isNotBlank()),
                 onSend = onSend,
                 onStop = onStop,
                 modifier = Modifier.testTag(TestTags.SEND_BUTTON),
@@ -274,6 +280,7 @@ private fun AssistChip(count: Int, onClick: (() -> Unit)?, modifier: Modifier = 
 @Composable
 private fun SendOrb(
     busy: Boolean,
+    loading: Boolean,
     enabled: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
@@ -284,7 +291,7 @@ private fun SendOrb(
             .size(48.dp)
             .clip(CircleShape)
             .background(
-                if (busy) {
+                if (busy || loading) {
                     Brush.radialGradient(listOf(VestraColors.Danger, VestraColors.SaffronDeep))
                 } else if (enabled) {
                     Brush.radialGradient(listOf(VestraColors.AccentSoft, VestraColors.SaffronDeep))
@@ -297,14 +304,25 @@ private fun SendOrb(
                     )
                 },
             )
-            .clickable(enabled = enabled) { if (busy) onStop() else onSend() },
+            // clickable(enabled = false) still consumes touches — loading disables the click
+            // itself via enabled=false one level up, but this listener would still fire for
+            // "busy" while loading is somehow also true; loading is checked first so it can
+            // never route into onSend()/onStop() while there's nothing to start or cancel.
+            .clickable(enabled = enabled) { if (!loading) { if (busy) onStop() else onSend() } },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            if (busy) Icons.Outlined.Stop else Icons.AutoMirrored.Filled.Send,
-            contentDescription = if (busy) "Cancel generation" else "Generate",
-            tint = VestraColors.Ivory,
-            modifier = Modifier.size(22.dp),
-        )
+        when {
+            loading -> CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = VestraColors.Ivory,
+            )
+            else -> Icon(
+                if (busy) Icons.Outlined.Stop else Icons.AutoMirrored.Filled.Send,
+                contentDescription = if (busy) "Cancel generation" else "Generate",
+                tint = VestraColors.Ivory,
+                modifier = Modifier.size(22.dp),
+            )
+        }
     }
 }

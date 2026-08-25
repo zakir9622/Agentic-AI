@@ -48,20 +48,24 @@ private data class OnboardingPage(val title: String, val body: String)
 
 private val pages = listOf(
     OnboardingPage(
-        "Always the perfect look",
-        "Generate abaya, hijab, niqab, and shalwar looks with on-device AI — fully offline after the Pro pack.",
+        "Four studios, each on its own",
+        "Image, Video, Audio, and Code each open as a separate screen from Home — only one model " +
+            "is ever loaded at a time, so switching studios never mixes them together.",
     ),
     OnboardingPage(
-        "Cast your scene",
-        "Set ethnicity, body type, hair coverage, color, and scenario. One garment photo becomes a full shoot.",
+        "First run loads the model",
+        "The send button shows a spinner while a model is loading — that's normal, not stuck. " +
+            "Once it's ready, on-device models keep working fully offline.",
     ),
     OnboardingPage(
-        "Create stills, video, code",
-        "Free cloud studios for shoppers, sellers, and makers — Image, Video, and Code beside local try-on.",
+        "Local by default, cloud if you want",
+        "Tap the model chip in any studio to switch between on-device and free cloud models. " +
+            "AUTO mode never picks cloud on its own — you always choose.",
     ),
     OnboardingPage(
-        "Keys unlock free cloud",
-        "Paste free Hugging Face, Groq, or OpenRouter tokens in Settings. Local Lite/Pro never need a key.",
+        "Cloud keys are optional",
+        "Paste free Hugging Face, Groq, or OpenRouter tokens in Settings to unlock cloud models. " +
+            "On-device generation never needs a key.",
     ),
 )
 

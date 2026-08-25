@@ -286,8 +286,9 @@ internal fun LazyListScope.settingsCloudCapabilitiesSection(
     videoId: String,
     audioId: String,
 ) {
-    // Try-on cloud model row hidden while try-on is temporarily disabled app-wide
-    // (see HomeTab.TRY_ON_TAB_ENABLED). Re-add the item(key = "cap-tryon") block to restore.
+    // Try-on cloud model row hidden while try-on is temporarily disabled app-wide (its Home
+    // entry point was removed along with the tabbed pager). Re-add the item(key = "cap-tryon")
+    // block to restore.
     item(key = "cap-gen") {
         CloudCapabilityDropdown(
             title = "IMAGE GENERATION",

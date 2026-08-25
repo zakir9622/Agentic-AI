@@ -12,10 +12,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Real Compose UI tests for [LookbookBottomBar] (A3) — the dock must render all five
- * destinations and tapping each one must invoke the matching callback, including the raised
- * center Create FAB (which shares [BottomBarDestination.CREATE]'s testTag but isn't part of the
- * regular item row).
+ * Real Compose UI tests for [LookbookBottomBar] — three destinations only (Home, Library,
+ * Settings). Image/Video/Audio/Code and Chat are reached from Home's tool grid, not from this
+ * bar, so it has no Create FAB or Chat slot to test any more.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = android.app.Application::class)
@@ -25,15 +24,13 @@ class BottomBarNavigationTest {
     val compose = createComposeRule()
 
     @Test
-    fun allFiveDestinationsAreRendered() {
+    fun allThreeDestinationsAreRendered() {
         compose.setContent {
             LookbookBottomBar(selected = BottomBarDestination.HOME, onSelect = {})
         }
         compose.onNodeWithTag(TestTags.BOTTOM_BAR).assertExists()
         compose.onNodeWithTag(TestTags.BOTTOM_BAR_HOME).assertExists()
         compose.onNodeWithTag(TestTags.BOTTOM_BAR_LIBRARY).assertExists()
-        compose.onNodeWithTag(TestTags.BOTTOM_BAR_CREATE).assertExists()
-        compose.onNodeWithTag(TestTags.BOTTOM_BAR_CHAT).assertExists()
         compose.onNodeWithTag(TestTags.BOTTOM_BAR_SETTINGS).assertExists()
     }
 
@@ -46,8 +43,6 @@ class BottomBarNavigationTest {
 
         val cases = listOf(
             TestTags.BOTTOM_BAR_LIBRARY to BottomBarDestination.LIBRARY,
-            TestTags.BOTTOM_BAR_CREATE to BottomBarDestination.CREATE,
-            TestTags.BOTTOM_BAR_CHAT to BottomBarDestination.CHAT,
             TestTags.BOTTOM_BAR_SETTINGS to BottomBarDestination.SETTINGS,
             TestTags.BOTTOM_BAR_HOME to BottomBarDestination.HOME,
         )
@@ -60,9 +55,10 @@ class BottomBarNavigationTest {
 
     @Test
     fun rendersWithoutCrashingWhenNoDestinationIsSelected() {
-        // The try-on capture flow, nested Settings sections, Packs, Usage, Help, and Privacy
-        // aren't any of the five dock destinations — VestraNavHost passes `selected = null` for
-        // those. The bar must still render every item rather than crashing on a null selection.
+        // The isolated modality screens (Image/Video/Audio/Code), Chat, the try-on capture flow,
+        // nested Settings sections, Packs, Usage, Help, and Privacy aren't any of the three dock
+        // destinations — VestraNavHost passes `selected = null` for those. The bar must still
+        // render every item rather than crashing on a null selection.
         compose.setContent {
             LookbookBottomBar(selected = null, onSelect = {})
         }

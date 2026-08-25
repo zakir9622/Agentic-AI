@@ -43,11 +43,9 @@ import kotlinx.coroutines.delay
 @Composable
 fun ResultPane(
     state: GenerativeState?,
-    liveLog: List<String> = emptyList(),
     generationStartedAtMs: Long? = null,
     onRetry: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
-    onCancel: (() -> Unit)? = null,
     retryLabel: String = LookbookCopy.ACTION_RETRY,
     accent: Color = VestraColors.Accent,
 ) {
@@ -98,10 +96,10 @@ fun ResultPane(
 
     when (state) {
         null -> Unit
-        is GenerativeState.Preparing -> {
-            GlassLoadingCard(state.message, onCancel = onCancel, accent = accent)
-            LiveGenConsole(liveLog, generationStartedAtMs)
-        }
+        // Cancel lives on the composer's own send button (spinner while loading, stop icon
+        // while generating) — a second Cancel here duplicated that control. The live log is
+        // docked next to the composer instead of a scrollable card competing with this pane.
+        is GenerativeState.Preparing -> GlassLoadingCard(state.message, accent = accent)
         is GenerativeState.Running -> {
             var tick by remember(state.deadlineEpochMs, state.stage, generationStartedAtMs) {
                 mutableIntStateOf(0)
@@ -128,10 +126,8 @@ fun ResultPane(
             GlassLoadingCard(
                 message = message,
                 progress = state.fraction,
-                onCancel = onCancel,
                 accent = accent,
             )
-            LiveGenConsole(liveLog, generationStartedAtMs)
         }
         is GenerativeState.ImageReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
             GlassSectionLabel("RESULT")
@@ -312,15 +308,12 @@ fun ResultPane(
                 },
             )
         }
-        is GenerativeState.Failed -> {
-            if (liveLog.isNotEmpty()) LiveGenConsole(liveLog, generationStartedAtMs)
-            GlassErrorBanner(
-                message = state.message,
-                onRetry = onRetry,
-                retryLabel = retryLabel,
-                onDismiss = onDismiss,
-            )
-        }
+        is GenerativeState.Failed -> GlassErrorBanner(
+            message = state.message,
+            onRetry = onRetry,
+            retryLabel = retryLabel,
+            onDismiss = onDismiss,
+        )
     }
 }
 

@@ -104,6 +104,7 @@ class GenerativeCloudService(
     fun warmUpLocal(capability: AiCapability): String? = when (capability) {
         AiCapability.CODE -> localCode.warmUp()
         AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> localImage.warmUp()
+        AiCapability.AUDIO -> localAudio.warmUp()
         else -> null
     }
 

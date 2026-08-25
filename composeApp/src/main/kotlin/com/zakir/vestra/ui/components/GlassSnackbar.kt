@@ -131,5 +131,7 @@ private fun GlassSnackbarCard(request: SnackbarRequest) {
 
 // A conventional warning amber — not sourced from lookbookweb (its exact `sonner` warning hex
 // wasn't captured in this session's research), chosen only to be visually distinct from the
-// error red and this app's accent, matching the universal warning-color convention.
-private val WarningAmberColor = Color(0xFFE8A23D)
+// error red and this app's accent, matching the universal warning-color convention. Exposed
+// (not private) so other components that want the same warning language — e.g.
+// InterruptedJobsBanner — use the identical color instead of inventing a second one.
+val WarningAmberColor = Color(0xFFE8A23D)
