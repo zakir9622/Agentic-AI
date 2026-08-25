@@ -31,6 +31,7 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
+import com.zakir.vestra.ui.components.LiveGenConsole
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
@@ -59,6 +60,7 @@ fun NewsChatScreen(
         ?: remember { mutableStateOf(emptyList<com.zakir.vestra.shared.chat.ChatMessage>()) }
     val chatBusy by chatViewModel?.busy?.collectAsState() ?: remember { mutableStateOf(false) }
     val chatError by chatViewModel?.error?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
+    val chatLogs by chatViewModel?.formattedLogs?.collectAsState() ?: remember { mutableStateOf(emptyList<String>()) }
     var chatInput by remember { mutableStateOf("") }
     var showModelPicker by remember { mutableStateOf(false) }
 
@@ -179,6 +181,9 @@ fun NewsChatScreen(
                     retryLabel = "Dismiss",
                     onDismiss = { chatViewModel.clearError() },
                 )
+            }
+            if (chatBusy) {
+                LiveGenConsole(lines = chatLogs)
             }
             Spacer(Modifier.height(12.dp))
             PromptComposer(

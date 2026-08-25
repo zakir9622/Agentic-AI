@@ -38,10 +38,20 @@ file-level diff found five genuinely distinct, additive pieces worth bringing fo
   is fake — `delay(600)` followed by a random 65–115ms latency presented as a real measurement.
   That conflicts with this project's own no-fabricated-status discipline (see `DRAWBACKS.md`), so
   it wasn't imported as-is.
-- 18 new tests covering every ported/wired piece: `QuickPromptCarouselTest`,
-  `LiteRtStatusIndicatorTest`, `ChatComponentsTest`, `AudioImportHelperTest` — all real
-  interaction/render tests, no stubs, all passing alongside the existing `BottomBarNavigationTest`
-  (unmodified, still green against the restyled dock).
+- **Live chat event console.** A final verification pass (checking `shared`, `AndroidManifest.xml`,
+  and `build.gradle.kts` too, not just the UI layer already covered) turned up one more real, wired
+  piece the first pass missed: `LogStateManager` — a transient, capped, timestamped event log
+  (LiteRT/Cloud API/System sourced) that the source repo's `ChatViewModel` populates and its
+  `ChatPersistentInputBar` renders as an expandable console. Ported the log-collecting engine into
+  `shared/commonMain` and wired matching log calls into our own `ChatViewModel` at the same points
+  (preflight-blocked, dispatching, LiteRT stream start/done/fallback, cloud connect/reply, errors,
+  cancel) — but instead of porting their separate console UI, reused our own already-shipped
+  `LiveGenConsole` component (used elsewhere for image/video/code generation) to render it in
+  News/Chat, keeping one console implementation instead of two.
+- 23 new tests covering every ported/wired piece: `QuickPromptCarouselTest`,
+  `LiteRtStatusIndicatorTest`, `ChatComponentsTest`, `AudioImportHelperTest`, `LogStateManagerTest`
+  — all real interaction/render/state tests, no stubs, all passing alongside the existing
+  `BottomBarNavigationTest` (unmodified, still green against the restyled dock).
 
 ## 3.1.0 (stable)
 This is the stable release closing the lovable-parity local-first plan
