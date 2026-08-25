@@ -73,6 +73,11 @@ object TestTags {
     // Wardrobe gallery grid (WardrobeScreen.kt) — per-entry tap target and row actions.
     const val WARDROBE_FILTER_ALL = "wardrobe_filter_all"
     const val WARDROBE_FILTER_FAVORITES = "wardrobe_filter_favorites"
+    // Media-type filter row (A4.4) — independent of the favorites filter above; the two
+    // compose (e.g. "Favorites" + "Videos" shows only favorited video looks).
+    const val WARDROBE_FILTER_TYPE_ALL = "wardrobe_filter_type_all"
+    const val WARDROBE_FILTER_TYPE_IMAGES = "wardrobe_filter_type_images"
+    const val WARDROBE_FILTER_TYPE_VIDEOS = "wardrobe_filter_type_videos"
     fun wardrobeGalleryItem(entryId: String): String = "wardrobe_gallery_item_$entryId"
     fun wardrobeFavoriteButton(entryId: String): String = "wardrobe_favorite_$entryId"
     fun wardrobeDeleteButton(entryId: String): String = "wardrobe_delete_$entryId"

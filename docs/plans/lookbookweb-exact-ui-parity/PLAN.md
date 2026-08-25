@@ -498,7 +498,10 @@ renders correctly without a device) and unit tests for every new non-UI capabili
    Also closed a gap the audit surfaced: `generateVideo()` never applied the safety guard —
    fixed to match `generateImage()`. Background-jobs-list and citation-disclosure sub-items
    audited as not applicable to this app's one-generation-at-a-time architecture.
-7. **A4.4, A4.9, A4.10 — Library, Settings, Changelog.**
+7. **A4.4 — Library.** Done: media-type filter (All/Images/Videos) added alongside the
+   existing Favorites filter, pure-function-tested. Upload-to-library and the demo-data banner
+   audited and left unbuilt — lookbookweb artifacts of its account-based cloud storage with no
+   honest local-first equivalent. **A4.9, A4.10 — Settings, Changelog** still pending.
 8. **A4.5–A4.7 — Create screens** (Image/Video/Voice), scoping each engine-dependent item
    honestly per the notes above rather than adding UI for capabilities that don't exist yet.
 9. **A4.8 — Sources** (new source-management screen).

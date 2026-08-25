@@ -42,6 +42,11 @@ object LookbookCopy {
     const val LABEL_VIRTUAL_TRY_ON = "VIRTUAL TRY-ON"
     const val EMPTY_GALLERY = "Your try-on and Image studio looks appear here."
     const val EMPTY_FAVORITES = "No favorites yet — tap ★ on a look."
+    const val EMPTY_IMAGES_FILTER = "No image looks match the current filters."
+    const val EMPTY_VIDEOS_FILTER = "No video looks match the current filters."
+    const val EMPTY_FAVORITE_IMAGES = "No favorited images yet — tap ★ on an image look."
+    const val EMPTY_FAVORITE_VIDEOS = "No favorited videos yet — tap ★ on a video look."
+    const val ACTION_SHOW_ALL_TYPES = "Show all types"
     const val PRIVACY_URL =
         "https://github.com/zakir9622/Agentic-AI/blob/main/docs/PRIVACY_POLICY.md"
 

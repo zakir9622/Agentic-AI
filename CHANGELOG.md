@@ -150,6 +150,25 @@ every step (not claimed from reading the code).
   selected," missing the "offline with a ready local pack" branch `generateCode()` itself
   actually routes through — fixed to mirror `generateCode()`'s exact `bypassPreflight`
   condition so the budget bar always evaluates against the model that will actually run.
+- **A4.4 — Library: added a real media-type filter to Wardrobe, alongside (not replacing) the
+  existing Favorites filter.** lookbookweb's `library.tsx` filters by type (All/Images/Videos);
+  `WardrobeScreen` gets the same as an independent second filter row — "All types (n)/Images
+  (n)/Videos (n)" — that composes with the existing Favorites toggle (e.g. Favorites + Videos
+  shows only favorited video looks). The filtering itself (`filterWardrobeEntries`) and the
+  empty-state message logic (`wardrobeEmptyMessage`) are extracted as pure functions and
+  directly unit-tested (15 tests) rather than only reachable through a full-screen Compose
+  harness this repo doesn't have for `WardrobeScreen` (it needs a real `WardrobeRepository`
+  backed by device file storage). The remaining A4.4 items — an upload-to-library flow and a
+  demo-data/sample-content banner — are lookbookweb artifacts of its account-based cloud
+  storage model with no honest local-first equivalent (a demo banner would mean either
+  fabricating sample generations, which `docs/DRAWBACKS.md`'s own discipline rules out, or
+  showing nothing meaningful); left unbuilt as a reasoned scope decision, not an oversight.
+- **Fixed during review, before landing:** the empty-state message for a combined
+  Favorites+type filter (e.g. "Favorites" + "Videos" with no matches) fell back to a plain "No
+  favorites yet" even when favorites did exist — just none of the selected type — misreporting
+  why the list was empty. Fixed with two more precise messages
+  (`EMPTY_FAVORITE_IMAGES`/`EMPTY_FAVORITE_VIDEOS`) and a regression test asserting the combined
+  case never falls back to the plain favorites message.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 
