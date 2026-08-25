@@ -1,6 +1,6 @@
 package com.zakir.vestra.ui.components
 
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -14,6 +14,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
+
+/** CSS `ease-in-out` (`cubic-bezier(0.42, 0, 0.58, 1)`) — matches lookbookweb's keyframes exactly. */
+private val CssEaseInOut = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 
 /**
  * Exact-match of lookbookweb's `float-slow` utility (`styles.css:324-326`, keyframe
@@ -30,7 +33,7 @@ fun Modifier.floatSlow(): Modifier {
         initialValue = -14f,
         targetValue = 14f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4500, easing = LinearEasing),
+            animation = tween(4500, easing = CssEaseInOut),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "floatSlowOffset",
@@ -53,7 +56,7 @@ fun Modifier.driftSlow(): Modifier {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(11_000, easing = LinearEasing),
+            animation = tween(11_000, easing = CssEaseInOut),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "driftPhase",

@@ -112,12 +112,17 @@ private val LightPalette = VestraPalette(
     glassHighlight = Color(0xD9FFFFFF),
     glassShadow = Color(0x1A111419),
     danger = Color(0xFFD01C29),
-    // Repointed at the closest lookbookweb-family token rather than removed — audited call
-    // sites still read these fields; see docs/plans/lookbookweb-exact-ui-parity/PLAN.md A0.
+    // atelierCanvas/atelierContainer/ivory/ivoryMuted are theme-independent by original design
+    // (call sites like GenerationScreen.kt use AtelierCanvas as a fixed dark scrim behind
+    // generation previews with Ivory text drawn on top, regardless of the app's light/dark
+    // theme) — kept as fixed dark-canvas/light-text values in both palettes rather than tied to
+    // `ink` (which flips with theme and collided with `ivory` in dark mode, making text
+    // invisible — caught in code review before landing). See
+    // docs/plans/lookbookweb-exact-ui-parity/PLAN.md A0.
     atelierCanvas = Color(0xFF111419),
-    atelierContainer = Color(0xFFEBEDEF),
-    ivory = Color(0xFFF2F8FC),
-    ivoryMuted = Color(0xFF575B62),
+    atelierContainer = Color(0xFF21242A),
+    ivory = Color(0xFFF4F5F7),
+    ivoryMuted = Color(0xFFA7ABB3),
     saffronDeep = Color(0xFF009C7B),
     silkMist = Color(0xFFEBEDEF),
     modalityImage = Color(0xFF1F7DCF),
@@ -145,7 +150,8 @@ private val DarkPalette = VestraPalette(
     glassHighlight = Color(0x38FFFFFF),
     glassShadow = Color(0x66000000),
     danger = Color(0xFFF97066),
-    atelierCanvas = Color(0xFFF4F5F7),
+    // Same theme-independent fixed values as LightPalette — see the comment there.
+    atelierCanvas = Color(0xFF111419),
     atelierContainer = Color(0xFF21242A),
     ivory = Color(0xFFF4F5F7),
     ivoryMuted = Color(0xFFA7ABB3),
