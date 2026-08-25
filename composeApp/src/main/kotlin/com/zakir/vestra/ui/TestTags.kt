@@ -118,4 +118,7 @@ object TestTags {
 
     // Prompt-level safety preset picker (SettingsSafetySection.kt) — Part B.3.
     fun safetyPreset(id: String): String = "safety_preset_$id"
+
+    // Live context-budget indicator above the chat composer (ChatComponents.kt) — Part B.2.
+    const val CONTEXT_BUDGET_BAR = "context_budget_bar"
 }

@@ -3,6 +3,7 @@ package com.zakir.vestra.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.chat.ChatRepository
+import com.zakir.vestra.shared.chat.ContextBudget
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
@@ -84,16 +85,8 @@ class ChatViewModel(
         val activeSource = if (localChat) LogSource.LITERT else LogSource.CLOUD_API
         logStateManager.info(activeSource, "Dispatching chat request to ${provider.displayName}...")
 
-        val headlines = news?.headlineContext(5).orEmpty()
         val history = chat.contextForLlm(maxTurns = 10)
-        val system = buildString {
-            append("You are a helpful assistant for The Lookbook — modest fashion try-on and on-device AI. ")
-            append("Discuss headlines, local Lite/Pro packs, and cloud free-tier models. Keep answers concise.")
-            if (headlines.isNotBlank()) {
-                append("\n\nRecent headlines:\n")
-                append(headlines)
-            }
-        }
+        val system = buildSystemPrompt()
         val composedPrompt = if (history.size <= 1) {
             text
         } else {
@@ -206,5 +199,38 @@ class ChatViewModel(
         job = null
         _busy.value = false
         logStateManager.warn(LogSource.SYSTEM, "Generation cancelled.")
+    }
+
+    private fun buildSystemPrompt(): String {
+        val headlines = news?.headlineContext(5).orEmpty()
+        return buildString {
+            append("You are a helpful assistant for The Lookbook — modest fashion try-on and on-device AI. ")
+            append("Discuss headlines, local Lite/Pro packs, and cloud free-tier models. Keep answers concise.")
+            if (headlines.isNotBlank()) {
+                append("\n\nRecent headlines:\n")
+                append(headlines)
+            }
+        }
+    }
+
+    /**
+     * The model id [send] would currently dispatch to — the ready local pick if one is
+     * selected and available, otherwise the selected cloud provider. Used by the composer's
+     * live context-budget estimate (Part B.2), computed without side effects before a send.
+     */
+    fun currentModelId(): String {
+        val localChat = appSettings.prefersLocal(AiCapability.CODE) && generative.localCodeReady()
+        return if (localChat) generative.localChatProviderId() else appSettings.selectedProvider(AiCapability.CODE).id
+    }
+
+    /**
+     * Token estimate for everything [send] would compose *besides* the live draft — the system
+     * prompt plus prior turns' history — so the composer can add the draft's own token count on
+     * top and warn before a send would actually truncate.
+     */
+    fun contextTokensBeforeDraft(): Int {
+        val history = chat.contextForLlm(maxTurns = 10)
+        val historyText = history.joinToString("\n\n") { (role, content) -> "${role.uppercase()}: $content" }
+        return ContextBudget.estimateTokens(buildSystemPrompt()) + ContextBudget.estimateTokens(historyText)
     }
 }

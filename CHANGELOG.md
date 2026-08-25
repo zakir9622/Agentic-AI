@@ -70,6 +70,20 @@ every step (not claimed from reading the code).
   (`SettingsSafetySection.kt`) mirrors the existing Processing Mode card's visual pattern. 9 new
   unit tests (`SafetyPresetsTest`) plus a new `22-safety-presets` screenshot, both confirming the
   real behavior — not just that it compiles.
+- **Part B.2 — tokenizer-aware context budgeting.** Exact-port of lookbookweb's
+  `src/lib/tokens.ts`: a per-model context-window table (`ContextBudget` in
+  `shared/commonMain`, real published native-context values for every chat-capable local
+  and cloud model — Qwen3 0.6B/Gemma 4 E2B/legacy Gemma 3 1B at 32,768, Llama 3.3 70B Groq at
+  128,000; a documented, honest 8,192-token fallback for OpenRouter's free router, whose
+  underlying model rotates and isn't individually published) and a calibrated
+  chars-per-token heuristic when no real tokenizer is wired in. A live `ContextBudgetBar`
+  now sits above the News/Chat composer, showing a running "used / window" count that updates
+  on every keystroke and switches to a hard, red "won't fit and will be truncated" warning
+  before the user can send something the model will actually cut off — not a cosmetic
+  counter, a real pre-send check against exactly what `ChatViewModel.send()` would compose
+  (system prompt + last 10 turns + the live draft). 12 new unit tests (`ContextBudgetTest`)
+  plus two new screenshots (`23-context-budget-under`, `24-context-budget-truncate`)
+  confirming both visual states render correctly.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

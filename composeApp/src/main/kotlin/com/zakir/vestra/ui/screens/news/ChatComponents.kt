@@ -68,7 +68,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.outlined.WarningAmber
 import com.zakir.vestra.shared.chat.ChatMessage
+import com.zakir.vestra.shared.chat.ContextBudget
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.RadiusTokens
@@ -468,6 +470,57 @@ fun ChatEmptyState(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Live "used / window" token estimate for the composer, shown above [PromptComposer][
+ * com.zakir.vestra.ui.components.PromptComposer] — Part B.2, ported from lookbookweb's
+ * `src/lib/tokens.ts` live-budget line. Renders nothing when [budget] is comfortably under
+ * budget and the draft is empty, so it doesn't clutter the empty-composer state; switches to a
+ * warning row once a send would actually truncate.
+ */
+@Composable
+fun ContextBudgetBar(
+    budget: ContextBudget.Budget,
+    hasDraft: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!hasDraft && !budget.willTruncate) return
+    val warnColor = VestraColors.Danger
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = if (budget.willTruncate) 6.dp else 2.dp)
+            .testTag(TestTags.CONTEXT_BUDGET_BAR),
+        horizontalArrangement = if (budget.willTruncate) Arrangement.Start else Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (budget.willTruncate) {
+            Icon(
+                imageVector = Icons.Outlined.WarningAmber,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = warnColor,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "This message won't fit the model's context window and will be truncated.",
+                style = MaterialTheme.typography.labelSmall,
+                color = warnColor,
+            )
+        } else {
+            val label = if (budget.isKnownWindow) {
+                "${budget.usedTokens} / ${budget.windowTokens} tokens"
+            } else {
+                "${budget.usedTokens} tokens (window unknown for this model)"
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = VestraColors.InkMuted,
+            )
         }
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.chat.ContextBudget
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
@@ -185,6 +186,12 @@ fun NewsChatScreen(
             if (chatBusy) {
                 LiveGenConsole(lines = chatLogs)
             }
+            val contextBudget = remember(chatInput, chatMessages) {
+                val before = chatViewModel.contextTokensBeforeDraft()
+                val draftTokens = ContextBudget.estimateTokens(chatInput)
+                ContextBudget.evaluate(before + draftTokens, chatViewModel.currentModelId())
+            }
+            ContextBudgetBar(budget = contextBudget, hasDraft = chatInput.isNotBlank())
             Spacer(Modifier.height(12.dp))
             PromptComposer(
                 prompt = chatInput,

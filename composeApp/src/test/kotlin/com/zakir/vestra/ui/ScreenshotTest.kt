@@ -578,4 +578,30 @@ class ScreenshotTest {
             }
         }
     }
+
+    @Test
+    fun contextBudgetBarUnderBudget() {
+        val budget = com.zakir.vestra.shared.chat.ContextBudget.evaluate(
+            usedTokens = 512,
+            modelId = "local-qwen3-06b-v1",
+        )
+        shoot("23-context-budget-under") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                com.zakir.vestra.ui.screens.news.ContextBudgetBar(budget = budget, hasDraft = true)
+            }
+        }
+    }
+
+    @Test
+    fun contextBudgetBarWillTruncate() {
+        val budget = com.zakir.vestra.shared.chat.ContextBudget.evaluate(
+            usedTokens = 9_000,
+            modelId = "openrouter-free",
+        )
+        shoot("24-context-budget-truncate") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                com.zakir.vestra.ui.screens.news.ContextBudgetBar(budget = budget, hasDraft = true)
+            }
+        }
+    }
 }
