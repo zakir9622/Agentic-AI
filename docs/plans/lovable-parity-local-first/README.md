@@ -14,24 +14,31 @@ capability, and never routes anything to cloud that isn't already cloud-routed t
 See [`PLAN.md`](PLAN.md) for the full breakdown (Parts A–D), explicit out-of-scope items, and
 open questions for the user before implementation starts.
 
-## Status: implementation started (3.1.0-rc21)
+## Status: implementation started (3.1.0-rc21), design system + nav complete (3.1.0-rc25)
 
-- **A0 (color tokens) — partial.** Added four per-modality accent tokens (`VestraColors.Modality
-  Image/Video/Code/Audio`) to `VestraPalette`, brass-family tints rather than lookbookweb's own
-  hues (keeps the Loom Ink identity, per the plan's own instruction not to replace it), plus a
-  derived `RadiusTokens` corner-radius scale. Wired into the Studio header label
-  (`UnifiedStudioPane`'s `GlassSectionLabel`) so far — not yet propagated to every chip/progress
-  accent the plan describes; extend call-by-call as those surfaces are touched next.
+- **A0 (color tokens) — done (3.1.0-rc24).** `VestraColors.modalityAccent(AiCapability)` resolves
+  the right per-modality tint everywhere a studio surface needs one — the Studio header label
+  (unchanged from rc21), plus `PromptComposer` (border/model-chip dot/reference icon), `ResultPane`
+  (loading spinner/progress bar, result pills), `HomeScreen`'s tab row, `ModelPickerSheet`
+  (search field, section headers, selection state, status dots), and `AudioStudioPane`'s
+  voice-changer knob readouts. Also added `SpacingTokens` to replace ad hoc `18.dp` literals.
 - **A1 (typography) — already done**, found already in place when this phase started: `Type.kt`
   already pairs Syne (display) with Outfit (body), matching lookbookweb's split exactly.
-- **A2 (glass/spatial interaction) — partial.** `GlassCard` now has a subtle press-lift (scale to
-  ~97% on press, spring back on release), gated by `rememberReduceMotion()` — lookbookweb's
-  `press-3d`/`lift-3d` language ported at Compose-native cost. No 3D perspective tilt yet.
-- **A3 (nav pattern) — not started, deliberately.** The plan itself flags this as needing an
-  explicit design decision before coding (top tab/pager vs. a bottom dock + center Create
-  action). Not decided unilaterally — per-tab session isolation is real, hard-won infrastructure
-  built around the current pager, and a nav change is the one item in this plan big enough to
-  risk regressing it without a decision.
+- **A2 (glass/spatial interaction) — done (3.1.0-rc24).** `GlassCard` has a subtle press-lift
+  (scale to ~97% on press, spring back on release), gated by `rememberReduceMotion()` —
+  lookbookweb's `press-3d`/`lift-3d` language ported at Compose-native cost. Added
+  `Modifier.tilt3d()` (pointer-driven 3D perspective tilt, also reduced-motion-gated) applied to
+  the try-on hero card, and `GlassTile` for future nested-content rows.
+- **A3 (nav pattern) — done (3.1.0-rc25).** Decided in favor of a bottom dock (`LookbookBottomBar`)
+  with five destinations — Home (the studio pager), Library (Wardrobe), a raised center Create FAB
+  (returns to the studio pager), Chat (News/Chat, promoted from a pager tab to its own top-level
+  route), and Settings. `VestraNavHost` wraps its `NavHost` in a `Scaffold`; the bar only renders
+  on those five destinations (hidden on the try-on capture flow, nested Settings sections, Packs,
+  Usage, Help, Privacy). Per-tab session isolation was the real risk here — verified safe by
+  construction: `GenerativeViewModel` lives in `VestraNavHost`'s own composable scope, not inside
+  any `NavBackStackEntry`, so `StudioBag`/`bindStudio` state is untouched by bottom-bar navigation
+  regardless of back-stack save/restore behavior. Regression-covered by
+  `appium/test_bottom_bar.py`'s round-trip test and `BottomBarNavigationTest.kt`.
 - **B1 (resumable job state) — done.** `LocalJobStore` (Settings+JSON, same pattern as
   `RunDiagnostics`) records QUEUED/RUNNING/DONE/FAILED/CANCELLED per local generation. A row
   still RUNNING/QUEUED from a previous app process surfaces on Home as an "Interrupted" card
@@ -72,8 +79,8 @@ open questions for the user before implementation starts.
   visually verify, so it isn't included here rather than shipped unverified. Scope this as its
   own follow-up once either a lightweight face detector is added to the local-model catalog, or
   a manual-region tool is explicitly requested and can be verified on a device.
-- **Not yet started:** A3 (nav pattern — deliberately deferred, needs the user's decision), B6
-  (voice studio DSP depth — real-time meters/scope, latency auto-calibration), and Part D's
-  real-model output-quality testing for code/audio. B6 touches a live `AudioRecord`/`Visualizer`
-  pipeline this session cannot verify without a device — treat as higher-risk than B1–B5/B8/B2
-  and worth extra scrutiny before landing.
+- **Not yet started:** B6 (voice studio DSP depth — real-time meters/scope, latency
+  auto-calibration), B7's remaining face-detection/manual-blur build-out, and Part D's real-model
+  output-quality testing for code/audio. B6 touches a live `AudioRecord`/`Visualizer` pipeline
+  this session cannot verify without a device — treat as higher-risk than the design-system and
+  nav work above, and worth extra scrutiny before landing.

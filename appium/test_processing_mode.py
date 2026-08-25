@@ -8,7 +8,7 @@ import time
 
 from conftest import by_tag, tag_exists
 
-OPEN_SETTINGS_BUTTON = "home_open_settings"
+OPEN_SETTINGS_BUTTON = "bottom_bar_settings"
 PROCESSING_MODE_LOCAL = "processing_mode_local"
 PROCESSING_MODE_CLOUD = "processing_mode_cloud"
 

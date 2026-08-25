@@ -17,7 +17,8 @@ HOME_TAB_IMAGE = "home_tab_image"
 HOME_TAB_VIDEO = "home_tab_video"
 HOME_TAB_CODE = "home_tab_code"
 HOME_TAB_AUDIO = "home_tab_audio"
-HOME_TAB_NEWS = "home_tab_news"
+BOTTOM_BAR_HOME = "bottom_bar_home"
+BOTTOM_BAR_CHAT = "bottom_bar_chat"
 
 PROMPT_INPUT = "composer_prompt_input"
 CHAT_HEADLINE_0 = "chat_headline_0"
@@ -74,17 +75,23 @@ class TestPromptIsolation:
         )
 
     def test_tapping_a_news_headline_does_not_pollute_other_tabs(self, driver):
-        """Direct regression test for the fixed bug."""
+        """Direct regression test for the fixed bug.
+
+        Chat is now a standalone bottom-dock destination (A3), not a studio pager tab — the
+        round trip is Video tab -> bottom bar Chat -> bottom bar Home (back to the studio) ->
+        Video tab, rather than switching pager tabs directly.
+        """
         marker = "UNIQUE_VIDEO_PROMPT_9c1e"
 
         _goto_tab(driver, HOME_TAB_VIDEO)
         _type_prompt(driver, marker)
         assert marker in _read_prompt_text(driver)
 
-        _goto_tab(driver, HOME_TAB_NEWS)
+        _goto_tab(driver, BOTTOM_BAR_CHAT)
         if tag_exists(driver, CHAT_HEADLINE_0):
             by_tag(driver, CHAT_HEADLINE_0).click()
 
+        _goto_tab(driver, BOTTOM_BAR_HOME)
         _goto_tab(driver, HOME_TAB_VIDEO)
         video_text = _read_prompt_text(driver)
         assert marker in video_text, (

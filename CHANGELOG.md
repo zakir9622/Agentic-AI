@@ -1,5 +1,27 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc25
+- **A3 — bottom dock navigation.** Added `LookbookBottomBar` (Home / Library / a raised center
+  Create FAB / Chat / Settings), wired into `VestraNavHost` via a `Scaffold`. The in-studio pager
+  (Image/Video/Audio/Code) is unchanged — it's a second, lower level of navigation nested inside
+  the Home destination, exactly as before. News/Chat is promoted from a pager tab to its own
+  top-level route (`Routes.CHAT`), reachable via the dock's Chat item instead of a `HomeTab.NEWS`
+  entry; `NewsChatScreen` now wraps itself in `SpatialBackground`/`.safeDrawingPadding()` since
+  it's no longer nested inside `HomeScreen`'s own background. The header's Wardrobe and Settings
+  icon buttons were removed from `HomeScreen` (redundant with the dock's Library/Settings items);
+  Help stays in the header since it has no dock slot.
+- **Session isolation verified safe by construction, not by luck.** `GenerativeViewModel` is
+  created once in `VestraNavHost`'s own composable scope and passed down as a parameter — it is
+  never scoped to a `NavBackStackEntry`, so `StudioBag`/`bindStudio` per-tab prompt state is
+  unaffected by bottom-bar navigation regardless of the back stack's save/restore behavior. The
+  dock itself uses the standard `popUpTo(startDestination) { saveState = true }` +
+  `restoreState = true` pattern so the studio pager's own position (`rememberPagerState`, which is
+  `rememberSaveable`-backed) survives a round trip through Library/Chat/Settings too.
+- Added `appium/test_bottom_bar.py` (dock visibility, per-item navigation, Create FAB, and a
+  studio-prompt round-trip regression guard) and `BottomBarNavigationTest.kt` (Robolectric).
+  Updated `test_prompt_isolation.py` and `test_generation_flows.py` for Chat's new location, and
+  `test_processing_mode.py` for Settings now opening via the dock's `bottom_bar_settings` tag.
+
 ## 3.1.0-rc24
 - **A0 completion — modality accents now reach every studio surface**, not just the header
   label: `VestraColors.modalityAccent(AiCapability)` resolves the right per-modality tint (brass

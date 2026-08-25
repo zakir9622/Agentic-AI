@@ -53,25 +53,26 @@ actually fixed, not when it's merely reworded.
 
 ## Design/UX parity with the reference app (lookbookweb)
 
-- **`docs/plans/lovable-parity-local-first/PLAN.md` is a large plan; a real slice has landed, not
-  all of it.** Done: per-modality accent color tokens (partial rollout — only the studio header
-  uses them so far), a derived radius scale, a press-lift micro-interaction on `GlassCard`,
-  confirmation that cloud generation is off by default everywhere (it was already correct; only
-  misleading "Cloud by default" copy in the studio subtitle was fixed to reflect that), a
-  resumable-job "interrupted" banner for local generations killed mid-run, correlation-ID-first
-  error messages for local failures, a storage-used rollup + device-requirement checklist in
-  Model Packs, a single honestly-labeled Processing Mode card replacing the old cloud switch, a
-  shared shimmer-loading component wired into the one real gap found, and version lineage for
-  local generations (retries in the same studio tab chain as a discoverable history). **Not
-  done:** the bottom-dock navigation pattern (deliberately deferred — needs a design decision,
-  not a unilateral call), a voice-studio DSP layer (real-time meters/scope, latency
-  auto-calibration — needs a device to verify `AudioRecord`/`Visualizer` behavior), a local
-  safety/blur post-process (this app has no face/region detector to build one on top of — see
-  the plan's own README for why that's a scope mismatch, not a skipped task), and Part D's
-  planned real-model output-quality testing for code and audio. Treat any claim that this app
-  "matches lookbookweb's design" as false until those close too — it currently matches on
-  typography, several interaction/UX patterns, generation-lifecycle UX, and color-identity
-  direction, not the complete UX described in the plan.
+- **`docs/plans/lovable-parity-local-first/PLAN.md` is a large plan; most of it has landed, not
+  all of it.** Done: per-modality accent color tokens propagated across every studio surface
+  (composer, results, tab row, model picker, voice knobs — not just the header label), a derived
+  radius+spacing token scale, a press-lift micro-interaction and a reduced-motion-gated 3D tilt
+  on cards, a bottom-dock navigation pattern (Home/Library/Create/Chat/Settings) that preserves
+  per-tab session isolation by construction, confirmation that cloud generation is off by default
+  everywhere (it was already correct; only misleading "Cloud by default" copy in the studio
+  subtitle was fixed to reflect that), a resumable-job "interrupted" banner for local generations
+  killed mid-run, correlation-ID-first error messages for local failures, a storage-used rollup +
+  device-requirement checklist in Model Packs, a single honestly-labeled Processing Mode card
+  replacing the old cloud switch, a shared shimmer-loading component wired into the one real gap
+  found, and version lineage for local generations (retries in the same studio tab chain as a
+  discoverable history). **Not done:** a voice-studio DSP layer (real-time meters/scope, latency
+  auto-calibration — needs a device to verify `AudioRecord`/`Visualizer` behavior), the remaining
+  face-detection/manual-blur build-out for local safety/blur post-process, and Part D's planned
+  real-model output-quality testing for code and audio. Treat any claim that this app "matches
+  lookbookweb's design" as false until those close too — it currently matches on typography,
+  navigation pattern, most interaction/UX patterns, generation-lifecycle UX, and color-identity
+  direction (now propagated app-wide, not just the header), not the complete UX described in the
+  plan.
 
 ## Testability
 

@@ -32,9 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -68,12 +66,10 @@ import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.PackStatus
-import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.GenerativeViewModel
-import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.components.AtelierHero
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -81,7 +77,6 @@ import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.components.tilt3d
 import com.zakir.vestra.ui.TestTags
-import com.zakir.vestra.ui.screens.news.NewsChatScreen
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
@@ -101,7 +96,6 @@ internal enum class HomeTab(val label: String, val routeKey: String) {
     VIDEO("Video", "video"),
     AUDIO("Audio", "audio"),
     CODE("Code", "code"),
-    NEWS("News", "news"),
     ;
 
     fun selectedColor(): Color = when (this) {
@@ -109,7 +103,6 @@ internal enum class HomeTab(val label: String, val routeKey: String) {
         VIDEO -> VestraColors.ModalityVideo
         AUDIO -> VestraColors.ModalityAudio
         CODE -> VestraColors.ModalityCode
-        NEWS -> VestraColors.Accent
     }
 
     companion object {
@@ -132,14 +125,11 @@ fun HomeScreen(
     generativeViewModel: GenerativeViewModel,
     localJobStore: com.zakir.vestra.shared.jobs.LocalJobStore? = null,
     freeCloudDiscovery: FreeCloudDiscovery? = null,
-    newsRepository: NewsRepository? = null,
-    chatViewModel: ChatViewModel? = null,
     onNewLook: () -> Unit,
     onOpenWardrobe: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPacks: () -> Unit,
     onOpenHelp: () -> Unit,
-    onOpenNewsChat: (headline: String?) -> Unit = {},
     initialTabRoute: String? = null,
 ) {
     val context = LocalContext.current
@@ -208,18 +198,6 @@ fun HomeScreen(
         }
     }
 
-    fun openNewsChat(headline: String?) {
-        // NewsChatScreen owns its own chat input locally and already fills it with the headline
-        // before this callback runs — writing the headline into GenerativeViewModel.prompt here
-        // too was a real bug: that flow is shared by every studio tab (Image/Video/Code/Audio),
-        // so a headline tap silently overwrote whatever prompt was typed in the currently-bound
-        // studio, which is exactly the "prompts leak between tabs" symptom this was causing.
-        onOpenNewsChat(headline)
-        scope.launch {
-            pagerState.animateScrollToPage(tabs.indexOf(HomeTab.NEWS))
-        }
-    }
-
     SpatialBackground {
         Column(
             Modifier
@@ -267,39 +245,14 @@ fun HomeScreen(
                             color = Color.White,
                         )
                     }
+                    // Wardrobe/Settings icon buttons moved to LookbookBottomBar (Library/Settings
+                    // destinations) — Help has no bottom-bar slot, so it stays here.
                     IconButton(onClick = onOpenHelp) {
                         Icon(
                             Icons.AutoMirrored.Outlined.HelpOutline,
                             contentDescription = LookbookCopy.STUDIO_HELP,
                             tint = VestraColors.Ink,
                         )
-                    }
-                    IconButton(onClick = onOpenWardrobe) {
-                        Icon(
-                            Icons.Outlined.Checkroom,
-                            contentDescription = LookbookCopy.STUDIO_WARDROBE,
-                            tint = VestraColors.Ink,
-                        )
-                    }
-                    IconButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier.testTag(TestTags.OPEN_SETTINGS_BUTTON),
-                    ) {
-                        Box(
-                            Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(VestraColors.GlassFillStrong)
-                                .border(1.5.dp, VestraColors.Accent.copy(alpha = 0.7f), CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Outlined.Settings,
-                                contentDescription = LookbookCopy.STUDIO_SETTINGS,
-                                tint = VestraColors.Accent,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
                     }
                 }
             }
@@ -372,14 +325,6 @@ fun HomeScreen(
                         onOpenSettings = onOpenSettings,
                         freeCloudDiscovery = freeCloudDiscovery,
                         packManager = packManager,
-                    )
-                    HomeTab.NEWS -> NewsChatScreen(
-                        newsRepository = newsRepository,
-                        chatViewModel = chatViewModel,
-                        appSettings = appSettings,
-                        freeCloudDiscovery = freeCloudDiscovery,
-                        packManager = packManager,
-                        onHeadlineSelected = ::openNewsChat,
                     )
                 }
             }

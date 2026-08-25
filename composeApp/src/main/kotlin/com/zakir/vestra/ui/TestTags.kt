@@ -23,7 +23,6 @@ object TestTags {
 
     // Home tab navigation (HomeScreen.kt) — one per HomeTab.routeKey.
     fun homeTab(routeKey: String): String = "home_tab_$routeKey"
-    const val OPEN_SETTINGS_BUTTON = "home_open_settings"
 
     // Generation result / live response (ResultPane.kt, LiveGenConsole.kt).
     const val LIVE_CONSOLE = "result_live_console"
@@ -62,4 +61,12 @@ object TestTags {
 
     // Wardrobe look-detail dialog's version-history row (WardrobeScreen.kt).
     fun wardrobeHistoryRow(entryId: String): String = "wardrobe_history_row_$entryId"
+
+    // Bottom dock navigation (LookbookBottomBar.kt) — Home/Library/Create/Chat/Settings.
+    const val BOTTOM_BAR = "bottom_bar"
+    const val BOTTOM_BAR_HOME = "bottom_bar_home"
+    const val BOTTOM_BAR_LIBRARY = "bottom_bar_library"
+    const val BOTTOM_BAR_CREATE = "bottom_bar_create"
+    const val BOTTOM_BAR_CHAT = "bottom_bar_chat"
+    const val BOTTOM_BAR_SETTINGS = "bottom_bar_settings"
 }
