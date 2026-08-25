@@ -446,13 +446,20 @@ class GenerativeViewModel(
         } else {
             "Local SD-Turbo (offline)"
         }
+        // Safety preset's guard clause is appended to the prompt actually sent to the
+        // generator, not to `_prompt.value` — the visible composer text stays exactly what the
+        // user typed; only the real request carries the extra steering text.
+        val guardedPrompt = com.zakir.vestra.shared.safety.SafetyPresets.applyGuard(
+            p,
+            appSettings.safetyPresetId.value,
+        )
         startGeneration(
             capability = if (_referenceUri.value == null) RunCapability.IMAGE_GEN else RunCapability.IMAGE_EDIT,
             modelLabel = if (bypassPreflight) localLabel else appSettings.selectedProvider(capability).displayName,
             local = bypassPreflight,
             studio = capability,
         ) {
-            generative.generateImage(p, _referenceUri.value, currentAssists())
+            generative.generateImage(guardedPrompt, _referenceUri.value, currentAssists())
         }
     }
 

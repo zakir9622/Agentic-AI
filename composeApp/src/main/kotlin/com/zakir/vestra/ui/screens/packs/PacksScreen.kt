@@ -142,7 +142,7 @@ fun PacksScreen(
                 onClick = {
                     runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.DURABLE_STORAGE_ENABLE_BUTTON),
             ) {
                 Text("Enable durable storage now")
             }

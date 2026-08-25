@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.media.CacheCleanup
 import com.zakir.vestra.shared.content.LookbookCopy
@@ -21,6 +22,7 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.storage.TokenSidecar
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.theme.VestraColors
@@ -165,7 +167,7 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onConfirmClearTokens,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.SETTINGS_CLEAR_TOKENS_BUTTON),
             ) {
                 Text("Clear API keys")
             }

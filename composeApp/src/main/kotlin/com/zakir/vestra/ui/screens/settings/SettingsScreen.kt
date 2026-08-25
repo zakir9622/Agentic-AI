@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -92,6 +93,9 @@ fun SettingsScreen(
         return
     }
 
+    val connectivityChecker = remember {
+        com.zakir.vestra.shared.cloud.ProviderConnectivityChecker(com.zakir.vestra.shared.platformHttpClient())
+    }
     val showCloud = section == SettingsSection.ALL || section == SettingsSection.CLOUD
     val showEngines = section == SettingsSection.ALL || section == SettingsSection.ENGINES
     val showAppearance = section == SettingsSection.ALL || section == SettingsSection.APPEARANCE
@@ -270,10 +274,14 @@ fun SettingsScreen(
                         confirmClearTokens = false
                         Toast.makeText(context, "API keys cleared", Toast.LENGTH_SHORT).show()
                     },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.SETTINGS_CLEAR_TOKENS_CONFIRM),
                 ) { Text("Clear") }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClearTokens = false }) { Text("Cancel") }
+                TextButton(
+                    onClick = { confirmClearTokens = false },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.SETTINGS_CLEAR_TOKENS_CANCEL),
+                ) { Text("Cancel") }
             },
         )
     }
@@ -311,9 +319,17 @@ fun SettingsScreen(
                 settingsCloudMasterToggleSection(appSettings = appSettings)
             }
 
+            // Applies to every image generation regardless of local/cloud routing (see
+            // GenerativeViewModel.generateImage), so it's visible from both the Cloud and
+            // Engines section entry points, not gated behind the cloud-only toggle above.
+            if (showCloud || showEngines) {
+                settingsSafetySection(appSettings = appSettings)
+            }
+
             if (showCloud && cloudModelsEnabled) {
                 settingsCloudKeysSection(
                     appSettings = appSettings,
+                    connectivityChecker = connectivityChecker,
                     hfTokenSaved = !hfToken.isNullOrBlank(),
                     hfInput = hfInput,
                     groqInput = groqInput,

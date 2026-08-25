@@ -1,5 +1,176 @@
 # Changelog — The Lookbook
 
+## 3.1.3
+Phase 1 (A0/A1/A2) of `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` — the design-system
+foundation for matching lookbookweb.lovable.app exactly, verified against real screenshots at
+every step (not claimed from reading the code).
+
+- **A0 — full color/radius token replacement.** `Theme.kt`'s "Loom Ink" (brass-on-deep-ink)
+  palette is replaced with an exact port of lookbookweb's shipped design system: every color is
+  a real sRGB conversion of that app's OKLCH tokens (CSS Color 4 OKLab→linear-sRGB matrices,
+  computed directly, not eyeballed) — light canvas `#F2F8FC`, near-black primary `#111419`,
+  electric-blue accent `#1F7DCF`, per-modality brand colors (image `#1F7DCF`, video `#DD503F`,
+  audio `#E8179B`, code/chat `#009C7B`), full dark-theme equivalents. `RadiusTokens` extended
+  with `xl2`/`xl3`/`xl4` (30/36/44dp) matching lookbookweb's `calc(var(--radius) ± N)` scale, and
+  `lg`/`xl` corrected to exactly match (20dp/24dp, were 24dp/32dp). Material3 `ColorScheme`
+  container colors (`primaryContainer`, `secondaryContainer`, etc.) recomputed to match the new
+  blue/teal accent family instead of the old brass tints.
+- **A1 — the missing motion primitives.** lookbookweb's `press-3d`/`lift-3d`/`float-slow`/
+  `drift-slow`/`gradient-text` utilities didn't have Compose equivalents yet (only `tilt-3d` and
+  `shimmer` did). Added `Modifier.press3d()`/`Modifier.lift3d()` (`PressModifier.kt`, new) and
+  `Modifier.floatSlow()`/`Modifier.driftSlow()`/`gradientTextStyle()` (`AmbientMotion.kt`, new),
+  following `TiltModifier.kt`'s exact pattern — reduced-motion identity fallback, real gesture/
+  animation wiring otherwise. `tilt3d()` itself gained the `translateY(-6px)` lift component its
+  CSS source has that the Compose port was missing (rotation-only before this). Since Android has
+  no `:hover` state, "hover" is reinterpreted as "while pressed" throughout — documented in each
+  modifier's own doc comment.
+- **A2 — bottom dock exact match.** The active dock item now fills with the accent gradient-pill
+  background exactly like lookbookweb's `DockLink` (`!text-accent-foreground gradient-pill`),
+  replacing the old icon-color-change-plus-dot indicator. Dock container corner radius/shadow
+  moved to the new `xl4` (44dp) token + a heavier "dock-shadow" elevation. Center Create FAB
+  resized to the exact 56dp (`h-14 w-14`) and switched from a 3-stop radial gradient to the
+  correct 2-stop 135° linear gradient. `QuickCreateSheet` (the Create tool picker) switched from
+  a `ModalBottomSheet` to a centered `Dialog` — lookbookweb opens a centered dialog here, not a
+  bottom sheet — title/description copy updated to match ("Pick a tool to start something new.").
+- 8 new tests (`PressModifierTest`, `AmbientMotionTest`) covering the reduced-motion identity
+  contract for all 4 new modifiers, matching `TiltModifierTest`'s existing pattern. All 20
+  existing `ScreenshotTest` renders re-verified against the new palette by direct visual
+  inspection (2 screenshots checked pixel-by-pixel: the dock's active-item fill and the Create
+  FAB gradient both render correctly, not just compile).
+- **A3 — `SolidCard`.** Added the exact-match opaque card variant (`solid-card` in
+  lookbookweb: same border/shadow as `GlassCard` but no translucency) for dense reading
+  surfaces — chat bubbles, transcript boxes. New screenshot confirms it renders correctly.
+- **Fixed during review, before landing:** a real dark-mode bug where `AtelierCanvas` (the fixed
+  dark scrim behind generation previews) and `Ivory` (the text drawn on top of it) collided to
+  the same color in the dark palette, making that text invisible — both are theme-independent by
+  original design and are now fixed correctly in both palettes. Also: `floatSlow()`/
+  `driftSlow()` now use a real CSS-equivalent ease-in-out curve instead of linear (their doc
+  comments already claimed ease-in-out; the implementation didn't match), and the
+  press-gesture-tracking code duplicated across `tilt3d`/`press3d`/`lift3d` is now shared via
+  `rememberPressedState()` for the latter two.
+- **A4.2 — Chat bubble exact match.** The user chat bubble now uses a solid accent fill with
+  white text (`ChatMessageBubble` in `ChatComponents.kt`) — exact match of lookbookweb's
+  `rounded-br-lg bg-primary text-primary-foreground` user bubble, replacing the previous
+  translucent-glass treatment. The assistant bubble deliberately keeps its richer glass-card +
+  model-badge + timestamp header (lookbookweb's assistant side is plain text with no bubble at
+  all) — a reasoned deviation, not a compromise: same accent color, tail shape, and radius
+  tokens either way, just more information density on the side that benefits from it. Verified
+  against the re-rendered `12-chat-bubbles` screenshot.
+- **Found during the same audit, deliberately not built yet:** the Home screen (A4.1) surfaced a
+  real architecture gap — see `docs/plans/lookbookweb-exact-ui-parity/PLAN.md`'s A4.1a — that's
+  being scoped as its own dedicated phase rather than rushed.
+- **Part B.3 — prompt-level safety presets.** Exact port of lookbookweb's `src/lib/safety.ts`
+  guard presets (`SafetyPresets` in `shared/commonMain`): Off, Standard (family-friendly guard
+  clause, the default), Blur identities, Redact details. The active preset's guard clause is
+  appended to the actual prompt sent to `generative.generateImage(...)` in
+  `GenerativeViewModel` — a real behavior change to what the model receives, not a cosmetic
+  setting — while leaving the visible/editable composer prompt untouched, so the guard text never
+  leaks into what the user sees or can accidentally re-edit. Persisted via a new
+  `AppSettings.safetyPresetId` StateFlow. New Settings → "Image generation safety" section
+  (`SettingsSafetySection.kt`) mirrors the existing Processing Mode card's visual pattern. 9 new
+  unit tests (`SafetyPresetsTest`) plus a new `22-safety-presets` screenshot, both confirming the
+  real behavior — not just that it compiles.
+- **Part B.2 — tokenizer-aware context budgeting.** Exact-port of lookbookweb's
+  `src/lib/tokens.ts`: a per-model context-window table (`ContextBudget` in
+  `shared/commonMain`, real published native-context values for every chat-capable local
+  and cloud model — Qwen3 0.6B/Gemma 4 E2B/legacy Gemma 3 1B at 32,768, Llama 3.3 70B Groq at
+  128,000; a documented, honest 8,192-token fallback for OpenRouter's free router, whose
+  underlying model rotates and isn't individually published) and a calibrated
+  chars-per-token heuristic when no real tokenizer is wired in. A live `ContextBudgetBar`
+  now sits above the News/Chat composer, showing a running "used / window" count that updates
+  on every keystroke and switches to a hard, red "won't fit and will be truncated" warning
+  before the user can send something the model will actually cut off — not a cosmetic
+  counter, a real pre-send check against exactly what `ChatViewModel.send()` would compose
+  (system prompt + last 10 turns + the live draft). 12 new unit tests (`ContextBudgetTest`)
+  plus two new screenshots (`23-context-budget-under`, `24-context-budget-truncate`)
+  confirming both visual states render correctly.
+- **Fixed during review, before landing:** a code-review pass on Part B.2/B.3 found two real
+  gaps. First, `SafetyPreset.confirm` (true for Blur identities/Redact details) was declared
+  and unit-tested but never actually checked — generation ran immediately regardless of the
+  active preset. Fixed with a real `SafetyConfirmDialog` (new, `ui/components`) that
+  `UnifiedStudioPane` now shows before dispatching an image generation whenever the active
+  preset requires confirmation, verified by 3 new interaction tests
+  (`SafetyConfirmDialogTest`) since Robolectric can't rasterize `AlertDialog`'s own platform
+  window for a screenshot — the same class of limitation `PrivacyBlurFlowTest` already
+  documents for `ModalBottomSheet`. Second, the new Settings safety section was gated behind
+  the cloud-only section filter even though the guard applies to local generation too; it's
+  now visible from both the Cloud and Engines section entry points.
+- **Part B.4/B.5 — audited, partially closed.** B.5 (resumable pack downloads): audited
+  `PackDownloadWorker`/`ModelPackManager` and found real HTTP `Range` resume + on-disk staging
+  that survives app restart already in place — closed as a no-op, nothing to port. B.4
+  (creeping progress / retry-exhaustion fallback): the cloud video/audio poll-progress formula
+  already existed but was duplicated inline at two call sites — extracted into a single tested
+  `CreepingProgress.forPoll()` primitive (`shared/commonMain/cloud`, 7 new unit tests,
+  exact-regression-checked so the emitted progress fractions are unchanged). The
+  retry-exhaustion "gentler path" fallback and progress-ticking the three sub-2.5s local
+  blocking calls (video encode, system TTS, voice-changer DSP) are deliberately **not**
+  built — reasoned and documented in `docs/DRAWBACKS.md` rather than silently dropped.
+- See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
+  (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
+
+## 3.1.2
+Two follow-ups requested after 3.1.1 shipped: real screenshots confirming the ported UI actually
+renders correctly, and a genuine replacement for the one piece of GoogleLookBookUI's UI that was
+deliberately not ported (its fake connectivity ping).
+
+- **Real "Test connection" checks in Settings → Cloud, replacing the fake ping this app never
+  had.** `ProviderConnectivityChecker` (new, `shared/commonMain`) makes an actual read-only HTTP
+  request per provider — `GET /models` (Groq), `GET /auth/key` (OpenRouter), `GET
+  /api/whoami-v2` (Hugging Face) — against the exact same hosts this app's real generation code
+  already calls (`LlmClient`, `FreeCloudDiscovery`). A "Test Hugging Face/Groq/OpenRouter key"
+  button now sits under each API key field in Settings → Cloud → API Keys; the result pill shows
+  a real measured round-trip latency on success, or the real HTTP status meaning on failure
+  (unauthorized, rate-limited, unreachable) — never a `delay()` and a random number. This is the
+  real version of the check GoogleLookBookUI's `ModelConfigScreen.kt` faked and that 3.1.1
+  explicitly declined to port as-is (see that entry, and `docs/DRAWBACKS.md`).
+- **Real pixel screenshots of the 3.1.1 UI port, rendered on the JVM.** Extended the existing
+  `ScreenshotTest` suite (Robolectric `GraphicsMode.NATIVE` — genuine Skia rasterization, no
+  device/emulator/KVM needed) with 9 new screenshots covering every piece shipped in 3.1.1: the
+  floating-pill bottom dock, both chat bubble roles, the typing indicator, the empty state, the
+  headlines bar, the quick-prompt carousel, and all three `LiteRtStatusIndicator` states, plus one
+  more for this release's new connectivity-test row. All are real, non-blank, correctly-styled
+  renders confirmed by direct visual inspection — not claimed from reading the code.
+- 13 new tests: `ProviderConnectivityCheckerTest` (10, mock-HTTP-engine tests covering every real
+  status-code branch and exception path — success, 401/403, 429, 5xx, thrown exceptions, and the
+  exact Bearer-auth header/host per provider) and `ConnectivityTestRowTest` (3, the UI wiring:
+  three test buttons render, no stale result before a test runs, and a tap drives the real code
+  path without crashing). One honesty note in `ConnectivityTestRowTest`'s own doc comment: this
+  environment's Robolectric Compose harness could not reliably observe the *async-completed*
+  click-to-result state within a test (the same class of coroutine/idle-timing limitation
+  documented for `PrivacyBlurFlowTest` earlier in this project) — the underlying network logic
+  that actually matters is still fully covered by the 10 `ProviderConnectivityCheckerTest` cases.
+- **Live spectrum scope in Audio Studio playback, closing the one gap the lovable-parity plan
+  left open.** `SpectrumScope` existed as a rendering component with a smoke test but nothing fed
+  it real data. `AndroidPlaybackVisualizer` (new, `shared/androidMain`) attaches
+  `android.media.audiofx.Visualizer` to whichever clip's `MediaPlayer` session is currently
+  playing in `AudioClipList` and streams its FFT output into the scope live. The byte→magnitude
+  conversion (`magnitudesFromFft`, `shared/commonMain`) is a pure function — no `android.media`
+  dependency — so it's unit-tested directly (6 new tests: DC/Nyquist bins, packed real/imaginary
+  middle bins, all-zero input, output length, and a direct sqrt cross-check) rather than only
+  smoke-tested through Compose.
+- **Narrowed the iOS-target blocker in commonMain.** `EpochClock.System`'s wall-clock source and
+  `LogEntry.formatDisplay()`'s `HH:mm:ss` formatting were the two remaining direct
+  `java.text`/`java.util`/`java.lang.System` calls in `shared/commonMain` — moved behind
+  `expect`/`actual` (`wallClockMs()`, `formatHms()` in `shared/src/commonMain/.../time/`, Android
+  actuals alongside), mirroring the existing `createQualityPostProcessor` pattern. Incidentally
+  fixes a latent thread-safety bug: the old code shared one `SimpleDateFormat` instance (not
+  thread-safe) across every `LogEntry`; the new Android actual uses a `ThreadLocal`. iOS itself is
+  still not a declared target — this closes two concrete, named instances of the blocker, not the
+  blocker itself.
+- **Extended Appium/UiAutomator `testTag` coverage** into the areas `docs/DRAWBACKS.md`
+  explicitly flagged as untagged: Settings' clear-API-keys button and confirm dialog, the three
+  new cloud connectivity-test buttons, the durable-storage-access prompt in Model Packs, the
+  report-content dialog (every trigger button, every reason, Cancel), and the Wardrobe gallery
+  (per-look tap target, Favorite/Delete buttons, delete-confirm dialog, All/Favorites filter
+  chips). All new tags follow the existing `TestTags.kt` per-entity-id pattern.
+- **Extended the Appium suite** (`appium/`) to cover the three gaps `docs/DRAWBACKS.md` named
+  explicitly: video and audio (TTS-first) generation reaching a real terminal state, Model Packs
+  (screen reachability, the durable-storage prompt, and an already-installed pack's real
+  handshake verification — `test_model_packs.py`, new), and Wardrobe (gallery browsing,
+  favoriting, opening a look's version history, delete-confirm/cancel — `test_wardrobe.py`, new).
+  Still unexecuted in this environment (no device/emulator/Appium server) — same honesty note as
+  the rest of this suite.
+
 ## 3.1.1
 UI pieces ported over from `zakir9622/GoogleLookBookUI` (a Google AI Studio–generated build of
 this same app, frozen around v3.1.0-rc23). That repo turned out to be an earlier snapshot of this

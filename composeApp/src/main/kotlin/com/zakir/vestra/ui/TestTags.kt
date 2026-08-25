@@ -70,6 +70,15 @@ object TestTags {
     // Wardrobe look-detail dialog's version-history row (WardrobeScreen.kt).
     fun wardrobeHistoryRow(entryId: String): String = "wardrobe_history_row_$entryId"
 
+    // Wardrobe gallery grid (WardrobeScreen.kt) — per-entry tap target and row actions.
+    const val WARDROBE_FILTER_ALL = "wardrobe_filter_all"
+    const val WARDROBE_FILTER_FAVORITES = "wardrobe_filter_favorites"
+    fun wardrobeGalleryItem(entryId: String): String = "wardrobe_gallery_item_$entryId"
+    fun wardrobeFavoriteButton(entryId: String): String = "wardrobe_favorite_$entryId"
+    fun wardrobeDeleteButton(entryId: String): String = "wardrobe_delete_$entryId"
+    const val WARDROBE_DELETE_CONFIRM = "wardrobe_delete_confirm"
+    const val WARDROBE_DELETE_CANCEL = "wardrobe_delete_cancel"
+
     // Bottom dock navigation (LookbookBottomBar.kt) — Home/Library/Create/Chat/Settings.
     const val BOTTOM_BAR = "bottom_bar"
     const val BOTTOM_BAR_HOME = "bottom_bar_home"
@@ -84,4 +93,37 @@ object TestTags {
     const val PRIVACY_BLUR_APPLY = "privacy_blur_apply"
     const val PRIVACY_BLUR_CANVAS = "privacy_blur_canvas"
     const val PRIVACY_BLUR_SAVE_ORIGINAL = "privacy_blur_save_original"
+
+    // Report-content dialog (ResultPane.kt) — flag a result as inappropriate; stored locally only.
+    const val REPORT_BUTTON = "report_button"
+    fun reportReason(reason: String): String = "report_reason_$reason"
+    const val REPORT_CANCEL_BUTTON = "report_cancel_button"
+
+    // Durable-storage prompt (PacksScreen.kt) — requests all-files access so multi-GB packs
+    // survive uninstall/reinstall in Documents/TheLookbook rather than app-private storage.
+    const val DURABLE_STORAGE_ENABLE_BUTTON = "durable_storage_enable_button"
+
+    // Settings screen (SettingsScreen.kt) — destructive/confirm actions.
+    const val SETTINGS_CLEAR_TOKENS_BUTTON = "settings_clear_tokens_button"
+    const val SETTINGS_CLEAR_TOKENS_CONFIRM = "settings_clear_tokens_confirm"
+    const val SETTINGS_CLEAR_TOKENS_CANCEL = "settings_clear_tokens_cancel"
+
+    // Settings → Engines "All packs" entry point (SettingsEnginesSection.kt) — the deterministic
+    // route into PacksScreen for automation (Code studio's LiteRtStatusIndicator also opens it,
+    // but only when a pack isn't installed).
+    const val SETTINGS_OPEN_PACKS_BUTTON = "settings_open_packs_button"
+
+    // Cloud connectivity test buttons (SettingsCloudSection.kt) — 3.1.2.
+    fun connectivityTestButton(provider: String): String = "connectivity_test_$provider"
+
+    // Prompt-level safety preset picker (SettingsSafetySection.kt) — Part B.3.
+    fun safetyPreset(id: String): String = "safety_preset_$id"
+
+    // Safety-preset confirm-before-generate dialog (UnifiedStudioPane.kt) — shown only for
+    // presets with SafetyPreset.confirm = true (Blur identities, Redact details).
+    const val SAFETY_PRESET_CONFIRM_GENERATE = "safety_preset_confirm_generate"
+    const val SAFETY_PRESET_CONFIRM_CANCEL = "safety_preset_confirm_cancel"
+
+    // Live context-budget indicator above the chat composer (ChatComponents.kt) — Part B.2.
+    const val CONTEXT_BUDGET_BAR = "context_budget_bar"
 }

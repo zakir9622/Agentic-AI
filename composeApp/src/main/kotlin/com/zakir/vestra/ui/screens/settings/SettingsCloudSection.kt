@@ -30,8 +30,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.zakir.vestra.shared.cloud.AiCapability
+import com.zakir.vestra.shared.cloud.ConnectivityResult
 import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
+import com.zakir.vestra.shared.cloud.ProviderConnectivityChecker
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.storage.TokenSidecar
@@ -128,6 +133,7 @@ private fun ProcessingModeCard(
 /** API keys card + per-capability cloud model dropdowns. */
 internal fun LazyListScope.settingsCloudKeysSection(
     appSettings: AppSettings,
+    connectivityChecker: ProviderConnectivityChecker,
     hfTokenSaved: Boolean,
     hfInput: String,
     groqInput: String,
@@ -234,8 +240,25 @@ internal fun LazyListScope.settingsCloudKeysSection(
             }
             Spacer(Modifier.height(10.dp))
             KeyField("Hugging Face API key", hfInput, onHfInput)
+            ConnectivityTestRow(
+                label = "Test Hugging Face key",
+                testTag = TestTags.connectivityTestButton("huggingface"),
+                onTest = { connectivityChecker.checkHuggingFace(hfInput.ifBlank { null }) },
+            )
+            Spacer(Modifier.height(4.dp))
             KeyField("Groq API key", groqInput, onGroqInput)
+            ConnectivityTestRow(
+                label = "Test Groq key",
+                testTag = TestTags.connectivityTestButton("groq"),
+                onTest = { connectivityChecker.checkGroq(groqInput.ifBlank { null }) },
+            )
+            Spacer(Modifier.height(4.dp))
             KeyField("OpenRouter API key (free models)", openRouterInput, onOpenRouterInput)
+            ConnectivityTestRow(
+                label = "Test OpenRouter key",
+                testTag = TestTags.connectivityTestButton("openrouter"),
+                onTest = { connectivityChecker.checkOpenRouter(openRouterInput.ifBlank { null }) },
+            )
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = onSaveTokens,
@@ -317,5 +340,56 @@ internal fun LazyListScope.settingsCloudCapabilitiesSection(
             discovery = freeCloudDiscovery,
             onSelect = appSettings::setAudioProvider,
         )
+    }
+}
+
+/**
+ * A real "test this key now" action — a genuine, minimal, read-only network call via
+ * [ProviderConnectivityChecker] (a models-list / who-am-i request against the same host this
+ * app's actual generation code talks to), not a simulated delay-then-random result. Every label
+ * below reflects an actual HTTP outcome: a real status code, a real measured latency, or a real
+ * thrown exception — see `docs/DRAWBACKS.md` for why this replaces the fake ping pattern found in
+ * the GoogleLookBookUI source this screen's sibling components were ported from.
+ */
+@androidx.compose.runtime.Composable
+private fun ConnectivityTestRow(
+    label: String,
+    testTag: String,
+    onTest: suspend () -> ConnectivityResult,
+) {
+    var testing by remember { mutableStateOf(false) }
+    var lastResult by remember { mutableStateOf<ConnectivityResult?>(null) }
+    val scope = rememberCoroutineScope()
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedButton(
+            onClick = {
+                if (!testing) {
+                    testing = true
+                    scope.launch {
+                        lastResult = onTest()
+                        testing = false
+                    }
+                }
+            },
+            enabled = !testing,
+            modifier = Modifier.testTag(testTag),
+        ) {
+            Text(if (testing) "Testing…" else label)
+        }
+        lastResult?.let { result ->
+            val (text, active) = when (result) {
+                is ConnectivityResult.Connected -> "Connected · ${result.latencyMs}ms" to true
+                is ConnectivityResult.Unauthorized -> result.detail to false
+                is ConnectivityResult.RateLimited -> result.detail to false
+                is ConnectivityResult.Unreachable -> result.detail to false
+                ConnectivityResult.NoKey -> "No key entered above" to false
+            }
+            com.zakir.vestra.ui.components.GlassPill(text = text, active = active)
+        }
     }
 }

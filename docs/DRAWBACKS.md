@@ -75,9 +75,11 @@ actually fixed, not when it's merely reworded.
   signal-processing math — `PitchDetector`, `PitchMatcher`, `LatencyCalibrator`'s cross-correlation
   core, `SimpleFft` — is real and unit-tested against synthetic sine/chirp signals, not stubbed.
   What's untested is the Android I/O around it: `AndroidMicRecorder`'s new per-buffer RMS
-  amplitude stream, and `AndroidLatencyCalibrator`'s simultaneous `AudioTrack` playback +
-  `AudioRecord` capture, both added this session with no device available to confirm real-world
-  timing behavior — same honesty posture as the GPU-delegate CPU fallback below.
+  amplitude stream, `AndroidLatencyCalibrator`'s simultaneous `AudioTrack` playback +
+  `AudioRecord` capture, and (added in 3.1.2) `AndroidPlaybackVisualizer`'s
+  `android.media.audiofx.Visualizer` capture callback — all added with no device available to
+  confirm real-world timing/behavior — same honesty posture as the GPU-delegate CPU fallback
+  below.
 - **ML Kit's face detector (B7, 3.1.0-rc27) is not exercised against a real photo with a real
   face in this environment.** `FaceBlurProcessor.detectFaces()` wraps ML Kit's bundled on-device
   detector correctly per its documented API, and `BoxBlur` (the actual pixel-blur math applied to
@@ -86,9 +88,37 @@ actually fixed, not when it's merely reworded.
   is unverified: no device, and ML Kit's native detection model doesn't run meaningfully under
   Robolectric. Treat detection accuracy as unverified until tested on a real device with real
   photos.
+- **No "gentler path" retry-exhaustion fallback for cloud video/audio generation (Part B.2's
+  audit, deliberately deferred, not built).** When every candidate in a cloud fallback chain
+  fails, `generateVideo`/`generateAudio` in `GenerativeCloudService.kt` throw the last error and
+  surface a `GenerativeState.Failed` — there is no automatic retry at lower resolution or with
+  relaxed constraints. Building one honestly would require per-provider parameter tuning
+  against each Gradio Space's actual API (which specific field lowers resolution/relaxes a
+  constraint, and whether that field is even respected) — something that can't be verified
+  without live access to test the real behavior against. Shipping a guessed fallback risks
+  silently changing generation parameters in a way nobody confirmed actually works, which this
+  project's anti-fabrication stance rules out. The three local blocking generators with no
+  progress signal (video still-clip encode, system TTS, voice-changer DSP) were also audited and
+  left as-is — each is sub-2.5s in practice, so a concurrent progress-ticker was judged not
+  worth its added complexity for that short a window.
 
 ## Design/UX parity with the reference app (lookbookweb)
 
+- **Superseded in 3.1.3 by a stricter standard.** The "DONE" claim below was against a looser
+  parity bar (glass-card language, generation-lifecycle UX patterns) — it did not mean pixel/
+  color-exact match. A direct source read of `zakir9622/lookbookweb` found this app's actual
+  shipped palette ("Loom Ink," brass-on-deep-ink) was a different color family entirely from
+  lookbookweb's real one (light canvas, near-black primary, electric-blue accent). 3.1.3 is
+  phase 1 of a new, source-grounded exact-match plan
+  (`docs/plans/lookbookweb-exact-ui-parity/PLAN.md`) that replaces the deleted
+  `lovable-parity-local-first/PLAN.md` this bullet originally referenced. **Closed in 3.1.3:**
+  the full color/radius token replacement (A0) and the missing `press-3d`/`lift-3d`/
+  `float-slow`/`drift-slow` motion primitives + bottom-dock exact-match active-state and Create
+  dialog (A1/A2) — verified against real re-rendered screenshots, not claimed from reading the
+  code. **Still open:** every per-route layout item (A4), icon/toast/responsive audits (A5-A8),
+  and the five non-UI capability pull-outs (Part B) — see the plan's phase list. The historical
+  record below (what the *older*, now-superseded parity plan shipped) is kept for context, not
+  deleted, per this file's own "never delete a drawback silently" rule.
 - **`docs/plans/lovable-parity-local-first/PLAN.md` is DONE as of 3.1.0 (stable)** — every item
   A0–A3, B1–B8, D1–D2 is shipped; see the plan's own "Implementation status" table for the full
   per-item ledger. Landed: per-modality accent color tokens propagated across every studio surface
@@ -109,9 +139,14 @@ actually fixed, not when it's merely reworded.
   ML Kit face detection + a real box-blur, plus a manual drag-to-draw region tool, wired into a
   "Privacy blur" button on every image result. Part D's real-model output-quality testing for code
   (D1) and audio (D2) is also closed — see the D1/D2 entries above. **Still explicitly
-  unfinished within an otherwise-done plan:** a live spectrum-scope data source (`SpectrumScope`
-  is built and smoke-tested, but nothing feeds it real playback FFT data yet — recorded above as
-  part of B6's device-I/O caveat, not a blocking gap). "Matches lookbookweb's design" now holds
+  unfinished within an otherwise-done plan, now closed:** `SpectrumScope` was built and
+  smoke-tested but nothing fed it real playback FFT data — closed by wiring
+  `AndroidPlaybackVisualizer` (`android.media.audiofx.Visualizer` attached to the playing clip's
+  `MediaPlayer` session) into `AudioClipList`, rendering a live spectrum scope under whichever
+  clip is currently playing. The byte→magnitude conversion (`magnitudesFromFft`) is a pure
+  function, unit-tested against known real/imaginary byte patterns; only the platform capture
+  registration itself is unverified on a real device (same honesty posture as the mic-amplitude
+  and latency-calibration I/O below). "Matches lookbookweb's design" now holds
   for typography, navigation pattern, interaction/UX patterns, generation-lifecycle UX, and
   color-identity direction, with the caveats above the only remaining honesty notes.
 - **3.1.1 UI port from `zakir9622/GoogleLookBookUI`.** That repo turned out to be an earlier
@@ -123,8 +158,23 @@ actually fixed, not when it's merely reworded.
   new tests. **Deliberately not ported:** the source repo's `ModelConfigScreen.kt` shows
   per-provider connectivity "ping" status, but the check is fake — `delay(600)` then a random
   65–115ms number presented as a real measurement, exactly the kind of fabricated-status UI this
-  file exists to flag rather than import quietly. If a real unified cloud-provider settings screen
-  is wanted later, it needs a real connectivity check behind it, not this pattern.
+  file exists to flag rather than import quietly.
+- **Closed in 3.1.2: a real connectivity check now exists, verified by real screenshots and 13
+  new tests.** `ProviderConnectivityChecker` (`shared/commonMain`) makes an actual `GET` request
+  per provider against the same hosts this app's real generation code calls, and a "Test
+  [Provider] key" button in Settings → Cloud → API Keys shows the real result — a genuinely
+  measured latency on success, or the real HTTP status meaning on failure. 10 tests
+  (`ProviderConnectivityCheckerTest`) exercise every real response branch (200/401/403/429/5xx/
+  thrown exception) against a mock HTTP engine — no live network calls in the test suite, but
+  every branch matches an actual HTTP outcome the checker can hit for real. `ScreenshotTest` was
+  also extended with 10 new real pixel renders (Robolectric `GraphicsMode.NATIVE`) covering every
+  piece of the 3.1.1 port plus this screen — confirmed correct by direct visual inspection, not
+  claimed from reading the code. **One remaining honesty note:** `ConnectivityTestRowTest` could
+  not reliably assert on the *async-completed* click-to-result UI state within this
+  environment's Robolectric Compose harness (a coroutine-scheduling/idle-detection limitation,
+  same class as the one documented for `PrivacyBlurFlowTest`) — it verifies the UI renders and a
+  tap drives the real code path without crashing, while the actual network-logic correctness is
+  covered by the 10 mock-engine tests instead.
 
 ## Testability
 
@@ -133,26 +183,47 @@ actually fixed, not when it's merely reworded.
   input, model chip, assist toggle, send/stop, home tabs, every `GenerativeState` result card,
   the live generation console, retry/cancel, model-pack install/handshake buttons, and the
   model picker's per-model rows — now carry stable `testTag`s (see
-  `composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`). Coverage is not yet
-  exhaustive: Settings screens, Wardrobe/gallery browsing, and some secondary dialogs
-  (report-content sheet, durable-storage prompt) do not yet carry tags. Extend `TestTags.kt`
-  and its call sites incrementally as automation needs grow, rather than tagging speculatively
-  ahead of an actual test.
+  `composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`). **Extended in 3.1.2:** the
+  Settings clear-API-keys button and its confirm dialog, the three cloud connectivity-test
+  buttons, the durable-storage-access prompt in Model Packs, the report-content dialog (all
+  three trigger buttons across Image/Video/Audio results, every reason button, and Cancel), and
+  the Wardrobe gallery (per-look tap target, per-look Favorite/Delete buttons, the delete-confirm
+  dialog, and the All/Favorites filter chips) now carry tags too. Coverage is still not
+  exhaustive — e.g. Settings' appearance-mode picker and the model-pack list rows beyond
+  install/handshake remain untagged. Extend `TestTags.kt` and its call sites incrementally as
+  automation needs grow, rather than tagging speculatively ahead of an actual test.
 - **A real Appium test suite now exists (`appium/`) but has never been run.** No Android device,
   emulator, or Appium server exists in the environment that authored it (verified directly: no
   `adb`, no `ANDROID_HOME`, no Appium binary) — every test in it is a first draft that needs a
   real run on a real device before it's trusted, per `appium/README.md`'s own honesty note. It
   covers: prompt isolation across studio tabs, local image/code/chat generation reaching a real
-  terminal state, the image-edit/img2img entry point, and the Processing Mode card. Not yet
-  covered: video/audio generation end-to-end, Model Packs install/handshake, Wardrobe history
-  navigation, and anything about generation *quality* rather than "a result exists."
+  terminal state, the image-edit/img2img entry point, and the Processing Mode card. **Extended
+  in 3.1.2** with the three areas previously named here as gaps: video and audio (TTS-first)
+  generation reaching a real terminal state (`test_generation_flows.py`), Model Packs — screen
+  reachability, the durable-storage prompt, and an already-installed pack's real handshake
+  verification (`test_model_packs.py`, new), and Wardrobe — gallery browsing, favoriting, opening
+  a look's version history, and delete-confirm/cancel (`test_wardrobe.py`, new). The Model Packs
+  and Wardrobe suites both skip (not fail) states this suite deliberately doesn't try to create
+  on its own — an already-installed pack, or a non-empty wardrobe — rather than asserting against
+  a scenario nothing set up; still nothing about generation *quality* rather than "a result
+  exists" beyond the prompt-shape checks already present (e.g. code output containing `def `).
+  None of this — old or new — has actually executed on a device, same caveat as before.
 
 ## Platform
 
-- **iOS is not supported.** `shared/build.gradle.kts` does not declare an iOS target, and
-  several commonMain files still call JVM-only APIs (e.g. `System.currentTimeMillis()`
-  directly rather than through a `Clock` abstraction), so commonMain would not compile for iOS
-  without further work.
+- **iOS is not supported.** `shared/build.gradle.kts` does not declare an iOS target — adding
+  `iosArm64`/`iosSimulatorArm64` is real, non-trivial work (a macOS host to compile on, an
+  iosMain source set, platform implementations for every engine/audio/pack class this app's
+  local generation depends on) that has not been attempted. **Narrowed in 3.1.2:** the two
+  concrete JVM-only calls that existed directly in commonMain — `EpochClock.System`'s
+  `java.lang.System.currentTimeMillis()`, and `LogEntry.formatDisplay()`'s
+  `java.text.SimpleDateFormat`/`java.util.Date`/`java.util.Locale` — are now behind
+  `expect`/`actual` (`wallClockMs()`, `formatHms()`), mirroring the existing
+  `createQualityPostProcessor` pattern, with only an `androidMain` actual so far. A full
+  `git grep -rn "java\."` across `shared/src/commonMain` now returns only these two
+  intentional `expect` declarations and one pre-existing, already-documented `PackPlatform.kt`
+  comment — not evidence iOS compiles, just that commonMain's JVM-API surface is now fully
+  accounted for rather than partially audited.
 - **`minSdk` is high (Android 15)** relative to some of the app's own documentation, which in
   places still describes broader device support. Treat any "works on Android 8+" style claim
   elsewhere in the docs as aspirational until the `minSdk` and the docs are reconciled.

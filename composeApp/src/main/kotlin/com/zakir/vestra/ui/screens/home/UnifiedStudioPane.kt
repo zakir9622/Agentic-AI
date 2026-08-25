@@ -47,6 +47,7 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.packs.ModelPackManager
+import com.zakir.vestra.shared.safety.SafetyPresets
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassCard
@@ -59,6 +60,7 @@ import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
+import com.zakir.vestra.ui.components.SafetyConfirmDialog
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.Dispatchers
@@ -155,6 +157,8 @@ fun UnifiedStudioPane(
 
     var showModelPicker by remember { mutableStateOf(false) }
     var advancedExpanded by remember { mutableStateOf(false) }
+    var showSafetyConfirm by remember { mutableStateOf(false) }
+    val safetyPresetId by viewModel.appSettings.safetyPresetId.collectAsState()
     // Cloud rows must disappear entirely when the master toggle is off — otherwise the picker
     // offers models that preflight and the runtime gate will refuse to run.
     val pickerModels = remember(effectiveCapability, freeCloudDiscovery, cloudModelsEnabled) {
@@ -239,12 +243,25 @@ fun UnifiedStudioPane(
         else -> emptyList()
     }
 
-    fun onGenerate() = when (capability) {
+    fun dispatchGenerate() = when (capability) {
         AiCapability.IMAGE_GEN -> viewModel.generateImage()
         AiCapability.VIDEO -> viewModel.generateVideo()
         AiCapability.CODE -> viewModel.generateCode()
         AiCapability.AUDIO -> viewModel.generateAudio()
         else -> Unit
+    }
+
+    // The active safety preset's confirm flag (Blur identities / Redact details) requires a
+    // real confirmation step before generation runs — image generation only, since that's the
+    // only capability GenerativeViewModel.generateImage() applies the preset's guard clause to.
+    fun onGenerate() {
+        val requiresConfirm = capability == AiCapability.IMAGE_GEN &&
+            SafetyPresets.byId(safetyPresetId).confirm
+        if (requiresConfirm) {
+            showSafetyConfirm = true
+        } else {
+            dispatchGenerate()
+        }
     }
 
     val accent = VestraColors.modalityAccent(effectiveCapability)
@@ -543,6 +560,17 @@ fun UnifiedStudioPane(
                 }
             },
             onDismiss = { showModelPicker = false },
+        )
+    }
+
+    if (showSafetyConfirm) {
+        SafetyConfirmDialog(
+            preset = SafetyPresets.byId(safetyPresetId),
+            onConfirm = {
+                showSafetyConfirm = false
+                dispatchGenerate()
+            },
+            onCancel = { showSafetyConfirm = false },
         )
     }
 }

@@ -56,6 +56,16 @@ class AppSettings(private val settings: Settings) {
     private val _cloudModelsEnabled = MutableStateFlow(settings.getBoolean(KEY_CLOUD_MODELS_ENABLED, false))
     val cloudModelsEnabled: StateFlow<Boolean> = _cloudModelsEnabled
 
+    /**
+     * Prompt-level safety preset (see `com.zakir.vestra.shared.safety.SafetyPresets`) — its
+     * guard clause is appended to the prompt before generation. Defaults to "standard", not
+     * "off", matching lookbookweb's own default.
+     */
+    private val _safetyPresetId = MutableStateFlow(
+        settings.getString(KEY_SAFETY_PRESET, com.zakir.vestra.shared.safety.SafetyPresets.DEFAULT_ID),
+    )
+    val safetyPresetId: StateFlow<String> = _safetyPresetId
+
     private val _preferNnapi = MutableStateFlow(settings.getBoolean(KEY_PREFER_NNAPI, false))
     val preferNnapi: StateFlow<Boolean> = _preferNnapi
 
@@ -112,6 +122,11 @@ class AppSettings(private val settings: Settings) {
     fun setCloudModelsEnabled(enabled: Boolean) {
         settings.putBoolean(KEY_CLOUD_MODELS_ENABLED, enabled)
         _cloudModelsEnabled.value = enabled
+    }
+
+    fun setSafetyPresetId(id: String) {
+        settings.putString(KEY_SAFETY_PRESET, id)
+        _safetyPresetId.value = id
     }
 
     fun clearApiTokens() {
@@ -405,6 +420,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_PREFER_NNAPI = "prefer_nnapi"
         const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
         const val KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"
+        const val KEY_SAFETY_PRESET = "safety_preset_id"
     }
 }
 

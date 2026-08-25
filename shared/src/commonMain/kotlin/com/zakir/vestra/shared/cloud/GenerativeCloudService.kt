@@ -858,11 +858,9 @@ class GenerativeCloudService(
                             deadlineMs = deadline,
                             pollRequestTimeoutMs = GenerationBudget.GRADIO_POLL_REQUEST_TIMEOUT_MS,
                             onPoll = { pollIndex, polls ->
-                                val frac =
-                                    0.2f + 0.65f * (pollIndex + 1).toFloat() / polls.coerceAtLeast(1)
                                 emit(
                                     GenerativeState.Running(
-                                        frac.coerceIn(0.2f, 0.9f),
+                                        CreepingProgress.forPoll(pollIndex, polls, floor = 0.2f, span = 0.65f),
                                         "Video poll ${pollIndex + 1}/$polls · ${candidate.displayName}",
                                         deadlineEpochMs = deadline,
                                     ),
@@ -1144,11 +1142,9 @@ class GenerativeCloudService(
                                 pollRequestTimeoutMs = GenerationBudget.GRADIO_POLL_REQUEST_TIMEOUT_MS,
                                 onPoll = { pollIndex, maxPolls ->
                                     budget.throwIfExpired()
-                                    val frac =
-                                        0.35f + 0.5f * (pollIndex + 1).toFloat() / maxPolls.coerceAtLeast(1)
                                     emit(
                                         GenerativeState.Running(
-                                            frac.coerceIn(0.35f, 0.88f),
+                                            CreepingProgress.forPoll(pollIndex, maxPolls, floor = 0.35f, span = 0.5f),
                                             "Audio poll ${pollIndex + 1}/$maxPolls",
                                             deadlineEpochMs = deadline,
                                         ),

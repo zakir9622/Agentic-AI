@@ -22,17 +22,21 @@ object SpatialElevation {
 }
 
 /**
- * Derived corner-radius scale off one base — lookbookweb's `--radius` + `calc(var(--radius) ± N)`
- * pattern (generous, consistent rounding as the dominant shape language), ported so cards, chips,
- * and sheets stop each hand-picking a `RoundedCornerShape` value ad hoc. `lg` matches the corner
- * radius `GlassCard` already used before this token existed, so adopting it is visually a no-op
- * for existing cards; new components should reach for one of these rather than a bare `.dp` value.
+ * Corner-radius scale, exact match of lookbookweb's `--radius: 1.5rem` (24px) base with its
+ * `calc(var(--radius) ± N)` offsets (`styles.css:14-20`): sm = radius-12px, md = radius-8px,
+ * lg = radius-4px, xl = radius, 2xl = radius+6px, 3xl = radius+12px, 4xl = radius+20px.
+ * `xl2`/`xl3`/`xl4` (not `2xl`/`3xl`/`4xl` — Kotlin identifiers can't start with a digit) back
+ * the larger rounding lookbookweb uses for cards (`rounded-3xl`) and the floating dock
+ * (`rounded-4xl`). See docs/plans/lookbookweb-exact-ui-parity/PLAN.md A0.
  */
 object RadiusTokens {
     val sm: Dp = 12.dp
     val md: Dp = 16.dp
-    val lg: Dp = 24.dp
-    val xl: Dp = 32.dp
+    val lg: Dp = 20.dp
+    val xl: Dp = 24.dp
+    val xl2: Dp = 30.dp
+    val xl3: Dp = 36.dp
+    val xl4: Dp = 44.dp
 }
 
 object SpacingTokens {
@@ -47,8 +51,12 @@ object SpacingTokens {
 }
 
 /**
- * Loom Ink atelier — cool mist silk + brass thread on deep ink.
- * Avoids purple gradients, cream+terracotta, and broadsheet density.
+ * Exact-match port of lookbookweb.lovable.app's design system (`zakir9622/lookbookweb`,
+ * `src/styles.css`) — light airy canvas, white cards, near-black primary, one electric-blue
+ * accent, per-modality brand colors. Values below are sRGB conversions of that file's OKLCH
+ * tokens (CSS Color 4 OKLab->linear-sRGB matrices), not eyeballed — see
+ * `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` A0 for the full oklch->hex table.
+ * Replaces the prior "Loom Ink" brass-on-deep-ink palette per that plan.
  */
 @Immutable
 data class VestraPalette(
@@ -86,62 +94,73 @@ data class VestraPalette(
 
 val LocalVestraPalette = staticCompositionLocalOf { LightPalette }
 
-// Cool mist (#E4ECF1) · brass (#9A7340) · deep ink (#0E1419) · teal loom (#1A3A42)
+// lookbookweb light theme: background #F2F8FC · card #FFFFFF · foreground #111419 · accent #1F7DCF
 private val LightPalette = VestraPalette(
-    canvas = Color(0xFFE4ECF1),
-    surface = Color(0xFFF2F6F8),
+    canvas = Color(0xFFF2F8FC),
+    surface = Color(0xFFEBEDEF),
     surfaceRaised = Color(0xFFFFFFFF),
-    surfaceFloating = Color(0xFFD2DEE6),
-    ink = Color(0xFF0E1419),
-    inkMuted = Color(0xFF556671),
-    accent = Color(0xFF9A7340),
-    accentSoft = Color(0xFFC49A5C),
-    accentGlow = Color(0x339A7340),
-    glassFill = Color(0xF2F4F9FB),
+    surfaceFloating = Color(0xFFEBEDEF),
+    ink = Color(0xFF111419),
+    inkMuted = Color(0xFF575B62),
+    accent = Color(0xFF1F7DCF),
+    accentSoft = Color(0xFF4E9BDB),
+    accentGlow = Color(0x331F7DCF),
+    // glass-border/highlight: white at 70%/85% alpha (styles.css --glass-border/--glass-highlight)
+    glassFill = Color(0xF2FFFFFF),
     glassFillStrong = Color(0xFAFFFFFF),
-    glassBorder = Color(0x669A7340),
-    glassHighlight = Color(0xCCFFFFFF),
-    glassShadow = Color(0x1A0E1419),
-    danger = Color(0xFFB42318),
-    atelierCanvas = Color(0xFF071015),
-    atelierContainer = Color(0xFF122028),
-    ivory = Color(0xFFE8F0F4),
-    ivoryMuted = Color(0xFF9AADB8),
-    saffronDeep = Color(0xFF1A3A42),
-    silkMist = Color(0xFFC5D4DC),
-    modalityImage = Color(0xFF9A7340),
-    modalityVideo = Color(0xFFB0693F),
-    modalityCode = Color(0xFF1A3A42),
-    modalityAudio = Color(0xFFA8677A),
+    glassBorder = Color(0xB3FFFFFF),
+    glassHighlight = Color(0xD9FFFFFF),
+    glassShadow = Color(0x1A111419),
+    danger = Color(0xFFD01C29),
+    // atelierCanvas/atelierContainer/ivory/ivoryMuted are theme-independent by original design
+    // (call sites like GenerationScreen.kt use AtelierCanvas as a fixed dark scrim behind
+    // generation previews with Ivory text drawn on top, regardless of the app's light/dark
+    // theme) — kept as fixed dark-canvas/light-text values in both palettes rather than tied to
+    // `ink` (which flips with theme and collided with `ivory` in dark mode, making text
+    // invisible — caught in code review before landing). See
+    // docs/plans/lookbookweb-exact-ui-parity/PLAN.md A0.
+    atelierCanvas = Color(0xFF111419),
+    atelierContainer = Color(0xFF21242A),
+    ivory = Color(0xFFF4F5F7),
+    ivoryMuted = Color(0xFFA7ABB3),
+    saffronDeep = Color(0xFF009C7B),
+    silkMist = Color(0xFFEBEDEF),
+    modalityImage = Color(0xFF1F7DCF),
+    modalityVideo = Color(0xFFDD503F),
+    modalityCode = Color(0xFF009C7B),
+    modalityAudio = Color(0xFFE8179B),
     isDark = false,
 )
 
+// lookbookweb dark theme: background #0C0D11 · card #16181D · foreground #F4F5F7 · accent #6A99FF
 private val DarkPalette = VestraPalette(
-    canvas = Color(0xFF060A0C),
-    surface = Color(0xFF0E1518),
-    surfaceRaised = Color(0xFF162024),
-    surfaceFloating = Color(0xFF0A1013),
-    ink = Color(0xFFE8F0F4),
-    inkMuted = Color(0xFF8FA3AE),
-    accent = Color(0xFFD4A85C),
-    accentSoft = Color(0xFFE4C07A),
-    accentGlow = Color(0x40D4A85C),
-    glassFill = Color(0xF2162024),
-    glassFillStrong = Color(0xF8222C32),
-    glassBorder = Color(0x66D4A85C),
-    glassHighlight = Color(0x33FFFFFF),
+    canvas = Color(0xFF0C0D11),
+    surface = Color(0xFF21242A),
+    surfaceRaised = Color(0xFF16181D),
+    surfaceFloating = Color(0xFF21242A),
+    ink = Color(0xFFF4F5F7),
+    inkMuted = Color(0xFFA7ABB3),
+    accent = Color(0xFF6A99FF),
+    accentSoft = Color(0xFF8FB2FF),
+    accentGlow = Color(0x406A99FF),
+    // glass-border/highlight: white at 18%/22% alpha (dark theme)
+    glassFill = Color(0xF216181D),
+    glassFillStrong = Color(0xF821242A),
+    glassBorder = Color(0x2EFFFFFF),
+    glassHighlight = Color(0x38FFFFFF),
     glassShadow = Color(0x66000000),
     danger = Color(0xFFF97066),
-    atelierCanvas = Color(0xFF04080A),
-    atelierContainer = Color(0xFF101A20),
-    ivory = Color(0xFFE8F0F4),
-    ivoryMuted = Color(0xFF8FA3AE),
-    saffronDeep = Color(0xFF2A5A64),
-    silkMist = Color(0xFF243038),
-    modalityImage = Color(0xFFD4A85C),
-    modalityVideo = Color(0xFFD98B5F),
-    modalityCode = Color(0xFF2A5A64),
-    modalityAudio = Color(0xFFC98BA0),
+    // Same theme-independent fixed values as LightPalette — see the comment there.
+    atelierCanvas = Color(0xFF111419),
+    atelierContainer = Color(0xFF21242A),
+    ivory = Color(0xFFF4F5F7),
+    ivoryMuted = Color(0xFFA7ABB3),
+    saffronDeep = Color(0xFF2DC5A6),
+    silkMist = Color(0xFF21242A),
+    modalityImage = Color(0xFF709FFF),
+    modalityVideo = Color(0xFFFA8C58),
+    modalityCode = Color(0xFF2DC5A6),
+    modalityAudio = Color(0xFFFC65B6),
     isDark = true,
 )
 
@@ -196,15 +215,15 @@ object VestraColors {
 private fun VestraPalette.toScheme() = if (isDark) {
     darkColorScheme(
         primary = accent,
-        onPrimary = Color(0xFF1A1208),
-        primaryContainer = accentSoft.copy(alpha = 0.22f),
+        onPrimary = Color(0xFF151F33),
+        primaryContainer = Color(0xFF253659),
         onPrimaryContainer = ivory,
-        secondary = Color(0xFF8FA3AE),
-        onSecondary = Color(0xFF0E1419),
-        secondaryContainer = accentSoft.copy(alpha = 0.28f),
+        secondary = inkMuted,
+        onSecondary = Color(0xFF191A1B),
+        secondaryContainer = Color(0xFF1E2B47),
         onSecondaryContainer = ivory,
         tertiary = saffronDeep,
-        onTertiary = ivory,
+        onTertiary = Color(0xFF04231C),
         tertiaryContainer = saffronDeep.copy(alpha = 0.35f),
         onTertiaryContainer = ivory,
         background = canvas,
@@ -216,7 +235,7 @@ private fun VestraPalette.toScheme() = if (isDark) {
         surfaceContainerLowest = surface,
         surfaceContainer = surfaceRaised,
         surfaceContainerHigh = surfaceRaised,
-        surfaceContainerHighest = Color(0xFF1E2A30),
+        surfaceContainerHighest = Color(0xFF2A2E36),
         outline = glassBorder,
         error = danger,
     )
@@ -224,17 +243,17 @@ private fun VestraPalette.toScheme() = if (isDark) {
     lightColorScheme(
         primary = accent,
         onPrimary = Color.White,
-        primaryContainer = Color(0xFFE8DCC8),
-        onPrimaryContainer = Color(0xFF1A1208),
-        secondary = Color(0xFF3D5A64),
+        primaryContainer = Color(0xFFDDECF8),
+        onPrimaryContainer = Color(0xFF09263E),
+        secondary = Color(0xFF066C59),
         onSecondary = Color.White,
-        // FilterChip selected fill — brass mist, not M3 purple defaults.
-        secondaryContainer = Color(0xFFE4D4B8),
-        onSecondaryContainer = Color(0xFF3A2A14),
+        // FilterChip selected fill — matches brand-chat (--brand-chat, #009C7B family).
+        secondaryContainer = Color(0xFFD9F0EB),
+        onSecondaryContainer = Color(0xFF00271F),
         tertiary = saffronDeep,
         onTertiary = Color.White,
-        tertiaryContainer = Color(0xFFD0E0E4),
-        onTertiaryContainer = Color(0xFF0E1419),
+        tertiaryContainer = Color(0xFFFAE5E2),
+        onTertiaryContainer = Color(0xFF111419),
         background = canvas,
         onBackground = ink,
         surface = surface,

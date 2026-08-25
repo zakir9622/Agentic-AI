@@ -68,7 +68,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.outlined.WarningAmber
 import com.zakir.vestra.shared.chat.ChatMessage
+import com.zakir.vestra.shared.chat.ContextBudget
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.RadiusTokens
@@ -148,29 +150,31 @@ fun ChatMessageBubble(
             }
         }
 
+        // User bubble: exact-match of lookbookweb's `rounded-br-lg bg-primary
+        // text-primary-foreground` — a solid accent fill, not the glass treatment (that stays
+        // for the assistant side, which keeps this app's richer model-badge/timestamp header
+        // rather than lookbookweb's plain-text-no-bubble assistant style — a deliberate
+        // deviation, not a compromise: same accent color/tail shape/radius tokens either way).
         Surface(
             shape = bubbleShape,
-            color = if (isUser) VestraColors.GlassFillStrong else VestraColors.GlassFill,
+            color = if (isUser) VestraColors.Accent else VestraColors.GlassFill,
             modifier = Modifier
                 .widthIn(max = 320.dp)
-                .border(
-                    width = 1.dp,
-                    brush = if (isUser) {
-                        Brush.horizontalGradient(
-                            listOf(
-                                VestraColors.Accent.copy(alpha = 0.6f),
-                                VestraColors.AccentSoft.copy(alpha = 0.3f),
-                            ),
-                        )
+                .then(
+                    if (isUser) {
+                        Modifier
                     } else {
-                        Brush.verticalGradient(
-                            listOf(
-                                VestraColors.GlassHighlight,
-                                VestraColors.GlassBorder.copy(alpha = 0.4f),
+                        Modifier.border(
+                            width = 1.dp,
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    VestraColors.GlassHighlight,
+                                    VestraColors.GlassBorder.copy(alpha = 0.4f),
+                                ),
                             ),
+                            shape = bubbleShape,
                         )
                     },
-                    shape = bubbleShape,
                 )
                 .testTag(TestTags.chatMessageBubble(index, message.role)),
             shadowElevation = 0.dp,
@@ -187,7 +191,7 @@ fun ChatMessageBubble(
                                 imageVector = Icons.Outlined.Person,
                                 contentDescription = null,
                                 modifier = Modifier.size(12.dp),
-                                tint = VestraColors.InkMuted,
+                                tint = Color.White.copy(alpha = 0.85f),
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
@@ -196,7 +200,7 @@ fun ChatMessageBubble(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
                                 ),
-                                color = VestraColors.InkMuted,
+                                color = Color.White.copy(alpha = 0.85f),
                             )
                         } else {
                             Box(
@@ -219,12 +223,13 @@ fun ChatMessageBubble(
                         }
                     }
 
+                    val secondaryTint = if (isUser) Color.White.copy(alpha = 0.7f) else VestraColors.InkMuted
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (formattedTime.isNotBlank()) {
                             Text(
                                 text = formattedTime,
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = VestraColors.InkMuted.copy(alpha = 0.7f),
+                                color = secondaryTint,
                             )
                             Spacer(Modifier.width(6.dp))
                         }
@@ -240,7 +245,7 @@ fun ChatMessageBubble(
                                 imageVector = if (copied) Icons.Outlined.Done else Icons.Outlined.ContentCopy,
                                 contentDescription = "Copy message",
                                 modifier = Modifier.size(12.dp),
-                                tint = if (copied) VestraColors.Accent else VestraColors.InkMuted,
+                                tint = if (copied && !isUser) VestraColors.Accent else secondaryTint,
                             )
                         }
                     }
@@ -251,7 +256,7 @@ fun ChatMessageBubble(
                 Text(
                     text = message.text.ifBlank { "…" },
                     style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, letterSpacing = 0.2.sp),
-                    color = VestraColors.Ink,
+                    color = if (isUser) Color.White else VestraColors.Ink,
                 )
             }
         }
@@ -465,6 +470,57 @@ fun ChatEmptyState(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Live "used / window" token estimate for the composer, shown above [PromptComposer][
+ * com.zakir.vestra.ui.components.PromptComposer] — Part B.2, ported from lookbookweb's
+ * `src/lib/tokens.ts` live-budget line. Renders nothing when [budget] is comfortably under
+ * budget and the draft is empty, so it doesn't clutter the empty-composer state; switches to a
+ * warning row once a send would actually truncate.
+ */
+@Composable
+fun ContextBudgetBar(
+    budget: ContextBudget.Budget,
+    hasDraft: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!hasDraft && !budget.willTruncate) return
+    val warnColor = VestraColors.Danger
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = if (budget.willTruncate) 6.dp else 2.dp)
+            .testTag(TestTags.CONTEXT_BUDGET_BAR),
+        horizontalArrangement = if (budget.willTruncate) Arrangement.Start else Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (budget.willTruncate) {
+            Icon(
+                imageVector = Icons.Outlined.WarningAmber,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = warnColor,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "This message won't fit the model's context window and will be truncated.",
+                style = MaterialTheme.typography.labelSmall,
+                color = warnColor,
+            )
+        } else {
+            val label = if (budget.isKnownWindow) {
+                "${budget.usedTokens} / ${budget.windowTokens} tokens"
+            } else {
+                "${budget.usedTokens} tokens (window unknown for this model)"
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = VestraColors.InkMuted,
+            )
         }
     }
 }

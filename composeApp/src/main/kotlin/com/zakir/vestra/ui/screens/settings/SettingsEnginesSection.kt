@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.EngineTier
@@ -26,6 +27,7 @@ import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.local.LocalModelEntry
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 
@@ -168,7 +170,10 @@ internal fun LazyListScope.settingsEnginesSection(
                         },
                     )
                 }
-                OutlinedButton(onClick = onOpenPacks, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = onOpenPacks,
+                    modifier = Modifier.weight(1f).testTag(TestTags.SETTINGS_OPEN_PACKS_BUTTON),
+                ) {
                     Text("All packs")
                 }
             }
