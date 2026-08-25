@@ -317,6 +317,12 @@ fun SettingsScreen(
 
             if (showCloud) {
                 settingsCloudMasterToggleSection(appSettings = appSettings)
+            }
+
+            // Applies to every image generation regardless of local/cloud routing (see
+            // GenerativeViewModel.generateImage), so it's visible from both the Cloud and
+            // Engines section entry points, not gated behind the cloud-only toggle above.
+            if (showCloud || showEngines) {
                 settingsSafetySection(appSettings = appSettings)
             }
 

@@ -604,4 +604,10 @@ class ScreenshotTest {
             }
         }
     }
+
+    // SafetyConfirmDialog is not screenshot-tested here: AlertDialog opens its own platform
+    // Dialog window, and shoot() only rasterizes the activity's own decor view — the same
+    // window-layer limitation PrivacyBlurFlowTest documents for ModalBottomSheet. It came back
+    // a blank frame when tried, so it's verified instead by SafetyConfirmDialogTest's real
+    // assertIsDisplayed()/performClick() interaction tests.
 }

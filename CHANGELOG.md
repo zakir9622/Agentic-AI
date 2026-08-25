@@ -84,6 +84,17 @@ every step (not claimed from reading the code).
   (system prompt + last 10 turns + the live draft). 12 new unit tests (`ContextBudgetTest`)
   plus two new screenshots (`23-context-budget-under`, `24-context-budget-truncate`)
   confirming both visual states render correctly.
+- **Fixed during review, before landing:** a code-review pass on Part B.2/B.3 found two real
+  gaps. First, `SafetyPreset.confirm` (true for Blur identities/Redact details) was declared
+  and unit-tested but never actually checked — generation ran immediately regardless of the
+  active preset. Fixed with a real `SafetyConfirmDialog` (new, `ui/components`) that
+  `UnifiedStudioPane` now shows before dispatching an image generation whenever the active
+  preset requires confirmation, verified by 3 new interaction tests
+  (`SafetyConfirmDialogTest`) since Robolectric can't rasterize `AlertDialog`'s own platform
+  window for a screenshot — the same class of limitation `PrivacyBlurFlowTest` already
+  documents for `ModalBottomSheet`. Second, the new Settings safety section was gated behind
+  the cloud-only section filter even though the guard applies to local generation too; it's
+  now visible from both the Cloud and Engines section entry points.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

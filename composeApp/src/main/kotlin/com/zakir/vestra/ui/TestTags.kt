@@ -119,6 +119,11 @@ object TestTags {
     // Prompt-level safety preset picker (SettingsSafetySection.kt) — Part B.3.
     fun safetyPreset(id: String): String = "safety_preset_$id"
 
+    // Safety-preset confirm-before-generate dialog (UnifiedStudioPane.kt) — shown only for
+    // presets with SafetyPreset.confirm = true (Blur identities, Redact details).
+    const val SAFETY_PRESET_CONFIRM_GENERATE = "safety_preset_confirm_generate"
+    const val SAFETY_PRESET_CONFIRM_CANCEL = "safety_preset_confirm_cancel"
+
     // Live context-budget indicator above the chat composer (ChatComponents.kt) — Part B.2.
     const val CONTEXT_BUDGET_BAR = "context_budget_bar"
 }
