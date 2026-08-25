@@ -59,6 +59,17 @@ every step (not claimed from reading the code).
 - **Found during the same audit, deliberately not built yet:** the Home screen (A4.1) surfaced a
   real architecture gap — see `docs/plans/lookbookweb-exact-ui-parity/PLAN.md`'s A4.1a — that's
   being scoped as its own dedicated phase rather than rushed.
+- **Part B.3 — prompt-level safety presets.** Exact port of lookbookweb's `src/lib/safety.ts`
+  guard presets (`SafetyPresets` in `shared/commonMain`): Off, Standard (family-friendly guard
+  clause, the default), Blur identities, Redact details. The active preset's guard clause is
+  appended to the actual prompt sent to `generative.generateImage(...)` in
+  `GenerativeViewModel` — a real behavior change to what the model receives, not a cosmetic
+  setting — while leaving the visible/editable composer prompt untouched, so the guard text never
+  leaks into what the user sees or can accidentally re-edit. Persisted via a new
+  `AppSettings.safetyPresetId` StateFlow. New Settings → "Image generation safety" section
+  (`SettingsSafetySection.kt`) mirrors the existing Processing Mode card's visual pattern. 9 new
+  unit tests (`SafetyPresetsTest`) plus a new `22-safety-presets` screenshot, both confirming the
+  real behavior — not just that it compiles.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

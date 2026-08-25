@@ -317,6 +317,7 @@ fun SettingsScreen(
 
             if (showCloud) {
                 settingsCloudMasterToggleSection(appSettings = appSettings)
+                settingsSafetySection(appSettings = appSettings)
             }
 
             if (showCloud && cloudModelsEnabled) {

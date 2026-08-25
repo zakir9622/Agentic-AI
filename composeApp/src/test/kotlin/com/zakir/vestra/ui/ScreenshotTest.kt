@@ -34,6 +34,7 @@ import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
 import com.zakir.vestra.ui.screens.news.NewsHeadlinesBar
 import com.zakir.vestra.ui.screens.settings.settingsCloudKeysSection
 import com.zakir.vestra.ui.screens.settings.settingsCloudMasterToggleSection
+import com.zakir.vestra.ui.screens.settings.settingsSafetySection
 import com.zakir.vestra.ui.theme.VestraTheme
 import java.io.File
 import org.junit.Rule
@@ -551,6 +552,16 @@ class ScreenshotTest {
                     isLoaded = false,
                     errorMessage = "Engine init failed: GPU delegate unavailable, CPU fallback also failed.",
                 )
+            }
+        }
+    }
+
+    @Test
+    fun safetyPresetSection() {
+        val settings = AppSettings(MemorySettings())
+        shoot("22-safety-presets") {
+            LazyColumn {
+                settingsSafetySection(appSettings = settings)
             }
         }
     }

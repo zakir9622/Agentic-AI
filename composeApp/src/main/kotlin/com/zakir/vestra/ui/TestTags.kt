@@ -115,4 +115,7 @@ object TestTags {
 
     // Cloud connectivity test buttons (SettingsCloudSection.kt) — 3.1.2.
     fun connectivityTestButton(provider: String): String = "connectivity_test_$provider"
+
+    // Prompt-level safety preset picker (SettingsSafetySection.kt) — Part B.3.
+    fun safetyPreset(id: String): String = "safety_preset_$id"
 }
