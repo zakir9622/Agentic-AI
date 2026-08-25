@@ -67,6 +67,19 @@ class GenerativeViewModel(
     private val _preflightMessage = MutableStateFlow<String?>(null)
     val preflightMessage: StateFlow<String?> = _preflightMessage
 
+    // Example prompts show once per capability per session (first generation, or the model
+    // finishing its load, whichever comes first) then stay hidden — they clutter the composer
+    // once the user knows what to type, and re-showing them on every recomposition/navigation
+    // back would defeat the point.
+    private val _examplesDismissed = MutableStateFlow<Set<AiCapability>>(emptySet())
+    val examplesDismissed: StateFlow<Set<AiCapability>> = _examplesDismissed
+
+    fun dismissExamples(capability: AiCapability) {
+        if (capability !in _examplesDismissed.value) {
+            _examplesDismissed.value = _examplesDismissed.value + capability
+        }
+    }
+
     private val _lastUsedProviderId = MutableStateFlow<String?>(null)
     val lastUsedProviderId: StateFlow<String?> = _lastUsedProviderId
 
@@ -294,7 +307,15 @@ class GenerativeViewModel(
             (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
             generative.localImageReady()
         ) {
-            return "Local SD-Turbo · Ready offline"
+            // Reflects whichever engine the user actually selected — was hardcoded to
+            // "Local SD-Turbo", mislabeling every Bonsai-selected run the same way local Code
+            // runs were mislabeled "Local Gemma" regardless of which local model actually ran.
+            val label = if (appSettings.selectionId(capability) == "local-bonsai-image-v1") {
+                "Bonsai Image 4B (LiteRT)"
+            } else {
+                "Local SD-Turbo"
+            }
+            return "$label · Ready offline"
         }
         if (capability == AiCapability.IMAGE_EDIT &&
             (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
@@ -397,6 +418,8 @@ class GenerativeViewModel(
     fun localTranscribeOfflineReady(): Boolean = generative.localTranscribeReady()
 
     fun localVisionOfflineReady(): Boolean = generative.localVisionReady()
+
+    fun localVisionReadinessReason(): String? = generative.localVisionReadinessReason()
 
     fun transcribeAudio() {
         val clip = _referenceUri.value
@@ -682,14 +705,21 @@ class GenerativeViewModel(
         // no dedicated field for it. Was hardcoded to CLOUD unconditionally — the Diagnostics
         // screen renders this ("Tier: $it"), so every local Image/Code/Video/Audio run showed
         // "Tier: CLOUD" even when fully offline, confirmed in a user's diagnostics export.
+        // Minted once and threaded into RunDiagnostics, LocalJobStore, and EngineLogHook so all
+        // three diagnostic sources for this attempt share one id instead of each independently
+        // generating their own — previously an interrupted job, its diagnostics record, and any
+        // crash-log entry for the same incident could only be correlated by eyeballing timestamps.
+        val runId = "${System.currentTimeMillis()}-${capability.name}"
         val builder = runDiagnostics?.startRun(
             capability = capability,
             tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
             modelId = null,
             modelLabel = modelLabel,
             deviceRamMb = deviceRamMb,
+            id = runId,
         )
-        activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value) else null
+        activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value, presetId = runId) else null
+        if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.addActiveRunId(runId)
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
@@ -730,7 +760,7 @@ class GenerativeViewModel(
                         is GenerativeState.Running -> {
                             appendLive(next.stage)
                             val now = System.currentTimeMillis()
-                            builder?.stage(next.stage, now - lastStageAt)
+                            builder?.stage(next.stage, now - lastStageAt, isWarning = next.isWarning)
                             lastStageAt = now
                         }
                         is GenerativeState.ImageReady -> {
@@ -806,6 +836,7 @@ class GenerativeViewModel(
                 } else {
                     bag(studioKey).job = null
                 }
+                if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.removeActiveRunId(runId)
                 if (job?.isActive != true) job = null
             }
         }

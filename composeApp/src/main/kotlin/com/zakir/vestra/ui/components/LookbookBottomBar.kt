@@ -16,15 +16,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
@@ -57,17 +52,13 @@ import com.zakir.vestra.ui.theme.VestraColors
 enum class BottomBarDestination(val label: String, val testTag: String, val icon: ImageVector) {
     HOME("Home", TestTags.BOTTOM_BAR_HOME, Icons.Outlined.Home),
     LIBRARY("Library", TestTags.BOTTOM_BAR_LIBRARY, Icons.Outlined.Checkroom),
-    CREATE("Create", TestTags.BOTTOM_BAR_CREATE, Icons.Outlined.Add),
-    CHAT("Chat", TestTags.BOTTOM_BAR_CHAT, Icons.AutoMirrored.Outlined.Chat),
     SETTINGS("Settings", TestTags.BOTTOM_BAR_SETTINGS, Icons.Outlined.Settings),
 }
 
 /**
- * Lookbookweb-parity bottom dock: Home / Library / a raised center Create FAB / Chat / Settings,
- * styled as a floating glass pill (not a full-width bar) with a gradient center FAB — matching
- * the reference web app's dock language. The in-studio pager (Image/Video/Audio/Code) is a
- * separate, lower level of navigation nested inside the Home destination — this bar only moves
- * between top-level destinations.
+ * Three destinations only: Home (the tool-picker grid), Library, Settings. Image/Video/Audio/Code
+ * and Chat are reached from the Home grid, not from this bar or a "+" FAB — each is a fully
+ * isolated screen, so there's nothing here to jump directly into a specific studio with.
  */
 @Composable
 fun LookbookBottomBar(
@@ -110,7 +101,7 @@ fun LookbookBottomBar(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 DockItem(
@@ -123,12 +114,6 @@ fun LookbookBottomBar(
                     selected = selected == BottomBarDestination.LIBRARY,
                     onClick = { onSelect(BottomBarDestination.LIBRARY) },
                 )
-                Spacer(modifier = Modifier.width(56.dp))
-                DockItem(
-                    destination = BottomBarDestination.CHAT,
-                    selected = selected == BottomBarDestination.CHAT,
-                    onClick = { onSelect(BottomBarDestination.CHAT) },
-                )
                 DockItem(
                     destination = BottomBarDestination.SETTINGS,
                     selected = selected == BottomBarDestination.SETTINGS,
@@ -136,11 +121,6 @@ fun LookbookBottomBar(
                 )
             }
         }
-
-        CreateFab(
-            onClick = { onSelect(BottomBarDestination.CREATE) },
-            modifier = Modifier.offset(y = (-14).dp),
-        )
     }
 }
 
@@ -210,53 +190,5 @@ private fun DockItem(
             ),
             color = contentColor,
         )
-    }
-}
-
-@Composable
-private fun CreateFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1.0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "center_fab_scale",
-    )
-
-    Box(
-        modifier = modifier
-            .width(56.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .testTag(BottomBarDestination.CREATE.testTag)
-                // gradient-pill center FAB, exact 56dp (lookbookweb: h-14 w-14).
-                .size(56.dp)
-                .scale(scale)
-                .shadow(elevation = 14.dp, shape = CircleShape)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(VestraColors.AccentSoft, VestraColors.Accent),
-                    ),
-                )
-                .border(2.dp, VestraColors.GlassHighlight, CircleShape)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    role = Role.Button,
-                    onClick = onClick,
-                )
-                .semantics { contentDescription = BottomBarDestination.CREATE.label },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Add,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(26.dp),
-            )
-        }
     }
 }

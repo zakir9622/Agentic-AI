@@ -8,6 +8,17 @@
 > site's rendered pixels. `zakir9622/LookbookWebUI` was also checked and is an empty placeholder
 > repo (README + LICENSE only) — nothing to pull from it.
 >
+> **Superseded in 3.1.4, by direct user request, not lookbookweb research:** this plan's bottom
+> dock (Home/Library/**Create FAB**/Chat/Settings) and `QuickCreateSheet` tool-picker dialog are
+> gone. The real user of this app explicitly rejected the tabbed Image/Video/Audio/Code pager and
+> the "+"-FAB popup pattern this plan called for — "why keep tabs and dock button", "main home
+> page view should be the view that clicking + icon should be showing" — so the shell is now
+> Home/Library/Settings only, and Home's own content is the tool grid that used to live behind
+> the Create dialog. Every reference below to the Create FAB, the 5-item dock, or
+> `QuickCreateSheet` describes retired behavior — see `CHANGELOG.md`'s 3.1.4 entry for what
+> replaced it. Treat those sections as historical record of what lookbookweb does, not as a
+> target this app should still match.
+>
 > **This plan replaces every previous plan doc in `docs/plans/`.** All prior plan directories
 > (`big-release-r2`, `claude-code-expansion`, `five-star-quality`, `generation-stability`,
 > `generation-transparency`, `litert-lm-integration`, `local-first-mode`,

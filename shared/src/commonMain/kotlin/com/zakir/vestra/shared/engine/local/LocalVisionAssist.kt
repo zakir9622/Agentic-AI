@@ -6,6 +6,8 @@ package com.zakir.vestra.shared.engine.local
 interface LocalVisionAssist {
     fun isReady(): Boolean
     fun describeImage(imagePath: String, question: String): LocalAssistResult
+    /** Human-readable reason [isReady] is false — null when ready. UI-only, optional. */
+    fun readinessReason(): String? = null
 }
 
 sealed class LocalAssistResult {
@@ -17,4 +19,5 @@ object UnimplementedLocalVisionAssist : LocalVisionAssist {
     override fun isReady(): Boolean = false
     override fun describeImage(imagePath: String, question: String): LocalAssistResult =
         LocalAssistResult.Unavailable("Vision assist not wired on this platform.")
+    override fun readinessReason(): String? = "Vision assist not wired on this platform."
 }

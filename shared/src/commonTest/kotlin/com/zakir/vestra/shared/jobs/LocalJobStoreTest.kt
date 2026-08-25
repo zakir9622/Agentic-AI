@@ -66,4 +66,14 @@ class LocalJobStoreTest {
 
         assertTrue(store.interruptedJobs().isEmpty())
     }
+
+    @Test
+    fun startHonorsASuppliedId() {
+        val store = LocalJobStore(TestMemorySettings())
+
+        val id = store.start(RunCapability.IMAGE_EDIT, "swap the color", presetId = "external-correlation-id")
+
+        assertEquals("external-correlation-id", id)
+        assertEquals("external-correlation-id", store.jobs.value.first().id)
+    }
 }

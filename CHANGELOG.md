@@ -1,5 +1,115 @@
 # Changelog — The Lookbook
 
+## 3.1.5
+
+Closes the one item 3.1.4 left explicitly unresolved — the vision-encoder error — plus a
+general pass on model-crash diagnostics, driven by the two research findings from this
+session: what caused the vision-encoder failure, and why the app's own diagnostics export
+couldn't have caught it.
+
+- **Vision-encoder root cause found and mitigated.** The native
+  `"Vision Encoder model must have exactly one signature but got …"` error traces to
+  `scripts/assemble-local-gemma4-pack.py` hardcoding `"vision": true` in the published
+  pack's `config.json` without ever loading the file through a real `Engine` to confirm it
+  validates — nothing in the assemble → publish → on-device pipeline ever did. The app now
+  detects this deterministic failure client-side: `LiteRtLmEngineCache` gained a durable,
+  restart-surviving failure cache (`LiteRtLmFailureStore`, self-invalidating on pack file
+  size change) on top of its existing in-memory one, and the "Analyze reference (offline
+  vision)" toggle in Create Advanced now shows *why* it's disabled instead of silently
+  skipping the assist on every attempt. The publish script itself now defaults `vision`/
+  `audio` to `false` and requires an explicit `--assume-vision`/`--assume-audio` flag (with
+  a `manifest_provenance.json` sidecar) — asserted only after a real on-device check, not on
+  faith. The already-published pack on HF is unchanged; a real republish is out of scope
+  for this pass, but the app no longer trusts its broken capability claim.
+- **Model-crash diagnostics: engine-layer detail no longer gets discarded.** Every native
+  init/generation catch block across `LiteRtLmEngineCache`, `BonsaiImageEngine`, and
+  `LiteRtLmInference` previously kept only the exception's truncated `.message` — the full
+  stack trace and exception type were discarded at that boundary, so a *caught* native
+  failure had strictly less diagnostic detail persisted than an uncaught one. A new
+  `EngineLogHook` bridge (mirroring the existing `DiagnosticsHook` pattern, since `shared`
+  can't see `composeApp`'s `CrashReporter` directly) now routes these through
+  `CrashReporter.recordNonFatal()` with the real `Throwable`, and existing engine-layer
+  `Log.w`/`Log.i` calls (GPU-fallback reasons, cold-load timings) now also land in the
+  exported `app_trace.log` instead of Logcat-only.
+- **One correlation id instead of two.** `RunDiagnostics` and `LocalJobStore` previously
+  minted independent ids for the same generation attempt, so an interrupted job, its
+  diagnostics record, and any crash-log entry for the same incident could only be
+  correlated by eyeballing timestamps. `GenerativeViewModel` now mints one id and threads
+  it into both stores plus `EngineLogHook`'s current-run tracking.
+- **A swallowed sub-step failure no longer hides inside a "success" record.** This is
+  exactly why two rounds of real device logs sent this session never surfaced the
+  vision-encoder error: it's reached through an opt-in toggle, caught non-fatally, and the
+  overall generation still succeeds — so the failure was one ordinary-looking stage line in
+  an otherwise-`success = true` diagnostics record. `RunStage`/`GenerativeState.Running`
+  gained an `isWarning` flag; the Diagnostics screen now auto-expands and highlights such
+  records instead of treating them identically to a clean run. `RunRecord` also gained an
+  optional `stackTraceRef` pointer (`"ref=<id>"`) for failed or warning-flagged runs,
+  greppable against the exported `crash_log.txt`/`app_trace.log`.
+
+## 3.1.4
+
+Real-device-driven UI/UX pass: isolated modality screens, a leaner generation surface, and two
+diagnosed engine bugs — see-what-broke items came from actual screenshots and crash logs, not
+speculation.
+
+- **Retired the tabbed Image/Video/Audio/Code pager.** Each modality only ever loads one model
+  at a time, so sharing a `ScrollableTabRow` + `HorizontalPager` across all four risked more than
+  one staying resident. `HomeScreen.kt`'s pager and `HomeTab` enum are gone; Image/Video/Audio/
+  Code are now fully isolated routes (`Routes.IMAGE/VIDEO/AUDIO/CODE`), each wrapped in the new
+  `IsolatedStudioScreen` (back arrow + title, no shared chrome with the others).
+- **Bottom dock cut from five items to three.** `LookbookBottomBar` is now Home / Library /
+  Settings only — the center Create FAB and the Chat slot are gone. `QuickCreateSheet` (the
+  "+" tool-picker dialog) is deleted outright: its card grid is now Home's own content, not a
+  popup behind a button. Tapping a card in the grid navigates straight to that isolated screen;
+  News & Chat's card opens Chat, which gained its own back arrow (`NewsChatScreen`'s new
+  `onBack` param) since it no longer has a dock slot either.
+- **Fixed model-selection staleness.** Selecting the local Bonsai image model previously still
+  showed a generic "Local SD-Turbo"/try-on label in both the composer's model chip
+  (`UnifiedStudioPane`) and the preflight banner (`GenerativeViewModel.preflightLabel`) — both
+  now consult the real selection (`appSettings.selectionId`) the same way the Code studio already
+  did, instead of a hardcoded default.
+- **One loading/generating surface instead of four.** The model-loading spinner now lives on the
+  composer's own send button (`PromptComposer`'s new `loading` param) rather than a separate
+  status card, a duplicate pill, and — for Code — an animated `LiteRtGemmaStatusIndicator` on top
+  of that; only a genuine failure still gets its own banner. Audio never had model warm-up wired
+  at all — it now warms on model selection exactly like Image/Video/Code (correctly keyed on the
+  audio provider id, not the unrelated voice-persona pick), and `GenerativeCloudService.
+  warmUpLocal(AUDIO)` now actually consults the local TTS engine's readiness instead of silently
+  no-opping.
+- **Live log is docked, not a wall of text.** `ResultPane`'s `Preparing`/`Running` states no
+  longer render their own `Cancel` button (redundant with the composer's send-button-as-stop) or
+  a persistent scrollable `LiveGenConsole` card. A new `DockedLiveLog` composable sits right next
+  to the composer instead — a single collapsed line, tap to expand the same scrollback — with a
+  real per-second ticking clock so its elapsed-time header doesn't freeze between log lines.
+- **Example prompts show once, then get out of the way.** Every studio's example-prompt row
+  (`GenerativeViewModel.examplesDismissed`) hides itself once the model finishes loading or the
+  first generation starts for that session, and the chips themselves are smaller
+  (`ExamplePromptRow` down to `labelSmall`, single-line ellipsis).
+- **"Interrupted: …" banner restyled to match the toast system.** `InterruptedJobsBanner` now
+  uses the same warning-amber accent and icon language as `GlassSnackbarCard` (previously a
+  generic `GlassCard` that blended into the background) plus a proper close (X) icon button
+  instead of a text "Dismiss".
+- **Removed the "Atelier" subtitle.** `LookbookCopy.STUDIO_HOME` ("Atelier") is no longer
+  rendered under the product name on Home — it didn't communicate anything to users.
+- **Onboarding copy rewritten** to describe the actual new IA (isolated studios, what the
+  send-button spinner means, local-vs-cloud model choice, optional cloud keys) instead of
+  try-on-centric copy for a flow that's currently unreachable.
+- **Two real engine bugs, found from an actual device crash-log bundle:**
+  - `LiteRtLmEngineCache` previously retried a failing LiteRT-LM engine init from scratch on
+    every single call. A deterministic failure (e.g. a vision-encoder/backend mismatch) is now
+    cached and fails fast after the first attempt — but an `OutOfMemoryError` is deliberately
+    **not** cached, since that class of failure can be transient (another studio's model still
+    resident) and deserves a real retry once memory frees up.
+  - `BonsaiImageEngine`'s per-step DiT loop and `Graph.run()`'s output buffer were both
+    allocating a fresh `ByteBuffer.allocateDirect(...)` every single iteration instead of reusing
+    one — direct buffers are only reclaimed via GC-driven `Cleaner` references, which can lag
+    badly with a ~2.9 GiB model already resident. Real crash logs showed per-step time degrading
+    from 46s to 8m44s before the native process was killed; both loops now reuse pre-allocated
+    buffers.
+  - Still **unresolved**: the vision-encoder "must have exactly…" error's true root cause (a
+    stale `config.json` flag vs. an incompatible bundled SDK version) — the real device logs
+    gathered this pass captured the Bonsai crash above instead, not this specific failure.
+
 ## 3.1.3
 Phase 1 (A0/A1/A2) of `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` — the design-system
 foundation for matching lookbookweb.lovable.app exactly, verified against real screenshots at

@@ -21,12 +21,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.zakir.vestra.data.NewsFeedConfig
 import android.content.Intent
@@ -40,10 +38,6 @@ import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
 import com.zakir.vestra.ui.components.BottomBarDestination
 import com.zakir.vestra.ui.components.LookbookBottomBar
-import com.zakir.vestra.ui.components.QuickCreateSheet
-import com.zakir.vestra.ui.screens.home.HomeTab
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
 import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
 import com.zakir.vestra.ui.screens.onboarding.OnboardingScreen
@@ -59,6 +53,7 @@ import com.zakir.vestra.ui.screens.settings.DiagnosticsScreen
 import com.zakir.vestra.ui.screens.settings.SettingsSection
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.home.HomeScreen
+import com.zakir.vestra.ui.screens.home.UnifiedStudioPane
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.ui.screens.usage.UsageScreen
@@ -69,8 +64,9 @@ import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
 object Routes {
     const val ONBOARDING = "onboarding"
-    const val STUDIO = "studio/{tab}"
-    fun studioHome(tab: String = "tryon") = "studio/$tab"
+    // Home is the tool-picker grid — no tab argument any more. Image/Video/Audio/Code are each
+    // a fully isolated screen (see IMAGE/VIDEO/AUDIO/CODE below), never a shared tab/pager.
+    const val HOME = "home"
     const val GARMENT = "garment"
     const val CASTING = "casting"
     const val PERSON = "person"
@@ -84,8 +80,10 @@ object Routes {
     const val SETTINGS_DIAGNOSTICS = "settings/diagnostics"
     const val PACKS = "packs"
     const val CREATE = "create"
+    const val IMAGE = "image"
     const val CODE = "code"
     const val VIDEO = "video"
+    const val AUDIO = "audio"
     const val USAGE = "usage"
     const val HELP = "help"
     const val PRIVACY = "privacy"
@@ -117,7 +115,7 @@ fun VestraNavHost(
     onDeepLinkHandled: () -> Unit = {},
 ) {
     val onboardingComplete by appSettings.onboardingComplete.collectAsState()
-    val start = if (onboardingComplete) Routes.studioHome() else Routes.ONBOARDING
+    val start = if (onboardingComplete) Routes.HOME else Routes.ONBOARDING
 
     LaunchedEffect(pendingDeepLinkIntent, onboardingComplete) {
         val intent = pendingDeepLinkIntent ?: return@LaunchedEffect
@@ -171,14 +169,15 @@ fun VestraNavHost(
         CrashReporter.breadcrumb(if (tab != null) "$route#$tab" else route)
     }
 
-    // The bottom dock only appears on the five top-level destinations it navigates between —
-    // hidden on the try-on capture flow, nested Settings sections, Packs, Usage, Help, and
-    // Privacy, where a back arrow is the right affordance instead.
+    // The bottom dock only appears on its three top-level destinations — Home, Library, Settings.
+    // Every isolated modality screen (Image/Video/Audio/Code) and Chat is reached only from
+    // Home's tool grid, so they get their own back arrow instead of a dock (there's nothing to
+    // jump directly into a specific studio with any more), same as the try-on capture flow,
+    // nested Settings sections, Packs, Usage, Help, and Privacy.
     val currentRoute = navEntry?.destination?.route
     val bottomBarSelected = when (currentRoute) {
-        Routes.STUDIO -> BottomBarDestination.HOME
+        Routes.HOME -> BottomBarDestination.HOME
         Routes.WARDROBE -> BottomBarDestination.LIBRARY
-        Routes.CHAT -> BottomBarDestination.CHAT
         Routes.SETTINGS -> BottomBarDestination.SETTINGS
         else -> null
     }
@@ -190,8 +189,6 @@ fun VestraNavHost(
             restoreState = true
         }
     }
-
-    var showQuickCreate by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
     Scaffold(
@@ -206,10 +203,8 @@ fun VestraNavHost(
                     selected = bottomBarSelected,
                     onSelect = { destination ->
                         when (destination) {
-                            BottomBarDestination.HOME -> navigateToTopLevel(Routes.studioHome())
-                            BottomBarDestination.CREATE -> showQuickCreate = true
+                            BottomBarDestination.HOME -> navigateToTopLevel(Routes.HOME)
                             BottomBarDestination.LIBRARY -> navigateToTopLevel(Routes.WARDROBE)
-                            BottomBarDestination.CHAT -> navigateToTopLevel(Routes.CHAT)
                             BottomBarDestination.SETTINGS -> navigateToTopLevel(Routes.SETTINGS)
                         }
                     },
@@ -230,40 +225,101 @@ fun VestraNavHost(
             OnboardingScreen(
                 appSettings = appSettings,
                 onDone = {
-                    navController.navigate(Routes.studioHome()) {
+                    navController.navigate(Routes.HOME) {
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 },
             )
         }
         composable(
-            route = Routes.STUDIO,
-            arguments = listOf(
-                navArgument("tab") {
-                    type = NavType.StringType
-                    defaultValue = "tryon"
-                },
-            ),
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink("studio") }),
-        ) { backStackEntry ->
-            val tab = backStackEntry.arguments?.getString("tab")
+            route = Routes.HOME,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.HOME) }),
+        ) {
             HomeScreen(
-                appSettings = appSettings,
-                wardrobe = wardrobe,
-                packManager = packManager,
-                generativeViewModel = generativeViewModel,
                 localJobStore = localJobStore,
-                freeCloudDiscovery = freeCloudDiscovery,
-                onNewLook = {
-                    tryOnViewModel.resetSession()
-                    navController.navigate(Routes.GARMENT)
-                },
-                onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onSelectImage = { navController.navigate(Routes.IMAGE) },
+                onSelectVideo = { navController.navigate(Routes.VIDEO) },
+                onSelectAudio = { navController.navigate(Routes.AUDIO) },
+                onSelectCode = { navController.navigate(Routes.CODE) },
+                onOpenChat = { navController.navigate(Routes.CHAT) },
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
-                initialTabRoute = tab,
             )
+        }
+        composable(
+            route = Routes.IMAGE,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.IMAGE) }),
+        ) {
+            com.zakir.vestra.ui.components.IsolatedStudioScreen(
+                title = "Image Studio",
+                onBack = { navController.popBackStack() },
+                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityImage,
+            ) {
+                UnifiedStudioPane(
+                    capability = com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN,
+                    viewModel = generativeViewModel,
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    freeCloudDiscovery = freeCloudDiscovery,
+                    packManager = packManager,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        composable(
+            route = Routes.VIDEO,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.VIDEO) }),
+        ) {
+            com.zakir.vestra.ui.components.IsolatedStudioScreen(
+                title = "Video Studio",
+                onBack = { navController.popBackStack() },
+                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityVideo,
+            ) {
+                UnifiedStudioPane(
+                    capability = com.zakir.vestra.shared.cloud.AiCapability.VIDEO,
+                    viewModel = generativeViewModel,
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    freeCloudDiscovery = freeCloudDiscovery,
+                    packManager = packManager,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        composable(
+            route = Routes.AUDIO,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.AUDIO) }),
+        ) {
+            com.zakir.vestra.ui.components.IsolatedStudioScreen(
+                title = "Audio Studio",
+                onBack = { navController.popBackStack() },
+                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityAudio,
+            ) {
+                com.zakir.vestra.ui.screens.home.AudioStudioPane(
+                    viewModel = generativeViewModel,
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    freeCloudDiscovery = freeCloudDiscovery,
+                    packManager = packManager,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        composable(
+            route = Routes.CODE,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CODE) }),
+        ) {
+            com.zakir.vestra.ui.components.IsolatedStudioScreen(
+                title = "Code Studio",
+                onBack = { navController.popBackStack() },
+                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityCode,
+            ) {
+                UnifiedStudioPane(
+                    capability = com.zakir.vestra.shared.cloud.AiCapability.CODE,
+                    viewModel = generativeViewModel,
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    freeCloudDiscovery = freeCloudDiscovery,
+                    packManager = packManager,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         composable(
             route = Routes.CHAT,
@@ -295,6 +351,7 @@ fun VestraNavHost(
                 freeCloudDiscovery = freeCloudDiscovery,
                 packManager = packManager,
                 memoryRepository = memoryRepository,
+                onBack = { navController.popBackStack() },
             )
         }
         composable(
@@ -330,10 +387,10 @@ fun VestraNavHost(
                 viewModel = tryOnViewModel,
                 onComplete = {
                     navController.navigate(Routes.RESULT) {
-                        popUpTo(Routes.studioHome())
+                        popUpTo(Routes.HOME)
                     }
                 },
-                onAbort = { navController.popBackStack(Routes.studioHome(), inclusive = false) },
+                onAbort = { navController.popBackStack(Routes.HOME, inclusive = false) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
             )
         }
@@ -344,11 +401,11 @@ fun VestraNavHost(
                 onNewLook = {
                     tryOnViewModel.resetSession()
                     navController.navigate(Routes.GARMENT) {
-                        popUpTo(Routes.studioHome())
+                        popUpTo(Routes.HOME)
                     }
                 },
                 onBackToStudio = {
-                    navController.popBackStack(Routes.studioHome(), inclusive = false)
+                    navController.popBackStack(Routes.HOME, inclusive = false)
                 },
                 onOpenWardrobe = { navController.navigate(Routes.WARDROBE) },
             )
@@ -358,31 +415,9 @@ fun VestraNavHost(
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CREATE) }),
         ) {
             LaunchedEffect(Unit) {
-                navController.navigate(Routes.studioHome("image")) {
+                navController.navigate(Routes.IMAGE) {
                     launchSingleTop = true
                     popUpTo(Routes.CREATE) { inclusive = true }
-                }
-            }
-        }
-        composable(
-            route = Routes.CODE,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CODE) }),
-        ) {
-            LaunchedEffect(Unit) {
-                navController.navigate(Routes.studioHome("code")) {
-                    launchSingleTop = true
-                    popUpTo(Routes.CODE) { inclusive = true }
-                }
-            }
-        }
-        composable(
-            route = Routes.VIDEO,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.VIDEO) }),
-        ) {
-            LaunchedEffect(Unit) {
-                navController.navigate(Routes.studioHome("video")) {
-                    launchSingleTop = true
-                    popUpTo(Routes.VIDEO) { inclusive = true }
                 }
             }
         }
@@ -397,7 +432,7 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenCreate = {
                     generativeViewModel.prepareStudio(resetIfIdle = true)
-                    navController.navigate(Routes.studioHome("image"))
+                    navController.navigate(Routes.IMAGE)
                 },
             )
         }
@@ -544,20 +579,6 @@ fun VestraNavHost(
             )
         }
     }
-    }
-
-    if (showQuickCreate) {
-        QuickCreateSheet(
-            onSelectTab = { tab ->
-                showQuickCreate = false
-                navigateToTopLevel(Routes.studioHome(tab.routeKey))
-            },
-            onOpenChat = {
-                showQuickCreate = false
-                navigateToTopLevel(Routes.CHAT)
-            },
-            onDismiss = { showQuickCreate = false },
-        )
     }
 
     com.zakir.vestra.ui.components.GlassSnackbarHost(

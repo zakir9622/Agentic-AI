@@ -1,15 +1,22 @@
 package com.zakir.vestra.ui.screens.news
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +58,7 @@ fun NewsChatScreen(
     packManager: ModelPackManager? = null,
     memoryRepository: MemoryRepository? = null,
     onHeadlineSelected: (String?) -> Unit = {},
+    onBack: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val memoryFacts by memoryRepository?.facts?.collectAsState()
@@ -133,6 +141,25 @@ fun NewsChatScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 8.dp),
     ) {
+        // Chat is reached only from the Home tool grid now (no bottom-dock slot of its own),
+        // so it needs its own way back instead of relying on the dock to jump elsewhere.
+        if (onBack != null) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = "Back",
+                        tint = VestraColors.Ink,
+                    )
+                }
+                Text(
+                    "News & Chat",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = VestraColors.Ink,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+        }
         if (newsRepository == null) {
             GlassCard(onClick = { onHeadlineSelected(null) }) {
                 Text("News feed unavailable.", style = MaterialTheme.typography.bodyMedium, color = VestraColors.InkMuted)

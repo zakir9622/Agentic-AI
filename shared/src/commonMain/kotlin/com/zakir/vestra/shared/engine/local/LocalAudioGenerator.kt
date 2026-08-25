@@ -10,6 +10,8 @@ import com.zakir.vestra.shared.audio.VoicePersona
  */
 interface LocalAudioGenerator {
     fun isReady(): Boolean
+    /** Matches [LocalCodeVideo.warmUp]/[LocalImageGenerator.warmUp] — null once the engine is ready. */
+    fun warmUp(): String? = if (isReady()) null else "Audio engine not ready"
     fun generate(
         text: String,
         persona: VoicePersona,

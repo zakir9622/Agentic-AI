@@ -40,9 +40,9 @@ class LocalJobStore(private val settings: Settings) {
     val jobs: StateFlow<List<LocalJob>> = _jobs
 
     /** Call when a local generation starts. Returns the job id to pass to [complete]/[cancel]. */
-    fun start(capability: RunCapability, prompt: String): String {
+    fun start(capability: RunCapability, prompt: String, presetId: String? = null): String {
         val now = EpochClock.System.nowMs()
-        val id = "$now-${capability.name}"
+        val id = presetId ?: "$now-${capability.name}"
         val job = LocalJob(
             id = id,
             capability = capability.name,

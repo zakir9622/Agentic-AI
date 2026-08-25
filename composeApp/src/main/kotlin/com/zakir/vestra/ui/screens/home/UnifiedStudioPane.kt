@@ -50,13 +50,13 @@ import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.safety.SafetyPresets
 import com.zakir.vestra.ui.GenerativeViewModel
+import com.zakir.vestra.ui.components.DockedLiveLog
 import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
-import com.zakir.vestra.ui.components.LiteRtGemmaStatusIndicator
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
@@ -76,12 +76,19 @@ import kotlinx.coroutines.withContext
  * actually differ.
  */
 @Composable
+private fun <T> produceLocalProbe(
+    vararg keys: Any?,
+    initial: T,
+    probe: () -> T,
+): State<T> = produceState(initialValue = initial, keys = keys) {
+    value = withContext(Dispatchers.IO) { runCatching(probe).getOrDefault(initial) }
+}
+
+@Composable
 private fun produceLocalReadiness(
     vararg keys: Any?,
     probe: () -> Boolean,
-): State<Boolean> = produceState(initialValue = false, keys = keys) {
-    value = withContext(Dispatchers.IO) { runCatching(probe).getOrDefault(false) }
-}
+): State<Boolean> = produceLocalProbe(*keys, initial = false, probe = probe)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -115,6 +122,7 @@ fun UnifiedStudioPane(
         ?: remember { mutableStateOf(emptyMap()) }
 
     val warmup by viewModel.warmup.collectAsState()
+    val examplesDismissed by viewModel.examplesDismissed.collectAsState()
     val cloudModelsEnabled by viewModel.appSettings.cloudModelsEnabled.collectAsState()
     val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
     val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
@@ -147,6 +155,9 @@ fun UnifiedStudioPane(
     val localCodeReady by produceLocalReadiness(packStates, busy) { viewModel.localCodeOfflineReady() }
     val localVideoReady by produceLocalReadiness(packStates, busy) { viewModel.localVideoOfflineReady() }
     val localVisionReady by produceLocalReadiness(packStates, busy) { viewModel.localVisionOfflineReady() }
+    val localVisionReason by produceLocalProbe(packStates, busy, initial = null as String?) {
+        viewModel.localVisionReadinessReason()
+    }
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
@@ -203,6 +214,15 @@ fun UnifiedStudioPane(
         viewModel.warmUpLocal(effectiveCapability)
     }
 
+    // Examples are a first-run hint, not a permanent fixture — once the model has finished
+    // loading the user has had a chance to read them, so hide for the rest of the session
+    // (dispatchGenerate() covers the other trigger: starting a generation).
+    LaunchedEffect(warmup, capability) {
+        if (warmup is GenerativeViewModel.Warmup.Ready) {
+            viewModel.dismissExamples(capability)
+        }
+    }
+
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         viewModel.setReference(uri?.toString())
     }
@@ -244,12 +264,15 @@ fun UnifiedStudioPane(
         else -> emptyList()
     }
 
-    fun dispatchGenerate() = when (capability) {
-        AiCapability.IMAGE_GEN -> viewModel.generateImage()
-        AiCapability.VIDEO -> viewModel.generateVideo()
-        AiCapability.CODE -> viewModel.generateCode()
-        AiCapability.AUDIO -> viewModel.generateAudio()
-        else -> Unit
+    fun dispatchGenerate() {
+        viewModel.dismissExamples(capability)
+        when (capability) {
+            AiCapability.IMAGE_GEN -> viewModel.generateImage()
+            AiCapability.VIDEO -> viewModel.generateVideo()
+            AiCapability.CODE -> viewModel.generateCode()
+            AiCapability.AUDIO -> viewModel.generateAudio()
+            else -> Unit
+        }
     }
 
     // The active safety preset's confirm flag (Blur identities / Redact details) requires a
@@ -323,14 +346,11 @@ fun UnifiedStudioPane(
             color = VestraColors.InkMuted,
         )
         Spacer(Modifier.height(4.dp))
-        if (capability == AiCapability.CODE) {
-            LiteRtGemmaStatusIndicator(
-                viewModel = viewModel,
-                packManager = packManager,
-                onOpenPacks = onOpenSettings,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
+        // Which model is selected/loading/ready is shown once, on the composer's own send
+        // button and model chip below — not duplicated here via a separate status card, pill,
+        // and (for Code) an animated LiteRtGemmaStatusIndicator on top of that. Only a real
+        // failure still gets its own banner: that's the one state worth interrupting the flow
+        // for, since the send button alone can't carry a retry action.
         // FlowRow, not Row: `estimate` can be a long provider sentence, and in a plain Row it
         // consumed the full width and squeezed the chips beside it down to one-character-wide
         // columns of vertical text. FlowRow wraps them onto the next line instead.
@@ -346,9 +366,6 @@ fun UnifiedStudioPane(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (preflightChip != null && preflight == null) {
-                GlassPill(text = preflightChip, active = true)
-            }
             val lastUsedName = lastUsedId?.let { id -> CloudModelCatalog.byId(id)?.displayName }
             if (lastUsedName != null) {
                 Text(
@@ -360,39 +377,7 @@ fun UnifiedStudioPane(
                 )
             }
         }
-        // Model load state, right where the user is looking after picking a model. A multi-GB
-        // pack takes seconds to a minute to initialize; saying so beats an unexplained pause,
-        // which is what the Gallery app gets right and this app did not.
         when (val w = warmup) {
-            is GenerativeViewModel.Warmup.Loading -> {
-                Spacer(Modifier.height(10.dp))
-                GlassCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = VestraColors.Accent,
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                "Initializing ${w.label}",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = VestraColors.Ink,
-                            )
-                            Text(
-                                "First load only — this can take up to a minute.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = VestraColors.InkMuted,
-                            )
-                        }
-                    }
-                }
-            }
-            is GenerativeViewModel.Warmup.Ready -> {
-                Spacer(Modifier.height(10.dp))
-                GlassPill(text = "${w.label} · loaded and ready", active = true)
-            }
             is GenerativeViewModel.Warmup.Failed -> {
                 Spacer(Modifier.height(10.dp))
                 GlassErrorBanner(
@@ -402,7 +387,11 @@ fun UnifiedStudioPane(
                     onDismiss = null,
                 )
             }
-            GenerativeViewModel.Warmup.Idle -> Unit
+            // Loading/Ready surface only via the composer's send-button spinner and model chip.
+            GenerativeViewModel.Warmup.Idle,
+            is GenerativeViewModel.Warmup.Loading,
+            is GenerativeViewModel.Warmup.Ready,
+            -> Unit
         }
 
         Spacer(Modifier.height(8.dp))
@@ -417,6 +406,7 @@ fun UnifiedStudioPane(
             qualityGuard = qualityGuard,
             analyzeReference = analyzeReference,
             localVisionReady = localVisionReady,
+            localVisionReason = localVisionReason,
             pragmatic = pragmatic,
             creative = creative,
             safetyPresetId = safetyPresetId,
@@ -430,18 +420,24 @@ fun UnifiedStudioPane(
             onSelectSafetyPreset = { viewModel.appSettings.setSafetyPresetId(it) },
         )
 
-        if (examples.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
+        // Shown once per capability per session — first generation or the model finishing its
+        // load dismisses it (see the LaunchedEffect(warmup, capability) and dispatchGenerate()
+        // above) — not a permanent fixture competing for space on every visit.
+        if (examples.isNotEmpty() && capability !in examplesDismissed) {
+            Spacer(Modifier.height(10.dp))
             Text(
                 "EXAMPLES",
                 style = MaterialTheme.typography.labelSmall,
                 color = accent,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             ExamplePromptRow(
                 examples = examples,
                 enabled = !busy,
-                onPick = viewModel::setPrompt,
+                onPick = {
+                    viewModel.dismissExamples(capability)
+                    viewModel.setPrompt(it)
+                },
             )
         }
 
@@ -463,9 +459,7 @@ fun UnifiedStudioPane(
                 failedMsg.contains("Inference Providers", ignoreCase = true)
             ResultPane(
                 state = state,
-                liveLog = liveLog,
                 generationStartedAtMs = generationStartedAtMs,
-                onCancel = { viewModel.forceStop() },
                 onRetry = {
                     viewModel.clearResult()
                     if (quotaOrCredits) {
@@ -518,13 +512,27 @@ fun UnifiedStudioPane(
                     testTag = com.zakir.vestra.ui.TestTags.STUDIO_TOKEN_BUDGET_BAR,
                 )
             }
+            // Docked next to the composer instead of scrolling past with the results, so the
+            // live log stays visible ("always visible like a in the docked prompt box") without
+            // eating the space above it.
+            DockedLiveLog(
+                lines = liveLog,
+                generationStartedAtMs = generationStartedAtMs,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
             PromptComposer(
                 prompt = prompt,
                 onPromptChange = viewModel::setPrompt,
                 accent = accent,
                 modelLabel = when {
+                    // Reflects whichever engine the user actually selected — was hardcoded to
+                    // "Local tiny-SD" regardless of pick, mislabeling every Bonsai-selected run.
                     effectiveCapability == AiCapability.IMAGE_GEN && localImageReady && reference == null ->
-                        "Local tiny-SD (offline)"
+                        if (imageGenId == "local-bonsai-image-v1") {
+                            "Bonsai Image 4B (offline)"
+                        } else {
+                            "Local tiny-SD (offline)"
+                        }
                     effectiveCapability == AiCapability.IMAGE_EDIT && localImageEditReady ->
                         "Local img2img (offline)"
                     effectiveCapability == AiCapability.CODE && localCodeReady ->
@@ -535,6 +543,7 @@ fun UnifiedStudioPane(
                 },
                 assistCount = assistCount,
                 busy = busy,
+                loading = warmup is GenerativeViewModel.Warmup.Loading,
                 enabled = true,
                 onModelClick = { showModelPicker = true },
                 onAssistsClick = { advancedExpanded = !advancedExpanded },
@@ -621,6 +630,7 @@ private fun AdvancedAssistSection(
     qualityGuard: Boolean,
     analyzeReference: Boolean,
     localVisionReady: Boolean,
+    localVisionReason: String?,
     pragmatic: Boolean,
     creative: Boolean,
     safetyPresetId: String,
@@ -719,7 +729,8 @@ private fun AdvancedAssistSection(
                         if (!localVisionReady) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Install local-gemma-4-e2b-v1 for offline reference analysis.",
+                                localVisionReason
+                                    ?: "Install local-gemma-4-e2b-v1 for offline reference analysis.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = VestraColors.InkMuted,
                             )

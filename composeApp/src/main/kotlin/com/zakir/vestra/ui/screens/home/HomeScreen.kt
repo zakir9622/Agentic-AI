@@ -1,52 +1,42 @@
 package com.zakir.vestra.ui.screens.home
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,102 +44,40 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import com.zakir.vestra.media.MediaExport
-import com.zakir.vestra.shared.cloud.AiCapability
-import com.zakir.vestra.shared.cloud.FreeCloudDiscovery
+import androidx.compose.ui.unit.sp
 import com.zakir.vestra.shared.content.LookbookCopy
-import com.zakir.vestra.shared.domain.PackStatus
-import com.zakir.vestra.shared.packs.ModelPackManager
-import com.zakir.vestra.shared.settings.AppSettings
-import com.zakir.vestra.shared.wardrobe.WardrobeRepository
-import com.zakir.vestra.ui.GenerativeViewModel
-import com.zakir.vestra.ui.components.AtelierHero
-import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.shared.jobs.LocalJobStore
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.SpatialBackground
-import com.zakir.vestra.ui.components.tilt3d
-import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
-import java.io.File
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
-// `internal` rather than `private` so the pager-index math below is reachable from unit tests:
-// filtering a tab out makes `ordinal` and the visible-list index diverge, which is exactly the
-// kind of off-by-one that only shows up on a device.
-internal enum class HomeTab(val label: String, val routeKey: String) {
-    // Try-on is temporarily disabled app-wide — kept in the enum (not deleted) so the try-on
-    // engines/routes/tests keep compiling and it's a one-line revert to bring the tab back.
-    // To re-enable: flip TRY_ON_TAB_ENABLED to true below.
-    TRY_ON("Try-on", "tryon"),
-    IMAGE("Image", "image"),
-    VIDEO("Video", "video"),
-    AUDIO("Audio", "audio"),
-    CODE("Code", "code"),
-    ;
-
-    fun selectedColor(): Color = when (this) {
-        IMAGE, TRY_ON -> VestraColors.ModalityImage
-        VIDEO -> VestraColors.ModalityVideo
-        AUDIO -> VestraColors.ModalityAudio
-        CODE -> VestraColors.ModalityCode
-    }
-
-    companion object {
-        /** Temporarily off while try-on is disabled app-wide. Flip to bring the tab back. */
-        const val TRY_ON_TAB_ENABLED = false
-
-        val visible: List<HomeTab> = entries.filter { TRY_ON_TAB_ENABLED || it != TRY_ON }
-
-        fun fromRouteKey(key: String?): HomeTab =
-            visible.firstOrNull { it.routeKey.equals(key, ignoreCase = true) } ?: visible.first()
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * Home *is* the tool picker — not a popup behind a "+" FAB, and not a tabbed pager sharing one
+ * screen between Image/Video/Audio/Code. Each card below opens a fully isolated, standalone
+ * screen for that modality (only one local model is ever loaded at a time, so the studios must
+ * never share a swipeable pager or tab row that could keep more than one alive).
+ */
 @Composable
 fun HomeScreen(
-    appSettings: AppSettings,
-    wardrobe: WardrobeRepository,
-    packManager: ModelPackManager,
-    generativeViewModel: GenerativeViewModel,
-    localJobStore: com.zakir.vestra.shared.jobs.LocalJobStore? = null,
-    freeCloudDiscovery: FreeCloudDiscovery? = null,
-    onNewLook: () -> Unit,
-    onOpenWardrobe: () -> Unit,
-    onOpenSettings: () -> Unit,
+    localJobStore: LocalJobStore? = null,
+    onSelectImage: () -> Unit,
+    onSelectVideo: () -> Unit,
+    onSelectAudio: () -> Unit,
+    onSelectCode: () -> Unit,
+    onOpenChat: () -> Unit,
     onOpenPacks: () -> Unit,
     onOpenHelp: () -> Unit,
-    initialTabRoute: String? = null,
 ) {
-    val context = LocalContext.current
-    val recent by wardrobe.entries.collectAsState()
-    val packStates by packManager.states.collectAsState()
-    LaunchedEffect(Unit) {
-        packManager.refresh()
-    }
-    val proReady = listOf("pro-v2-int8", "pro-v1").any { id ->
-        packStates[id]?.isReady() == true
-    }
-
-    var online by remember { mutableStateOf(appSettings.networkLikelyAvailable()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            online = appSettings.networkLikelyAvailable()
-            delay(2_500)
-        }
-    }
-
     var appeared by remember { mutableStateOf(false) }
     val reduceMotion = rememberReduceMotion()
     LaunchedEffect(Unit) { appeared = true }
@@ -158,44 +86,55 @@ fun HomeScreen(
         animationSpec = if (reduceMotion) tween(0) else tween(640),
         label = "homeFade",
     )
-    val heroLift by animateFloatAsState(
-        targetValue = if (appeared || reduceMotion) 0f else 18f,
-        animationSpec = if (reduceMotion) tween(0) else spring(stiffness = Spring.StiffnessMediumLow),
-        label = "heroLift",
-    )
 
-    val tryOnModel = appSettings.selectedProvider(AiCapability.TRY_ON).displayName
-    val hfToken by appSettings.hfToken.collectAsState()
-    val hfReady = !hfToken.isNullOrBlank()
-    val liteReady = packStates["lite-v1"]?.isReady() == true
-    val liteState = packStates["lite-v1"]
-    val statusLine = buildString {
-        append(
-            when {
-                proReady -> "Pro local try-on ready"
-                liteReady -> "Fast local try-on ready"
-                liteState?.status == PackStatus.INSTALLED -> "Fast try-on verifying…"
-                else -> "Fast try-on needs download"
-            },
+    val tools = remember {
+        listOf(
+            HomeTool(
+                id = "image",
+                title = "Image Studio",
+                description = "Modest silhouettes, textiles & lookbook renders — on-device or cloud",
+                icon = Icons.Outlined.Image,
+                accentColor = VestraColors.ModalityImage,
+                badge = "Local + Cloud",
+                onSelect = onSelectImage,
+            ),
+            HomeTool(
+                id = "video",
+                title = "Video Studio",
+                description = "Local still-clip motion loops, or cloud generation",
+                icon = Icons.Outlined.Videocam,
+                accentColor = VestraColors.ModalityVideo,
+                badge = "Local + Cloud",
+                onSelect = onSelectVideo,
+            ),
+            HomeTool(
+                id = "code",
+                title = "Code Studio",
+                description = "On-device Gemma / Qwen reasoning and code generation",
+                icon = Icons.Outlined.Code,
+                accentColor = VestraColors.ModalityCode,
+                badge = "On-Device",
+                onSelect = onSelectCode,
+            ),
+            HomeTool(
+                id = "audio",
+                title = "Audio Studio",
+                description = "Device TTS, voice-changer DSP knobs, and offline transcription",
+                icon = Icons.Outlined.GraphicEq,
+                accentColor = VestraColors.ModalityAudio,
+                badge = "On-Device",
+                onSelect = onSelectAudio,
+            ),
+            HomeTool(
+                id = "chat",
+                title = "News & Chat",
+                description = "Fashion + AI headlines, discuss any story with a local or cloud model",
+                icon = Icons.AutoMirrored.Outlined.Chat,
+                accentColor = VestraColors.ModalityCode,
+                badge = "Local + Cloud",
+                onSelect = onOpenChat,
+            ),
         )
-        append("  ·  ")
-        append(if (hfReady) "Cloud token set" else "Cloud needs HF token")
-        append("  ·  ")
-        append(if (online) "Online" else "Offline")
-        append("  ·  ")
-        append(tryOnModel)
-    }
-
-    val tabs = HomeTab.visible
-    val initialPage = tabs.indexOf(HomeTab.fromRouteKey(initialTabRoute)).coerceAtLeast(0)
-    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(initialTabRoute) {
-        val target = tabs.indexOf(HomeTab.fromRouteKey(initialTabRoute)).coerceAtLeast(0)
-        if (pagerState.currentPage != target) {
-            pagerState.scrollToPage(target)
-        }
     }
 
     SpatialBackground {
@@ -203,9 +142,10 @@ fun HomeScreen(
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
-                .alpha(fade),
+                .alpha(fade)
+                .verticalScroll(rememberScrollState()),
         ) {
-            androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = SpacingTokens.section)) {
+            Box(Modifier.padding(horizontal = SpacingTokens.section)) {
                 InterruptedJobsBanner(localJobStore)
             }
             Row(
@@ -215,18 +155,11 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
-                    Text(
-                        LookbookCopy.PRODUCT_NAME,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = VestraColors.Ink,
-                    )
-                    Text(
-                        LookbookCopy.STUDIO_HOME,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = VestraColors.Accent,
-                    )
-                }
+                Text(
+                    LookbookCopy.PRODUCT_NAME,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = VestraColors.Ink,
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier
@@ -240,13 +173,11 @@ fun HomeScreen(
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text(
-                            if (proReady) "Pro" else "Fast",
+                            "Packs",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
                     }
-                    // Wardrobe/Settings icon buttons moved to LookbookBottomBar (Library/Settings
-                    // destinations) — Help has no bottom-bar slot, so it stays here.
                     IconButton(onClick = onOpenHelp) {
                         Icon(
                             Icons.AutoMirrored.Outlined.HelpOutline,
@@ -257,265 +188,124 @@ fun HomeScreen(
                 }
             }
 
-            ScrollableTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                containerColor = Color.Transparent,
-                contentColor = VestraColors.Ink,
-                edgePadding = 12.dp,
-                divider = {},
-                indicator = {},
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    val selected = pagerState.currentPage == index
-                    Tab(
-                        selected = selected,
-                        onClick = {
-                            scope.launch { pagerState.animateScrollToPage(index) }
-                        },
-                        modifier = Modifier.testTag(TestTags.homeTab(tab.routeKey)),
-                        text = {
-                            Text(
-                                tab.label,
-                                color = if (selected) tab.selectedColor() else VestraColors.InkMuted,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                        },
-                    )
-                }
-            }
+            Spacer(Modifier.height(20.dp))
 
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                beyondViewportPageCount = 0,
-            ) { page ->
-                when (tabs[page]) {
-                    HomeTab.TRY_ON -> TryOnPage(
-                        statusLine = statusLine,
-                        proReady = proReady,
-                        heroLift = heroLift,
-                        recent = recent,
-                        onNewLook = onNewLook,
-                        onOpenWardrobe = onOpenWardrobe,
-                        onOpenPacks = onOpenPacks,
-                    )
-                    HomeTab.IMAGE -> UnifiedStudioPane(
-                        capability = AiCapability.IMAGE_GEN,
-                        viewModel = generativeViewModel,
-                        onOpenSettings = onOpenSettings,
-                        freeCloudDiscovery = freeCloudDiscovery,
-                        packManager = packManager,
-                    )
-                    HomeTab.VIDEO -> UnifiedStudioPane(
-                        capability = AiCapability.VIDEO,
-                        viewModel = generativeViewModel,
-                        onOpenSettings = onOpenSettings,
-                        freeCloudDiscovery = freeCloudDiscovery,
-                        packManager = packManager,
-                    )
-                    HomeTab.AUDIO -> AudioStudioPane(
-                        viewModel = generativeViewModel,
-                        onOpenSettings = onOpenSettings,
-                        freeCloudDiscovery = freeCloudDiscovery,
-                        packManager = packManager,
-                    )
-                    HomeTab.CODE -> UnifiedStudioPane(
-                        capability = AiCapability.CODE,
-                        viewModel = generativeViewModel,
-                        onOpenSettings = onOpenSettings,
-                        freeCloudDiscovery = freeCloudDiscovery,
-                        packManager = packManager,
-                    )
+            Column(Modifier.padding(horizontal = SpacingTokens.section)) {
+                GlassSectionLabel("CREATE")
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HomeToolCard(tools[0], Modifier.weight(1f))
+                    HomeToolCard(tools[1], Modifier.weight(1f))
                 }
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HomeToolCard(tools[2], Modifier.weight(1f))
+                    HomeToolCard(tools[3], Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(12.dp))
+                HomeToolCard(tools[4], Modifier.fillMaxWidth())
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
 }
 
-@Composable
-private fun TryOnPage(
-    statusLine: String,
-    proReady: Boolean,
-    heroLift: Float,
-    recent: List<com.zakir.vestra.shared.wardrobe.WardrobeEntry>,
-    onNewLook: () -> Unit,
-    onOpenWardrobe: () -> Unit,
-    onOpenPacks: () -> Unit,
-) {
-    val context = LocalContext.current
+private data class HomeTool(
+    val id: String,
+    val title: String,
+    val description: String,
+    val icon: ImageVector,
+    val accentColor: Color,
+    val badge: String,
+    val onSelect: () -> Unit,
+)
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = SpacingTokens.section, top = 8.dp, end = SpacingTokens.section, bottom = 24.dp),
+@Composable
+private fun HomeToolCard(tool: HomeTool, modifier: Modifier = Modifier) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val cardBackground = Brush.verticalGradient(
+        colors = listOf(
+            VestraColors.GlassFillStrong,
+            tool.accentColor.copy(alpha = 0.08f),
+        ),
+    )
+
+    Column(
+        modifier = modifier
+            .testTag("tool_card_${tool.id}")
+            .clip(RoundedCornerShape(RadiusTokens.lg))
+            .background(cardBackground)
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(tool.accentColor.copy(alpha = 0.35f), Color.Transparent),
+                ),
+                shape = RoundedCornerShape(RadiusTokens.lg),
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = tool.onSelect,
+            )
+            .padding(16.dp),
     ) {
-        item(key = "hero") {
-            GlassSectionLabel("CORE TRY-ON")
-            Box(Modifier.padding(bottom = heroLift.dp).tilt3d()) {
-                AtelierHero(
-                    brand = LookbookCopy.PRODUCT_NAME,
-                    headline = "Start try-on shoot",
-                    support = "Abaya, hijab, and shalwar on-device with Fast or Pro local try-on.",
-                    cta = LookbookCopy.ACTION_START_TRY_ON,
-                    onCta = onNewLook,
-                    statusLine = statusLine,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(tool.accentColor.copy(alpha = 0.15f))
+                    .border(1.dp, tool.accentColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = tool.icon,
+                    contentDescription = tool.title,
+                    tint = tool.accentColor,
+                    modifier = Modifier.size(22.dp),
                 )
             }
-            Spacer(Modifier.height(20.dp))
-        }
-
-        if (!proReady) {
-            item(key = "pro-cta") {
-                GlassCard(onClick = onOpenPacks) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(VestraColors.GlassFillStrong)
-                                .border(1.dp, VestraColors.Accent.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Outlined.Cloud,
-                                contentDescription = null,
-                                tint = VestraColors.Accent,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(14.dp))
-                        Column {
-                            Text("Install Pro pack", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "One download. Fully offline after. Free cloud try-on stays in Settings.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(22.dp))
-            }
-        }
-
-        item(key = "recent-header") {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(tool.accentColor.copy(alpha = 0.12f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
-                GlassSectionLabel("RECENT LOOKS")
-                if (recent.isNotEmpty()) {
-                    Text(
-                        "Open gallery",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = VestraColors.Accent,
-                        modifier = Modifier
-                            .padding(bottom = 8.dp)
-                            .clickable(onClick = onOpenWardrobe),
-                    )
-                }
+                Text(
+                    text = tool.badge,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.SemiBold),
+                    color = tool.accentColor,
+                )
             }
         }
 
-        item(key = "recent") {
-            if (recent.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(recent.take(12), key = { it.id }) { entry ->
-                        val file = File(entry.imagePath)
-                        Box(
-                            Modifier
-                                .width(148.dp)
-                                .aspectRatio(0.72f)
-                                .clip(RoundedCornerShape(24.dp))
-                                .border(
-                                    1.dp,
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            VestraColors.GlassHighlight,
-                                            VestraColors.Accent.copy(alpha = 0.35f),
-                                        ),
-                                    ),
-                                    RoundedCornerShape(24.dp),
-                                )
-                                .combinedClickable(
-                                    onClick = onOpenWardrobe,
-                                    onLongClick = {
-                                        if (file.exists()) {
-                                            MediaExport.share(context, file, "Share look")
-                                        }
-                                    },
-                                ),
-                        ) {
-                            AsyncImage(
-                                model = file,
-                                contentDescription = "Recent look ${entry.personLabel}",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                            )
-                            Box(
-                                Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .height(52.dp)
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                Color.Transparent,
-                                                VestraColors.AtelierCanvas.copy(alpha = 0.8f),
-                                            ),
-                                        ),
-                                    ),
-                            )
-                            Text(
-                                entry.personLabel.ifBlank { "Look" },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = VestraColors.Ivory,
-                                maxLines = 1,
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(start = 12.dp, end = 44.dp, bottom = 12.dp),
-                            )
-                            IconButton(
-                                onClick = {
-                                    if (file.exists()) {
-                                        MediaExport.share(context, file, LookbookCopy.ACTION_SHARE)
-                                    }
-                                },
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(4.dp)
-                                    .semantics {
-                                        contentDescription = LookbookCopy.ACTION_SHARE
-                                    },
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Share,
-                                    contentDescription = null,
-                                    tint = VestraColors.Ivory,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(148.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(VestraColors.GlassFill)
-                        .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(24.dp))
-                        .clickable(onClick = onNewLook),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "Tap to cast your first look",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Text(
+            text = tool.title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = VestraColors.Ink,
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = tool.description,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp),
+            color = VestraColors.InkMuted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

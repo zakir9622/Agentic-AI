@@ -91,8 +91,24 @@ class VestraApp : Application() {
         super.onCreate()
         // Install BEFORE other init so early crashes are captured and logs append forever.
         com.zakir.vestra.diagnostics.CrashReporter.install(this)
+        // Bridge for shared-module engine code (androidMain), which can't see CrashReporter
+        // directly since :shared has no dependency back on :composeApp.
+        com.zakir.vestra.shared.diagnostics.EngineLogHook.logI = { tag, msg ->
+            com.zakir.vestra.diagnostics.CrashReporter.i(tag, msg)
+        }
+        com.zakir.vestra.shared.diagnostics.EngineLogHook.logW = { tag, msg ->
+            com.zakir.vestra.diagnostics.CrashReporter.w(tag, msg)
+        }
+        com.zakir.vestra.shared.diagnostics.EngineLogHook.logE = { tag, msg, t ->
+            com.zakir.vestra.diagnostics.CrashReporter.e(tag, msg, t)
+        }
+        com.zakir.vestra.shared.diagnostics.EngineLogHook.recordNonFatal = { tag, t, detail ->
+            com.zakir.vestra.diagnostics.CrashReporter.recordNonFatal(tag, t, detail)
+        }
         val prefs = SharedPreferencesSettings(getSharedPreferences("vestra_settings", MODE_PRIVATE))
         appSettings = AppSettings(prefs)
+        com.zakir.vestra.shared.engine.litert.LiteRtLmEngineCache.failureStore =
+            com.zakir.vestra.shared.engine.litert.LiteRtLmFailureStore(prefs)
         // CPU-only ORT by default; Engines toggle can opt into NNAPI.
         com.zakir.vestra.shared.engine.lite.OrtEpPolicy.preferNnapi = appSettings.preferNnapi.value
         appScope.launch {

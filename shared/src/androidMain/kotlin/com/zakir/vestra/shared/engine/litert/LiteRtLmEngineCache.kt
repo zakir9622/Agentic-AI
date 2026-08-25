@@ -2,6 +2,8 @@ package com.zakir.vestra.shared.engine.litert
 
 import android.content.Context
 import com.google.ai.edge.litertlm.ToolSet
+import com.zakir.vestra.shared.diagnostics.EngineLogHook
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +19,26 @@ object LiteRtLmEngineCache {
     private val pendingClose = ConcurrentHashMap.newKeySet<String>()
     private val engines = ConcurrentHashMap<EngineSpec, LiteRtLmEngine>()
     private val initLocks = ConcurrentHashMap<EngineSpec, Any>()
+
+    // A pack/backend mismatch (e.g. a model file whose vision encoder the SDK rejects) fails
+    // identically on every attempt — caching the reason turns a repeated multi-second native
+    // init-and-crash into an immediate, honest failure instead of silently retrying it on every
+    // single generation. Cleared alongside the engine on evictModelPath/clearAll (pack reinstall),
+    // never on a bare "Retry load" — retrying a deterministic mismatch can't succeed differently.
+    private val failed = ConcurrentHashMap<EngineSpec, String>()
+
+    // Durable counterpart to [failed] — set once from VestraApp, survives cold start. Null in
+    // unit tests and before app init; failureReason() degrades gracefully to the in-memory-only
+    // map when unset.
+    var failureStore: LiteRtLmFailureStore? = null
+
+    /** In-memory first, then the durable store (which also warms the in-memory map on a hit). */
+    fun failureReason(spec: EngineSpec): String? {
+        failed[spec]?.let { return it }
+        val persisted = failureStore?.isKnownFailed(spec) ?: return null
+        failed[spec] = persisted
+        return persisted
+    }
 
     data class EngineSpec(
         val modelPath: String,
@@ -52,6 +74,7 @@ object LiteRtLmEngineCache {
 
     /** Looks up (or cold-loads) the warm engine for [spec]. Does not touch inference depth. */
     private fun warmEngine(context: Context, spec: EngineSpec, tools: List<ToolSet>): LiteRtLmEngine {
+        failureReason(spec)?.let { reason -> throw IllegalStateException(reason) }
         val lock = initLocks.getOrPut(spec) { Any() }
         val engine = engines.getOrPut(spec) {
             LiteRtLmEngine(
@@ -66,7 +89,36 @@ object LiteRtLmEngineCache {
         }
         synchronized(lock) {
             if (!engine.isInitialized()) {
-                engine.initialize()
+                try {
+                    engine.initialize()
+                } catch (err: Throwable) {
+                    engines.remove(spec)
+                    initLocks.remove(spec)
+                    // OutOfMemoryError is exactly the transient case the class comment above
+                    // rules out caching for — another studio's model still resident, a large app
+                    // heap at that moment — not a deterministic pack/backend mismatch. Leaving it
+                    // uncached lets the next attempt retry for real once memory is freed, instead
+                    // of permanently wedging this studio until a pack reinstall.
+                    if (err !is OutOfMemoryError) {
+                        val reason = err.message ?: "LiteRT-LM engine failed to initialize."
+                        failed[spec] = reason
+                        failureStore?.recordFailure(spec, reason)
+                    }
+                    // This catch block previously had no logging at all — a deterministic
+                    // native init failure (e.g. the vision-encoder signature mismatch) left zero
+                    // durable trace beyond the truncated message string reaching the UI.
+                    // EngineLogHook.nonFatal() already logs (CrashReporter.recordNonFatal writes
+                    // its own "W" trace line) in addition to persisting the full exception to
+                    // crash_log.txt — a separate .e() call here would just duplicate that line.
+                    EngineLogHook.nonFatal(
+                        "LiteRtLmEngineCache.warmEngine",
+                        err,
+                        "model=${File(spec.modelPath).name} vision=${spec.visionEnabled} " +
+                            "audio=${spec.audioEnabled} gpu=${spec.useGpu} " +
+                            "cachedPermanently=${err !is OutOfMemoryError}",
+                    )
+                    throw err
+                }
             }
         }
         return engine
@@ -123,6 +175,7 @@ object LiteRtLmEngineCache {
                 false
             }
         }
+        failed.keys.removeIf { it.modelPath == modelPath }
     }
 
     fun clearAll() {
@@ -133,5 +186,6 @@ object LiteRtLmEngineCache {
         engines.values.forEach { it.closeNow() }
         engines.clear()
         initLocks.clear()
+        failed.clear()
     }
 }
