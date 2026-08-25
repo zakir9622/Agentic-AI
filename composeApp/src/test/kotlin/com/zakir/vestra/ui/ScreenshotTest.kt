@@ -34,6 +34,7 @@ import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
 import com.zakir.vestra.ui.screens.news.NewsHeadlinesBar
 import com.zakir.vestra.ui.screens.settings.settingsCloudKeysSection
 import com.zakir.vestra.ui.screens.settings.settingsCloudMasterToggleSection
+import com.zakir.vestra.ui.screens.settings.settingsMemorySection
 import com.zakir.vestra.ui.screens.settings.settingsSafetySection
 import com.zakir.vestra.ui.theme.VestraTheme
 import java.io.File
@@ -610,4 +611,27 @@ class ScreenshotTest {
     // window-layer limitation PrivacyBlurFlowTest documents for ModalBottomSheet. It came back
     // a blank frame when tried, so it's verified instead by SafetyConfirmDialogTest's real
     // assertIsDisplayed()/performClick() interaction tests.
+
+    @Test
+    fun memorySectionEmptyState() {
+        val settings = AppSettings(MemorySettings())
+        val memory = com.zakir.vestra.shared.chat.MemoryRepository(MemorySettings())
+        shoot("26-memory-empty") {
+            LazyColumn {
+                settingsMemorySection(appSettings = settings, memory = memory)
+            }
+        }
+    }
+
+    @Test
+    fun memorySectionWithFacts() {
+        val settings = AppSettings(MemorySettings())
+        val memory = com.zakir.vestra.shared.chat.MemoryRepository(MemorySettings())
+        memory.addFacts(listOf("Prefers dark mode", "Works with Kotlin", "Building a modest-fashion app"))
+        shoot("27-memory-with-facts") {
+            LazyColumn {
+                settingsMemorySection(appSettings = settings, memory = memory)
+            }
+        }
+    }
 }

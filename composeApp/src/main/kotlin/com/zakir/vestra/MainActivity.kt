@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
                         runDiagnostics = app.runDiagnostics,
                         localJobStore = app.localJobStore,
                         chatRepository = app.chatRepository,
+                        memoryRepository = app.memoryRepository,
                         deviceRamMb = app.deviceProbe.totalRamMb(),
                         freeCloudDiscovery = app.freeCloudDiscovery,
                         humanParsing = app.humanParsing,

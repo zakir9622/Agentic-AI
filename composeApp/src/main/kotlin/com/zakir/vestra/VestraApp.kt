@@ -69,6 +69,9 @@ class VestraApp : Application() {
     lateinit var chatRepository: ChatRepository
         private set
 
+    lateinit var memoryRepository: com.zakir.vestra.shared.chat.MemoryRepository
+        private set
+
     lateinit var deviceProbe: AndroidDeviceProbe
         private set
 
@@ -114,6 +117,7 @@ class VestraApp : Application() {
         DiagnosticsHook.deviceRamMb = deviceProbe.totalRamMb()
         localJobStore = com.zakir.vestra.shared.jobs.LocalJobStore(prefs)
         chatRepository = ChatRepository(prefs)
+        memoryRepository = com.zakir.vestra.shared.chat.MemoryRepository(prefs)
         wardrobe = WardrobeRepository(AndroidTextFileStore(filesDir))
 
         val http = platformHttpClient()

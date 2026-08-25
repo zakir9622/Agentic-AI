@@ -70,6 +70,7 @@ fun SettingsScreen(
     packManager: ModelPackManager,
     freeCloudDiscovery: FreeCloudDiscovery,
     usageLedger: UsageLedger,
+    memoryRepository: com.zakir.vestra.shared.chat.MemoryRepository? = null,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
     onOpenHelp: () -> Unit,
@@ -313,6 +314,9 @@ fun SettingsScreen(
                     onOpenPrivacy = onOpenPrivacy,
                     onOpenDiagnostics = onOpenDiagnostics,
                 )
+                if (memoryRepository != null) {
+                    settingsMemorySection(appSettings = appSettings, memory = memoryRepository)
+                }
             }
 
             if (showCloud) {

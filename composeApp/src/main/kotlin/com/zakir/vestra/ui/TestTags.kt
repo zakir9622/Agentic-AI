@@ -126,4 +126,11 @@ object TestTags {
 
     // Live context-budget indicator above the chat composer (ChatComponents.kt) — Part B.2.
     const val CONTEXT_BUDGET_BAR = "context_budget_bar"
+
+    // "What the assistant remembers" panel (SettingsMemorySection.kt) — Part B.1.
+    const val MEMORY_ENABLED_SWITCH = "memory_enabled_switch"
+    const val MEMORY_EMPTY_STATE = "memory_empty_state"
+    const val MEMORY_CLEAR_ALL_BUTTON = "memory_clear_all_button"
+    fun memoryFactRow(id: String): String = "memory_fact_row_$id"
+    fun memoryFactRemove(id: String): String = "memory_fact_remove_$id"
 }

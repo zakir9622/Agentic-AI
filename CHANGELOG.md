@@ -105,6 +105,23 @@ every step (not claimed from reading the code).
   retry-exhaustion "gentler path" fallback and progress-ticking the three sub-2.5s local
   blocking calls (video encode, system TTS, voice-changer DSP) are deliberately **not**
   built — reasoned and documented in `docs/DRAWBACKS.md` rather than silently dropped.
+- **Part B.1 — persistent local chat memory, "what the assistant remembers."** After a
+  News/Chat reply, an extraction prompt runs through the *local* chat model only — never
+  cloud, regardless of which model answered the visible reply — asking for up to 5 durable
+  facts (stated preferences, projects, tools, constraints, names, recurring goals) as a JSON
+  array; `MemoryExtraction.parseFacts()` parses it tolerantly but never fabricates a fact when
+  the output doesn't parse. `MemoryRepository` (new, `shared/commonMain/chat`) stores them
+  locally (same `Settings` backing every other repository — nothing leaves the device),
+  deduped case-insensitively, capped at 50. Facts are re-injected into future system prompts
+  and shown in a new Settings → "What the assistant remembers" panel
+  (`SettingsMemorySection.kt`) with per-fact delete, a "Clear all," and an on/off switch
+  (`AppSettings.memoryEnabled`, default on) that gates both new extraction and re-injection of
+  what's already stored. Extraction runs strictly after the primary reply completes, awaited
+  inline in the same coroutine rather than fire-and-forget — the local LiteRT-LM engine isn't
+  safe for concurrent generate calls, and a background task racing a fast second `send()` would
+  either corrupt that call or silently drop the extraction. 22 new unit tests
+  (`MemoryRepositoryTest`, `MemoryExtractionTest`) plus 2 new screenshots
+  (`26-memory-empty`, `27-memory-with-facts`).
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 
