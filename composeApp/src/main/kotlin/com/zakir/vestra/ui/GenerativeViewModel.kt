@@ -419,6 +419,8 @@ class GenerativeViewModel(
 
     fun localVisionOfflineReady(): Boolean = generative.localVisionReady()
 
+    fun localVisionReadinessReason(): String? = generative.localVisionReadinessReason()
+
     fun transcribeAudio() {
         val clip = _referenceUri.value
         if (clip.isNullOrBlank()) {
@@ -703,14 +705,21 @@ class GenerativeViewModel(
         // no dedicated field for it. Was hardcoded to CLOUD unconditionally — the Diagnostics
         // screen renders this ("Tier: $it"), so every local Image/Code/Video/Audio run showed
         // "Tier: CLOUD" even when fully offline, confirmed in a user's diagnostics export.
+        // Minted once and threaded into RunDiagnostics, LocalJobStore, and EngineLogHook so all
+        // three diagnostic sources for this attempt share one id instead of each independently
+        // generating their own — previously an interrupted job, its diagnostics record, and any
+        // crash-log entry for the same incident could only be correlated by eyeballing timestamps.
+        val runId = "${System.currentTimeMillis()}-${capability.name}"
         val builder = runDiagnostics?.startRun(
             capability = capability,
             tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
             modelId = null,
             modelLabel = modelLabel,
             deviceRamMb = deviceRamMb,
+            id = runId,
         )
-        activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value) else null
+        activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value, presetId = runId) else null
+        if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.addActiveRunId(runId)
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
@@ -751,7 +760,7 @@ class GenerativeViewModel(
                         is GenerativeState.Running -> {
                             appendLive(next.stage)
                             val now = System.currentTimeMillis()
-                            builder?.stage(next.stage, now - lastStageAt)
+                            builder?.stage(next.stage, now - lastStageAt, isWarning = next.isWarning)
                             lastStageAt = now
                         }
                         is GenerativeState.ImageReady -> {
@@ -827,6 +836,7 @@ class GenerativeViewModel(
                 } else {
                     bag(studioKey).job = null
                 }
+                if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.removeActiveRunId(runId)
                 if (job?.isActive != true) job = null
             }
         }

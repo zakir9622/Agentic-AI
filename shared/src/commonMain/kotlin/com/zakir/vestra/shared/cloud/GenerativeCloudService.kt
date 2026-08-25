@@ -48,11 +48,16 @@ sealed interface GenerativeState {
     /**
      * @param stage Human-readable activity (no baked-in countdown — UI ticks [deadlineEpochMs]).
      * @param deadlineEpochMs Wall-clock deadline for remaining-seconds display; null = no timer.
+     * @param isWarning A sub-step failed non-fatally and was skipped, but the overall generation
+     *   is continuing — e.g. an offline vision-assist attempt. Threaded into the matching
+     *   [com.zakir.vestra.shared.diagnostics.RunStage.isWarning] so it stays distinguishable from
+     *   ordinary progress once the run completes and lands in Settings → Diagnostics.
      */
     data class Running(
         val fraction: Float,
         val stage: String,
         val deadlineEpochMs: Long? = null,
+        val isWarning: Boolean = false,
     ) : GenerativeState
     data class ImageReady(val path: String, val providerId: String) : GenerativeState
     data class VideoReady(val path: String, val providerId: String) : GenerativeState
@@ -112,6 +117,8 @@ class GenerativeCloudService(
 
     fun localVisionReady(): Boolean = localVision.isReady()
 
+    fun localVisionReadinessReason(): String? = localVision.readinessReason()
+
     fun localTranscribeReady(): Boolean = localTranscriber.isReady()
 
     private val hf = HfGradioClient(http)
@@ -159,6 +166,7 @@ class GenerativeCloudService(
                         GenerativeState.Running(
                             0.05f,
                             "Vision assist skipped — could not read reference photo.",
+                            isWarning = true,
                         ),
                     )
                 } else {
@@ -180,6 +188,7 @@ class GenerativeCloudService(
                                 GenerativeState.Running(
                                     0.05f,
                                     "Vision assist skipped — ${assist.reason.take(80)}",
+                                    isWarning = true,
                                 ),
                             )
                         }

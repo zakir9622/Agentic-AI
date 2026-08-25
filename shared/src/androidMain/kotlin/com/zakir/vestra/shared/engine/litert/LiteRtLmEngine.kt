@@ -3,6 +3,7 @@ package com.zakir.vestra.shared.engine.litert
 import android.content.Context
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
+import com.zakir.vestra.shared.diagnostics.EngineLogHook
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -39,6 +40,19 @@ class LiteRtLmEngine(
     private var loadMs: Long = 0L
     private var usedGpu: Boolean = useGpu
 
+    // Dual-write: Logcat for local dev, EngineLogHook so it also lands in the exported
+    // diagnostics bundle (app_trace.log) — this was previously Logcat-only, so GPU-fallback
+    // reasons and cold-load timings never made it into a shared troubleshooting bundle.
+    private fun logW(msg: String) {
+        Log.w(TAG, msg)
+        EngineLogHook.w(TAG, msg)
+    }
+
+    private fun logI(msg: String) {
+        Log.i(TAG, msg)
+        EngineLogHook.i(TAG, msg)
+    }
+
     fun isInitialized(): Boolean = engine != null
 
     /** Which backend actually loaded — may differ from the requested [useGpu] after a fallback. */
@@ -59,7 +73,7 @@ class LiteRtLmEngine(
                     // "Failed to create engine: INTERNAL ... litert_compiled_model_executor.cc".
                     // Without this fallback, "Retry load" just repeats the identical failing GPU
                     // path forever; CPU is slower but should load the same weights correctly.
-                    Log.w(TAG, "GPU engine init failed, falling back to CPU: ${gpuError.message}")
+                    logW("GPU engine init failed, falling back to CPU: ${gpuError.message}")
                     val eng = buildAndInitEngine(gpu = false)
                     engine = eng
                     usedGpu = false
@@ -69,7 +83,7 @@ class LiteRtLmEngine(
             usedGpu = false
         }
         loadMs = System.currentTimeMillis() - started
-        Log.i(TAG, "Cold load ${loadMs}ms · ${File(modelPath).name} · ${backendLabel(usedGpu)}")
+        logI("Cold load ${loadMs}ms · ${File(modelPath).name} · ${backendLabel(usedGpu)}")
     }
 
     private fun buildAndInitEngine(gpu: Boolean): Engine {

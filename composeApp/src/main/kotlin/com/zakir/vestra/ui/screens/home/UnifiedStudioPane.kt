@@ -76,12 +76,19 @@ import kotlinx.coroutines.withContext
  * actually differ.
  */
 @Composable
+private fun <T> produceLocalProbe(
+    vararg keys: Any?,
+    initial: T,
+    probe: () -> T,
+): State<T> = produceState(initialValue = initial, keys = keys) {
+    value = withContext(Dispatchers.IO) { runCatching(probe).getOrDefault(initial) }
+}
+
+@Composable
 private fun produceLocalReadiness(
     vararg keys: Any?,
     probe: () -> Boolean,
-): State<Boolean> = produceState(initialValue = false, keys = keys) {
-    value = withContext(Dispatchers.IO) { runCatching(probe).getOrDefault(false) }
-}
+): State<Boolean> = produceLocalProbe(*keys, initial = false, probe = probe)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -148,6 +155,9 @@ fun UnifiedStudioPane(
     val localCodeReady by produceLocalReadiness(packStates, busy) { viewModel.localCodeOfflineReady() }
     val localVideoReady by produceLocalReadiness(packStates, busy) { viewModel.localVideoOfflineReady() }
     val localVisionReady by produceLocalReadiness(packStates, busy) { viewModel.localVisionOfflineReady() }
+    val localVisionReason by produceLocalProbe(packStates, busy, initial = null as String?) {
+        viewModel.localVisionReadinessReason()
+    }
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
@@ -396,6 +406,7 @@ fun UnifiedStudioPane(
             qualityGuard = qualityGuard,
             analyzeReference = analyzeReference,
             localVisionReady = localVisionReady,
+            localVisionReason = localVisionReason,
             pragmatic = pragmatic,
             creative = creative,
             safetyPresetId = safetyPresetId,
@@ -619,6 +630,7 @@ private fun AdvancedAssistSection(
     qualityGuard: Boolean,
     analyzeReference: Boolean,
     localVisionReady: Boolean,
+    localVisionReason: String?,
     pragmatic: Boolean,
     creative: Boolean,
     safetyPresetId: String,
@@ -717,7 +729,8 @@ private fun AdvancedAssistSection(
                         if (!localVisionReady) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Install local-gemma-4-e2b-v1 for offline reference analysis.",
+                                localVisionReason
+                                    ?: "Install local-gemma-4-e2b-v1 for offline reference analysis.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = VestraColors.InkMuted,
                             )

@@ -219,9 +219,13 @@ fun DiagnosticsScreen(
 
 @Composable
 private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
-    var expanded by remember(record.id) { mutableStateOf(!record.success) }
+    // A record can succeed overall while still hiding a swallowed sub-step failure (e.g. an
+    // offline vision-assist attempt) — auto-expand and allow toggling for those too, not just
+    // outright failures, so "this succeeded but a sub-step silently failed" is visible.
+    val hasWarning = record.stages.any { it.isWarning }
+    var expanded by remember(record.id) { mutableStateOf(!record.success || hasWarning) }
     GlassCard(
-        modifier = if (!record.success) {
+        modifier = if (!record.success || hasWarning) {
             Modifier.clickable { expanded = !expanded }
         } else {
             Modifier
@@ -252,9 +256,9 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
             Spacer(Modifier.height(6.dp))
             record.stages.take(if (expanded) 12 else 4).forEach { stage ->
                 Text(
-                    "• ${stage.name}: ${stage.durationMs}ms",
+                    "${if (stage.isWarning) "[WARN] " else "• "}${stage.name}: ${stage.durationMs}ms",
                     style = MaterialTheme.typography.labelSmall,
-                    color = VestraColors.InkMuted,
+                    color = if (stage.isWarning) VestraColors.Accent else VestraColors.InkMuted,
                 )
             }
         }
@@ -271,7 +275,15 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
                 color = VestraColors.InkMuted,
             )
         }
-        if (!record.success) {
+        record.stackTraceRef?.let {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Full trace (if captured): search app_trace.log / crash_log.txt for \"$it\"",
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.InkMuted,
+            )
+        }
+        if (!record.success || hasWarning) {
             Spacer(Modifier.height(4.dp))
             Text(
                 if (expanded) "Tap to collapse" else "Tap for details",

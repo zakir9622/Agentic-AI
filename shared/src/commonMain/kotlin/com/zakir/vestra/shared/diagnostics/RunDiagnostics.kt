@@ -15,6 +15,14 @@ data class RunStage(
     val name: String,
     val durationMs: Long,
     val detail: String = "",
+    /**
+     * True for a sub-step that failed but was swallowed non-fatally (the overall run still
+     * completed) — e.g. an offline vision-assist attempt that failed and was skipped while the
+     * rest of the generation succeeded. Without this, such a failure reads as an ordinary
+     * progress line in an overall-"success" [RunRecord], which is exactly why it can hide from a
+     * diagnostics export someone is scanning for `error != null` records.
+     */
+    val isWarning: Boolean = false,
 )
 
 /** What kind of generation ran. */
@@ -42,6 +50,14 @@ data class RunRecord(
     val error: String? = null,
     val deviceRamMb: Long? = null,
     val note: String = "",
+    /**
+     * Pointer to a fuller record of this run, when there's something to find — the same
+     * `(ref $id)` string already threaded through user-facing failure messages and
+     * [com.zakir.vestra.shared.diagnostics.EngineLogHook.nonFatal] detail strings, so it's
+     * directly greppable against the exported `crash_log.txt`/`app_trace.log`. Null when the
+     * run succeeded cleanly (no reason to point anywhere).
+     */
+    val stackTraceRef: String? = null,
 ) {
     fun humanSummary(): String = buildString {
         appendLine("${capability.replace('_', ' ')} · ${if (success) "OK" else "FAILED"} · ${totalDurationMs}ms")
@@ -84,12 +100,14 @@ class RunDiagnostics(
         modelId: String? = null,
         modelLabel: String? = null,
         deviceRamMb: Long? = null,
+        id: String? = null,
     ): RunBuilder = RunBuilder(
         capability = capability,
         tier = tier,
         modelId = modelId,
         modelLabel = modelLabel,
         deviceRamMb = deviceRamMb,
+        presetId = id,
         onComplete = ::append,
     )
 
@@ -138,6 +156,7 @@ class RunDiagnostics(
         private val modelId: String?,
         private val modelLabel: String?,
         private val deviceRamMb: Long?,
+        presetId: String?,
         private val onComplete: (RunRecord) -> Unit,
     ) {
         private val startedAt = EpochClock.System.nowMs()
@@ -146,15 +165,19 @@ class RunDiagnostics(
         /**
          * Stable id for this run, known before [complete] — lets a caller thread a lookup-able
          * reference into a user-facing failure message (e.g. "… (ref $id)"), correlating what
-         * the user sees on screen to the full record in Settings → Diagnostics.
+         * the user sees on screen to the full record in Settings → Diagnostics. Callers that
+         * need this run's id to also correlate with another store (e.g. [LocalJobStore]'s
+         * interrupted-job id) can supply it via [startRun]'s `id` param instead of relying on
+         * this default.
          */
-        val id: String = "$startedAt-${capability.name}"
+        val id: String = presetId ?: "$startedAt-${capability.name}"
 
-        fun stage(name: String, durationMs: Long, detail: String = "") {
-            stages += RunStage(name, durationMs, detail)
+        fun stage(name: String, durationMs: Long, detail: String = "", isWarning: Boolean = false) {
+            stages += RunStage(name, durationMs, detail, isWarning)
         }
 
         fun complete(success: Boolean, error: String? = null, note: String = "") {
+            val hasHiddenFailure = stages.any { it.isWarning }
             onComplete(
                 RunRecord(
                     id = id,
@@ -169,6 +192,7 @@ class RunDiagnostics(
                     error = error,
                     deviceRamMb = deviceRamMb,
                     note = note,
+                    stackTraceRef = if (!success || hasHiddenFailure) "ref=$id" else null,
                 ),
             )
         }

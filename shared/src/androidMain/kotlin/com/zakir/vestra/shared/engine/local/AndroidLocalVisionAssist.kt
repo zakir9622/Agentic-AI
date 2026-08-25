@@ -1,6 +1,7 @@
 package com.zakir.vestra.shared.engine.local
 
 import android.content.Context
+import com.zakir.vestra.shared.engine.litert.LiteRtLmEngineCache
 import com.zakir.vestra.shared.packs.ModelPackManager
 import java.io.File
 
@@ -14,7 +15,26 @@ class AndroidLocalVisionAssist(
     private val useGpu: () -> Boolean = { false },
 ) : LocalVisionAssist {
 
-    override fun isReady(): Boolean = resolveModel() != null
+    override fun isReady(): Boolean = readinessReason() == null
+
+    override fun readinessReason(): String? {
+        val resolved = resolveModel()
+            ?: return "Download ${LiteRtLmPacks.GEMMA4_CODE} (~2.6 GB) from Model packs for offline vision assist."
+        val spec = LiteRtLmEngineCache.EngineSpec(
+            modelPath = resolved.modelPath,
+            useGpu = useGpu(),
+            visionEnabled = resolved.config.vision,
+            audioEnabled = false,
+        )
+        // A pack whose vision-encoder signature the SDK has already rejected once fails
+        // deterministically forever (LiteRtLmEngineCache caches it, durably across restarts) —
+        // reflect that up front instead of letting the UI offer a toggle that will just silently
+        // "skip" the assist every time.
+        return LiteRtLmEngineCache.failureReason(spec)?.let {
+            "Offline vision analysis isn't available for the installed pack — it needs a " +
+                "corrected model export. Reinstalling the pack won't fix this."
+        }
+    }
 
     override fun describeImage(imagePath: String, question: String): LocalAssistResult {
         val resolved = resolveModel()

@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.engine.local
 
 import android.content.Context
 import com.google.ai.edge.litertlm.ToolSet
+import com.zakir.vestra.shared.diagnostics.EngineLogHook
 import com.zakir.vestra.shared.engine.litert.LiteRtLmEngine
 import com.zakir.vestra.shared.engine.litert.LiteRtLmEngineCache
 import com.zakir.vestra.shared.engine.litert.LiteRtLmGenerateResult
@@ -46,6 +47,7 @@ internal object LiteRtLmInference {
             LiteRtLmEngineCache.withEngine(context, spec, tools) { /* load only */ }
             null
         } catch (err: Throwable) {
+            EngineLogHook.nonFatal("LiteRtLmInference.warmUpEngine", err, "packId=$packId model=${File(modelPath).name}")
             err.message?.take(200) ?: "LiteRT-LM failed to load."
         } finally {
             packs.markPackIdle(packId)
@@ -82,6 +84,7 @@ internal object LiteRtLmInference {
                 }
             }
         } catch (err: Throwable) {
+            EngineLogHook.nonFatal("LiteRtLmInference.runText", err, "packId=$packId model=${File(modelPath).name}")
             mapUnavailable(err.message?.take(200) ?: "LiteRT-LM failed.")
         } finally {
             packs.markPackIdle(packId)
@@ -140,6 +143,7 @@ internal object LiteRtLmInference {
                 }
             }
         } catch (err: Throwable) {
+            EngineLogHook.nonFatal("LiteRtLmInference.runVision", err, "packId=$packId model=${File(modelPath).name}")
             mapUnavailable(err.message?.take(200) ?: "Vision assist failed.")
         } finally {
             packs.markPackIdle(packId)
@@ -173,6 +177,7 @@ internal object LiteRtLmInference {
                 }
             }
         } catch (err: Throwable) {
+            EngineLogHook.nonFatal("LiteRtLmInference.runTranscribe", err, "packId=$packId model=${File(modelPath).name}")
             mapUnavailable(err.message?.take(200) ?: "Transcription failed.")
         } finally {
             packs.markPackIdle(packId)

@@ -5,6 +5,7 @@ import com.zakir.vestra.shared.domain.EngineTier
 import com.zakir.vestra.shared.usage.UsageSummary
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class RunDiagnosticsTest {
@@ -49,5 +50,37 @@ class RunDiagnosticsTest {
         assertTrue(bundle.contains("logcatSnippet"))
         assertTrue(bundle.contains("sample warning line"))
         assertTrue(bundle.contains("3.0.8 (50)"))
+    }
+
+    @Test
+    fun startRunHonorsASuppliedId() {
+        val diag = RunDiagnostics(TestMemorySettings())
+        val builder = diag.startRun(capability = RunCapability.CODE, id = "external-correlation-id")
+        assertEquals("external-correlation-id", builder.id)
+        builder.complete(success = true)
+        assertEquals("external-correlation-id", diag.records.value.first().id)
+    }
+
+    @Test
+    fun startRunGeneratesAnIdWhenNoneIsSupplied() {
+        val diag = RunDiagnostics(TestMemorySettings())
+        val builder = diag.startRun(capability = RunCapability.CODE)
+        assertTrue(builder.id.endsWith("-CODE"))
+        assertNotEquals("external-correlation-id", builder.id)
+    }
+
+    @Test
+    fun warningStageSurvivesReloadFromPersistedSettings() {
+        val settings = TestMemorySettings()
+        val diag = RunDiagnostics(settings)
+        val builder = diag.startRun(capability = RunCapability.IMAGE_EDIT)
+        builder.stage("Vision assist skipped — pack broken", 12, isWarning = true)
+        builder.stage("Encoding prompt", 40)
+        builder.complete(success = true)
+
+        val reloaded = RunDiagnostics(settings)
+        val stages = reloaded.records.value.first().stages
+        assertTrue(stages[0].isWarning)
+        assertTrue(!stages[1].isWarning)
     }
 }

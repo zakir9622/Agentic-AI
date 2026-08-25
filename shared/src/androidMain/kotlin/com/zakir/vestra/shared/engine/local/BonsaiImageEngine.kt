@@ -2,6 +2,7 @@ package com.zakir.vestra.shared.engine.local
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import com.zakir.vestra.shared.diagnostics.EngineLogHook
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.quality.NoOpQualityPostProcessor
 import com.zakir.vestra.shared.quality.QualityEnhancer
@@ -73,6 +74,8 @@ class BonsaiImageEngine(
                 Graph(File(dir, name), THREADS).close()
             }
             null
+        }.onFailure { err ->
+            EngineLogHook.nonFatal("BonsaiImageEngine.warmUp", err, "packId=$packId")
         }.getOrElse { it.message ?: "Bonsai Image engine failed to load" }
             .also { packs.markPackIdle(packId) }
     }
@@ -219,6 +222,8 @@ class BonsaiImageEngine(
             bitmap.recycle()
             onStage("Done", 1f)
             LocalImageResult.Ok(out.absolutePath)
+        }.onFailure { err ->
+            EngineLogHook.nonFatal("BonsaiImageEngine.runGeneration", err, "packId=$packId")
         }.getOrElse { err ->
             LocalImageResult.Unavailable(err.message?.take(200) ?: "On-device image generation failed")
         }

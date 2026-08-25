@@ -1,5 +1,51 @@
 # Changelog — The Lookbook
 
+## 3.1.5
+
+Closes the one item 3.1.4 left explicitly unresolved — the vision-encoder error — plus a
+general pass on model-crash diagnostics, driven by the two research findings from this
+session: what caused the vision-encoder failure, and why the app's own diagnostics export
+couldn't have caught it.
+
+- **Vision-encoder root cause found and mitigated.** The native
+  `"Vision Encoder model must have exactly one signature but got …"` error traces to
+  `scripts/assemble-local-gemma4-pack.py` hardcoding `"vision": true` in the published
+  pack's `config.json` without ever loading the file through a real `Engine` to confirm it
+  validates — nothing in the assemble → publish → on-device pipeline ever did. The app now
+  detects this deterministic failure client-side: `LiteRtLmEngineCache` gained a durable,
+  restart-surviving failure cache (`LiteRtLmFailureStore`, self-invalidating on pack file
+  size change) on top of its existing in-memory one, and the "Analyze reference (offline
+  vision)" toggle in Create Advanced now shows *why* it's disabled instead of silently
+  skipping the assist on every attempt. The publish script itself now defaults `vision`/
+  `audio` to `false` and requires an explicit `--assume-vision`/`--assume-audio` flag (with
+  a `manifest_provenance.json` sidecar) — asserted only after a real on-device check, not on
+  faith. The already-published pack on HF is unchanged; a real republish is out of scope
+  for this pass, but the app no longer trusts its broken capability claim.
+- **Model-crash diagnostics: engine-layer detail no longer gets discarded.** Every native
+  init/generation catch block across `LiteRtLmEngineCache`, `BonsaiImageEngine`, and
+  `LiteRtLmInference` previously kept only the exception's truncated `.message` — the full
+  stack trace and exception type were discarded at that boundary, so a *caught* native
+  failure had strictly less diagnostic detail persisted than an uncaught one. A new
+  `EngineLogHook` bridge (mirroring the existing `DiagnosticsHook` pattern, since `shared`
+  can't see `composeApp`'s `CrashReporter` directly) now routes these through
+  `CrashReporter.recordNonFatal()` with the real `Throwable`, and existing engine-layer
+  `Log.w`/`Log.i` calls (GPU-fallback reasons, cold-load timings) now also land in the
+  exported `app_trace.log` instead of Logcat-only.
+- **One correlation id instead of two.** `RunDiagnostics` and `LocalJobStore` previously
+  minted independent ids for the same generation attempt, so an interrupted job, its
+  diagnostics record, and any crash-log entry for the same incident could only be
+  correlated by eyeballing timestamps. `GenerativeViewModel` now mints one id and threads
+  it into both stores plus `EngineLogHook`'s current-run tracking.
+- **A swallowed sub-step failure no longer hides inside a "success" record.** This is
+  exactly why two rounds of real device logs sent this session never surfaced the
+  vision-encoder error: it's reached through an opt-in toggle, caught non-fatally, and the
+  overall generation still succeeds — so the failure was one ordinary-looking stage line in
+  an otherwise-`success = true` diagnostics record. `RunStage`/`GenerativeState.Running`
+  gained an `isWarning` flag; the Diagnostics screen now auto-expands and highlights such
+  records instead of treating them identically to a clean run. `RunRecord` also gained an
+  optional `stackTraceRef` pointer (`"ref=<id>"`) for failed or warning-flagged runs,
+  greppable against the exported `crash_log.txt`/`app_trace.log`.
+
 ## 3.1.4
 
 Real-device-driven UI/UX pass: isolated modality screens, a leaner generation surface, and two

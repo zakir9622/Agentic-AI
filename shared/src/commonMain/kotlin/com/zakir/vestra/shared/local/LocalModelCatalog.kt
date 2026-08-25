@@ -169,7 +169,14 @@ object LocalModelCatalog {
             license = "Gemma Terms of Use",
             approxSizeLabel = "~2.6 GB (shared with Code)",
             runnable = true,
-            testingNote = "Install local-gemma-4-e2b-v1 once — toggle Analyze reference in Create Advanced.",
+            testingNote = "Install local-gemma-4-e2b-v1 once — toggle Analyze reference in Create Advanced. " +
+                "Confirmed (3.1.5): the published pack's vision encoder fails the SDK's native validator " +
+                "(\"must have exactly one signature but got …\") — config.json asserted \"vision\": true " +
+                "without ever loading the file through a real Engine to check. The app now detects this " +
+                "deterministic failure client-side (LiteRtLmEngineCache.failureReason, durable across " +
+                "restarts) and disables the toggle with an explanatory reason instead of silently " +
+                "skipping the assist every attempt. Needs a Gemma 4 pack republished with a corrected " +
+                "vision-encoder export and a real on-device smoke test before this can be trusted again.",
             pickerRole = LocalModelPickerRole.QUALITY_POST,
         ),
         LocalModelEntry(
