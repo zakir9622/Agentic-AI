@@ -88,6 +88,19 @@ actually fixed, not when it's merely reworded.
   is unverified: no device, and ML Kit's native detection model doesn't run meaningfully under
   Robolectric. Treat detection accuracy as unverified until tested on a real device with real
   photos.
+- **No "gentler path" retry-exhaustion fallback for cloud video/audio generation (Part B.2's
+  audit, deliberately deferred, not built).** When every candidate in a cloud fallback chain
+  fails, `generateVideo`/`generateAudio` in `GenerativeCloudService.kt` throw the last error and
+  surface a `GenerativeState.Failed` — there is no automatic retry at lower resolution or with
+  relaxed constraints. Building one honestly would require per-provider parameter tuning
+  against each Gradio Space's actual API (which specific field lowers resolution/relaxes a
+  constraint, and whether that field is even respected) — something that can't be verified
+  without live access to test the real behavior against. Shipping a guessed fallback risks
+  silently changing generation parameters in a way nobody confirmed actually works, which this
+  project's anti-fabrication stance rules out. The three local blocking generators with no
+  progress signal (video still-clip encode, system TTS, voice-changer DSP) were also audited and
+  left as-is — each is sub-2.5s in practice, so a concurrent progress-ticker was judged not
+  worth its added complexity for that short a window.
 
 ## Design/UX parity with the reference app (lookbookweb)
 

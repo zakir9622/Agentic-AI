@@ -438,20 +438,31 @@ independently valuable. Each is graded for portability given the local-first con
    string concatenation into the existing prompt pipeline and a `Bitmap` pixelation function
    (same complexity class as the existing `BoxBlur`).
 
-4. **Creeping-progress + fallback-path job pattern** (`src/lib/jobs.ts`, `src/lib/retry.ts`).
-   For providers that don't report real progress, ease a progress estimate toward 90% over an
-   expected duration rather than showing an indeterminate spinner; on retry exhaustion, fall
-   back to a gentler path (lower resolution, relaxed constraints, original file) rather than
-   just failing — both stamped with the same correlation-ID discipline Agentic-AI's B3 already
-   established. Where Agentic-AI's local generators already report real per-step progress
-   (image/code streaming), this doesn't apply — but video/audio paths that currently show only
-   a generic spinner are real candidates.
+4. **Creeping-progress + fallback-path job pattern** (`src/lib/jobs.ts`, `src/lib/retry.ts`) —
+   **audited, partially closed.** Cloud video/audio (HF Space polling) already had a real
+   creeping-progress formula (poll-index eased toward a ceiling) duplicated inline at two call
+   sites in `GenerativeCloudService.kt` — not a gap, just untested duplication. Extracted into
+   `CreepingProgress.forPoll()` (`shared/commonMain/cloud`), a single tested primitive both
+   call sites now share (7 unit tests, exact-regression-checked against the original formulas
+   so the emitted fractions are byte-identical). The three local blocking calls with no
+   progress signal at all (video still-clip encode, system TTS, voice-changer DSP) were
+   audited and found to be sub-2.5s in practice — a concurrent progress-ticker for a window
+   that short was judged not worth the added complexity, so left as-is (their progress bar
+   sits at a fixed low value for that brief window rather than creeping). The
+   retry-exhaustion "gentler path" (lower resolution/relaxed constraints) is **deferred, not
+   built**: a real fallback would need per-provider parameter tuning for each Gradio Space's
+   actual API, which can't be verified without live access to test against — building it
+   without that verification risks shipping fabricated, unverified fallback behavior, which
+   this project's own discipline rules out. Noted here and in `docs/DRAWBACKS.md` as a
+   deliberate scope decision, not a silent drop.
 
 5. **Resumable, range-request pack downloads** (`native/android/EdgeLlmPlugin.kt`'s
-   `downloadModel`). HTTP `Range: bytes=N-` resume against a `.part` file, standard pattern.
-   Audit whether Agentic-AI's `ModelPackManager` download path already resumes on
-   reconnect/app-restart — if it restarts from zero on a multi-GB pack, this is worth porting
-   directly (it's plain Android `HttpURLConnection`/OkHttp code, not React-specific).
+   `downloadModel`) — **audited, no gap found.** `PackDownloadWorker.downloadOneFile` already
+   implements real `Range: bytes=N-` resume per file against on-disk staging that survives
+   process death and app restart (`ModelPackManager.stagingDir`), with `doWork()` recomputing
+   `doneBytes` from actual on-disk file lengths on restart rather than assuming zero, and
+   WorkManager persisting the enqueued job across restarts with exponential backoff. Nothing
+   to port — this item is closed as already-done.
 
 6. **Preflight-report pattern generalized**. lookbookweb's `runPreflight()` (browser
    capability checks) and Agentic-AI's own `AppSettings.preflight()`/`PacksScreen`'s
@@ -493,9 +504,11 @@ renders correctly without a device) and unit tests for every new non-UI capabili
     of the above once A4.2 (Chat) has landed, since it needs the chat surface to inject into.
 12. **Part B.2 — Token budgeting.** Independent; feeds into A4.3.
 13. **Part B.3 — Safety presets.** Independent; feeds into A4.3.
-14. **Part B.4 — Job progress/fallback pattern.** Scope per-generator after auditing which ones
-    still show a bare spinner.
-15. **Part B.5 — Resumable pack downloads.** Audit first; only build if the gap is real.
+14. **Part B.4 — Job progress/fallback pattern.** Done (partial, deliberately): audited every
+    generator, extracted+tested the shared creeping-progress primitive, deferred the
+    gentler-path fallback with a documented reason. See Part B write-up above.
+15. **Part B.5 — Resumable pack downloads.** Done (audit-only, no gap): `ModelPackManager`
+    already resumes via HTTP Range + on-disk staging. See Part B write-up above.
 16. **A12 — Full accessibility pass** (last, so it audits the final state of every other
     phase rather than an intermediate one): 44dp touch targets everywhere, TalkBack labels on
     every icon-only control, live-region equivalents (`liveRegion` semantics) for generation

@@ -95,6 +95,16 @@ every step (not claimed from reading the code).
   documents for `ModalBottomSheet`. Second, the new Settings safety section was gated behind
   the cloud-only section filter even though the guard applies to local generation too; it's
   now visible from both the Cloud and Engines section entry points.
+- **Part B.4/B.5 — audited, partially closed.** B.5 (resumable pack downloads): audited
+  `PackDownloadWorker`/`ModelPackManager` and found real HTTP `Range` resume + on-disk staging
+  that survives app restart already in place — closed as a no-op, nothing to port. B.4
+  (creeping progress / retry-exhaustion fallback): the cloud video/audio poll-progress formula
+  already existed but was duplicated inline at two call sites — extracted into a single tested
+  `CreepingProgress.forPoll()` primitive (`shared/commonMain/cloud`, 7 new unit tests,
+  exact-regression-checked so the emitted progress fractions are unchanged). The
+  retry-exhaustion "gentler path" fallback and progress-ticking the three sub-2.5s local
+  blocking calls (video encode, system TTS, voice-changer DSP) are deliberately **not**
+  built — reasoned and documented in `docs/DRAWBACKS.md` rather than silently dropped.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 
