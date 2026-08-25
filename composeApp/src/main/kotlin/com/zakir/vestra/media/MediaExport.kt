@@ -6,10 +6,11 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.provider.MediaStore
-import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
 import com.zakir.vestra.shared.engine.lite.Watermark
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import java.io.File
 import java.io.FileOutputStream
 
@@ -25,7 +26,7 @@ object MediaExport {
 
     fun saveImageToGallery(context: Context, file: File, quiet: Boolean = false): Boolean {
         if (!file.exists()) {
-            if (!quiet) Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+            if (!quiet) GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
             return false
         }
         Provenance.ensureImageFile(file, applyVisibleWatermark = false)
@@ -41,7 +42,7 @@ object MediaExport {
         }
         val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
         if (uri == null) {
-            if (!quiet) Toast.makeText(context, "Couldn't save to Photos", Toast.LENGTH_SHORT).show()
+            if (!quiet) GlassSnackbar.show("Couldn't save to Photos", SnackbarLevel.ERROR)
             return false
         }
         val written = runCatching {
@@ -51,7 +52,7 @@ object MediaExport {
         }.getOrDefault(false)
         if (!written) {
             runCatching { context.contentResolver.delete(uri, null, null) }
-            if (!quiet) Toast.makeText(context, "Couldn't save to Photos", Toast.LENGTH_SHORT).show()
+            if (!quiet) GlassSnackbar.show("Couldn't save to Photos", SnackbarLevel.ERROR)
             return false
         }
         runCatching {
@@ -59,14 +60,14 @@ object MediaExport {
             context.contentResolver.update(uri, done, null, null)
         }
         if (!quiet) {
-            Toast.makeText(context, "Saved to Photos · $IMAGE_ALBUM_RELATIVE_PATH", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("Saved to Photos · $IMAGE_ALBUM_RELATIVE_PATH", SnackbarLevel.SUCCESS)
         }
         return true
     }
 
     fun saveVideoToGallery(context: Context, file: File, quiet: Boolean = false): Boolean {
         if (!file.exists()) {
-            if (!quiet) Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+            if (!quiet) GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
             return false
         }
         val mime = when (file.extension.lowercase()) {
@@ -81,7 +82,7 @@ object MediaExport {
         }
         val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
         if (uri == null) {
-            if (!quiet) Toast.makeText(context, "Couldn't save video", Toast.LENGTH_SHORT).show()
+            if (!quiet) GlassSnackbar.show("Couldn't save video", SnackbarLevel.ERROR)
             return false
         }
         val written = runCatching {
@@ -91,7 +92,7 @@ object MediaExport {
         }.getOrDefault(false)
         if (!written) {
             runCatching { context.contentResolver.delete(uri, null, null) }
-            if (!quiet) Toast.makeText(context, "Couldn't save video", Toast.LENGTH_SHORT).show()
+            if (!quiet) GlassSnackbar.show("Couldn't save video", SnackbarLevel.ERROR)
             return false
         }
         runCatching {
@@ -99,7 +100,7 @@ object MediaExport {
             context.contentResolver.update(uri, done, null, null)
         }
         if (!quiet) {
-            Toast.makeText(context, "Saved to $VIDEO_ALBUM_RELATIVE_PATH", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("Saved to $VIDEO_ALBUM_RELATIVE_PATH", SnackbarLevel.SUCCESS)
         }
         return true
     }
@@ -107,21 +108,20 @@ object MediaExport {
     fun saveAllImages(context: Context, files: List<File>): Int {
         var ok = 0
         files.forEach { if (saveImageToGallery(context, it, quiet = true)) ok++ }
-        Toast.makeText(
-            context,
+        GlassSnackbar.show(
             when {
                 ok == 0 -> "Couldn't save to Photos"
                 ok == 1 -> "Saved to Photos · $IMAGE_ALBUM_RELATIVE_PATH"
                 else -> "$ok shots saved to Photos · $IMAGE_ALBUM_RELATIVE_PATH"
             },
-            Toast.LENGTH_SHORT,
-        ).show()
+            if (ok > 0) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR,
+        )
         return ok
     }
 
     fun share(context: Context, file: File, chooserTitle: String = "Share") {
         if (!file.exists()) {
-            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
             return
         }
         if (file.extension.lowercase() in setOf("jpg", "jpeg", "png")) {
@@ -147,7 +147,7 @@ object MediaExport {
 
     fun openVideo(context: Context, file: File) {
         if (!file.exists()) {
-            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
             return
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -161,7 +161,7 @@ object MediaExport {
 
     fun openAudio(context: Context, file: File) {
         if (!file.exists()) {
-            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
             return
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

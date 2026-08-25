@@ -2,7 +2,6 @@ package com.zakir.vestra.ui.components
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -114,8 +113,7 @@ fun CodeOutput(text: String, modifier: Modifier = Modifier) {
                                     cm?.setPrimaryClip(
                                         ClipData.newPlainText("lookbook-code", segment.code),
                                     )
-                                    Toast.makeText(context, "Block copied", Toast.LENGTH_SHORT)
-                                        .show()
+                                    GlassSnackbar.show("Block copied", SnackbarLevel.SUCCESS)
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                         )

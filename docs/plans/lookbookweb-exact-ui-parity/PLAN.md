@@ -391,12 +391,23 @@ for. No action beyond ensuring touch targets stay ≥44dp everywhere (fold into 
 
 ### A7. Toasts
 
-lookbookweb uses `sonner`, top-center, for all success/error/info/warning notices. Audit
-Agentic-AI's current `Toast.makeText(...)` usage (Android's native toast, bottom-anchored) —
-consider a Compose `SnackbarHost` positioned top-center with the same 4-level styling instead,
-for closer visual parity, since Android's native `Toast` can't be repositioned or styled to
-match. This is a real, scoped, cross-cutting change (touches every `Toast.makeText` call site)
-— treat as its own phase, not a side effect of another one.
+**Done.** lookbookweb uses `sonner`, top-center, for all success/error/info/warning notices.
+Every `Toast.makeText(...).show()` call site in the app (13 files, ~40 call sites, including
+`MediaExport` — a plain Kotlin object with no Composable scope) is replaced with `GlassSnackbar`
+(`composeApp/.../ui/components/GlassSnackbar.kt`): a global `MutableSharedFlow` message bus any
+code can post to, plus a single `GlassSnackbarHost` mounted once at the app root
+(`VestraNavHost`), positioned top-center, styled per lookbookweb's 4-level convention
+(success/error/warning/info — distinct icon + accent color each; warning's amber is a
+conventional choice, not sourced from lookbookweb's exact `sonner` hex, which wasn't captured in
+this session's research).
+Code-review caught and fixed three real bugs before landing: (1) the exit animation cleared the
+displayed message in the same frame it started, so the card blinked off instead of animating out
+— fixed by keeping the last-shown request in a separate `displayed` state that outlives `visible`
+turning false. (2) `collect` processed messages strictly one at a time, so a newer message queued
+behind whatever was already showing for up to 3.2s instead of pre-empting it — fixed by switching
+to `collectLatest`. (3) the `SharedFlow`'s default `BufferOverflow.SUSPEND` meant a burst of 9+
+calls would silently drop the 9th+ — fixed with `BufferOverflow.DROP_OLDEST`, matching the
+"latest wins" semantics `collectLatest` already implements.
 
 ### A8. No page-transition animation
 
@@ -510,10 +521,20 @@ renders correctly without a device) and unit tests for every new non-UI capabili
    renders the release list, linked from Settings → About. Code-review caught and fixed two
    real bugs before landing: a non-version `## CI / releases` heading being mis-parsed as a
    fake release, and synchronous asset I/O blocking the composition thread.
+   **A4.2/A5 — Chat memory pill.** Done: "Remembering N things" header pill wired to Part B.1's
+   real `MemoryRepository.facts` count, hidden entirely at zero facts; `Brain` → Material Symbols
+   `Psychology` (A5's icon-intent-match rule). Code-review found the first pass hand-duplicated
+   `GlassPill`'s container styling a third time — fixed by adding an optional `leadingIcon` slot
+   to `GlassPill` itself.
 8. **A4.5–A4.7 — Create screens** (Image/Video/Voice), scoping each engine-dependent item
    honestly per the notes above rather than adding UI for capabilities that don't exist yet.
 9. **A4.8 — Sources** (new source-management screen).
-10. **A5–A8 — Icons, responsive/touch-target audit, toast repositioning, transition audit.**
+10. **A7 — Toast repositioning.** Done: every `Toast.makeText` call site (13 files) replaced with
+    `GlassSnackbar`, a top-center Compose message bus reachable from Composable and plain-Kotlin
+    call sites alike (see A7 section above for the three code-review-caught bugs fixed before
+    landing). **A5/A6/A8** — icon-intent audit (partially covered by the A4.2 pill above; a
+    fuller pass folds into A12), responsive/touch-target audit (folds into A12), and the
+    no-page-transition-animation confirmation (already matches, no action needed) remain.
 11. **Part B.1 — Local chat memory.** Independent of UI phases; can run in parallel with any
     of the above once A4.2 (Chat) has landed, since it needs the chat surface to inject into.
 12. **Part B.2 — Token budgeting.** Independent; feeds into A4.3.

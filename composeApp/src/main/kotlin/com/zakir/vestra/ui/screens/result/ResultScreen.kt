@@ -1,6 +1,5 @@
 package com.zakir.vestra.ui.screens.result
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,7 +59,9 @@ import com.zakir.vestra.ui.components.GlassImageFrame
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
+import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
@@ -98,7 +99,7 @@ fun ResultScreen(
                             onClick = {
                                 reportStore.submit(result.imagePath, reason)
                                 showReport = false
-                                Toast.makeText(context, "Report saved locally", Toast.LENGTH_SHORT).show()
+                                GlassSnackbar.show("Report saved locally", SnackbarLevel.SUCCESS)
                             },
                         ) { Text(reason.label) }
                     }

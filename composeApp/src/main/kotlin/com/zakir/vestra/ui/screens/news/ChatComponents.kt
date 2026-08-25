@@ -1,6 +1,5 @@
 package com.zakir.vestra.ui.screens.news
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -61,7 +60,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +72,8 @@ import com.zakir.vestra.shared.chat.ChatMessage
 import com.zakir.vestra.shared.chat.ContextBudget
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
@@ -93,7 +93,6 @@ fun ChatMessageBubble(
 ) {
     val isUser = message.role.equals("user", ignoreCase = true)
     val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
 
     val formattedTime = remember(message.timestampMs) {
@@ -238,7 +237,7 @@ fun ChatMessageBubble(
                             onClick = {
                                 clipboardManager.setText(AnnotatedString(message.text))
                                 copied = true
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                GlassSnackbar.show("Copied to clipboard", SnackbarLevel.SUCCESS)
                             },
                             modifier = Modifier.size(20.dp),
                         ) {

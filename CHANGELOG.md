@@ -204,6 +204,22 @@ every step (not claimed from reading the code).
   container styling a third time (`GlassPill`, `ProTierPill`, now this) — fixed by adding an
   optional `leadingIcon` slot to `GlassPill` itself and having `MemoryPill` reuse it, so the
   pill's shape/fill/border styling has one source of truth again.
+- **A7 — Toast repositioning.** lookbookweb uses `sonner`, top-center, for every success/error/
+  warning/info notice; Android's native `Toast` is bottom-anchored and can't be repositioned or
+  restyled to match. Replaced every `Toast.makeText(...).show()` call site in the app — 13 files,
+  ~40 sites, including `MediaExport` (a plain Kotlin object with no Composable scope) — with
+  `GlassSnackbar` (`ui/components/GlassSnackbar.kt`): a global `MutableSharedFlow` message bus
+  any code can post to, plus one `GlassSnackbarHost` mounted at the app root (`VestraNavHost`),
+  top-center, styled with distinct icon+accent per level (success/error/warning/info; warning's
+  amber is a conventional choice, not sourced from lookbookweb's exact unseen `sonner` hex).
+  Fixed during review, before landing: (1) the exit animation cleared the displayed message the
+  same frame it started, so the card blinked off instead of animating away — fixed by keeping the
+  last-shown request in a `displayed` state that outlives `visible` turning false. (2) `collect`
+  processed messages strictly one at a time, so a newer message queued behind whatever was
+  already showing for up to 3.2s instead of pre-empting it — switched to `collectLatest`. (3) the
+  flow's default `BufferOverflow.SUSPEND` meant a burst of 9+ calls would silently drop the 9th+
+  — fixed with `BufferOverflow.DROP_OLDEST`, matching the "latest wins" semantics `collectLatest`
+  already implements.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

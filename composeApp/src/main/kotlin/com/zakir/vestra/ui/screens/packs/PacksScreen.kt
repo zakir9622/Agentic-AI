@@ -1,6 +1,5 @@
 package com.zakir.vestra.ui.screens.packs
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +39,8 @@ import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -96,7 +97,7 @@ fun PacksScreen(
             handshakingPackId = null
             handshakeBannerOk = result.ok
             handshakeBanner = PackHandshakeWires.formatDetail(result)
-            Toast.makeText(context, PackHandshakeWires.formatUserSummary(result), Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show(PackHandshakeWires.formatUserSummary(result), if (result.ok) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR)
         }
     }
 
@@ -112,7 +113,7 @@ fun PacksScreen(
             handshakingPackId = null
             handshakeBannerOk = report.allOk && report.results.isNotEmpty()
             handshakeBanner = report.summary
-            Toast.makeText(context, report.summary, Toast.LENGTH_LONG).show()
+            GlassSnackbar.show(report.summary, if (handshakeBannerOk == true) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING)
         }
     }
 
@@ -222,17 +223,16 @@ fun PacksScreen(
                 onCancel = {
                     PackDownloadWorker.cancel(context, state.pack.id)
                     packManager.markCancelled(state.pack.id)
-                    Toast.makeText(context, "Download force-stopped — tap Download to resume", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("Download force-stopped — tap Download to resume", SnackbarLevel.WARNING)
                 },
                 onUninstall = {
                     scope.launch {
                         val ok = withContext(Dispatchers.IO) { packManager.uninstall(state.pack.id) }
                         if (!ok) {
-                            Toast.makeText(
-                                context,
+                            GlassSnackbar.show(
                                 "Can't remove ${state.pack.displayName} while a generation is running",
-                                Toast.LENGTH_LONG,
-                            ).show()
+                                SnackbarLevel.ERROR,
+                            )
                         } else {
                             packHandshake = packHandshake - state.pack.id
                         }

@@ -2,12 +2,16 @@ package com.zakir.vestra.ui
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.collectAsState
@@ -189,6 +193,7 @@ fun VestraNavHost(
 
     var showQuickCreate by remember { mutableStateOf(false) }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         // Zeroed out deliberately: each screen already calls its own `.safeDrawingPadding()` for
         // status/nav-bar insets. Leaving Scaffold's default `WindowInsets.safeDrawing` here would
@@ -553,5 +558,12 @@ fun VestraNavHost(
             },
             onDismiss = { showQuickCreate = false },
         )
+    }
+
+    com.zakir.vestra.ui.components.GlassSnackbarHost(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .safeDrawingPadding(),
+    )
     }
 }

@@ -3,7 +3,6 @@ package com.zakir.vestra.ui.screens.settings
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,7 +47,9 @@ import com.zakir.vestra.shared.settings.TokenPortals
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.storage.TokenSidecar
+import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
 import kotlinx.coroutines.Dispatchers
@@ -158,11 +159,10 @@ fun SettingsScreen(
             groqInput = appSettings.groqApiKey.value.orEmpty()
             openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
             keysSavedFlash = count > 0
-            Toast.makeText(
-                context,
+            GlassSnackbar.show(
                 if (count > 0) "Imported $count key(s) from file" else "No HF/Groq/OpenRouter keys found in file",
-                Toast.LENGTH_LONG,
-            ).show()
+                if (count > 0) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
+            )
         }
     }
 
@@ -186,7 +186,7 @@ fun SettingsScreen(
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }.onFailure {
-            Toast.makeText(context, "No browser available", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("No browser available", SnackbarLevel.ERROR)
         }
     }
 
@@ -198,11 +198,10 @@ fun SettingsScreen(
         clipboardHint = null
         val saved = TokenSidecar.persist(context, appSettings)
         if (!saved && !DurableStorage.hasAllFilesAccess()) {
-            Toast.makeText(
-                context,
+            GlassSnackbar.show(
                 "Tokens saved in-app. Download a model pack to enable durable storage so keys survive reinstall.",
-                Toast.LENGTH_LONG,
-            ).show()
+                SnackbarLevel.INFO,
+            )
         }
         scope.launch {
             runCatching { freeCloudDiscovery.refreshRouterDiscovery(appSettings) }
@@ -274,7 +273,7 @@ fun SettingsScreen(
                         openRouterInput = ""
                         keysSavedFlash = false
                         confirmClearTokens = false
-                        Toast.makeText(context, "API keys cleared", Toast.LENGTH_SHORT).show()
+                        GlassSnackbar.show("API keys cleared", SnackbarLevel.SUCCESS)
                     },
                     modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.SETTINGS_CLEAR_TOKENS_CONFIRM),
                 ) { Text("Clear") }
@@ -356,11 +355,10 @@ fun SettingsScreen(
                             handshakeBusy = false
                             handshakeOk = result.ok
                             handshakeDetail = PackHandshakeWires.formatDetail(result)
-                            Toast.makeText(
-                                context,
+                            GlassSnackbar.show(
                                 PackHandshakeWires.formatUserSummary(result),
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                                if (result.ok) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR,
+                            )
                         }
                     },
                     onHandshakeAll = {
@@ -384,7 +382,10 @@ fun SettingsScreen(
                                     append("\n… +${report.results.size - 4} more")
                                 }
                             }
-                            Toast.makeText(context, report.summary, Toast.LENGTH_LONG).show()
+                            GlassSnackbar.show(
+                                report.summary,
+                                if (handshakeOk == true) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
+                            )
                         }
                     },
                 )

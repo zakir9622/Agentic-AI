@@ -1,6 +1,5 @@
 package com.zakir.vestra.ui.screens.wardrobe
 
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -47,6 +46,8 @@ import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.TestTags
 import java.io.File
 
@@ -116,7 +117,7 @@ fun WardrobeScreen(
             onShare = {
                 val file = File(entry.imagePath)
                 if (!file.exists()) {
-                    Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
                 } else if (file.extension.lowercase() in setOf("mp4", "webm")) {
                     MediaExport.share(context, file, LookbookCopy.ACTION_SHARE)
                 } else {
@@ -150,7 +151,7 @@ fun WardrobeScreen(
                         runCatching { if (file.exists()) file.delete() }
                         wardrobe.remove(entry.id)
                         pendingDelete = null
-                        Toast.makeText(context, "Removed", Toast.LENGTH_SHORT).show()
+                        GlassSnackbar.show("Removed", SnackbarLevel.SUCCESS)
                     },
                     modifier = Modifier.testTag(TestTags.WARDROBE_DELETE_CONFIRM),
                 ) { Text("Delete") }
@@ -258,7 +259,7 @@ fun WardrobeScreen(
                                     .clip(RoundedCornerShape(16.dp))
                                     .clickable {
                                         if (!file.exists()) {
-                                            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                                            GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
                                             return@clickable
                                         }
                                         detail = entry
@@ -291,7 +292,7 @@ fun WardrobeScreen(
                                     text = LookbookCopy.ACTION_SHARE,
                                     onClick = {
                                         if (!file.exists()) {
-                                            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                                            GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
                                         } else {
                                             MediaExport.share(context, file, LookbookCopy.ACTION_SHARE)
                                         }

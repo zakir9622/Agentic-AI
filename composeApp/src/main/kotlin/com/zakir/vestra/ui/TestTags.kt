@@ -147,4 +147,7 @@ object TestTags {
 
     // Changelog screen (ChangelogScreen.kt) — Part A4.10.
     fun changelogRelease(version: String): String = "changelog_release_${version.replace(' ', '_')}"
+
+    // Top-center glass snackbar (GlassSnackbar.kt) — A7, replaces bottom-anchored Toast.
+    const val GLASS_SNACKBAR = "glass_snackbar"
 }

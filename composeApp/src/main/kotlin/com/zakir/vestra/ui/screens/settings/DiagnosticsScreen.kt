@@ -1,7 +1,6 @@
 package com.zakir.vestra.ui.screens.settings
 
 import android.content.Intent
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +29,8 @@ import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -194,7 +195,7 @@ fun DiagnosticsScreen(
                 onClick = {
                     CrashReporter.clearCrashHistory()
                     crashTick++
-                    Toast.makeText(context, "Crash log cleared", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("Crash log cleared", SnackbarLevel.SUCCESS)
                 },
                 enabled = pendingCrash || CrashReporter.readCrashLog(64).isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
@@ -205,7 +206,7 @@ fun DiagnosticsScreen(
             OutlinedButton(
                 onClick = {
                     CrashReporter.clearAppTrace()
-                    Toast.makeText(context, "App trace cleared", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("App trace cleared", SnackbarLevel.SUCCESS)
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
