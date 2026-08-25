@@ -218,6 +218,52 @@ fun GlassCard(
     }
 }
 
+/**
+ * Exact-match of lookbookweb's `solid-card` utility (`styles.css:259-263`): same border/shadow
+ * treatment as [GlassCard] but an opaque fill (`--color-card`, not the translucent glass mix) —
+ * for dense reading surfaces that still want the card rim + depth without content showing
+ * through (chat bubbles, transcript boxes). See
+ * docs/plans/lookbookweb-exact-ui-parity/PLAN.md A3.
+ */
+@Composable
+fun SolidCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(RadiusTokens.lg)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val reduceMotion = rememberReduceMotion()
+    val pressScale by animateFloatAsState(
+        targetValue = if (onClick != null && pressed && !reduceMotion) 0.97f else 1f,
+        label = "solidCardPressScale",
+    )
+    val base = modifier
+        .fillMaxWidth()
+        .graphicsLayer {
+            scaleX = pressScale
+            scaleY = pressScale
+        }
+        .clip(shape)
+        .background(VestraColors.SurfaceRaised)
+        .border(width = 1.dp, color = VestraColors.GlassBorder, shape = shape)
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = base,
+            color = Color.Transparent,
+            shape = shape,
+            interactionSource = interactionSource,
+        ) {
+            Column(Modifier.padding(SpacingTokens.section), content = content)
+        }
+    } else {
+        Column(base.padding(SpacingTokens.section), content = content)
+    }
+}
+
 @Composable
 fun GlassSectionLabel(
     text: String,

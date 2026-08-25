@@ -37,6 +37,17 @@ every step (not claimed from reading the code).
   existing `ScreenshotTest` renders re-verified against the new palette by direct visual
   inspection (2 screenshots checked pixel-by-pixel: the dock's active-item fill and the Create
   FAB gradient both render correctly, not just compile).
+- **A3 — `SolidCard`.** Added the exact-match opaque card variant (`solid-card` in
+  lookbookweb: same border/shadow as `GlassCard` but no translucency) for dense reading
+  surfaces — chat bubbles, transcript boxes. New screenshot confirms it renders correctly.
+- **Fixed during review, before landing:** a real dark-mode bug where `AtelierCanvas` (the fixed
+  dark scrim behind generation previews) and `Ivory` (the text drawn on top of it) collided to
+  the same color in the dark palette, making that text invisible — both are theme-independent by
+  original design and are now fixed correctly in both palettes. Also: `floatSlow()`/
+  `driftSlow()` now use a real CSS-equivalent ease-in-out curve instead of linear (their doc
+  comments already claimed ease-in-out; the implementation didn't match), and the
+  press-gesture-tracking code duplicated across `tilt3d`/`press3d`/`lift3d` is now shared via
+  `rememberPressedState()` for the latter two.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

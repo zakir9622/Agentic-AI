@@ -554,4 +554,17 @@ class ScreenshotTest {
             }
         }
     }
+
+    @Test
+    fun solidCardOpaqueSurface() {
+        shoot("21-solid-card") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(18.dp)) {
+                com.zakir.vestra.ui.components.SolidCard {
+                    androidx.compose.material3.Text(
+                        "A dense reading surface — solid-card exact match: opaque fill, same rim/shadow as GlassCard.",
+                    )
+                }
+            }
+        }
+    }
 }
