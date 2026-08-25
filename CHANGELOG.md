@@ -1,5 +1,26 @@
 # Changelog — The Lookbook
 
+## 3.1.0-rc24
+- **A0 completion — modality accents now reach every studio surface**, not just the header
+  label: `VestraColors.modalityAccent(AiCapability)` resolves the right per-modality tint (brass
+  for Image/Edit/Try-on, copper for Video, teal for Code, dusty rose for Audio) and is now
+  threaded through `PromptComposer` (border, model chip, reference-image icon), `ResultPane`
+  (loading spinner/progress bar, result pills), `HomeScreen`'s tab row (selected-tab color),
+  `ModelPickerSheet` (search field, section headers, selection state, status dots), and
+  `AudioStudioPane`'s voice-changer knob readouts. Image/Video/Code studios pick this up via
+  `UnifiedStudioPane`; Audio wires its own `VestraColors.ModalityAudio` since it isn't routed
+  through that shared pane.
+- **Added `SpacingTokens`** (`xxs`…`xxl`, plus `section` for the historical 18.dp card padding) —
+  replaces ad hoc `18.dp` literals in `GlassCard`, `HomeScreen`, and `UnifiedStudioPane`/
+  `AudioStudioPane`'s outer padding.
+- **A2 completion — `Modifier.tilt3d()`**: a lightweight 3D perspective-tilt micro-interaction
+  (pointer-driven `rotationX`/`rotationY` via `graphicsLayer`, springs back to flat on release),
+  gated by `rememberReduceMotion()` like every other animation in this app — an exact no-op
+  Modifier when reduced motion is on. Applied to the try-on hero card.
+- **Added `GlassTile`** — a lighter nested-content variant of `GlassCard` (stronger fill,
+  `RadiusTokens.md`, no press-lift/shadow) for future list-row use inside existing glass cards.
+- New tests: `SpacingTokensTest`, `ModalityAccentTest`, `TiltModifierTest` (Robolectric).
+
 ## 3.1.0-rc23
 - **Fixed a real prompt-leak bug, found directly from a user report**: typing a prompt in one
   studio tab (Image/Video/Code/Audio), then visiting News/Chat and tapping a headline, could

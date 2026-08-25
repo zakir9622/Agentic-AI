@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 
 /**
@@ -59,6 +61,7 @@ fun PromptComposer(
     onSend: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    accent: Color = VestraColors.Accent,
     placeholder: String = "Describe the look…",
     referenceUri: String? = null,
     onAddReference: (() -> Unit)? = null,
@@ -74,7 +77,7 @@ fun PromptComposer(
             .border(
                 1.dp,
                 Brush.verticalGradient(
-                    listOf(VestraColors.GlassHighlight, VestraColors.Accent.copy(alpha = 0.35f)),
+                    listOf(VestraColors.GlassHighlight, accent.copy(alpha = 0.35f)),
                 ),
                 shape,
             )
@@ -113,7 +116,7 @@ fun PromptComposer(
                         Icon(
                             Icons.Outlined.AddPhotoAlternate,
                             contentDescription = "Add reference image",
-                            tint = VestraColors.Accent,
+                            tint = accent,
                         )
                     }
                 }
@@ -130,12 +133,12 @@ fun PromptComposer(
             maxLines = 5,
             placeholder = { Text(placeholder) },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
+                focusedBorderColor = accent.copy(alpha = 0.55f),
                 unfocusedBorderColor = VestraColors.GlassBorder,
                 focusedContainerColor = VestraColors.GlassFill,
                 unfocusedContainerColor = VestraColors.GlassFill,
             ),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(SpacingTokens.section),
         )
 
         if (assistToggles != null) {
@@ -163,6 +166,7 @@ fun PromptComposer(
             ModelChip(
                 label = modelLabel,
                 onClick = onModelClick,
+                accent = accent,
                 modifier = Modifier.weight(1f).testTag(TestTags.MODEL_CHIP),
             )
             AssistChip(
@@ -185,6 +189,7 @@ fun PromptComposer(
 private fun ModelChip(
     label: String,
     onClick: (() -> Unit)?,
+    accent: Color = VestraColors.Accent,
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(50)
@@ -197,7 +202,7 @@ private fun ModelChip(
         modifier
             .clip(shape)
             .background(VestraColors.GlassFill)
-            .border(1.dp, VestraColors.Accent.copy(alpha = 0.4f), shape)
+            .border(1.dp, accent.copy(alpha = 0.4f), shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics { contentDescription = a11y }
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -207,7 +212,7 @@ private fun ModelChip(
             Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(VestraColors.Accent),
+                .background(accent),
         )
         Spacer(Modifier.width(8.dp))
         Text(

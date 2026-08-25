@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -56,6 +57,7 @@ import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
+import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
 
@@ -186,13 +188,15 @@ fun AudioStudioPane(
         }
     }
 
+    val accent = VestraColors.ModalityAudio
+
     Column(
         modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+            .padding(horizontal = SpacingTokens.section, vertical = 8.dp),
     ) {
-        GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase())
+        GlassSectionLabel(LookbookCopy.STUDIO_AUDIO.uppercase(), color = accent)
         Text(
             "Device TTS works offline (system voices + knobs). Offline transcription isn't available yet " +
                 "— the published Gemma 4 pack doesn't include audio support. Cloud TTS optional.",
@@ -286,19 +290,19 @@ fun AudioStudioPane(
             style = MaterialTheme.typography.labelSmall,
             color = VestraColors.InkMuted,
         )
-        KnobSlider("Pitch (semitones)", knobs.pitchSemitones, -12f..12f, "%.0f") {
+        KnobSlider("Pitch (semitones)", knobs.pitchSemitones, -12f..12f, "%.0f", accent = accent) {
             viewModel.setVoiceKnobs(knobs.copy(pitchSemitones = it))
         }
-        KnobSlider("Speed", knobs.speed, 0.5f..2f, "%.2f×") {
+        KnobSlider("Speed", knobs.speed, 0.5f..2f, "%.2f×", accent = accent) {
             viewModel.setVoiceKnobs(knobs.copy(speed = it))
         }
-        KnobSlider("Formant", knobs.formant, 0.5f..1.5f, "%.2f") {
+        KnobSlider("Formant", knobs.formant, 0.5f..1.5f, "%.2f", accent = accent) {
             viewModel.setVoiceKnobs(knobs.copy(formant = it))
         }
-        KnobSlider("Warmth", knobs.warmth, 0f..1f, "%.2f") {
+        KnobSlider("Warmth", knobs.warmth, 0f..1f, "%.2f", accent = accent) {
             viewModel.setVoiceKnobs(knobs.copy(warmth = it))
         }
-        KnobSlider("Clarity", knobs.clarity, 0f..1f, "%.2f") {
+        KnobSlider("Clarity", knobs.clarity, 0f..1f, "%.2f", accent = accent) {
             viewModel.setVoiceKnobs(knobs.copy(clarity = it))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -323,6 +327,7 @@ fun AudioStudioPane(
         PromptComposer(
             prompt = prompt,
             onPromptChange = viewModel::setPrompt,
+            accent = accent,
             modelLabel = if (localAudioReady) "Device TTS (offline)" else provider.displayName,
             onModelClick = { showModelPicker = true },
             busy = busy,
@@ -352,6 +357,7 @@ fun AudioStudioPane(
             onDismiss = { viewModel.forceStop(showStopped = false) },
             onCancel = { viewModel.forceStop() },
             retryLabel = "Speak again",
+            accent = accent,
         )
 
         Spacer(Modifier.height(18.dp))
@@ -391,6 +397,7 @@ fun AudioStudioPane(
             onDismiss = { showModelPicker = false },
             onDeviceEntries = onDeviceEntries,
             health = viewModel.appSettings.modelHealth,
+            accent = accent,
         )
     }
 }
@@ -401,12 +408,13 @@ private fun KnobSlider(
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     format: String,
+    accent: Color = VestraColors.Accent,
     onChange: (Float) -> Unit,
 ) {
     Column(Modifier.padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = VestraColors.Ink)
-            Text(format.format(value), style = MaterialTheme.typography.labelSmall, color = VestraColors.Accent)
+            Text(format.format(value), style = MaterialTheme.typography.labelSmall, color = accent)
         }
         Slider(
             value = value,

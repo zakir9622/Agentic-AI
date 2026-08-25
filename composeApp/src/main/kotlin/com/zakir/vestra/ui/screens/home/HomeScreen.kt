@@ -79,8 +79,10 @@ import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.SpatialBackground
+import com.zakir.vestra.ui.components.tilt3d
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.screens.news.NewsChatScreen
+import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
 import java.io.File
@@ -101,6 +103,14 @@ internal enum class HomeTab(val label: String, val routeKey: String) {
     CODE("Code", "code"),
     NEWS("News", "news"),
     ;
+
+    fun selectedColor(): Color = when (this) {
+        IMAGE, TRY_ON -> VestraColors.ModalityImage
+        VIDEO -> VestraColors.ModalityVideo
+        AUDIO -> VestraColors.ModalityAudio
+        CODE -> VestraColors.ModalityCode
+        NEWS -> VestraColors.Accent
+    }
 
     companion object {
         /** Temporarily off while try-on is disabled app-wide. Flip to bring the tab back. */
@@ -217,13 +227,13 @@ fun HomeScreen(
                 .safeDrawingPadding()
                 .alpha(fade),
         ) {
-            androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 18.dp)) {
+            androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = SpacingTokens.section)) {
                 InterruptedJobsBanner(localJobStore)
             }
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp),
+                    .padding(horizontal = SpacingTokens.section),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -313,7 +323,7 @@ fun HomeScreen(
                         text = {
                             Text(
                                 tab.label,
-                                color = if (selected) VestraColors.Accent else VestraColors.InkMuted,
+                                color = if (selected) tab.selectedColor() else VestraColors.InkMuted,
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         },
@@ -391,11 +401,11 @@ private fun TryOnPage(
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 18.dp, top = 8.dp, end = 18.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = SpacingTokens.section, top = 8.dp, end = SpacingTokens.section, bottom = 24.dp),
     ) {
         item(key = "hero") {
             GlassSectionLabel("CORE TRY-ON")
-            Box(Modifier.padding(bottom = heroLift.dp)) {
+            Box(Modifier.padding(bottom = heroLift.dp).tilt3d()) {
                 AtelierHero(
                     brand = LookbookCopy.PRODUCT_NAME,
                     headline = "Start try-on shoot",

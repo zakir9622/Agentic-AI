@@ -11,6 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.cloud.AiCapability
 
 /** Spatial Material 3 elevation tokens (dp). Prefer flat glass — shadows are GPU-risky. */
 object SpatialElevation {
@@ -32,6 +33,17 @@ object RadiusTokens {
     val md: Dp = 16.dp
     val lg: Dp = 24.dp
     val xl: Dp = 32.dp
+}
+
+object SpacingTokens {
+    val xxs: Dp = 4.dp
+    val xs: Dp = 8.dp
+    val sm: Dp = 12.dp
+    val md: Dp = 16.dp
+    val lg: Dp = 20.dp
+    val xl: Dp = 24.dp
+    val xxl: Dp = 32.dp
+    val section: Dp = 18.dp
 }
 
 /**
@@ -172,6 +184,13 @@ object VestraColors {
     val ModalityVideo get() = active.modalityVideo
     val ModalityCode get() = active.modalityCode
     val ModalityAudio get() = active.modalityAudio
+
+    fun modalityAccent(capability: AiCapability): Color = when (capability) {
+        AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.TRY_ON -> active.modalityImage
+        AiCapability.VIDEO -> active.modalityVideo
+        AiCapability.CODE -> active.modalityCode
+        AiCapability.AUDIO -> active.modalityAudio
+    }
 }
 
 private fun VestraPalette.toScheme() = if (isDark) {
