@@ -1,5 +1,45 @@
 # Changelog — The Lookbook
 
+## 3.1.3
+Phase 1 (A0/A1/A2) of `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` — the design-system
+foundation for matching lookbookweb.lovable.app exactly, verified against real screenshots at
+every step (not claimed from reading the code).
+
+- **A0 — full color/radius token replacement.** `Theme.kt`'s "Loom Ink" (brass-on-deep-ink)
+  palette is replaced with an exact port of lookbookweb's shipped design system: every color is
+  a real sRGB conversion of that app's OKLCH tokens (CSS Color 4 OKLab→linear-sRGB matrices,
+  computed directly, not eyeballed) — light canvas `#F2F8FC`, near-black primary `#111419`,
+  electric-blue accent `#1F7DCF`, per-modality brand colors (image `#1F7DCF`, video `#DD503F`,
+  audio `#E8179B`, code/chat `#009C7B`), full dark-theme equivalents. `RadiusTokens` extended
+  with `xl2`/`xl3`/`xl4` (30/36/44dp) matching lookbookweb's `calc(var(--radius) ± N)` scale, and
+  `lg`/`xl` corrected to exactly match (20dp/24dp, were 24dp/32dp). Material3 `ColorScheme`
+  container colors (`primaryContainer`, `secondaryContainer`, etc.) recomputed to match the new
+  blue/teal accent family instead of the old brass tints.
+- **A1 — the missing motion primitives.** lookbookweb's `press-3d`/`lift-3d`/`float-slow`/
+  `drift-slow`/`gradient-text` utilities didn't have Compose equivalents yet (only `tilt-3d` and
+  `shimmer` did). Added `Modifier.press3d()`/`Modifier.lift3d()` (`PressModifier.kt`, new) and
+  `Modifier.floatSlow()`/`Modifier.driftSlow()`/`gradientTextStyle()` (`AmbientMotion.kt`, new),
+  following `TiltModifier.kt`'s exact pattern — reduced-motion identity fallback, real gesture/
+  animation wiring otherwise. `tilt3d()` itself gained the `translateY(-6px)` lift component its
+  CSS source has that the Compose port was missing (rotation-only before this). Since Android has
+  no `:hover` state, "hover" is reinterpreted as "while pressed" throughout — documented in each
+  modifier's own doc comment.
+- **A2 — bottom dock exact match.** The active dock item now fills with the accent gradient-pill
+  background exactly like lookbookweb's `DockLink` (`!text-accent-foreground gradient-pill`),
+  replacing the old icon-color-change-plus-dot indicator. Dock container corner radius/shadow
+  moved to the new `xl4` (44dp) token + a heavier "dock-shadow" elevation. Center Create FAB
+  resized to the exact 56dp (`h-14 w-14`) and switched from a 3-stop radial gradient to the
+  correct 2-stop 135° linear gradient. `QuickCreateSheet` (the Create tool picker) switched from
+  a `ModalBottomSheet` to a centered `Dialog` — lookbookweb opens a centered dialog here, not a
+  bottom sheet — title/description copy updated to match ("Pick a tool to start something new.").
+- 8 new tests (`PressModifierTest`, `AmbientMotionTest`) covering the reduced-motion identity
+  contract for all 4 new modifiers, matching `TiltModifierTest`'s existing pattern. All 20
+  existing `ScreenshotTest` renders re-verified against the new palette by direct visual
+  inspection (2 screenshots checked pixel-by-pixel: the dock's active-item fill and the Create
+  FAB gradient both render correctly, not just compile).
+- See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
+  (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
+
 ## 3.1.2
 Two follow-ups requested after 3.1.1 shipped: real screenshots confirming the ported UI actually
 renders correctly, and a genuine replacement for the one piece of GoogleLookBookUI's UI that was

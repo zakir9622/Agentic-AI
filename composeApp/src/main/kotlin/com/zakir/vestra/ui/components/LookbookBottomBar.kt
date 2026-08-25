@@ -1,14 +1,8 @@
 package com.zakir.vestra.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -91,7 +87,9 @@ fun LookbookBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(68.dp)
-                .clip(RoundedCornerShape(RadiusTokens.xl))
+                // dock-shadow: the heavier shadow-lift tier, not the default card shadow.
+                .shadow(elevation = 18.dp, shape = RoundedCornerShape(RadiusTokens.xl4))
+                .clip(RoundedCornerShape(RadiusTokens.xl4))
                 .background(
                     Brush.verticalGradient(
                         listOf(
@@ -105,7 +103,7 @@ fun LookbookBottomBar(
                     brush = Brush.verticalGradient(
                         listOf(VestraColors.GlassHighlight, VestraColors.GlassBorder.copy(alpha = 0.4f)),
                     ),
-                    shape = RoundedCornerShape(RadiusTokens.xl),
+                    shape = RoundedCornerShape(RadiusTokens.xl4),
                 )
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center,
@@ -146,6 +144,11 @@ fun LookbookBottomBar(
     }
 }
 
+/**
+ * Exact-match of lookbookweb's active dock-item treatment (`AppShell.tsx:154-178`,
+ * `DockLink`): the active item swaps to `!text-accent-foreground gradient-pill shadow-none` —
+ * i.e. the whole item gets filled with the accent gradient, not just a color/dot change.
+ */
 @Composable
 private fun DockItem(
     destination: BottomBarDestination,
@@ -156,20 +159,31 @@ private fun DockItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.90f else if (selected) 1.05f else 1.0f,
+        targetValue = if (isPressed) 0.90f else 1.0f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "dock_item_scale",
     )
-    val iconColor by animateColorAsState(
-        targetValue = if (selected) VestraColors.Accent else VestraColors.InkMuted,
-        label = "dock_icon_color",
+    val fillAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        label = "dock_item_fill",
     )
+    val contentColor = if (selected) Color.White else VestraColors.InkMuted
 
     Column(
         modifier = modifier
             .testTag(destination.testTag)
             .scale(scale)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(RadiusTokens.xl4))
+            .drawBehind {
+                if (fillAlpha > 0f) {
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(VestraColors.AccentSoft, VestraColors.Accent),
+                        ),
+                        alpha = fillAlpha,
+                    )
+                }
+            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -177,14 +191,14 @@ private fun DockItem(
                 onClick = onClick,
             )
             .semantics { contentDescription = destination.label }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
             imageVector = destination.icon,
             contentDescription = null,
-            tint = iconColor,
+            tint = contentColor,
             modifier = Modifier.size(22.dp),
         )
         Spacer(Modifier.height(2.dp))
@@ -194,21 +208,8 @@ private fun DockItem(
                 fontSize = 10.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             ),
-            color = iconColor,
+            color = contentColor,
         )
-        AnimatedVisibility(
-            visible = selected,
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .size(4.dp)
-                    .clip(CircleShape)
-                    .background(VestraColors.Accent),
-            )
-        }
     }
 }
 
@@ -230,15 +231,17 @@ private fun CreateFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .testTag(BottomBarDestination.CREATE.testTag)
-                .size(52.dp)
+                // gradient-pill center FAB, exact 56dp (lookbookweb: h-14 w-14).
+                .size(56.dp)
                 .scale(scale)
+                .shadow(elevation = 14.dp, shape = CircleShape)
                 .clip(CircleShape)
                 .background(
-                    Brush.radialGradient(
-                        listOf(VestraColors.AccentSoft, VestraColors.Accent, VestraColors.SaffronDeep),
+                    Brush.linearGradient(
+                        listOf(VestraColors.AccentSoft, VestraColors.Accent),
                     ),
                 )
-                .border(2.dp, VestraColors.Ivory.copy(alpha = 0.5f), CircleShape)
+                .border(2.dp, VestraColors.GlassHighlight, CircleShape)
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,

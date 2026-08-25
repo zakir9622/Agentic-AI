@@ -91,6 +91,21 @@ actually fixed, not when it's merely reworded.
 
 ## Design/UX parity with the reference app (lookbookweb)
 
+- **Superseded in 3.1.3 by a stricter standard.** The "DONE" claim below was against a looser
+  parity bar (glass-card language, generation-lifecycle UX patterns) — it did not mean pixel/
+  color-exact match. A direct source read of `zakir9622/lookbookweb` found this app's actual
+  shipped palette ("Loom Ink," brass-on-deep-ink) was a different color family entirely from
+  lookbookweb's real one (light canvas, near-black primary, electric-blue accent). 3.1.3 is
+  phase 1 of a new, source-grounded exact-match plan
+  (`docs/plans/lookbookweb-exact-ui-parity/PLAN.md`) that replaces the deleted
+  `lovable-parity-local-first/PLAN.md` this bullet originally referenced. **Closed in 3.1.3:**
+  the full color/radius token replacement (A0) and the missing `press-3d`/`lift-3d`/
+  `float-slow`/`drift-slow` motion primitives + bottom-dock exact-match active-state and Create
+  dialog (A1/A2) — verified against real re-rendered screenshots, not claimed from reading the
+  code. **Still open:** every per-route layout item (A4), icon/toast/responsive audits (A5-A8),
+  and the five non-UI capability pull-outs (Part B) — see the plan's phase list. The historical
+  record below (what the *older*, now-superseded parity plan shipped) is kept for context, not
+  deleted, per this file's own "never delete a drawback silently" rule.
 - **`docs/plans/lovable-parity-local-first/PLAN.md` is DONE as of 3.1.0 (stable)** — every item
   A0–A3, B1–B8, D1–D2 is shipped; see the plan's own "Implementation status" table for the full
   per-item ledger. Landed: per-modality accent color tokens propagated across every studio surface

@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.Checkroom
@@ -27,13 +29,10 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Videocam
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -48,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.zakir.vestra.ui.screens.home.HomeTab
 import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.VestraColors
@@ -63,19 +64,19 @@ private data class QuickToolItem(
 )
 
 /**
- * Tool-picker modal opened from the bottom dock's center Create action — one grid of every
- * local generation surface, each with a short description and a real capability badge, so
- * "Create" has a single obvious entry point instead of always landing on the last-used tab.
+ * Tool-picker dialog opened from the bottom dock's center Create action — exact-match of
+ * lookbookweb's Create dialog (`AppShell.tsx`'s tool-picker `Dialog`, title "Create",
+ * description "Pick a tool to start something new."): a centered dialog, not a bottom sheet.
+ * One grid of every local generation surface, each with a short description and a real
+ * capability badge, so "Create" has a single obvious entry point instead of always landing on
+ * the last-used tab.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun QuickCreateSheet(
     onSelectTab: (HomeTab) -> Unit,
     onOpenChat: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     val tools = remember {
         buildList {
             add(
@@ -149,19 +150,23 @@ internal fun QuickCreateSheet(
         }
     }
 
-    ModalBottomSheet(
+    Dialog(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = VestraColors.Canvas,
-        contentColor = VestraColors.Ink,
-        shape = RoundedCornerShape(topStart = RadiusTokens.xl, topEnd = RadiusTokens.xl),
-        dragHandle = null,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(24.dp),
+                .padding(horizontal = 20.dp)
+                .clip(RoundedCornerShape(RadiusTokens.xl3))
+                .background(VestraColors.Canvas)
+                .border(
+                    width = 1.dp,
+                    color = VestraColors.GlassBorder,
+                    shape = RoundedCornerShape(RadiusTokens.xl3),
+                )
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -175,7 +180,7 @@ internal fun QuickCreateSheet(
                         color = VestraColors.Ink,
                     )
                     Text(
-                        text = "Pick a studio or start a conversation",
+                        text = "Pick a tool to start something new.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = VestraColors.InkMuted,
                     )
@@ -202,7 +207,7 @@ internal fun QuickCreateSheet(
                 columns = GridCells.Fixed(2),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(360.dp),
             ) {
                 items(tools, key = { it.id }) { tool ->
                     ToolCard(
@@ -214,8 +219,6 @@ internal fun QuickCreateSheet(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
