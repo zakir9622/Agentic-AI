@@ -10,6 +10,8 @@ import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.engine.local.LocalCodeStreamEvent
 import com.zakir.vestra.shared.local.LocalModelCatalog
+import com.zakir.vestra.shared.logging.LogSource
+import com.zakir.vestra.shared.logging.LogStateManager
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
@@ -25,9 +27,14 @@ class ChatViewModel(
     private val appSettings: AppSettings,
     private val runDiagnostics: RunDiagnostics?,
     private val deviceRamMb: Long?,
+    private val logStateManager: LogStateManager = LogStateManager(),
 ) : ViewModel() {
 
     val messages = chat.messages
+
+    // Live, transient "what's happening right now" event feed for this chat session — rendered
+    // via LiveGenConsole, distinct from RunDiagnostics' persistent per-run records above.
+    val formattedLogs = logStateManager.formattedLines
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
@@ -44,6 +51,7 @@ class ChatViewModel(
     fun clearHistory() {
         chat.clear()
         _error.value = null
+        logStateManager.clear()
     }
 
     fun send(prompt: String) {
@@ -53,6 +61,7 @@ class ChatViewModel(
         when (val check = appSettings.preflight(AiCapability.CODE)) {
             is PreflightResult.Blocked -> {
                 _error.value = check.reason
+                logStateManager.warn(LogSource.SYSTEM, "Preflight blocked: ${check.reason}")
                 return
             }
             is PreflightResult.Ok -> Unit
@@ -72,6 +81,8 @@ class ChatViewModel(
         chat.append("user", text, provider.id)
         _error.value = null
         _busy.value = true
+        val activeSource = if (localChat) LogSource.LITERT else LogSource.CLOUD_API
+        logStateManager.info(activeSource, "Dispatching chat request to ${provider.displayName}...")
 
         val headlines = news?.headlineContext(5).orEmpty()
         val history = chat.contextForLlm(maxTurns = 10)
@@ -112,6 +123,10 @@ class ChatViewModel(
                 if (localChat) {
                     val streamed = streamLocalReply(composedPrompt, system)
                     if (streamed != null) {
+                        logStateManager.info(
+                            LogSource.LITERT,
+                            "Reply ready from ${streamed.providerId} · tokens ${streamed.tokensIn}+${streamed.tokensOut}",
+                        )
                         builder?.complete(
                             success = true,
                             note = "${streamed.providerId} · tokens ${streamed.tokensIn}+${streamed.tokensOut}",
@@ -121,7 +136,9 @@ class ChatViewModel(
                     // Local streaming failed (or wasn't actually ready by the time we asked) —
                     // fall through to chatWithFallback, which retries local once more before
                     // cloud and carries its own offline/cloud-disabled messaging.
+                    logStateManager.warn(LogSource.LITERT, "Local session unavailable, falling back to cloud...")
                 }
+                logStateManager.info(LogSource.CLOUD_API, "Connecting to ${provider.displayName} (${provider.platform.name})...")
                 val (result, used) = generative.chatWithFallback(
                     prompt = composedPrompt,
                     system = system,
@@ -129,6 +146,10 @@ class ChatViewModel(
                     temperature = 0.4,
                 )
                 chat.append("assistant", result.text, used.id)
+                logStateManager.info(
+                    LogSource.CLOUD_API,
+                    "Reply received from ${used.id} · tokens ${result.tokensIn}+${result.tokensOut}",
+                )
                 builder?.complete(
                     success = true,
                     note = "${used.id} · tokens ${result.tokensIn}+${result.tokensOut}",
@@ -139,6 +160,7 @@ class ChatViewModel(
                 // failures so it's look-up-able in Settings → Diagnostics — the record already
                 // had a stable id, it just never reached the user-facing string.
                 _error.value = if (localChat && builder != null) "$rawMsg (ref ${builder.id})" else rawMsg
+                logStateManager.error(activeSource, "Chat execution error: $rawMsg")
                 builder?.complete(success = false, error = rawMsg)
             } finally {
                 _busy.value = false
@@ -155,6 +177,7 @@ class ChatViewModel(
      */
     private suspend fun streamLocalReply(prompt: String, system: String): StreamedReply? {
         val providerId = generative.localChatProviderId()
+        logStateManager.info(LogSource.LITERT, "Streaming tokens from local model $providerId...")
         val messageId = chat.appendPlaceholder("assistant", providerId)
         var failure: String? = null
         var tokensIn = 0
@@ -171,6 +194,7 @@ class ChatViewModel(
             }
         }
         if (failure != null) {
+            logStateManager.warn(LogSource.LITERT, "Local stream unavailable: $failure")
             chat.removeMessage(messageId)
             return null
         }
@@ -181,5 +205,6 @@ class ChatViewModel(
         job?.cancel()
         job = null
         _busy.value = false
+        logStateManager.warn(LogSource.SYSTEM, "Generation cancelled.")
     }
 }

@@ -34,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import com.zakir.vestra.ui.TestTags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,6 +48,7 @@ import com.zakir.vestra.shared.audio.PitchDetector
 import com.zakir.vestra.shared.audio.WavIo
 import com.zakir.vestra.audio.AudioClip
 import com.zakir.vestra.audio.AudioClipLibrary
+import com.zakir.vestra.audio.AudioImportHelper
 import com.zakir.vestra.ui.components.AudioClipList
 import com.zakir.vestra.ui.components.AudioLevelMeter
 import com.zakir.vestra.media.MediaExport
@@ -134,6 +137,22 @@ fun AudioStudioPane(
             }
         } else {
             recordHint = "Microphone permission is required to record voice."
+        }
+    }
+
+    val audioFilePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val path = AudioImportHelper.copyUriToCache(context, uri)
+                if (path != null) {
+                    viewModel.setReference(path)
+                    recordHint = "Imported clip ready — adjust knobs, then Apply voice change"
+                } else {
+                    recordHint = "Could not import that audio file"
+                }
+            }
         }
     }
 
@@ -331,6 +350,12 @@ fun AudioStudioPane(
                 selected = isRecording,
                 onClick = { toggleMic() },
                 label = { Text(if (isRecording) "Stop mic" else "Record mic") },
+            )
+            AtelierFilterChip(
+                selected = false,
+                onClick = { if (!busy) audioFilePickerLauncher.launch("audio/*") },
+                label = { Text("Import audio") },
+                modifier = Modifier.testTag(TestTags.AUDIO_IMPORT_BUTTON),
             )
             AtelierFilterChip(
                 selected = false,

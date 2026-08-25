@@ -67,6 +67,8 @@ fun PromptComposer(
     onAddReference: (() -> Unit)? = null,
     onClearReference: (() -> Unit)? = null,
     assistToggles: (@Composable () -> Unit)? = null,
+    quickPrompts: List<QuickPromptItem> = emptyList(),
+    onSelectQuickPrompt: ((String) -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(28.dp)
     Column(
@@ -83,6 +85,14 @@ fun PromptComposer(
             )
             .padding(14.dp),
     ) {
+        if (quickPrompts.isNotEmpty() && onSelectQuickPrompt != null && !busy) {
+            QuickPromptCarousel(
+                prompts = quickPrompts,
+                onSelectPrompt = onSelectQuickPrompt,
+                enabled = enabled,
+            )
+        }
+
         if (onAddReference != null || referenceUri != null) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
