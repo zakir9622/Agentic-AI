@@ -122,6 +122,34 @@ every step (not claimed from reading the code).
   either corrupt that call or silently drop the extraction. 22 new unit tests
   (`MemoryRepositoryTest`, `MemoryExtractionTest`) plus 2 new screenshots
   (`26-memory-empty`, `27-memory-with-facts`).
+- **A4.3 — Studio pager audit: surfaced Part B.2/B.3 inline in Create, closed a real safety
+  gap.** lookbookweb's `studio.tsx` shows its token-budget line and safety-preset row directly
+  in the create surface, not only in a separate settings screen — `UnifiedStudioPane` (the
+  Image/Video/Audio/Code tabbed pager, the actual architectural analog of `studio.tsx`) now
+  does too. A compact safety-preset pill row (`GlassOptionToggle` chips, mirroring the existing
+  Pragmatic/Creative pattern) sits in the Image/Video Advanced section, wired to the same
+  `AppSettings.safetyPresetId` Settings already reads. A live token-budget bar sits above the
+  Code tab's composer — the one Studio capability that's actually LLM-context-window-shaped
+  (Image/Video/Audio are diffusion/TTS, not chat-context-bounded); its effective-model-id
+  resolution is hoisted to `Dispatchers.IO` and keyed on pack/readiness state rather than the
+  live prompt, so typing never re-triggers the disk stats `RoutingLocalCodeGenerator` needs to
+  resolve which local pack is actually active. **Closed a real gap found during the audit**:
+  `generateVideo()` never applied the safety-preset guard clause at all — video's local path is
+  a still-clip from the same tiny-SD keyframe pipeline `generateImage()` already guards, so the
+  same visual-content concern applies; fixed to match, and the confirm-before-run dialog now
+  gates Video generation the same way it already gated Image.
+- **Fixed during review, before landing:** a code-review pass on the above found two real bugs.
+  First, the initial Code-tab token-budget wiring re-derived the effective model id from
+  `viewModel.currentCodeModelId()` inside a `remember(prompt, ...)` block — since resolving
+  that id (when no explicit local pick exists) walks `RoutingLocalCodeGenerator`'s delegate
+  chain and stats each pack's files on disk, this reintroduced exactly the main-thread
+  file-system-probe problem `produceLocalReadiness` already exists in this same file to avoid,
+  now running on every keystroke. Moved the id resolution into its own `produceState` hoisted
+  to `Dispatchers.IO`, keyed on pack/readiness signals instead of the prompt. Second,
+  `currentCodeModelId()`'s local-vs-cloud decision only checked "local ready and explicitly
+  selected," missing the "offline with a ready local pack" branch `generateCode()` itself
+  actually routes through — fixed to mirror `generateCode()`'s exact `bypassPreflight`
+  condition so the budget bar always evaluates against the model that will actually run.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

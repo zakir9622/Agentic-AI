@@ -38,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -252,10 +253,12 @@ fun UnifiedStudioPane(
     }
 
     // The active safety preset's confirm flag (Blur identities / Redact details) requires a
-    // real confirmation step before generation runs — image generation only, since that's the
-    // only capability GenerativeViewModel.generateImage() applies the preset's guard clause to.
+    // real confirmation step before generation runs — Image (covers Image Edit too, same
+    // generateImage() call) and Video, the two capabilities GenerativeViewModel applies the
+    // preset's guard clause to. Audio/Code don't produce visual content, so the guard doesn't
+    // apply there.
     fun onGenerate() {
-        val requiresConfirm = capability == AiCapability.IMAGE_GEN &&
+        val requiresConfirm = capability in setOf(AiCapability.IMAGE_GEN, AiCapability.VIDEO) &&
             SafetyPresets.byId(safetyPresetId).confirm
         if (requiresConfirm) {
             showSafetyConfirm = true
@@ -416,6 +419,7 @@ fun UnifiedStudioPane(
             localVisionReady = localVisionReady,
             pragmatic = pragmatic,
             creative = creative,
+            safetyPresetId = safetyPresetId,
             onBypassFilter = { viewModel.setBypassFilter(!bypassFilter) },
             onFashionContext = { viewModel.setFashionContext(!fashionContext) },
             onDetailBoost = { viewModel.setDetailBoost(!detailBoost) },
@@ -423,6 +427,7 @@ fun UnifiedStudioPane(
             onAnalyzeReference = { viewModel.setAnalyzeReference(!analyzeReference) },
             onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
             onCreative = { viewModel.setCreativeMode(!creative) },
+            onSelectSafetyPreset = { viewModel.appSettings.setSafetyPresetId(it) },
         )
 
         if (examples.isNotEmpty()) {
@@ -485,6 +490,34 @@ fun UnifiedStudioPane(
                 .padding(horizontal = SpacingTokens.section)
                 .padding(bottom = 10.dp, top = 4.dp),
         ) {
+            // CODE is the one Studio capability that's actually LLM-context-window-shaped
+            // (Image/Video/Audio are diffusion/TTS, not chat-context-bounded) — A4.3.
+            if (capability == AiCapability.CODE) {
+                // The effective model id (which local pack, if any) requires resolving
+                // RoutingLocalCodeGenerator's delegate, which stats pack files on disk when no
+                // explicit pick exists — hoisted to Dispatchers.IO and keyed on the same
+                // pack/readiness signals as produceLocalReadiness above it, NOT on `prompt`, so
+                // typing doesn't re-trigger disk I/O on every keystroke.
+                val codeModelId by produceState(
+                    initialValue = codeId,
+                    keys = arrayOf(packStates, localCodeReady, codeId),
+                ) {
+                    value = withContext(Dispatchers.IO) {
+                        runCatching { viewModel.currentCodeModelId(localCodeReady) }.getOrDefault(codeId)
+                    }
+                }
+                val codeBudget = remember(prompt, codeModelId) {
+                    com.zakir.vestra.shared.chat.ContextBudget.evaluate(
+                        usedTokens = com.zakir.vestra.shared.chat.ContextBudget.estimateTokens(prompt),
+                        modelId = codeModelId,
+                    )
+                }
+                com.zakir.vestra.ui.screens.news.ContextBudgetBar(
+                    budget = codeBudget,
+                    hasDraft = prompt.isNotBlank(),
+                    testTag = com.zakir.vestra.ui.TestTags.STUDIO_TOKEN_BUDGET_BAR,
+                )
+            }
             PromptComposer(
                 prompt = prompt,
                 onPromptChange = viewModel::setPrompt,
@@ -576,6 +609,7 @@ fun UnifiedStudioPane(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun AdvancedAssistSection(
     expanded: Boolean,
     onToggle: () -> Unit,
@@ -589,6 +623,7 @@ private fun AdvancedAssistSection(
     localVisionReady: Boolean,
     pragmatic: Boolean,
     creative: Boolean,
+    safetyPresetId: String,
     onBypassFilter: () -> Unit,
     onFashionContext: () -> Unit,
     onDetailBoost: () -> Unit,
@@ -596,6 +631,7 @@ private fun AdvancedAssistSection(
     onAnalyzeReference: () -> Unit,
     onPragmatic: () -> Unit,
     onCreative: () -> Unit,
+    onSelectSafetyPreset: (String) -> Unit,
 ) {
     GlassCard(onClick = onToggle) {
         Row(
@@ -690,6 +726,29 @@ private fun AdvancedAssistSection(
                         }
                         // Steps / CFG / Seed are not exposed: cloud Space + HF Inference
                         // payloads ignore them; showing them lied about what the model receives.
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "SAFETY",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = VestraColors.InkMuted,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            SafetyPresets.ALL.forEach { preset ->
+                                GlassOptionToggle(
+                                    text = preset.label,
+                                    active = preset.id == safetyPresetId,
+                                    enabled = !busy,
+                                    onToggle = { onSelectSafetyPreset(preset.id) },
+                                    modifier = Modifier.testTag(
+                                        com.zakir.vestra.ui.TestTags.studioSafetyPreset(preset.id),
+                                    ),
+                                )
+                            }
+                        }
                     }
                     else -> Unit
                 }

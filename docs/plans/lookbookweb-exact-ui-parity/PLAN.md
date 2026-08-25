@@ -493,8 +493,11 @@ renders correctly without a device) and unit tests for every new non-UI capabili
    (sheet→dialog).
 4. **A3 — Card primitives.** `SolidCard`, blur/opacity audit on `GlassCard`/`GlassTile`.
 5. **A4.1–A4.2 — Home + Chat.** Highest-traffic screens, do together.
-6. **A4.3 — Studio/pager audit.** Token-budget line + safety-preset row land here since they
-   depend on Part B.2/B.3 landing first — sequence Part B.2 and B.3 before this phase.
+6. **A4.3 — Studio/pager audit.** Done: token-budget bar (Code tab) + safety-preset pill row
+   (Image/Video) now live inline in `UnifiedStudioPane`, wired to Part B.2/B.3's real state.
+   Also closed a gap the audit surfaced: `generateVideo()` never applied the safety guard —
+   fixed to match `generateImage()`. Background-jobs-list and citation-disclosure sub-items
+   audited as not applicable to this app's one-generation-at-a-time architecture.
 7. **A4.4, A4.9, A4.10 — Library, Settings, Changelog.**
 8. **A4.5–A4.7 — Create screens** (Image/Video/Voice), scoping each engine-dependent item
    honestly per the notes above rather than adding UI for capabilities that don't exist yet.

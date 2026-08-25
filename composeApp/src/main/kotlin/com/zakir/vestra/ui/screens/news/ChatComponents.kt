@@ -486,6 +486,7 @@ fun ContextBudgetBar(
     budget: ContextBudget.Budget,
     hasDraft: Boolean,
     modifier: Modifier = Modifier,
+    testTag: String = TestTags.CONTEXT_BUDGET_BAR,
 ) {
     if (!hasDraft && !budget.willTruncate) return
     val warnColor = VestraColors.Danger
@@ -493,7 +494,7 @@ fun ContextBudgetBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = if (budget.willTruncate) 6.dp else 2.dp)
-            .testTag(TestTags.CONTEXT_BUDGET_BAR),
+            .testTag(testTag),
         horizontalArrangement = if (budget.willTruncate) Arrangement.Start else Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
