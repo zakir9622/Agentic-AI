@@ -148,29 +148,31 @@ fun ChatMessageBubble(
             }
         }
 
+        // User bubble: exact-match of lookbookweb's `rounded-br-lg bg-primary
+        // text-primary-foreground` — a solid accent fill, not the glass treatment (that stays
+        // for the assistant side, which keeps this app's richer model-badge/timestamp header
+        // rather than lookbookweb's plain-text-no-bubble assistant style — a deliberate
+        // deviation, not a compromise: same accent color/tail shape/radius tokens either way).
         Surface(
             shape = bubbleShape,
-            color = if (isUser) VestraColors.GlassFillStrong else VestraColors.GlassFill,
+            color = if (isUser) VestraColors.Accent else VestraColors.GlassFill,
             modifier = Modifier
                 .widthIn(max = 320.dp)
-                .border(
-                    width = 1.dp,
-                    brush = if (isUser) {
-                        Brush.horizontalGradient(
-                            listOf(
-                                VestraColors.Accent.copy(alpha = 0.6f),
-                                VestraColors.AccentSoft.copy(alpha = 0.3f),
-                            ),
-                        )
+                .then(
+                    if (isUser) {
+                        Modifier
                     } else {
-                        Brush.verticalGradient(
-                            listOf(
-                                VestraColors.GlassHighlight,
-                                VestraColors.GlassBorder.copy(alpha = 0.4f),
+                        Modifier.border(
+                            width = 1.dp,
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    VestraColors.GlassHighlight,
+                                    VestraColors.GlassBorder.copy(alpha = 0.4f),
+                                ),
                             ),
+                            shape = bubbleShape,
                         )
                     },
-                    shape = bubbleShape,
                 )
                 .testTag(TestTags.chatMessageBubble(index, message.role)),
             shadowElevation = 0.dp,
@@ -187,7 +189,7 @@ fun ChatMessageBubble(
                                 imageVector = Icons.Outlined.Person,
                                 contentDescription = null,
                                 modifier = Modifier.size(12.dp),
-                                tint = VestraColors.InkMuted,
+                                tint = Color.White.copy(alpha = 0.85f),
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
@@ -196,7 +198,7 @@ fun ChatMessageBubble(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
                                 ),
-                                color = VestraColors.InkMuted,
+                                color = Color.White.copy(alpha = 0.85f),
                             )
                         } else {
                             Box(
@@ -219,12 +221,13 @@ fun ChatMessageBubble(
                         }
                     }
 
+                    val secondaryTint = if (isUser) Color.White.copy(alpha = 0.7f) else VestraColors.InkMuted
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (formattedTime.isNotBlank()) {
                             Text(
                                 text = formattedTime,
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = VestraColors.InkMuted.copy(alpha = 0.7f),
+                                color = secondaryTint,
                             )
                             Spacer(Modifier.width(6.dp))
                         }
@@ -240,7 +243,7 @@ fun ChatMessageBubble(
                                 imageVector = if (copied) Icons.Outlined.Done else Icons.Outlined.ContentCopy,
                                 contentDescription = "Copy message",
                                 modifier = Modifier.size(12.dp),
-                                tint = if (copied) VestraColors.Accent else VestraColors.InkMuted,
+                                tint = if (copied && !isUser) VestraColors.Accent else secondaryTint,
                             )
                         }
                     }
@@ -251,7 +254,7 @@ fun ChatMessageBubble(
                 Text(
                     text = message.text.ifBlank { "…" },
                     style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, letterSpacing = 0.2.sp),
-                    color = VestraColors.Ink,
+                    color = if (isUser) Color.White else VestraColors.Ink,
                 )
             }
         }

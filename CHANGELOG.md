@@ -48,6 +48,17 @@ every step (not claimed from reading the code).
   comments already claimed ease-in-out; the implementation didn't match), and the
   press-gesture-tracking code duplicated across `tilt3d`/`press3d`/`lift3d` is now shared via
   `rememberPressedState()` for the latter two.
+- **A4.2 — Chat bubble exact match.** The user chat bubble now uses a solid accent fill with
+  white text (`ChatMessageBubble` in `ChatComponents.kt`) — exact match of lookbookweb's
+  `rounded-br-lg bg-primary text-primary-foreground` user bubble, replacing the previous
+  translucent-glass treatment. The assistant bubble deliberately keeps its richer glass-card +
+  model-badge + timestamp header (lookbookweb's assistant side is plain text with no bubble at
+  all) — a reasoned deviation, not a compromise: same accent color, tail shape, and radius
+  tokens either way, just more information density on the side that benefits from it. Verified
+  against the re-rendered `12-chat-bubbles` screenshot.
+- **Found during the same audit, deliberately not built yet:** the Home screen (A4.1) surfaced a
+  real architecture gap — see `docs/plans/lookbookweb-exact-ui-parity/PLAN.md`'s A4.1a — that's
+  being scoped as its own dedicated phase rather than rushed.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 
