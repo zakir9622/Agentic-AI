@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -26,6 +25,8 @@ import androidx.work.WorkManager
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.packs.PackDownloadWorker
 import com.zakir.vestra.storage.DurableStorage
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 
 fun Context.hasPostNotificationsPermission(): Boolean =
     Build.VERSION.SDK_INT < 33 ||
@@ -86,22 +87,14 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
                 when (info.state) {
                     WorkInfo.State.SUCCEEDED -> {
                         if (showToast) {
-                            Toast.makeText(
-                                context,
-                                "Pack installed — ready to use offline",
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            GlassSnackbar.show("Pack installed — ready to use offline", SnackbarLevel.SUCCESS)
                         }
                         observingPackId = null
                     }
                     WorkInfo.State.FAILED -> {
                         if (showToast) {
                             val err = info.outputData.getString(PackDownloadWorker.KEY_ERROR)
-                            Toast.makeText(
-                                context,
-                                packDownloadErrorMessage(err),
-                                Toast.LENGTH_LONG,
-                            ).show()
+                            GlassSnackbar.show(packDownloadErrorMessage(err), SnackbarLevel.ERROR)
                         }
                         observingPackId = null
                     }
@@ -145,11 +138,10 @@ fun rememberPackDownloadStarter(showToast: Boolean = true): (String) -> Unit {
         { packId: String ->
             when {
                 !DurableStorage.hasAllFilesAccess() -> {
-                    Toast.makeText(
-                        context,
+                    GlassSnackbar.show(
                         "Allow all-files access for this multi-GB pack so it survives uninstall, then tap Download again",
-                        Toast.LENGTH_LONG,
-                    ).show()
+                        SnackbarLevel.WARNING,
+                    )
                     runCatching { context.startActivity(DurableStorage.manageAllFilesIntent(context)) }
                 }
                 context.hasPostNotificationsPermission() ->
@@ -182,11 +174,7 @@ private fun enqueuePackDownload(
     PackDownloadWorker.enqueue(context, packId)
     onEnqueued()
     if (showToast) {
-        Toast.makeText(
-            context,
-            "Download started — progress appears in notifications when allowed",
-            Toast.LENGTH_SHORT,
-        ).show()
+        GlassSnackbar.show("Download started — progress appears in notifications when allowed", SnackbarLevel.INFO)
     }
 }
 

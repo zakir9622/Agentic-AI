@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.chat.ChatRepository
 import com.zakir.vestra.shared.chat.ContextBudget
+import com.zakir.vestra.shared.chat.MemoryExtraction
+import com.zakir.vestra.shared.chat.MemoryRepository
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.cloud.GenerativeCloudService
@@ -16,6 +18,7 @@ import com.zakir.vestra.shared.logging.LogStateManager
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.settings.PreflightResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +31,7 @@ class ChatViewModel(
     private val appSettings: AppSettings,
     private val runDiagnostics: RunDiagnostics?,
     private val deviceRamMb: Long?,
+    private val memory: MemoryRepository? = null,
     private val logStateManager: LogStateManager = LogStateManager(),
 ) : ViewModel() {
 
@@ -124,6 +128,7 @@ class ChatViewModel(
                             success = true,
                             note = "${streamed.providerId} · tokens ${streamed.tokensIn}+${streamed.tokensOut}",
                         )
+                        maybeExtractMemory(text, streamed.text)
                         return@launch
                     }
                     // Local streaming failed (or wasn't actually ready by the time we asked) —
@@ -147,6 +152,7 @@ class ChatViewModel(
                     success = true,
                     note = "${used.id} · tokens ${result.tokensIn}+${result.tokensOut}",
                 )
+                maybeExtractMemory(text, result.text)
             } catch (e: Exception) {
                 val rawMsg = e.message?.take(280) ?: "Chat failed"
                 // Thread the diagnostics run's own id into the on-screen message for local chat
@@ -161,7 +167,7 @@ class ChatViewModel(
         }
     }
 
-    private class StreamedReply(val providerId: String, val tokensIn: Int, val tokensOut: Int)
+    private class StreamedReply(val providerId: String, val text: String, val tokensIn: Int, val tokensOut: Int)
 
     /**
      * Streams a local reply into a live-updating assistant bubble. Returns null (after removing
@@ -173,12 +179,14 @@ class ChatViewModel(
         logStateManager.info(LogSource.LITERT, "Streaming tokens from local model $providerId...")
         val messageId = chat.appendPlaceholder("assistant", providerId)
         var failure: String? = null
+        var finalText = ""
         var tokensIn = 0
         var tokensOut = 0
         generative.localChatStream(prompt, system).collect { event ->
             when (event) {
                 is LocalCodeStreamEvent.Partial -> chat.updateMessage(messageId, event.textSoFar)
                 is LocalCodeStreamEvent.Done -> {
+                    finalText = event.text
                     tokensIn = event.tokensIn
                     tokensOut = event.tokensOut
                     chat.updateMessage(messageId, event.text, persist = true)
@@ -191,7 +199,41 @@ class ChatViewModel(
             chat.removeMessage(messageId)
             return null
         }
-        return StreamedReply(providerId, tokensIn, tokensOut)
+        return StreamedReply(providerId, finalText, tokensIn, tokensOut)
+    }
+
+    /**
+     * Runs the Part B.1 memory-extraction prompt through the local chat model after a reply,
+     * and stores any durable facts it finds. Always uses the local model regardless of which
+     * model answered the visible reply, per the plan's "fully portable on-device" design — a
+     * cloud call here would be a second, unnecessary network round-trip for something that
+     * never needs to leave the device. Silently skips (never surfaces as a chat error) when
+     * memory is disabled, unavailable, or the extraction call itself fails — a missed
+     * extraction is not a chat failure. Deliberately awaited inline in the same job coroutine
+     * as the primary reply, not fire-and-forget: the local engine isn't safe for concurrent
+     * generate calls, and running this after the primary `finally` clears `_busy` would let a
+     * fast second `send()` race it.
+     */
+    private suspend fun maybeExtractMemory(userText: String, assistantText: String) {
+        if (memory == null) return
+        if (!appSettings.memoryEnabled.value) return
+        if (!generative.localCodeReady()) return
+        try {
+            val prompt = MemoryExtraction.buildPrompt(userText, assistantText)
+            var finalText: String? = null
+            generative.localChatStream(prompt, MEMORY_EXTRACTION_SYSTEM).collect { event ->
+                if (event is LocalCodeStreamEvent.Done) finalText = event.text
+            }
+            val facts = finalText?.let { MemoryExtraction.parseFacts(it) }.orEmpty()
+            if (facts.isNotEmpty()) {
+                memory.addFacts(facts)
+                logStateManager.info(LogSource.LITERT, "Remembered ${facts.size} new fact(s).")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logStateManager.warn(LogSource.LITERT, "Memory extraction skipped: ${e.message}")
+        }
     }
 
     fun cancel() {
@@ -203,12 +245,21 @@ class ChatViewModel(
 
     private fun buildSystemPrompt(): String {
         val headlines = news?.headlineContext(5).orEmpty()
+        val rememberedFacts = if (appSettings.memoryEnabled.value) {
+            memory?.contextForSystemPrompt().orEmpty()
+        } else {
+            ""
+        }
         return buildString {
             append("You are a helpful assistant for The Lookbook — modest fashion try-on and on-device AI. ")
             append("Discuss headlines, local Lite/Pro packs, and cloud free-tier models. Keep answers concise.")
             if (headlines.isNotBlank()) {
                 append("\n\nRecent headlines:\n")
                 append(headlines)
+            }
+            if (rememberedFacts.isNotBlank()) {
+                append("\n\nWhat you remember about this user:\n")
+                append(rememberedFacts)
             }
         }
     }
@@ -232,5 +283,10 @@ class ChatViewModel(
         val history = chat.contextForLlm(maxTurns = 10)
         val historyText = history.joinToString("\n\n") { (role, content) -> "${role.uppercase()}: $content" }
         return ContextBudget.estimateTokens(buildSystemPrompt()) + ContextBudget.estimateTokens(historyText)
+    }
+
+    private companion object {
+        const val MEMORY_EXTRACTION_SYSTEM =
+            "You extract structured data. Reply with ONLY the requested JSON, no explanation."
     }
 }

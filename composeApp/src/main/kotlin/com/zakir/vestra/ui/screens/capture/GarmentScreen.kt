@@ -1,7 +1,6 @@
 package com.zakir.vestra.ui.screens.capture
 
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -65,7 +64,9 @@ import com.zakir.vestra.shared.engine.lite.LiteEngineIo
 import com.zakir.vestra.ui.TryOnViewModel
 import com.zakir.vestra.ui.components.AtelierFilterChip
 import com.zakir.vestra.ui.components.GlassImageFrame
+import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.util.rememberCameraGatedAction
 import java.io.File
@@ -94,7 +95,7 @@ fun GarmentScreen(
         scope.launch {
             val bitmap = withContext(Dispatchers.IO) { liteEngineIo.loadBitmap(uri) }
             if (bitmap == null) {
-                Toast.makeText(context, "Couldn't read that image — try another photo", Toast.LENGTH_SHORT).show()
+                GlassSnackbar.show("Couldn't read that image — try another photo", SnackbarLevel.ERROR)
                 return@launch
             }
             val worn = withContext(Dispatchers.Default) {
@@ -146,7 +147,7 @@ fun GarmentScreen(
     val launchCamera = rememberCameraGatedAction(
         onGranted = { openCameraCapture() },
         onDenied = {
-            Toast.makeText(context, "Camera permission is needed to take a photo", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("Camera permission is needed to take a photo", SnackbarLevel.WARNING)
         },
     )
 

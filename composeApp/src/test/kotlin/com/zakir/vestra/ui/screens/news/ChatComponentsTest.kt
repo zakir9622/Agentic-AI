@@ -97,4 +97,29 @@ class ChatComponentsTest {
         compose.onNodeWithTag(TestTags.CHAT_REFRESH_BUTTON).performClick()
         assertEquals(true, refreshed)
     }
+
+    @Test
+    fun memoryPillHiddenAtZeroFacts() {
+        compose.setContent {
+            MemoryPill(factCount = 0)
+        }
+        compose.onNodeWithTag(TestTags.CHAT_MEMORY_PILL).assertDoesNotExist()
+    }
+
+    @Test
+    fun memoryPillShowsSingularCopyForOneFact() {
+        compose.setContent {
+            MemoryPill(factCount = 1)
+        }
+        compose.onNodeWithText("Remembering 1 thing").assertExists()
+    }
+
+    @Test
+    fun memoryPillShowsPluralCopyForMultipleFacts() {
+        compose.setContent {
+            MemoryPill(factCount = 3)
+        }
+        compose.onNodeWithTag(TestTags.CHAT_MEMORY_PILL).assertExists()
+        compose.onNodeWithText("Remembering 3 things").assertExists()
+    }
 }

@@ -18,6 +18,7 @@ import com.zakir.vestra.ui.components.GlassSectionLabel
 internal fun LazyListScope.settingsGeneralSection(
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenChangelog: () -> Unit,
     onOpenDiagnostics: (() -> Unit)?,
 ) {
     item(key = "help") {
@@ -71,6 +72,13 @@ internal fun LazyListScope.settingsGeneralSection(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(LookbookCopy.ACTION_OPEN_PRIVACY)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onOpenChangelog,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(LookbookCopy.ACTION_OPEN_CHANGELOG)
             }
         }
         Spacer(Modifier.height(14.dp))

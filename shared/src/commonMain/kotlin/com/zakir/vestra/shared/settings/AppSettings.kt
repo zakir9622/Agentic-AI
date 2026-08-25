@@ -66,6 +66,15 @@ class AppSettings(private val settings: Settings) {
     )
     val safetyPresetId: StateFlow<String> = _safetyPresetId
 
+    /**
+     * Whether News/Chat extracts durable facts from conversation turns via the local chat
+     * model and re-injects them into future system prompts (Part B.1). Defaults on — the
+     * extraction call and its storage never leave the device, matching this app's local-first
+     * stance — but the user can turn it off from the memory panel in Settings.
+     */
+    private val _memoryEnabled = MutableStateFlow(settings.getBoolean(KEY_MEMORY_ENABLED, true))
+    val memoryEnabled: StateFlow<Boolean> = _memoryEnabled
+
     private val _preferNnapi = MutableStateFlow(settings.getBoolean(KEY_PREFER_NNAPI, false))
     val preferNnapi: StateFlow<Boolean> = _preferNnapi
 
@@ -127,6 +136,11 @@ class AppSettings(private val settings: Settings) {
     fun setSafetyPresetId(id: String) {
         settings.putString(KEY_SAFETY_PRESET, id)
         _safetyPresetId.value = id
+    }
+
+    fun setMemoryEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_MEMORY_ENABLED, enabled)
+        _memoryEnabled.value = enabled
     }
 
     fun clearApiTokens() {
@@ -421,6 +435,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
         const val KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"
         const val KEY_SAFETY_PRESET = "safety_preset_id"
+        const val KEY_MEMORY_ENABLED = "chat_memory_enabled"
     }
 }
 

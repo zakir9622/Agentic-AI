@@ -3,7 +3,6 @@ package com.zakir.vestra.ui.screens.settings
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,7 +47,9 @@ import com.zakir.vestra.shared.settings.TokenPortals
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.storage.TokenSidecar
+import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.util.rememberPackDownloadStarter
 import kotlinx.coroutines.Dispatchers
@@ -70,10 +71,12 @@ fun SettingsScreen(
     packManager: ModelPackManager,
     freeCloudDiscovery: FreeCloudDiscovery,
     usageLedger: UsageLedger,
+    memoryRepository: com.zakir.vestra.shared.chat.MemoryRepository? = null,
     onOpenPacks: () -> Unit,
     onOpenUsage: () -> Unit,
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenChangelog: () -> Unit = {},
     onOpenDiagnostics: (() -> Unit)? = null,
     onBack: () -> Unit,
     section: SettingsSection = SettingsSection.ALL,
@@ -156,11 +159,10 @@ fun SettingsScreen(
             groqInput = appSettings.groqApiKey.value.orEmpty()
             openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
             keysSavedFlash = count > 0
-            Toast.makeText(
-                context,
+            GlassSnackbar.show(
                 if (count > 0) "Imported $count key(s) from file" else "No HF/Groq/OpenRouter keys found in file",
-                Toast.LENGTH_LONG,
-            ).show()
+                if (count > 0) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
+            )
         }
     }
 
@@ -184,7 +186,7 @@ fun SettingsScreen(
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }.onFailure {
-            Toast.makeText(context, "No browser available", Toast.LENGTH_SHORT).show()
+            GlassSnackbar.show("No browser available", SnackbarLevel.ERROR)
         }
     }
 
@@ -196,11 +198,10 @@ fun SettingsScreen(
         clipboardHint = null
         val saved = TokenSidecar.persist(context, appSettings)
         if (!saved && !DurableStorage.hasAllFilesAccess()) {
-            Toast.makeText(
-                context,
+            GlassSnackbar.show(
                 "Tokens saved in-app. Download a model pack to enable durable storage so keys survive reinstall.",
-                Toast.LENGTH_LONG,
-            ).show()
+                SnackbarLevel.INFO,
+            )
         }
         scope.launch {
             runCatching { freeCloudDiscovery.refreshRouterDiscovery(appSettings) }
@@ -272,7 +273,7 @@ fun SettingsScreen(
                         openRouterInput = ""
                         keysSavedFlash = false
                         confirmClearTokens = false
-                        Toast.makeText(context, "API keys cleared", Toast.LENGTH_SHORT).show()
+                        GlassSnackbar.show("API keys cleared", SnackbarLevel.SUCCESS)
                     },
                     modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.SETTINGS_CLEAR_TOKENS_CONFIRM),
                 ) { Text("Clear") }
@@ -307,63 +308,22 @@ fun SettingsScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
-            if (showGeneral) {
-                settingsGeneralSection(
-                    onOpenHelp = onOpenHelp,
-                    onOpenPrivacy = onOpenPrivacy,
-                    onOpenDiagnostics = onOpenDiagnostics,
-                )
-            }
-
-            if (showCloud) {
-                settingsCloudMasterToggleSection(appSettings = appSettings)
-            }
-
-            // Applies to every image generation regardless of local/cloud routing (see
-            // GenerativeViewModel.generateImage), so it's visible from both the Cloud and
-            // Engines section entry points, not gated behind the cloud-only toggle above.
-            if (showCloud || showEngines) {
-                settingsSafetySection(appSettings = appSettings)
-            }
-
-            if (showCloud && cloudModelsEnabled) {
-                settingsCloudKeysSection(
-                    appSettings = appSettings,
-                    connectivityChecker = connectivityChecker,
-                    hfTokenSaved = !hfToken.isNullOrBlank(),
-                    hfInput = hfInput,
-                    groqInput = groqInput,
-                    openRouterInput = openRouterInput,
-                    onHfInput = { hfInput = it },
-                    onGroqInput = { groqInput = it },
-                    onOpenRouterInput = { openRouterInput = it },
-                    keysSavedFlash = keysSavedFlash,
-                    clipboardHint = clipboardHint,
-                    durableReady = durableReady,
-                    onApplyClipboard = { applyClipboardToken() },
-                    onOpenPortal = ::openPortal,
-                    onSaveTokens = ::saveTokens,
-                    importTokensLauncher = importTokensLauncher,
-                    onKeysLoadedFromDocuments = { count ->
-                        hfInput = appSettings.hfToken.value.orEmpty()
-                        groqInput = appSettings.groqApiKey.value.orEmpty()
-                        openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
-                        keysSavedFlash = count > 0
-                    },
-                )
-            }
-
-            if (showCloud || showAppearance) {
-                settingsDurableStatusSection(
-                    appSettings = appSettings,
-                    durableReady = durableReady,
-                )
-            }
-
+            // Section order matches lookbookweb's settings.tsx (A4.9): appearance & accessibility
+            // → device/engine lab → provider/cloud settings → diagnostics → "what the assistant
+            // remembers" → about/changelog (not yet built — A4.10). Account and a sample-data
+            // toggle are omitted per that same audit — no accounts exist in this app, and there's
+            // no demo-content banner to gate a toggle for.
             if (showAppearance) {
                 settingsThemeSection(
                     appSettings = appSettings,
                     appearance = appearance,
+                )
+                settingsStoragePermissionsSection(
+                    clearingCache = clearingCache,
+                    onClearingCache = { clearingCache = it },
+                    usageLedger = usageLedger,
+                    permissionEpoch = permissionEpoch,
+                    onConfirmClearTokens = { confirmClearTokens = true },
                 )
             }
 
@@ -395,11 +355,10 @@ fun SettingsScreen(
                             handshakeBusy = false
                             handshakeOk = result.ok
                             handshakeDetail = PackHandshakeWires.formatDetail(result)
-                            Toast.makeText(
-                                context,
+                            GlassSnackbar.show(
                                 PackHandshakeWires.formatUserSummary(result),
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                                if (result.ok) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR,
+                            )
                         }
                     },
                     onHandshakeAll = {
@@ -423,8 +382,49 @@ fun SettingsScreen(
                                     append("\n… +${report.results.size - 4} more")
                                 }
                             }
-                            Toast.makeText(context, report.summary, Toast.LENGTH_LONG).show()
+                            GlassSnackbar.show(
+                                report.summary,
+                                if (handshakeOk == true) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
+                            )
                         }
+                    },
+                )
+            }
+
+            // Applies to every image generation regardless of local/cloud routing (see
+            // GenerativeViewModel.generateImage), so it's visible from both the Cloud and
+            // Engines section entry points, not gated behind the cloud-only toggle below.
+            if (showCloud || showEngines) {
+                settingsSafetySection(appSettings = appSettings)
+            }
+
+            if (showCloud) {
+                settingsCloudMasterToggleSection(appSettings = appSettings)
+            }
+
+            if (showCloud && cloudModelsEnabled) {
+                settingsCloudKeysSection(
+                    appSettings = appSettings,
+                    connectivityChecker = connectivityChecker,
+                    hfTokenSaved = !hfToken.isNullOrBlank(),
+                    hfInput = hfInput,
+                    groqInput = groqInput,
+                    openRouterInput = openRouterInput,
+                    onHfInput = { hfInput = it },
+                    onGroqInput = { groqInput = it },
+                    onOpenRouterInput = { openRouterInput = it },
+                    keysSavedFlash = keysSavedFlash,
+                    clipboardHint = clipboardHint,
+                    durableReady = durableReady,
+                    onApplyClipboard = { applyClipboardToken() },
+                    onOpenPortal = ::openPortal,
+                    onSaveTokens = ::saveTokens,
+                    importTokensLauncher = importTokensLauncher,
+                    onKeysLoadedFromDocuments = { count ->
+                        hfInput = appSettings.hfToken.value.orEmpty()
+                        groqInput = appSettings.groqApiKey.value.orEmpty()
+                        openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
+                        keysSavedFlash = count > 0
                     },
                 )
             }
@@ -442,14 +442,23 @@ fun SettingsScreen(
                 )
             }
 
-            if (showAppearance) {
-                settingsStoragePermissionsSection(
-                    clearingCache = clearingCache,
-                    onClearingCache = { clearingCache = it },
-                    usageLedger = usageLedger,
-                    permissionEpoch = permissionEpoch,
-                    onConfirmClearTokens = { confirmClearTokens = true },
+            if (showCloud || showAppearance) {
+                settingsDurableStatusSection(
+                    appSettings = appSettings,
+                    durableReady = durableReady,
                 )
+            }
+
+            if (showGeneral) {
+                settingsGeneralSection(
+                    onOpenHelp = onOpenHelp,
+                    onOpenPrivacy = onOpenPrivacy,
+                    onOpenChangelog = onOpenChangelog,
+                    onOpenDiagnostics = onOpenDiagnostics,
+                )
+                if (memoryRepository != null) {
+                    settingsMemorySection(appSettings = appSettings, memory = memoryRepository)
+                }
             }
         }
     }

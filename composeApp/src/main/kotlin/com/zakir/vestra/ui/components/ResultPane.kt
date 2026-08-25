@@ -2,7 +2,6 @@ package com.zakir.vestra.ui.components
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,7 +62,7 @@ fun ResultPane(
             onDismiss = { privacyBlurPath = null },
             onSaved = {
                 privacyBlurPath = null
-                Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show()
+                GlassSnackbar.show("Saved", SnackbarLevel.SUCCESS)
             },
         )
     }
@@ -81,7 +80,7 @@ fun ResultPane(
                             onClick = {
                                 reportStore.submit(path, reason)
                                 reportPath = null
-                                Toast.makeText(context, "Report saved locally", Toast.LENGTH_SHORT).show()
+                                GlassSnackbar.show("Report saved locally", SnackbarLevel.SUCCESS)
                             },
                             modifier = Modifier.testTag(TestTags.reportReason(reason.name)),
                         ) { Text(reason.label) }
@@ -283,7 +282,7 @@ fun ResultPane(
                 onClick = {
                     val cm = context.getSystemService(ClipboardManager::class.java)
                     cm?.setPrimaryClip(ClipData.newPlainText("lookbook-code", state.text))
-                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("Copied", SnackbarLevel.SUCCESS)
                 },
             )
         }
@@ -309,7 +308,7 @@ fun ResultPane(
                 onClick = {
                     val cm = context.getSystemService(ClipboardManager::class.java)
                     cm?.setPrimaryClip(ClipData.newPlainText("lookbook-transcript", state.text))
-                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("Copied", SnackbarLevel.SUCCESS)
                 },
             )
         }

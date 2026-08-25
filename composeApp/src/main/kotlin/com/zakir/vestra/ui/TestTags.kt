@@ -50,6 +50,8 @@ object TestTags {
     fun chatHeadlineCard(index: Int): String = "chat_headline_$index"
     fun chatMessageBubble(index: Int, role: String): String = "chat_message_${index}_$role"
     const val CHAT_TYPING_INDICATOR = "chat_typing_indicator"
+    // "Remembering N things" header pill (ChatComponents.kt) — A4.2/A5, Part B.1's memory count.
+    const val CHAT_MEMORY_PILL = "chat_memory_pill"
     const val CHAT_EMPTY_STATE = "chat_empty_state"
     fun chatStarterPrompt(index: Int): String = "chat_starter_prompt_$index"
     const val QUICK_PROMPT_CAROUSEL = "quick_prompt_carousel"
@@ -73,6 +75,11 @@ object TestTags {
     // Wardrobe gallery grid (WardrobeScreen.kt) — per-entry tap target and row actions.
     const val WARDROBE_FILTER_ALL = "wardrobe_filter_all"
     const val WARDROBE_FILTER_FAVORITES = "wardrobe_filter_favorites"
+    // Media-type filter row (A4.4) — independent of the favorites filter above; the two
+    // compose (e.g. "Favorites" + "Videos" shows only favorited video looks).
+    const val WARDROBE_FILTER_TYPE_ALL = "wardrobe_filter_type_all"
+    const val WARDROBE_FILTER_TYPE_IMAGES = "wardrobe_filter_type_images"
+    const val WARDROBE_FILTER_TYPE_VIDEOS = "wardrobe_filter_type_videos"
     fun wardrobeGalleryItem(entryId: String): String = "wardrobe_gallery_item_$entryId"
     fun wardrobeFavoriteButton(entryId: String): String = "wardrobe_favorite_$entryId"
     fun wardrobeDeleteButton(entryId: String): String = "wardrobe_delete_$entryId"
@@ -126,4 +133,21 @@ object TestTags {
 
     // Live context-budget indicator above the chat composer (ChatComponents.kt) — Part B.2.
     const val CONTEXT_BUDGET_BAR = "context_budget_bar"
+
+    // Studio pager (UnifiedStudioPane.kt) — A4.3, Part B.2/B.3 surfaced inline in Create.
+    const val STUDIO_TOKEN_BUDGET_BAR = "studio_token_budget_bar"
+    fun studioSafetyPreset(id: String): String = "studio_safety_preset_$id"
+
+    // "What the assistant remembers" panel (SettingsMemorySection.kt) — Part B.1.
+    const val MEMORY_ENABLED_SWITCH = "memory_enabled_switch"
+    const val MEMORY_EMPTY_STATE = "memory_empty_state"
+    const val MEMORY_CLEAR_ALL_BUTTON = "memory_clear_all_button"
+    fun memoryFactRow(id: String): String = "memory_fact_row_$id"
+    fun memoryFactRemove(id: String): String = "memory_fact_remove_$id"
+
+    // Changelog screen (ChangelogScreen.kt) — Part A4.10.
+    fun changelogRelease(version: String): String = "changelog_release_${version.replace(' ', '_')}"
+
+    // Top-center glass snackbar (GlassSnackbar.kt) — A7, replaces bottom-anchored Toast.
+    const val GLASS_SNACKBAR = "glass_snackbar"
 }

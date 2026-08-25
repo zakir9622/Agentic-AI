@@ -1,6 +1,5 @@
 package com.zakir.vestra.ui.screens.wardrobe
 
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -47,8 +46,47 @@ import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSecondaryButton
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.TestTags
 import java.io.File
+
+/** Media-type filter (A4.4) — independent of, and composes with, the favorites filter. */
+internal enum class WardrobeMediaFilter { ALL, IMAGES, VIDEOS }
+
+internal fun WardrobeEntry.isVideoEntry(): Boolean =
+    File(imagePath).extension.lowercase() in setOf("mp4", "webm")
+
+/**
+ * Pure filter logic — extracted from the composable so it's directly unit-testable without a
+ * `WardrobeRepository`/Compose harness (see `WardrobeFilterTest`).
+ */
+internal fun filterWardrobeEntries(
+    entries: List<WardrobeEntry>,
+    favoritesOnly: Boolean,
+    mediaFilter: WardrobeMediaFilter,
+): List<WardrobeEntry> = entries.filter { entry ->
+    (!favoritesOnly || entry.favorited) &&
+        when (mediaFilter) {
+            WardrobeMediaFilter.ALL -> true
+            WardrobeMediaFilter.IMAGES -> !entry.isVideoEntry()
+            WardrobeMediaFilter.VIDEOS -> entry.isVideoEntry()
+        }
+}
+
+/**
+ * The empty-state message for the current filter combination — accounts for both filters
+ * together (e.g. "favorited videos" when both are active), not just whichever one is checked
+ * first, so the message never claims a wrong reason for the empty result.
+ */
+internal fun wardrobeEmptyMessage(favoritesOnly: Boolean, mediaFilter: WardrobeMediaFilter): String = when {
+    favoritesOnly && mediaFilter == WardrobeMediaFilter.IMAGES -> LookbookCopy.EMPTY_FAVORITE_IMAGES
+    favoritesOnly && mediaFilter == WardrobeMediaFilter.VIDEOS -> LookbookCopy.EMPTY_FAVORITE_VIDEOS
+    favoritesOnly -> LookbookCopy.EMPTY_FAVORITES
+    mediaFilter == WardrobeMediaFilter.IMAGES -> LookbookCopy.EMPTY_IMAGES_FILTER
+    mediaFilter == WardrobeMediaFilter.VIDEOS -> LookbookCopy.EMPTY_VIDEOS_FILTER
+    else -> LookbookCopy.EMPTY_FAVORITES
+}
 
 @Composable
 fun WardrobeScreen(
@@ -59,10 +97,11 @@ fun WardrobeScreen(
     val entries by wardrobe.entries.collectAsState()
     val context = LocalContext.current
     var favoritesOnly by remember { mutableStateOf(false) }
+    var mediaFilter by remember { mutableStateOf(WardrobeMediaFilter.ALL) }
     var detail by remember { mutableStateOf<WardrobeEntry?>(null) }
     var pendingDelete by remember { mutableStateOf<WardrobeEntry?>(null) }
-    val visible = remember(entries, favoritesOnly) {
-        if (favoritesOnly) entries.filter { it.favorited } else entries
+    val visible = remember(entries, favoritesOnly, mediaFilter) {
+        filterWardrobeEntries(entries, favoritesOnly, mediaFilter)
     }
 
     detail?.let { entry ->
@@ -78,7 +117,7 @@ fun WardrobeScreen(
             onShare = {
                 val file = File(entry.imagePath)
                 if (!file.exists()) {
-                    Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
                 } else if (file.extension.lowercase() in setOf("mp4", "webm")) {
                     MediaExport.share(context, file, LookbookCopy.ACTION_SHARE)
                 } else {
@@ -112,7 +151,7 @@ fun WardrobeScreen(
                         runCatching { if (file.exists()) file.delete() }
                         wardrobe.remove(entry.id)
                         pendingDelete = null
-                        Toast.makeText(context, "Removed", Toast.LENGTH_SHORT).show()
+                        GlassSnackbar.show("Removed", SnackbarLevel.SUCCESS)
                     },
                     modifier = Modifier.testTag(TestTags.WARDROBE_DELETE_CONFIRM),
                 ) { Text("Delete") }
@@ -156,12 +195,45 @@ fun WardrobeScreen(
                     modifier = Modifier.testTag(TestTags.WARDROBE_FILTER_FAVORITES),
                 )
             }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AtelierFilterChip(
+                    selected = mediaFilter == WardrobeMediaFilter.ALL,
+                    onClick = { mediaFilter = WardrobeMediaFilter.ALL },
+                    label = { Text("All types") },
+                    modifier = Modifier.testTag(TestTags.WARDROBE_FILTER_TYPE_ALL),
+                )
+                AtelierFilterChip(
+                    selected = mediaFilter == WardrobeMediaFilter.IMAGES,
+                    onClick = { mediaFilter = WardrobeMediaFilter.IMAGES },
+                    label = { Text("Images (${entries.count { !it.isVideoEntry() }})") },
+                    modifier = Modifier.testTag(TestTags.WARDROBE_FILTER_TYPE_IMAGES),
+                )
+                AtelierFilterChip(
+                    selected = mediaFilter == WardrobeMediaFilter.VIDEOS,
+                    onClick = { mediaFilter = WardrobeMediaFilter.VIDEOS },
+                    label = { Text("Videos (${entries.count { it.isVideoEntry() }})") },
+                    modifier = Modifier.testTag(TestTags.WARDROBE_FILTER_TYPE_VIDEOS),
+                )
+            }
             Spacer(Modifier.height(12.dp))
             if (visible.isEmpty()) {
+                val emptyMessage = wardrobeEmptyMessage(favoritesOnly, mediaFilter)
+                val emptyActionLabel = if (favoritesOnly) {
+                    LookbookCopy.ACTION_SHOW_ALL_LOOKS
+                } else {
+                    LookbookCopy.ACTION_SHOW_ALL_TYPES
+                }
                 GlassEmptyState(
-                    message = LookbookCopy.EMPTY_FAVORITES,
-                    actionLabel = LookbookCopy.ACTION_SHOW_ALL_LOOKS,
-                    onAction = { favoritesOnly = false },
+                    message = emptyMessage,
+                    actionLabel = emptyActionLabel,
+                    onAction = {
+                        favoritesOnly = false
+                        mediaFilter = WardrobeMediaFilter.ALL
+                    },
                 )
             } else {
                 LazyVerticalGrid(
@@ -187,7 +259,7 @@ fun WardrobeScreen(
                                     .clip(RoundedCornerShape(16.dp))
                                     .clickable {
                                         if (!file.exists()) {
-                                            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                                            GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
                                             return@clickable
                                         }
                                         detail = entry
@@ -220,7 +292,7 @@ fun WardrobeScreen(
                                     text = LookbookCopy.ACTION_SHARE,
                                     onClick = {
                                         if (!file.exists()) {
-                                            Toast.makeText(context, "File missing", Toast.LENGTH_SHORT).show()
+                                            GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
                                         } else {
                                             MediaExport.share(context, file, LookbookCopy.ACTION_SHARE)
                                         }

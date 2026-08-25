@@ -1,6 +1,5 @@
 package com.zakir.vestra.ui.screens.news
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -41,6 +40,7 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,7 +60,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +72,8 @@ import com.zakir.vestra.shared.chat.ChatMessage
 import com.zakir.vestra.shared.chat.ContextBudget
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
@@ -92,7 +93,6 @@ fun ChatMessageBubble(
 ) {
     val isUser = message.role.equals("user", ignoreCase = true)
     val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
 
     val formattedTime = remember(message.timestampMs) {
@@ -237,7 +237,7 @@ fun ChatMessageBubble(
                             onClick = {
                                 clipboardManager.setText(AnnotatedString(message.text))
                                 copied = true
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                GlassSnackbar.show("Copied to clipboard", SnackbarLevel.SUCCESS)
                             },
                             modifier = Modifier.size(20.dp),
                         ) {
@@ -486,6 +486,7 @@ fun ContextBudgetBar(
     budget: ContextBudget.Budget,
     hasDraft: Boolean,
     modifier: Modifier = Modifier,
+    testTag: String = TestTags.CONTEXT_BUDGET_BAR,
 ) {
     if (!hasDraft && !budget.willTruncate) return
     val warnColor = VestraColors.Danger
@@ -493,7 +494,7 @@ fun ContextBudgetBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = if (budget.willTruncate) 6.dp else 2.dp)
-            .testTag(TestTags.CONTEXT_BUDGET_BAR),
+            .testTag(testTag),
         horizontalArrangement = if (budget.willTruncate) Arrangement.Start else Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -523,6 +524,30 @@ fun ContextBudgetBar(
             )
         }
     }
+}
+
+/**
+ * "Remembering N things" header pill — the local analog of lookbookweb's chat-header memory
+ * indicator (`Brain` icon there; `Psychology` is the closest Material Symbols intent match).
+ * Hidden entirely at zero facts rather than showing a "Remembering 0 things" pill with no
+ * informational value — never fabricates a nonzero count.
+ */
+@Composable
+fun MemoryPill(factCount: Int, modifier: Modifier = Modifier) {
+    if (factCount <= 0) return
+    com.zakir.vestra.ui.components.GlassPill(
+        text = if (factCount == 1) "Remembering 1 thing" else "Remembering $factCount things",
+        active = true,
+        modifier = modifier.testTag(TestTags.CHAT_MEMORY_PILL),
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Psychology,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = VestraColors.Accent,
+            )
+        },
+    )
 }
 
 /** Collapsible top strip of live headlines, tap any card to seed a chat discussion. */

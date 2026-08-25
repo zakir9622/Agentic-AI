@@ -2,12 +2,16 @@ package com.zakir.vestra.ui
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.collectAsState
@@ -58,6 +62,7 @@ import com.zakir.vestra.ui.screens.home.HomeScreen
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.ui.screens.usage.UsageScreen
+import com.zakir.vestra.ui.screens.changelog.ChangelogScreen
 import com.zakir.vestra.ui.screens.help.HelpScreen
 import com.zakir.vestra.ui.screens.privacy.PrivacyScreen
 import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
@@ -85,6 +90,7 @@ object Routes {
     const val HELP = "help"
     const val PRIVACY = "privacy"
     const val CHAT = "chat"
+    const val CHANGELOG = "changelog"
 
     fun deepLink(route: String) = "lookbook://screen/$route"
 }
@@ -101,6 +107,7 @@ fun VestraNavHost(
     runDiagnostics: RunDiagnostics,
     localJobStore: LocalJobStore,
     chatRepository: ChatRepository,
+    memoryRepository: com.zakir.vestra.shared.chat.MemoryRepository,
     deviceRamMb: Long,
     freeCloudDiscovery: FreeCloudDiscovery,
     humanParsing: com.zakir.vestra.shared.engine.lite.HumanParsing,
@@ -186,6 +193,7 @@ fun VestraNavHost(
 
     var showQuickCreate by remember { mutableStateOf(false) }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         // Zeroed out deliberately: each screen already calls its own `.safeDrawingPadding()` for
         // status/nav-bar insets. Leaving Scaffold's default `WindowInsets.safeDrawing` here would
@@ -276,6 +284,7 @@ fun VestraNavHost(
                             appSettings,
                             runDiagnostics,
                             deviceRamMb,
+                            memoryRepository,
                         ) as T
                 },
             )
@@ -285,6 +294,7 @@ fun VestraNavHost(
                 appSettings = appSettings,
                 freeCloudDiscovery = freeCloudDiscovery,
                 packManager = packManager,
+                memoryRepository = memoryRepository,
             )
         }
         composable(
@@ -413,6 +423,14 @@ fun VestraNavHost(
             )
         }
         composable(
+            route = Routes.CHANGELOG,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CHANGELOG) }),
+        ) {
+            ChangelogScreen(
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
             route = Routes.WARDROBE,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.WARDROBE) }),
         ) {
@@ -433,10 +451,12 @@ fun VestraNavHost(
                 packManager = packManager,
                 freeCloudDiscovery = freeCloudDiscovery,
                 usageLedger = usageLedger,
+                memoryRepository = memoryRepository,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.HUB,
@@ -459,10 +479,12 @@ fun VestraNavHost(
                 packManager = packManager,
                 freeCloudDiscovery = freeCloudDiscovery,
                 usageLedger = usageLedger,
+                memoryRepository = memoryRepository,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.CLOUD,
@@ -475,10 +497,12 @@ fun VestraNavHost(
                 packManager = packManager,
                 freeCloudDiscovery = freeCloudDiscovery,
                 usageLedger = usageLedger,
+                memoryRepository = memoryRepository,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.ENGINES,
@@ -491,10 +515,12 @@ fun VestraNavHost(
                 packManager = packManager,
                 freeCloudDiscovery = freeCloudDiscovery,
                 usageLedger = usageLedger,
+                memoryRepository = memoryRepository,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
                 section = SettingsSection.APPEARANCE,
@@ -532,5 +558,12 @@ fun VestraNavHost(
             },
             onDismiss = { showQuickCreate = false },
         )
+    }
+
+    com.zakir.vestra.ui.components.GlassSnackbarHost(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .safeDrawingPadding(),
+    )
     }
 }

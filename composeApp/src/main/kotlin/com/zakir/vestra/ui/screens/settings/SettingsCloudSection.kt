@@ -26,10 +26,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,6 +41,8 @@ import com.zakir.vestra.storage.TokenSidecar
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -151,7 +151,6 @@ internal fun LazyListScope.settingsCloudKeysSection(
     onKeysLoadedFromDocuments: (count: Int) -> Unit,
 ) {
     item(key = "keys") {
-        val context = LocalContext.current
         val scope = rememberCoroutineScope()
         GlassCard {
             GlassSectionLabel("API KEYS")
@@ -179,11 +178,10 @@ internal fun LazyListScope.settingsCloudKeysSection(
             OutlinedButton(
                 onClick = {
                     if (!onApplyClipboard()) {
-                        Toast.makeText(
-                            context,
+                        GlassSnackbar.show(
                             "No Hugging Face / Groq / OpenRouter key found on clipboard",
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                            SnackbarLevel.WARNING,
+                        )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -218,15 +216,14 @@ internal fun LazyListScope.settingsCloudKeysSection(
                                 )
                             }
                             onKeysLoadedFromDocuments(count)
-                            Toast.makeText(
-                                context,
+                            GlassSnackbar.show(
                                 if (count > 0) {
                                     "Loaded $count key(s) from Documents/TheLookbook"
                                 } else {
                                     "No tokens.json / tokens.txt found in Documents/TheLookbook"
                                 },
-                                Toast.LENGTH_LONG,
-                            ).show()
+                                if (count > 0) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
+                            )
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),

@@ -1,7 +1,6 @@
 package com.zakir.vestra.ui.screens.settings
 
 import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +24,8 @@ import com.zakir.vestra.storage.TokenSidecar
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
+import com.zakir.vestra.ui.components.GlassSnackbar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.hasCameraPermission
 import com.zakir.vestra.ui.util.hasPostNotificationsPermission
@@ -70,11 +71,10 @@ internal fun LazyListScope.settingsDurableStatusSection(
                 OutlinedButton(
                     onClick = {
                         val ok = TokenSidecar.persist(context, appSettings)
-                        Toast.makeText(
-                            context,
+                        GlassSnackbar.show(
                             if (ok) "Wrote ${DurableStorage.TOKENS_FILE}" else "Could not write sidecar",
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                            if (ok) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR,
+                        )
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -142,11 +142,10 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
                             CacheCleanup.clearAppCaches(context)
                         }
                         onClearingCache(false)
-                        Toast.makeText(
-                            context,
+                        GlassSnackbar.show(
                             "Cleared ${result.deletedFiles} files · ${CacheCleanup.formatBytes(result.freedBytes)}",
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                            SnackbarLevel.SUCCESS,
+                        )
                     }
                 },
                 enabled = !clearingCache,
@@ -158,7 +157,7 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
             OutlinedButton(
                 onClick = {
                     usageLedger.clear()
-                    Toast.makeText(context, "Usage ledger cleared", Toast.LENGTH_SHORT).show()
+                    GlassSnackbar.show("Usage ledger cleared", SnackbarLevel.SUCCESS)
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -181,7 +180,7 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
             OutlinedButton(
                 onClick = {
                     if (reportStore.count() == 0) {
-                        Toast.makeText(context, "No reports yet", Toast.LENGTH_SHORT).show()
+                        GlassSnackbar.show("No reports yet", SnackbarLevel.INFO)
                         return@OutlinedButton
                     }
                     val send = Intent(Intent.ACTION_SEND).apply {

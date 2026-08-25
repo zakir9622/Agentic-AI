@@ -379,6 +379,21 @@ class GenerativeViewModel(
 
     fun localCodeOfflineReady(): Boolean = generative.localCodeReady()
 
+    /**
+     * Model id [generateCode] would currently dispatch to, mirroring that function's exact
+     * `bypassPreflight` condition (network-offline-with-a-ready-local-pack routes local too,
+     * not just an explicit local pick) — otherwise the Studio token-budget bar could show the
+     * wrong model's context window. Takes [localReady] rather than re-deriving it via
+     * `generative.localCodeReady()`: that call stats pack files on disk, and this is evaluated
+     * on every prompt keystroke, so the caller must pass the already off-main-thread-hoisted
+     * readiness state (see `produceLocalReadiness` in `UnifiedStudioPane.kt`) instead of
+     * reintroducing a synchronous disk read into composition.
+     */
+    fun currentCodeModelId(localReady: Boolean): String {
+        val localCode = localReady && (!appSettings.networkLikelyAvailable() || appSettings.prefersLocal(AiCapability.CODE))
+        return if (localCode) generative.localCodeProviderId() else appSettings.selectedProvider(AiCapability.CODE).id
+    }
+
     fun localTranscribeOfflineReady(): Boolean = generative.localTranscribeReady()
 
     fun localVisionOfflineReady(): Boolean = generative.localVisionReady()
@@ -589,6 +604,12 @@ class GenerativeViewModel(
                 is PreflightResult.Ok -> Unit
             }
         }
+        // Same guard as generateImage() — video's local path is still-clip-from-a-keyframe
+        // (the same tiny-SD image pipeline), so the same visual-content safety concerns apply.
+        val guardedPrompt = com.zakir.vestra.shared.safety.SafetyPresets.applyGuard(
+            p,
+            appSettings.safetyPresetId.value,
+        )
         startGeneration(
             capability = RunCapability.VIDEO,
             modelLabel = if (bypassPreflight) {
@@ -599,7 +620,7 @@ class GenerativeViewModel(
             local = bypassPreflight,
             studio = AiCapability.VIDEO,
         ) {
-            generative.generateVideo(p, currentAssists())
+            generative.generateVideo(guardedPrompt, currentAssists())
         }
     }
 

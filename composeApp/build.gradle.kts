@@ -102,6 +102,29 @@ android {
             isReturnDefaultValues = true
         }
     }
+
+    // A4.10: the in-app Changelog screen reads the repo's real CHANGELOG.md as an asset rather
+    // than a hand-maintained parallel list, so it can never drift out of sync with reality
+    // (matches this project's anti-fabrication discipline). Registering the generated-copy
+    // directory as an assets source dir — not editing the git-tracked assets/ folder — keeps
+    // the bundled copy always freshly generated from the real root file at build time.
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(layout.buildDirectory.dir("generated/changelogAssets"))
+        }
+    }
+}
+
+val copyChangelogAsset by tasks.registering(Copy::class) {
+    from(rootProject.file("CHANGELOG.md"))
+    into(layout.buildDirectory.dir("generated/changelogAssets"))
+}
+
+tasks.matching {
+    (it.name.startsWith("merge") && it.name.endsWith("Assets")) ||
+        it.name.contains("lint", ignoreCase = true)
+}.configureEach {
+    dependsOn(copyChangelogAsset)
 }
 
 kotlin {

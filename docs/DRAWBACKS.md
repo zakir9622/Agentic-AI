@@ -88,7 +88,15 @@ actually fixed, not when it's merely reworded.
   is unverified: no device, and ML Kit's native detection model doesn't run meaningfully under
   Robolectric. Treat detection accuracy as unverified until tested on a real device with real
   photos.
-- **No "gentler path" retry-exhaustion fallback for cloud video/audio generation (Part B.2's
+- **Memory extraction (Part B.1) roughly doubles per-turn latency whenever it runs.** After a
+  chat reply, `ChatViewModel.maybeExtractMemory()` is awaited inline — deliberately, since the
+  local LiteRT-LM engine isn't safe for concurrent generate calls, and running it as a
+  background fire-and-forget task let a fast second `send()` race it — meaning a second full
+  local-model inference call happens before the composer re-enables. On a slower device this is
+  a real, felt delay after the reply text is already visible, not a background cost. Turning
+  off "Remember new facts" in Settings avoids it entirely; there's no partial mode that keeps
+  memory on but skips extraction on slow turns.
+- **No "gentler path" retry-exhaustion fallback for cloud video/audio generation (Part B.4's
   audit, deliberately deferred, not built).** When every candidate in a cloud fallback chain
   fails, `generateVideo`/`generateAudio` in `GenerativeCloudService.kt` throw the last error and
   surface a `GenerativeState.Failed` — there is no automatic retry at lower resolution or with

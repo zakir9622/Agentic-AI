@@ -105,6 +105,121 @@ every step (not claimed from reading the code).
   retry-exhaustion "gentler path" fallback and progress-ticking the three sub-2.5s local
   blocking calls (video encode, system TTS, voice-changer DSP) are deliberately **not**
   built — reasoned and documented in `docs/DRAWBACKS.md` rather than silently dropped.
+- **Part B.1 — persistent local chat memory, "what the assistant remembers."** After a
+  News/Chat reply, an extraction prompt runs through the *local* chat model only — never
+  cloud, regardless of which model answered the visible reply — asking for up to 5 durable
+  facts (stated preferences, projects, tools, constraints, names, recurring goals) as a JSON
+  array; `MemoryExtraction.parseFacts()` parses it tolerantly but never fabricates a fact when
+  the output doesn't parse. `MemoryRepository` (new, `shared/commonMain/chat`) stores them
+  locally (same `Settings` backing every other repository — nothing leaves the device),
+  deduped case-insensitively, capped at 50. Facts are re-injected into future system prompts
+  and shown in a new Settings → "What the assistant remembers" panel
+  (`SettingsMemorySection.kt`) with per-fact delete, a "Clear all," and an on/off switch
+  (`AppSettings.memoryEnabled`, default on) that gates both new extraction and re-injection of
+  what's already stored. Extraction runs strictly after the primary reply completes, awaited
+  inline in the same coroutine rather than fire-and-forget — the local LiteRT-LM engine isn't
+  safe for concurrent generate calls, and a background task racing a fast second `send()` would
+  either corrupt that call or silently drop the extraction. 22 new unit tests
+  (`MemoryRepositoryTest`, `MemoryExtractionTest`) plus 2 new screenshots
+  (`26-memory-empty`, `27-memory-with-facts`).
+- **A4.3 — Studio pager audit: surfaced Part B.2/B.3 inline in Create, closed a real safety
+  gap.** lookbookweb's `studio.tsx` shows its token-budget line and safety-preset row directly
+  in the create surface, not only in a separate settings screen — `UnifiedStudioPane` (the
+  Image/Video/Audio/Code tabbed pager, the actual architectural analog of `studio.tsx`) now
+  does too. A compact safety-preset pill row (`GlassOptionToggle` chips, mirroring the existing
+  Pragmatic/Creative pattern) sits in the Image/Video Advanced section, wired to the same
+  `AppSettings.safetyPresetId` Settings already reads. A live token-budget bar sits above the
+  Code tab's composer — the one Studio capability that's actually LLM-context-window-shaped
+  (Image/Video/Audio are diffusion/TTS, not chat-context-bounded); its effective-model-id
+  resolution is hoisted to `Dispatchers.IO` and keyed on pack/readiness state rather than the
+  live prompt, so typing never re-triggers the disk stats `RoutingLocalCodeGenerator` needs to
+  resolve which local pack is actually active. **Closed a real gap found during the audit**:
+  `generateVideo()` never applied the safety-preset guard clause at all — video's local path is
+  a still-clip from the same tiny-SD keyframe pipeline `generateImage()` already guards, so the
+  same visual-content concern applies; fixed to match, and the confirm-before-run dialog now
+  gates Video generation the same way it already gated Image.
+- **Fixed during review, before landing:** a code-review pass on the above found two real bugs.
+  First, the initial Code-tab token-budget wiring re-derived the effective model id from
+  `viewModel.currentCodeModelId()` inside a `remember(prompt, ...)` block — since resolving
+  that id (when no explicit local pick exists) walks `RoutingLocalCodeGenerator`'s delegate
+  chain and stats each pack's files on disk, this reintroduced exactly the main-thread
+  file-system-probe problem `produceLocalReadiness` already exists in this same file to avoid,
+  now running on every keystroke. Moved the id resolution into its own `produceState` hoisted
+  to `Dispatchers.IO`, keyed on pack/readiness signals instead of the prompt. Second,
+  `currentCodeModelId()`'s local-vs-cloud decision only checked "local ready and explicitly
+  selected," missing the "offline with a ready local pack" branch `generateCode()` itself
+  actually routes through — fixed to mirror `generateCode()`'s exact `bypassPreflight`
+  condition so the budget bar always evaluates against the model that will actually run.
+- **A4.4 — Library: added a real media-type filter to Wardrobe, alongside (not replacing) the
+  existing Favorites filter.** lookbookweb's `library.tsx` filters by type (All/Images/Videos);
+  `WardrobeScreen` gets the same as an independent second filter row — "All types (n)/Images
+  (n)/Videos (n)" — that composes with the existing Favorites toggle (e.g. Favorites + Videos
+  shows only favorited video looks). The filtering itself (`filterWardrobeEntries`) and the
+  empty-state message logic (`wardrobeEmptyMessage`) are extracted as pure functions and
+  directly unit-tested (15 tests) rather than only reachable through a full-screen Compose
+  harness this repo doesn't have for `WardrobeScreen` (it needs a real `WardrobeRepository`
+  backed by device file storage). The remaining A4.4 items — an upload-to-library flow and a
+  demo-data/sample-content banner — are lookbookweb artifacts of its account-based cloud
+  storage model with no honest local-first equivalent (a demo banner would mean either
+  fabricating sample generations, which `docs/DRAWBACKS.md`'s own discipline rules out, or
+  showing nothing meaningful); left unbuilt as a reasoned scope decision, not an oversight.
+- **Fixed during review, before landing:** the empty-state message for a combined
+  Favorites+type filter (e.g. "Favorites" + "Videos" with no matches) fell back to a plain "No
+  favorites yet" even when favorites did exist — just none of the selected type — misreporting
+  why the list was empty. Fixed with two more precise messages
+  (`EMPTY_FAVORITE_IMAGES`/`EMPTY_FAVORITE_VIDEOS`) and a regression test asserting the combined
+  case never falls back to the plain favorites message.
+- **A4.9 — Settings section order.** Audited `SettingsScreen`'s section order against
+  lookbookweb's `settings.tsx` and found it had drifted — General/diagnostics and "what the
+  assistant remembers" sat first, Appearance was split across two non-adjacent positions, and
+  Cloud/Engines sections were interleaved rather than grouped. Reordered to match: Appearance &
+  accessibility → device/engine lab → provider/cloud settings → diagnostics → "what the
+  assistant remembers." Every section's own visibility gate (which `SettingsSection` route shows
+  it) is untouched — only the relative order within the combined `ALL` page changed. Account and
+  a sample-data toggle stay omitted, matching A4.11's "no accounts exist" and A4.4's "no
+  demo-content banner to gate" decisions.
+- **A4.10 — Changelog screen.** lookbookweb's `changelog.tsx` shows release history; added the
+  equivalent read directly from this app's real `CHANGELOG.md`, not a hand-maintained parallel
+  list — `copyChangelogAsset` (new Gradle task in `composeApp/build.gradle.kts`) bundles the
+  actual root `CHANGELOG.md` into the APK as an asset at build time, so the in-app list can never
+  drift out of sync with what actually shipped. `ChangelogParser` (`shared/commonMain`) splits it
+  into per-version sections; `ChangelogScreen` renders them and links from Settings → About
+  ("Changelog" button, alongside Help/Privacy) with adapted "install the latest release manually"
+  copy in place of lookbookweb's git-pull instructions, since this app ships as an APK.
+  Fixed during review, before landing: (1) the parser treated every `## ` heading as a release,
+  including this file's own non-version `## CI / releases` note — it would have rendered as a
+  fabricated release card between two real versions; now only headings starting with a digit are
+  treated as releases, and non-version headings are dropped rather than folded into whichever
+  version happens to precede them. (2) the screen read and parsed the asset file synchronously
+  inside `remember { }`, blocking the composition/UI thread; moved to `produceState` on
+  `Dispatchers.IO`, matching this codebase's established IO-hoisting pattern.
+- **A4.2/A5 — Chat header "Remembering N things" pill.** lookbookweb's chat header shows a
+  memory-count pill with a `Brain` icon; Part B.1 (this app's on-device chat memory) shipped
+  earlier without the header affordance surfacing it. Added `MemoryPill` to `ChatComponents.kt`,
+  wired into `NewsChatScreen` from the real `MemoryRepository.facts` count — hidden entirely at
+  zero facts rather than showing a "Remembering 0 things" pill with no informational value, never
+  a fabricated nonzero count. Icon is Material Symbols `Psychology`, the closest available intent
+  match for lookbookweb's `Brain` (A5's icon audit: exact `lucide-react` glyphs aren't portable,
+  intent-matching is). Code-review flagged the first pass for hand-duplicating `GlassPill`'s
+  container styling a third time (`GlassPill`, `ProTierPill`, now this) — fixed by adding an
+  optional `leadingIcon` slot to `GlassPill` itself and having `MemoryPill` reuse it, so the
+  pill's shape/fill/border styling has one source of truth again.
+- **A7 — Toast repositioning.** lookbookweb uses `sonner`, top-center, for every success/error/
+  warning/info notice; Android's native `Toast` is bottom-anchored and can't be repositioned or
+  restyled to match. Replaced every `Toast.makeText(...).show()` call site in the app — 13 files,
+  ~40 sites, including `MediaExport` (a plain Kotlin object with no Composable scope) — with
+  `GlassSnackbar` (`ui/components/GlassSnackbar.kt`): a global `MutableSharedFlow` message bus
+  any code can post to, plus one `GlassSnackbarHost` mounted at the app root (`VestraNavHost`),
+  top-center, styled with distinct icon+accent per level (success/error/warning/info; warning's
+  amber is a conventional choice, not sourced from lookbookweb's exact unseen `sonner` hex).
+  Fixed during review, before landing: (1) the exit animation cleared the displayed message the
+  same frame it started, so the card blinked off instead of animating away — fixed by keeping the
+  last-shown request in a `displayed` state that outlives `visible` turning false. (2) `collect`
+  processed messages strictly one at a time, so a newer message queued behind whatever was
+  already showing for up to 3.2s instead of pre-empting it — switched to `collectLatest`. (3) the
+  flow's default `BufferOverflow.SUSPEND` meant a burst of 9+ calls would silently drop the 9th+
+  — fixed with `BufferOverflow.DROP_OLDEST`, matching the "latest wins" semantics `collectLatest`
+  already implements.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 
