@@ -169,6 +169,15 @@ every step (not claimed from reading the code).
   why the list was empty. Fixed with two more precise messages
   (`EMPTY_FAVORITE_IMAGES`/`EMPTY_FAVORITE_VIDEOS`) and a regression test asserting the combined
   case never falls back to the plain favorites message.
+- **A4.9 — Settings section order.** Audited `SettingsScreen`'s section order against
+  lookbookweb's `settings.tsx` and found it had drifted — General/diagnostics and "what the
+  assistant remembers" sat first, Appearance was split across two non-adjacent positions, and
+  Cloud/Engines sections were interleaved rather than grouped. Reordered to match: Appearance &
+  accessibility → device/engine lab → provider/cloud settings → diagnostics → "what the
+  assistant remembers." Every section's own visibility gate (which `SettingsSection` route shows
+  it) is untouched — only the relative order within the combined `ALL` page changed. Account and
+  a sample-data toggle stay omitted, matching A4.11's "no accounts exist" and A4.4's "no
+  demo-content banner to gate" decisions.
 - See `docs/plans/lookbookweb-exact-ui-parity/PLAN.md` for the full remaining phase list
   (route-by-route layout parity, non-UI capabilities) — this is phase 1 of ~16.
 

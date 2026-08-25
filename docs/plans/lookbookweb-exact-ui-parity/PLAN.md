@@ -501,7 +501,9 @@ renders correctly without a device) and unit tests for every new non-UI capabili
 7. **A4.4 — Library.** Done: media-type filter (All/Images/Videos) added alongside the
    existing Favorites filter, pure-function-tested. Upload-to-library and the demo-data banner
    audited and left unbuilt — lookbookweb artifacts of its account-based cloud storage with no
-   honest local-first equivalent. **A4.9, A4.10 — Settings, Changelog** still pending.
+   honest local-first equivalent. **A4.9 — Settings order.** Done: reordered to match
+   Appearance → Engines → Cloud → Diagnostics → Memory; gates unchanged, order-only change,
+   code-review clean. **A4.10 — Changelog screen** still pending.
 8. **A4.5–A4.7 — Create screens** (Image/Video/Voice), scoping each engine-dependent item
    honestly per the notes above rather than adding UI for capabilities that don't exist yet.
 9. **A4.8 — Sources** (new source-management screen).

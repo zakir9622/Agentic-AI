@@ -308,66 +308,22 @@ fun SettingsScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
-            if (showGeneral) {
-                settingsGeneralSection(
-                    onOpenHelp = onOpenHelp,
-                    onOpenPrivacy = onOpenPrivacy,
-                    onOpenDiagnostics = onOpenDiagnostics,
-                )
-                if (memoryRepository != null) {
-                    settingsMemorySection(appSettings = appSettings, memory = memoryRepository)
-                }
-            }
-
-            if (showCloud) {
-                settingsCloudMasterToggleSection(appSettings = appSettings)
-            }
-
-            // Applies to every image generation regardless of local/cloud routing (see
-            // GenerativeViewModel.generateImage), so it's visible from both the Cloud and
-            // Engines section entry points, not gated behind the cloud-only toggle above.
-            if (showCloud || showEngines) {
-                settingsSafetySection(appSettings = appSettings)
-            }
-
-            if (showCloud && cloudModelsEnabled) {
-                settingsCloudKeysSection(
-                    appSettings = appSettings,
-                    connectivityChecker = connectivityChecker,
-                    hfTokenSaved = !hfToken.isNullOrBlank(),
-                    hfInput = hfInput,
-                    groqInput = groqInput,
-                    openRouterInput = openRouterInput,
-                    onHfInput = { hfInput = it },
-                    onGroqInput = { groqInput = it },
-                    onOpenRouterInput = { openRouterInput = it },
-                    keysSavedFlash = keysSavedFlash,
-                    clipboardHint = clipboardHint,
-                    durableReady = durableReady,
-                    onApplyClipboard = { applyClipboardToken() },
-                    onOpenPortal = ::openPortal,
-                    onSaveTokens = ::saveTokens,
-                    importTokensLauncher = importTokensLauncher,
-                    onKeysLoadedFromDocuments = { count ->
-                        hfInput = appSettings.hfToken.value.orEmpty()
-                        groqInput = appSettings.groqApiKey.value.orEmpty()
-                        openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
-                        keysSavedFlash = count > 0
-                    },
-                )
-            }
-
-            if (showCloud || showAppearance) {
-                settingsDurableStatusSection(
-                    appSettings = appSettings,
-                    durableReady = durableReady,
-                )
-            }
-
+            // Section order matches lookbookweb's settings.tsx (A4.9): appearance & accessibility
+            // → device/engine lab → provider/cloud settings → diagnostics → "what the assistant
+            // remembers" → about/changelog (not yet built — A4.10). Account and a sample-data
+            // toggle are omitted per that same audit — no accounts exist in this app, and there's
+            // no demo-content banner to gate a toggle for.
             if (showAppearance) {
                 settingsThemeSection(
                     appSettings = appSettings,
                     appearance = appearance,
+                )
+                settingsStoragePermissionsSection(
+                    clearingCache = clearingCache,
+                    onClearingCache = { clearingCache = it },
+                    usageLedger = usageLedger,
+                    permissionEpoch = permissionEpoch,
+                    onConfirmClearTokens = { confirmClearTokens = true },
                 )
             }
 
@@ -433,6 +389,44 @@ fun SettingsScreen(
                 )
             }
 
+            // Applies to every image generation regardless of local/cloud routing (see
+            // GenerativeViewModel.generateImage), so it's visible from both the Cloud and
+            // Engines section entry points, not gated behind the cloud-only toggle below.
+            if (showCloud || showEngines) {
+                settingsSafetySection(appSettings = appSettings)
+            }
+
+            if (showCloud) {
+                settingsCloudMasterToggleSection(appSettings = appSettings)
+            }
+
+            if (showCloud && cloudModelsEnabled) {
+                settingsCloudKeysSection(
+                    appSettings = appSettings,
+                    connectivityChecker = connectivityChecker,
+                    hfTokenSaved = !hfToken.isNullOrBlank(),
+                    hfInput = hfInput,
+                    groqInput = groqInput,
+                    openRouterInput = openRouterInput,
+                    onHfInput = { hfInput = it },
+                    onGroqInput = { groqInput = it },
+                    onOpenRouterInput = { openRouterInput = it },
+                    keysSavedFlash = keysSavedFlash,
+                    clipboardHint = clipboardHint,
+                    durableReady = durableReady,
+                    onApplyClipboard = { applyClipboardToken() },
+                    onOpenPortal = ::openPortal,
+                    onSaveTokens = ::saveTokens,
+                    importTokensLauncher = importTokensLauncher,
+                    onKeysLoadedFromDocuments = { count ->
+                        hfInput = appSettings.hfToken.value.orEmpty()
+                        groqInput = appSettings.groqApiKey.value.orEmpty()
+                        openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
+                        keysSavedFlash = count > 0
+                    },
+                )
+            }
+
             if (showCloud && cloudModelsEnabled) {
                 settingsCloudCapabilitiesSection(
                     appSettings = appSettings,
@@ -446,14 +440,22 @@ fun SettingsScreen(
                 )
             }
 
-            if (showAppearance) {
-                settingsStoragePermissionsSection(
-                    clearingCache = clearingCache,
-                    onClearingCache = { clearingCache = it },
-                    usageLedger = usageLedger,
-                    permissionEpoch = permissionEpoch,
-                    onConfirmClearTokens = { confirmClearTokens = true },
+            if (showCloud || showAppearance) {
+                settingsDurableStatusSection(
+                    appSettings = appSettings,
+                    durableReady = durableReady,
                 )
+            }
+
+            if (showGeneral) {
+                settingsGeneralSection(
+                    onOpenHelp = onOpenHelp,
+                    onOpenPrivacy = onOpenPrivacy,
+                    onOpenDiagnostics = onOpenDiagnostics,
+                )
+                if (memoryRepository != null) {
+                    settingsMemorySection(appSettings = appSettings, memory = memoryRepository)
+                }
             }
         }
     }
