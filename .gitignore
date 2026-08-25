@@ -26,6 +26,9 @@ ml/.venv/
 ml/__pycache__/
 ml/exports/
 
+# Python bytecode cache, anywhere in the repo (e.g. scripts/__pycache__/)
+__pycache__/
+
 # Bundled debug model binaries (convenience for local testing; real packs live
 # on Hugging Face). Regenerate with ml/export_lite_pack.py + copy into place.
 composeApp/src/debug/assets/packs/
