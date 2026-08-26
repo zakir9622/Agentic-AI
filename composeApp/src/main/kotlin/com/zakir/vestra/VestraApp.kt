@@ -227,12 +227,16 @@ class VestraApp : Application() {
                     this,
                     packManager,
                     useGpu = { appSettings.preferLiteRtLmGpu.value },
+                    useNpu = { appSettings.preferLiteRtLmNpu.value },
+                    enableSpeculativeDecoding = { appSettings.preferSpeculativeDecoding.value },
                 ),
                 qwen3 = com.zakir.vestra.shared.engine.local.AndroidLiteRtLmCodeGenerator(
                     this,
                     packManager,
                     packId = com.zakir.vestra.shared.engine.local.LiteRtLmPacks.QWEN3_CODE,
                     useGpu = { appSettings.preferLiteRtLmGpu.value },
+                    useNpu = { appSettings.preferLiteRtLmNpu.value },
+                    enableSpeculativeDecoding = { appSettings.preferSpeculativeDecoding.value },
                     primaryFile = com.zakir.vestra.shared.engine.local.LiteRtLmPacks.QWEN3_FILE,
                     minBytes = com.zakir.vestra.shared.engine.local.LiteRtLmPackLimits.MIN_QWEN3_BYTES,
                     downloadHint = "~331 MB",
@@ -245,6 +249,8 @@ class VestraApp : Application() {
                     this,
                     packManager,
                     useGpu = { appSettings.preferLiteRtLmGpu.value },
+                    useNpu = { appSettings.preferLiteRtLmNpu.value },
+                    enableSpeculativeDecoding = { appSettings.preferSpeculativeDecoding.value },
                     toolSet = com.zakir.vestra.shared.engine.local.LookbookStudioToolSet(
                         onAppendPrompt = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onAppendPrompt,
                         onSetEngineTier = com.zakir.vestra.shared.engine.local.LocalStudioToolBridge.onSetEngineTier,
@@ -261,11 +267,15 @@ class VestraApp : Application() {
                 this,
                 packManager,
                 useGpu = { appSettings.preferLiteRtLmGpu.value },
+                useNpu = { appSettings.preferLiteRtLmNpu.value },
+                enableSpeculativeDecoding = { appSettings.preferSpeculativeDecoding.value },
             ),
             localTranscriber = com.zakir.vestra.shared.engine.local.AndroidLocalAudioTranscriber(
                 this,
                 packManager,
                 useGpu = { appSettings.preferLiteRtLmGpu.value },
+                useNpu = { appSettings.preferLiteRtLmNpu.value },
+                enableSpeculativeDecoding = { appSettings.preferSpeculativeDecoding.value },
             ),
         )
 

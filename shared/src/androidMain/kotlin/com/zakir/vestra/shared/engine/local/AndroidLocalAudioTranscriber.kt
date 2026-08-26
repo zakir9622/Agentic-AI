@@ -12,6 +12,8 @@ class AndroidLocalAudioTranscriber(
     private val context: Context,
     private val packs: ModelPackManager,
     private val useGpu: () -> Boolean = { false },
+    private val useNpu: () -> Boolean = { false },
+    private val enableSpeculativeDecoding: () -> Boolean = { false },
 ) : LocalAudioTranscriber {
 
     override fun isReady(): Boolean = resolveModel() != null
@@ -33,6 +35,8 @@ class AndroidLocalAudioTranscriber(
             prompt = prompt,
             mapOk = { LocalTranscribeResult.Ok(it.text) },
             mapUnavailable = { LocalTranscribeResult.Unavailable(it) },
+            useNpu = useNpu(),
+            enableSpeculativeDecoding = enableSpeculativeDecoding(),
         ) as LocalTranscribeResult
     }
 

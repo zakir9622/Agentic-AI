@@ -13,6 +13,8 @@ class AndroidLocalVisionAssist(
     private val context: Context,
     private val packs: ModelPackManager,
     private val useGpu: () -> Boolean = { false },
+    private val useNpu: () -> Boolean = { false },
+    private val enableSpeculativeDecoding: () -> Boolean = { false },
 ) : LocalVisionAssist {
 
     override fun isReady(): Boolean = readinessReason() == null
@@ -25,6 +27,8 @@ class AndroidLocalVisionAssist(
             useGpu = useGpu(),
             visionEnabled = resolved.config.vision,
             audioEnabled = false,
+            useNpu = useNpu(),
+            enableSpeculativeDecoding = enableSpeculativeDecoding(),
         )
         // A pack whose vision-encoder signature the SDK has already rejected once fails
         // deterministically forever (LiteRtLmEngineCache caches it, durably across restarts) —
@@ -53,6 +57,8 @@ class AndroidLocalVisionAssist(
             question = question,
             mapOk = { LocalAssistResult.Ok(it.text) },
             mapUnavailable = { LocalAssistResult.Unavailable(it) },
+            useNpu = useNpu(),
+            enableSpeculativeDecoding = enableSpeculativeDecoding(),
         ) as LocalAssistResult
     }
 

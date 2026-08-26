@@ -1,5 +1,25 @@
 # Changelog — The Lookbook
 
+## 3.1.7
+
+Audited LiteRT-LM Android usage against Google's own integration guide and closed the gaps
+found — all opt-in and off by default, since none of this is verified on real hardware here.
+
+- **NPU backend support, opt-in.** `LiteRtLmEngine` can now try the NPU backend before GPU
+  (falling back to GPU, then CPU, on failure — the same defensive pattern already used for the
+  GPU→CPU fallback). New "LiteRT-LM NPU" toggle in Settings, off by default and disabled unless
+  GPU preference is also on — no device in this codebase's dev/test loop has confirmed an NPU
+  delegate actually engages for the installed packs.
+- **Speculative decoding, opt-in.** Sets the SDK's `ExperimentalFlags.enableSpeculativeDecoding`
+  before a GPU/NPU engine initializes, for faster decode. New "Speculative decoding" toggle in
+  Settings, off by default — this is an `@RequiresOptIn`-marked SDK flag Google's own docs call
+  "experimental and temporary... may change or be removed without notice."
+- Fixed a data race in the speculative-decoding wiring during implementation: the flag is a
+  global SDK static, but `LiteRtLmEngineCache` deliberately lets cold-loads for different models
+  run concurrently — two simultaneous cold-loads could interleave and silently apply the wrong
+  flag value to each other's engine. Now scoped behind a dedicated lock around just the
+  set-flag-then-initialize window.
+
 ## 3.1.6
 
 Fixes four real crashes/issues from a device log bundle a user sent directly from

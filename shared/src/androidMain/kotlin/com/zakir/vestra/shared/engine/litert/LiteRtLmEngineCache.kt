@@ -59,6 +59,8 @@ object LiteRtLmEngineCache {
         val visionEnabled: Boolean,
         val audioEnabled: Boolean,
         val toolsKey: String = "",
+        val useNpu: Boolean = false,
+        val enableSpeculativeDecoding: Boolean = false,
     )
 
     fun enterInference() {
@@ -94,8 +96,10 @@ object LiteRtLmEngineCache {
                 context = context,
                 modelPath = spec.modelPath,
                 useGpu = spec.useGpu,
+                useNpu = spec.useNpu,
                 visionEnabled = spec.visionEnabled,
                 audioEnabled = spec.audioEnabled,
+                enableSpeculativeDecoding = spec.enableSpeculativeDecoding,
                 tools = tools,
                 managedByCache = true,
             )

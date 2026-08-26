@@ -106,6 +106,50 @@ internal fun LazyListScope.settingsEnginesSection(
                     onCheckedChange = appSettings::setPreferLiteRtLmGpu,
                 )
             }
+            Spacer(Modifier.height(12.dp))
+            val preferLiteRtNpu by appSettings.preferLiteRtLmNpu.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("LiteRT-LM NPU", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Off by default — tries NPU before GPU, falls back automatically. " +
+                            "Unverified: no device here has confirmed an NPU delegate engages.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = preferLiteRtNpu,
+                    enabled = preferLiteRtGpu,
+                    onCheckedChange = appSettings::setPreferLiteRtLmNpu,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            val preferSpeculativeDecoding by appSettings.preferSpeculativeDecoding.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Speculative decoding", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Off by default — experimental SDK flag for faster GPU/NPU decode. " +
+                            "Google's own docs call it \"experimental and temporary.\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = preferSpeculativeDecoding,
+                    enabled = preferLiteRtGpu,
+                    onCheckedChange = appSettings::setPreferSpeculativeDecoding,
+                )
+            }
         }
         Spacer(Modifier.height(14.dp))
     }

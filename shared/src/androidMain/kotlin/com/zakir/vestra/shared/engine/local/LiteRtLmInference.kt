@@ -34,6 +34,8 @@ internal object LiteRtLmInference {
         visionEnabled: Boolean = false,
         audioEnabled: Boolean = false,
         tools: List<ToolSet> = emptyList(),
+        useNpu: Boolean = false,
+        enableSpeculativeDecoding: Boolean = false,
     ): String? {
         packs.markPackInUse(packId)
         return try {
@@ -43,6 +45,8 @@ internal object LiteRtLmInference {
                 visionEnabled = visionEnabled,
                 audioEnabled = audioEnabled,
                 toolsKey = LiteRtLmEngine.toolsKey(tools),
+                useNpu = useNpu,
+                enableSpeculativeDecoding = enableSpeculativeDecoding,
             )
             LiteRtLmEngineCache.withEngine(context, spec, tools) { /* load only */ }
             null
@@ -67,6 +71,8 @@ internal object LiteRtLmInference {
         system: String,
         mapOk: (LiteRtLmGenerateResult.Ok) -> Any,
         mapUnavailable: (String) -> Any,
+        useNpu: Boolean = false,
+        enableSpeculativeDecoding: Boolean = false,
     ): Any {
         packs.markPackInUse(packId)
         return try {
@@ -76,6 +82,8 @@ internal object LiteRtLmInference {
                 visionEnabled = visionEnabled,
                 audioEnabled = audioEnabled,
                 toolsKey = LiteRtLmEngine.toolsKey(tools),
+                useNpu = useNpu,
+                enableSpeculativeDecoding = enableSpeculativeDecoding,
             )
             LiteRtLmEngineCache.withEngine(context, spec, tools) { engine ->
                 when (val result = engine.generateText(prompt, system)) {
@@ -101,6 +109,8 @@ internal object LiteRtLmInference {
         tools: List<ToolSet> = emptyList(),
         prompt: String,
         system: String,
+        useNpu: Boolean = false,
+        enableSpeculativeDecoding: Boolean = false,
     ): Flow<LiteRtLmStreamEvent> {
         val spec = LiteRtLmEngineCache.EngineSpec(
             modelPath = modelPath,
@@ -108,6 +118,8 @@ internal object LiteRtLmInference {
             visionEnabled = false,
             audioEnabled = false,
             toolsKey = LiteRtLmEngine.toolsKey(tools),
+            useNpu = useNpu,
+            enableSpeculativeDecoding = enableSpeculativeDecoding,
         )
         return LiteRtLmEngineCache.withEngineFlow(context, spec, tools) { engine ->
             engine.generateTextStream(prompt, system)
@@ -127,6 +139,8 @@ internal object LiteRtLmInference {
         question: String,
         mapOk: (LiteRtLmGenerateResult.Ok) -> Any,
         mapUnavailable: (String) -> Any,
+        useNpu: Boolean = false,
+        enableSpeculativeDecoding: Boolean = false,
     ): Any {
         packs.markPackInUse(packId)
         return try {
@@ -135,6 +149,8 @@ internal object LiteRtLmInference {
                 useGpu = useGpu,
                 visionEnabled = visionEnabled,
                 audioEnabled = false,
+                useNpu = useNpu,
+                enableSpeculativeDecoding = enableSpeculativeDecoding,
             )
             LiteRtLmEngineCache.withEngine(context, spec) { engine ->
                 when (val result = engine.describeImage(imagePath, question)) {
@@ -161,6 +177,8 @@ internal object LiteRtLmInference {
         prompt: String,
         mapOk: (LiteRtLmGenerateResult.Ok) -> Any,
         mapUnavailable: (String) -> Any,
+        useNpu: Boolean = false,
+        enableSpeculativeDecoding: Boolean = false,
     ): Any {
         packs.markPackInUse(packId)
         return try {
@@ -169,6 +187,8 @@ internal object LiteRtLmInference {
                 useGpu = useGpu,
                 visionEnabled = false,
                 audioEnabled = audioEnabled,
+                useNpu = useNpu,
+                enableSpeculativeDecoding = enableSpeculativeDecoding,
             )
             LiteRtLmEngineCache.withEngine(context, spec) { engine ->
                 when (val result = engine.transcribeAudio(audioPath, prompt)) {
