@@ -597,13 +597,26 @@ private fun KnobSlider(
     accent: Color = VestraColors.Accent,
     onChange: (Float) -> Unit,
 ) {
+    // A NaN/Infinite value reaching Compose's Slider crashes with "current must not be NaN"
+    // (M3's internal Animatable throws it). VoiceKnobs.sanitized() should already prevent this
+    // upstream, but this is the last line of defense right at the value source — coerce and log
+    // rather than let the composable crash if a bad value ever gets here some other way.
+    val safeValue = if (value.isNaN() || value.isInfinite()) {
+        com.zakir.vestra.shared.diagnostics.EngineLogHook.w(
+            "KnobSlider",
+            "NaN/Inf value for \"$label\" ($value), falling back to ${range.start}",
+        )
+        range.start
+    } else {
+        value
+    }
     Column(Modifier.padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = VestraColors.Ink)
-            Text(format.format(value), style = MaterialTheme.typography.labelSmall, color = accent)
+            Text(format.format(safeValue), style = MaterialTheme.typography.labelSmall, color = accent)
         }
         Slider(
-            value = value,
+            value = safeValue,
             onValueChange = onChange,
             valueRange = range,
             modifier = Modifier.fillMaxWidth(),

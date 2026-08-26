@@ -23,9 +23,14 @@ class AndroidLocalVoiceChanger(
             return LocalAudioResult.Unavailable("Audio file missing: $inputPath")
         }
         return runCatching {
+            // Cloud TTS providers commonly save stereo or 24/32-bit WAV, which the strict mono
+            // 16-bit reader used to reject outright ("needs mono 16-bit WAV... re-generate or
+            // convert"). Try the fast path first, then fall back to the permissive reader +
+            // downmix so that failure only ever surfaces for a genuinely corrupt/unsupported file.
             val wav = WavIo.readPcm16MonoWav(input)
+                ?: WavIo.readAnyWav(input)?.let { WavIo.toMono16(it) }
                 ?: return LocalAudioResult.Unavailable(
-                    "Voice changer needs mono 16-bit WAV (cloud TTS saves WAV). Re-generate or convert.",
+                    "Couldn't read this audio file for voice-changing — try a different clip.",
                 )
             var samples = wav.samples
             samples = applyPitchAndSpeed(samples, k.pitchSemitones, k.speed, k.formant)

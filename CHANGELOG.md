@@ -1,5 +1,38 @@
 # Changelog — The Lookbook
 
+## 3.1.6
+
+Fixes four real crashes/issues from a device log bundle a user sent directly from
+Settings → Diagnostics — a Compose animation crash, a native SIGSEGV, a silent
+low-memory process kill, and a recurring voice-changer failure.
+
+- **Native SIGSEGV during concurrent local generations, fixed.** The crash traced to
+  `LiteRtLmEngineCache` having no lock spanning different model specs — only a per-spec init
+  lock, never held during the actual native generate call. Two different `LiteRtLmEngine`
+  instances (e.g. Code's model and Chat's model, both intentionally left resident so a
+  background generation keeps running when you switch tabs) could issue concurrent native
+  calls into `liblitertlm_jni.so` with nothing preventing it — the vendored SDK only
+  synchronizes native lifecycle calls per-instance. A mutex now serializes just the native
+  call moment (never engine construction/warm-up, so cold-loads still run in parallel),
+  bounded by the same 90s timeout the native call itself uses — a second studio's request
+  now fails with a clear "busy, try again" message instead of ever racing or hanging.
+- **Silent low-memory kill during local generation, fixed.** `onLowMemory`/severe
+  `onTrimMemory` used to clear only the ONNX Runtime session cache (Bonsai/SD-Turbo) — the
+  LiteRT-LM engine cache (Code/Chat/vision) was never touched by any memory-pressure
+  callback, so a heavy session (several models loaded across studios, none ever evicted on
+  navigation) could still get silently killed by the OS. Both caches are now cleared
+  together under memory pressure; neither can cut off a generation that's actively running.
+- **Compose `"current must not be NaN"` crash on the Audio screen, hardened against.** The
+  exact trigger couldn't be pinned from an R8-stripped stack, but the underlying gap is real:
+  `Float.coerceIn` doesn't filter `NaN`/`Infinite` (both `x < min` and `x > max` are false for
+  NaN), so `VoiceKnobs.sanitized()` wasn't actually NaN-safe despite looking like it. Added a
+  NaN/Infinite-aware clamp used there and in the voice-knob sliders themselves, plus in the
+  image generator's guidance-scale setter.
+- **Voice changer's "needs mono 16-bit WAV" failure, fixed.** Cloud TTS commonly saves
+  stereo or 24/32-bit WAV, which the local voice changer used to reject outright with
+  "re-generate or convert." It now auto-converts (downmix + bit-depth normalize) before
+  falling back to an error, so this only surfaces for a genuinely unreadable file.
+
 ## 3.1.5
 
 Closes the one item 3.1.4 left explicitly unresolved — the vision-encoder error — plus a

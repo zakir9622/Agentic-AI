@@ -37,4 +37,34 @@ class VoiceKnobsTest {
         assertTrue(VoiceKnobs.Default.isIdentity)
         assertFalse(VoiceKnobs(pitchSemitones = 3f).isIdentity)
     }
+
+    // Float.coerceIn alone does not filter NaN/Infinite (both x<min and x>max are false for
+    // NaN, so it returns unchanged) — regression coverage for the fix that makes sanitized()
+    // actually safe against a value that would otherwise crash a Compose Slider/Animatable
+    // downstream ("current must not be NaN", see KnobSlider in AudioStudioPane.kt).
+    @Test
+    fun sanitized_never_returns_nan_for_any_field() {
+        assertAllFinite(VoiceKnobs(pitchSemitones = Float.NaN).sanitized())
+        assertAllFinite(VoiceKnobs(speed = Float.NaN).sanitized())
+        assertAllFinite(VoiceKnobs(formant = Float.NaN).sanitized())
+        assertAllFinite(VoiceKnobs(warmth = Float.NaN).sanitized())
+        assertAllFinite(VoiceKnobs(clarity = Float.NaN).sanitized())
+    }
+
+    @Test
+    fun sanitized_never_returns_infinite_for_any_field() {
+        assertAllFinite(VoiceKnobs(pitchSemitones = Float.POSITIVE_INFINITY).sanitized())
+        assertAllFinite(VoiceKnobs(speed = Float.NEGATIVE_INFINITY).sanitized())
+        assertAllFinite(VoiceKnobs(formant = Float.POSITIVE_INFINITY).sanitized())
+        assertAllFinite(VoiceKnobs(warmth = Float.NEGATIVE_INFINITY).sanitized())
+        assertAllFinite(VoiceKnobs(clarity = Float.POSITIVE_INFINITY).sanitized())
+    }
+
+    private fun assertAllFinite(knobs: VoiceKnobs) {
+        assertFalse(knobs.pitchSemitones.isNaN() || knobs.pitchSemitones.isInfinite(), "pitchSemitones: $knobs")
+        assertFalse(knobs.speed.isNaN() || knobs.speed.isInfinite(), "speed: $knobs")
+        assertFalse(knobs.formant.isNaN() || knobs.formant.isInfinite(), "formant: $knobs")
+        assertFalse(knobs.warmth.isNaN() || knobs.warmth.isInfinite(), "warmth: $knobs")
+        assertFalse(knobs.clarity.isNaN() || knobs.clarity.isInfinite(), "clarity: $knobs")
+    }
 }

@@ -3,6 +3,7 @@ package com.zakir.vestra.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.local.LocalModelCatalog
+import com.zakir.vestra.shared.util.safeCoerceIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -257,7 +258,7 @@ class GenerativeViewModel(
     }
 
     fun setGuidanceScale(value: Float) {
-        _guidanceScale.value = value.coerceIn(1f, 15f)
+        _guidanceScale.value = value.safeCoerceIn(1f, 15f)
     }
 
     fun setSeed(value: Long?) {

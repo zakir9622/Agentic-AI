@@ -118,6 +118,39 @@ class AudioDspVerificationTest {
     }
 
     @Test
+    fun stereoSixteenBitWavIsAutoConvertedInsteadOfRejected() {
+        // Simulates cloud-TTS output that isn't already mono 16-bit — the strict reader used to
+        // reject this outright; it should now fall back to readAnyWav + toMono16 and succeed.
+        val sampleCount = sampleRate * 500 / 1000
+        val interleaved = ShortArray(sampleCount * 2) { i ->
+            val sampleIndex = i / 2
+            (sin(2.0 * PI * 440f * sampleIndex / sampleRate) * 20000).toInt().toShort()
+        }
+        val pcmBytes = java.nio.ByteBuffer.allocate(interleaved.size * 2)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        interleaved.forEach { pcmBytes.putShort(it) }
+        val file = tempFolder.newFile("stereo_${System.nanoTime()}.wav")
+        writeTestWav(file, pcmBytes.array(), sampleRate, channels = 2, bits = 16, format = 1)
+
+        val output = transformOrFail(file.absolutePath, VoiceKnobs.Default)
+        assertTrue(output.samples.isNotEmpty(), "expected non-empty output from a downmixed stereo input")
+    }
+
+    @Test
+    fun monoThirtyTwoBitFloatWavIsAutoConvertedInsteadOfRejected() {
+        val sampleCount = sampleRate * 500 / 1000
+        val floats = FloatArray(sampleCount) { i -> (sin(2.0 * PI * 440f * i / sampleRate) * 0.6).toFloat() }
+        val pcmBytes = java.nio.ByteBuffer.allocate(floats.size * 4)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        floats.forEach { pcmBytes.putFloat(it) }
+        val file = tempFolder.newFile("float_${System.nanoTime()}.wav")
+        writeTestWav(file, pcmBytes.array(), sampleRate, channels = 1, bits = 32, format = 3)
+
+        val output = transformOrFail(file.absolutePath, VoiceKnobs.Default)
+        assertTrue(output.samples.isNotEmpty(), "expected non-empty output from a mono float32 input")
+    }
+
+    @Test
     fun defaultKnobsPreservePitchAndLength() {
         val input = toneWav(330f, 500)
         val inputWav = WavIo.readPcm16MonoWav(input) ?: error("failed to read input fixture")
