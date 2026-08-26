@@ -68,19 +68,6 @@ class GenerativeViewModel(
     private val _preflightMessage = MutableStateFlow<String?>(null)
     val preflightMessage: StateFlow<String?> = _preflightMessage
 
-    // Example prompts show once per capability per session (first generation, or the model
-    // finishing its load, whichever comes first) then stay hidden — they clutter the composer
-    // once the user knows what to type, and re-showing them on every recomposition/navigation
-    // back would defeat the point.
-    private val _examplesDismissed = MutableStateFlow<Set<AiCapability>>(emptySet())
-    val examplesDismissed: StateFlow<Set<AiCapability>> = _examplesDismissed
-
-    fun dismissExamples(capability: AiCapability) {
-        if (capability !in _examplesDismissed.value) {
-            _examplesDismissed.value = _examplesDismissed.value + capability
-        }
-    }
-
     private val _lastUsedProviderId = MutableStateFlow<String?>(null)
     val lastUsedProviderId: StateFlow<String?> = _lastUsedProviderId
 

@@ -50,7 +50,6 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.safety.SafetyPresets
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.DockedLiveLog
-import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.GlassOptionToggle
@@ -117,7 +116,6 @@ fun UnifiedStudioPane(
         ?: remember { mutableStateOf(emptyMap()) }
 
     val warmup by viewModel.warmup.collectAsState()
-    val examplesDismissed by viewModel.examplesDismissed.collectAsState()
     val cloudModelsEnabled by viewModel.appSettings.cloudModelsEnabled.collectAsState()
     val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
     val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
@@ -202,15 +200,6 @@ fun UnifiedStudioPane(
         viewModel.warmUpLocal(effectiveCapability)
     }
 
-    // Examples are a first-run hint, not a permanent fixture — once the model has finished
-    // loading the user has had a chance to read them, so hide for the rest of the session
-    // (dispatchGenerate() covers the other trigger: starting a generation).
-    LaunchedEffect(warmup, capability) {
-        if (warmup is GenerativeViewModel.Warmup.Ready) {
-            viewModel.dismissExamples(capability)
-        }
-    }
-
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         viewModel.setReference(uri?.toString())
     }
@@ -226,27 +215,7 @@ fun UnifiedStudioPane(
         else -> "Enter a prompt…"
     }
 
-    val examples = when (capability) {
-        AiCapability.IMAGE_GEN -> listOf(
-            "Emerald abaya in a Lahore bazaar, soft afternoon light",
-            "Navy silk hijab portrait, studio softbox, editorial",
-            "Cream linen shalwar kameez, courtyard architecture",
-        )
-        AiCapability.VIDEO -> listOf(
-            "Woman in black abaya walking through a Karachi night bazaar",
-            "Slow pan across embroidered green shalwar kameez in soft daylight",
-            "Hijabi model turning toward camera, linen texture detail",
-        )
-        AiCapability.CODE -> listOf(
-            "Write a Kotlin Compose frosted glass card with border highlight",
-            "Explain how to resume an Android OkHttp download with Range headers",
-            "Refactor this into a StateFlow ViewModel pattern (paste code)",
-        )
-        else -> emptyList()
-    }
-
     fun dispatchGenerate() {
-        viewModel.dismissExamples(capability)
         when (capability) {
             AiCapability.IMAGE_GEN -> viewModel.generateImage()
             AiCapability.VIDEO -> viewModel.generateVideo()
@@ -337,28 +306,6 @@ fun UnifiedStudioPane(
                             creative = creative,
                             onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
                             onCreative = { viewModel.setCreativeMode(!creative) },
-                        )
-                    }
-
-                    // Shown once per capability per session — first generation or the model
-                    // finishing its load dismisses it (see the LaunchedEffect(warmup, capability)
-                    // and dispatchGenerate() above) — not a permanent fixture competing for space
-                    // on every visit.
-                    if (examples.isNotEmpty() && capability !in examplesDismissed) {
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            "EXAMPLES",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = accent,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        ExamplePromptRow(
-                            examples = examples,
-                            enabled = !busy,
-                            onPick = {
-                                viewModel.dismissExamples(capability)
-                                viewModel.setPrompt(it)
-                            },
                         )
                     }
 

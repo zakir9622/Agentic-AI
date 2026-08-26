@@ -64,7 +64,6 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.components.AtelierFilterChip
 import com.zakir.vestra.ui.components.DockedLiveLog
-import com.zakir.vestra.ui.components.ExamplePromptRow
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassTile
@@ -94,7 +93,6 @@ fun AudioStudioPane(
     }
 
     val warmup by viewModel.warmup.collectAsState()
-    val examplesDismissed by viewModel.examplesDismissed.collectAsState()
     val prompt by viewModel.prompt.collectAsState()
     val state by viewModel.state.collectAsState()
     val turns by viewModel.turns.collectAsState()
@@ -115,14 +113,6 @@ fun AudioStudioPane(
     // change that doesn't touch which engine is loaded.
     LaunchedEffect(audioId) {
         viewModel.warmUpLocal(AiCapability.AUDIO)
-    }
-
-    // Same "show once" rule as the other studios: hide the example scripts once the model has
-    // finished loading (generateAudio()/applyVoiceChange() below cover the other trigger).
-    LaunchedEffect(warmup) {
-        if (warmup is GenerativeViewModel.Warmup.Ready) {
-            viewModel.dismissExamples(AiCapability.AUDIO)
-        }
     }
 
     val provider = viewModel.appSettings.selectedProvider(AiCapability.AUDIO)
@@ -498,25 +488,6 @@ fun AudioStudioPane(
                             label = { Text("Reset knobs") },
                         )
                     }
-
-                    // Shown once per session — dismissed when the model finishes loading or a
-                    // generation starts (see the warmup LaunchedEffect above and the onSend
-                    // handler below).
-                    if (AiCapability.AUDIO !in examplesDismissed) {
-                        Spacer(Modifier.height(12.dp))
-                        ExamplePromptRow(
-                            examples = listOf(
-                                "Welcome to The Lookbook.",
-                                "This abaya drapes in soft black silk.",
-                                "Shop the new hijab collection today.",
-                            ),
-                            enabled = !busy,
-                            onPick = {
-                                viewModel.dismissExamples(AiCapability.AUDIO)
-                                viewModel.setPrompt(it)
-                            },
-                        )
-                    }
                 }
             }
             itemsIndexed(turns, key = { _, turn -> turn.id }) { index, turn ->
@@ -591,7 +562,6 @@ fun AudioStudioPane(
                 loading = warmup is GenerativeViewModel.Warmup.Loading,
                 enabled = prompt.isNotBlank() || reference != null,
                 onSend = {
-                    viewModel.dismissExamples(AiCapability.AUDIO)
                     if (reference != null && (prompt.isBlank() || prompt.equals("voice-change", true))) {
                         viewModel.applyVoiceChange()
                     } else {
