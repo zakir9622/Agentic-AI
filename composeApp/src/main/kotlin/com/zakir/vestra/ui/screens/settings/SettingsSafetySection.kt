@@ -3,6 +3,7 @@ package com.zakir.vestra.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -59,6 +61,34 @@ internal fun LazyListScope.settingsSafetySection(appSettings: AppSettings) {
                     testTag = TestTags.safetyPreset(preset.id),
                 )
                 if (index != SafetyPresets.ALL.lastIndex) Spacer(Modifier.height(8.dp))
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+    }
+    item(key = "analyze-reference") {
+        val enabled by appSettings.analyzeReferenceEnabled.collectAsState()
+        GlassCard {
+            GlassSectionLabel("OFFLINE VISION ASSIST")
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Runs a local vision pass over your reference image before generating, so the " +
+                    "model gets a short description of it. Needs a downloaded vision-capable " +
+                    "pack (Settings → Model packs) and costs an extra on-device inference pass.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Analyze reference image", style = MaterialTheme.typography.titleSmall)
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = appSettings::setAnalyzeReferenceEnabled,
+                    modifier = Modifier.testTag(TestTags.ANALYZE_REFERENCE_SWITCH),
+                )
             }
         }
         Spacer(Modifier.height(14.dp))

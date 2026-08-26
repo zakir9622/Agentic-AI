@@ -3,6 +3,7 @@ package com.zakir.vestra.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zakir.vestra.shared.local.LocalModelCatalog
+import com.zakir.vestra.shared.util.safeCoerceIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -101,9 +102,6 @@ class GenerativeViewModel(
     private val _qualityGuard = MutableStateFlow(true)
     val qualityGuard: StateFlow<Boolean> = _qualityGuard
 
-    private val _analyzeReference = MutableStateFlow(false)
-    val analyzeReference: StateFlow<Boolean> = _analyzeReference
-
     private val _inferenceSteps = MutableStateFlow(22)
     val inferenceSteps: StateFlow<Int> = _inferenceSteps
 
@@ -150,6 +148,26 @@ class GenerativeViewModel(
     private val _resultCapability = MutableStateFlow<AiCapability?>(null)
     val resultCapability: StateFlow<AiCapability?> = _resultCapability
 
+    /**
+     * One prompt→result exchange in a studio's conversation timeline (3.1.6). [result] is null
+     * while the generation is still [GenerativeState.Preparing]/[GenerativeState.Running] — that's
+     * the "typing indicator" state for this turn — and is set once real content exists, including
+     * intermediate [GenerativeState.CodeStreaming] chunks (each replacing the last as the same
+     * turn's output keeps growing) through to the final ready/failed state.
+     */
+    data class StudioTurn(
+        val id: String,
+        val prompt: String,
+        val timestampMs: Long,
+        val result: GenerativeState? = null,
+    )
+
+    private val _turns = MutableStateFlow<List<StudioTurn>>(emptyList())
+    val turns: StateFlow<List<StudioTurn>> = _turns
+
+    /** Held in memory only — unbounded turn history (esp. image/video file paths) would leak. */
+    private val maxTurnsPerStudio = 50
+
     /** Per-studio prompt/result bags so pager tabs do not wipe each other. */
     private data class StudioBag(
         var prompt: String = "",
@@ -162,6 +180,7 @@ class GenerativeViewModel(
         var job: Job? = null,
         var generationEpoch: Int = 0,
         var generationStartedAtMs: Long? = null,
+        var turns: List<StudioTurn> = emptyList(),
     )
 
     private val bags = mutableMapOf<AiCapability, StudioBag>()
@@ -191,6 +210,7 @@ class GenerativeViewModel(
         cur.job = job
         cur.generationEpoch = generationEpoch
         cur.generationStartedAtMs = _generationStartedAtMs.value
+        cur.turns = _turns.value
 
         boundKey = key
         val next = bag()
@@ -204,6 +224,36 @@ class GenerativeViewModel(
         _lastUsedProviderId.value = next.lastUsedProviderId
         _resultCapability.value = next.resultCapability
         _generationStartedAtMs.value = next.generationStartedAtMs
+        _turns.value = next.turns
+    }
+
+    /** Appends a new in-progress turn (result = null) for [studioKey], wherever it's tracked. */
+    private fun appendTurn(studioKey: AiCapability, turn: StudioTurn) {
+        if (boundKey == studioKey) {
+            _turns.value = (_turns.value + turn).takeLast(maxTurnsPerStudio)
+        } else {
+            val owner = bag(studioKey)
+            owner.turns = (owner.turns + turn).takeLast(maxTurnsPerStudio)
+        }
+    }
+
+    /**
+     * Updates the last turn's [StudioTurn.result] for [studioKey] with [next], wherever it's
+     * tracked. A no-op for [GenerativeState.Preparing]/[GenerativeState.Running] — those keep the
+     * turn's typing-indicator (null-result) state — and a no-op if there's no turn to update
+     * (shouldn't happen: every generation starts with [appendTurn]).
+     */
+    private fun updateLastTurn(studioKey: AiCapability, next: GenerativeState) {
+        if (next is GenerativeState.Preparing || next is GenerativeState.Running) return
+        if (boundKey == studioKey) {
+            val turns = _turns.value
+            val last = turns.lastOrNull() ?: return
+            _turns.value = turns.dropLast(1) + last.copy(result = next)
+        } else {
+            val owner = bag(studioKey)
+            val last = owner.turns.lastOrNull() ?: return
+            owner.turns = owner.turns.dropLast(1) + last.copy(result = next)
+        }
     }
 
     val isBusy: Boolean
@@ -248,16 +298,12 @@ class GenerativeViewModel(
         _qualityGuard.value = enabled
     }
 
-    fun setAnalyzeReference(enabled: Boolean) {
-        _analyzeReference.value = enabled
-    }
-
     fun setInferenceSteps(value: Int) {
         _inferenceSteps.value = value.coerceIn(4, 50)
     }
 
     fun setGuidanceScale(value: Float) {
-        _guidanceScale.value = value.coerceIn(1f, 15f)
+        _guidanceScale.value = value.safeCoerceIn(1f, 15f)
     }
 
     fun setSeed(value: Long?) {
@@ -271,7 +317,9 @@ class GenerativeViewModel(
         detailBoost = _detailBoost.value,
         bypassFilter = _bypassFilter.value,
         qualityGuard = _qualityGuard.value,
-        analyzeReference = _analyzeReference.value,
+        // Moved from a per-session ViewModel flag to a persisted AppSettings toggle (Settings →
+        // safety section) when its studio-side UI was removed — see 3.1.6 CHANGELOG.
+        analyzeReference = appSettings.analyzeReferenceEnabled.value,
         inferenceSteps = _inferenceSteps.value.takeIf { it != 22 },
         guidanceScale = _guidanceScale.value.takeIf { it != 7.0f },
         seed = _seed.value,
@@ -285,6 +333,7 @@ class GenerativeViewModel(
         _prompt.value = ""
         _referenceUri.value = null
         _resultCapability.value = null
+        _turns.value = emptyList()
         val cur = bag()
         cur.prompt = ""
         cur.referenceUri = null
@@ -292,6 +341,7 @@ class GenerativeViewModel(
         cur.liveLog = emptyList()
         cur.preflightMessage = null
         cur.resultCapability = null
+        cur.turns = emptyList()
     }
 
     /** True when [state] belongs to this studio (or shared Image Create/Edit). */
@@ -660,10 +710,15 @@ class GenerativeViewModel(
         activeLocalJobId?.let { localJobStore?.cancel(it) }
         activeLocalJobId = null
         appendLive("Stopped by user")
-        _state.value = if (showStopped) {
-            GenerativeState.Failed("Stopped. Tap Generate to run again.")
+        if (showStopped) {
+            val stopped = GenerativeState.Failed("Stopped. Tap Generate to run again.")
+            _state.value = stopped
+            // Otherwise a user-cancelled generation leaves its turn stuck showing the typing
+            // indicator forever — nothing else transitions turn.result once the flow stops
+            // collecting.
+            updateLastTurn(boundKey, stopped)
         } else {
-            null
+            _state.value = null
         }
     }
 
@@ -671,6 +726,16 @@ class GenerativeViewModel(
         forceStop(showStopped = false)
         _liveLog.value = emptyList()
         _preflightMessage.value = null
+    }
+
+    /**
+     * Removes the latest turn from this studio's timeline — wired as the conversation
+     * timeline's dismiss action for a failed/stopped result the user doesn't want to keep, as
+     * opposed to [clearResult] alone (which only resets [state]/log and leaves the turn's
+     * content, still visible, unchanged).
+     */
+    fun dismissLastTurn() {
+        _turns.value = _turns.value.dropLast(1)
     }
 
     private fun appendLive(line: String) {
@@ -720,6 +785,7 @@ class GenerativeViewModel(
         )
         activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value, presetId = runId) else null
         if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.addActiveRunId(runId)
+        appendTurn(studioKey, StudioTurn(id = runId, prompt = _prompt.value, timestampMs = startedAt))
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
@@ -738,6 +804,7 @@ class GenerativeViewModel(
                         // User switched tabs — keep updating the owning bag only.
                         val owner = bag(studioKey)
                         owner.state = next
+                        updateLastTurn(studioKey, next)
                         when (next) {
                             is GenerativeState.ImageReady,
                             is GenerativeState.VideoReady,
@@ -755,6 +822,7 @@ class GenerativeViewModel(
                         return@collect
                     }
                     _state.value = next
+                    updateLastTurn(studioKey, next)
                     when (next) {
                         is GenerativeState.Preparing -> appendLive(next.message)
                         is GenerativeState.Running -> {
@@ -817,12 +885,14 @@ class GenerativeViewModel(
                     val rawMsg = e.message?.take(280)?.ifBlank { null } ?: "Generation failed. Tap Retry."
                     val msg = if (local && builder != null) "$rawMsg (ref ${builder.id})" else rawMsg
                     completeLocalJob(success = false)
+                    val failed = GenerativeState.Failed(msg)
                     if (boundKey == studioKey) {
                         appendLive("Error · $msg")
-                        _state.value = GenerativeState.Failed(msg)
+                        _state.value = failed
                     } else {
-                        bag(studioKey).state = GenerativeState.Failed(msg)
+                        bag(studioKey).state = failed
                     }
+                    updateLastTurn(studioKey, failed)
                     builder?.complete(success = false, error = rawMsg)
                 }
             } finally {

@@ -67,6 +67,16 @@ class AppSettings(private val settings: Settings) {
     val safetyPresetId: StateFlow<String> = _safetyPresetId
 
     /**
+     * Whether image/video generation may run a local offline-vision pass over the reference
+     * image before generating (see `GenerativeAssists.analyzeReference`). Previously a per-
+     * session studio toggle; moved here (alongside the safety preset, its closest analog) so it
+     * survives app restarts and isn't lost when its studio-side UI was removed. Default false —
+     * it costs a real on-device inference pass and requires a downloaded vision-capable pack.
+     */
+    private val _analyzeReferenceEnabled = MutableStateFlow(settings.getBoolean(KEY_ANALYZE_REFERENCE, false))
+    val analyzeReferenceEnabled: StateFlow<Boolean> = _analyzeReferenceEnabled
+
+    /**
      * Whether News/Chat extracts durable facts from conversation turns via the local chat
      * model and re-injects them into future system prompts (Part B.1). Defaults on — the
      * extraction call and its storage never leave the device, matching this app's local-first
@@ -136,6 +146,11 @@ class AppSettings(private val settings: Settings) {
     fun setSafetyPresetId(id: String) {
         settings.putString(KEY_SAFETY_PRESET, id)
         _safetyPresetId.value = id
+    }
+
+    fun setAnalyzeReferenceEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_ANALYZE_REFERENCE, enabled)
+        _analyzeReferenceEnabled.value = enabled
     }
 
     fun setMemoryEnabled(enabled: Boolean) {
@@ -435,6 +450,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
         const val KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"
         const val KEY_SAFETY_PRESET = "safety_preset_id"
+        const val KEY_ANALYZE_REFERENCE = "analyze_reference_enabled"
         const val KEY_MEMORY_ENABLED = "chat_memory_enabled"
     }
 }

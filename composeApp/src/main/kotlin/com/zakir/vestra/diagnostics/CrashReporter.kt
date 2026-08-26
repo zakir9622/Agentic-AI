@@ -359,7 +359,17 @@ object CrashReporter {
 
             override fun onLowMemory() {
                 markLowMemory("onLowMemory")
-                w("Mem", "onLowMemory — process may be killed soon")
+                // A system-wide onLowMemory is a more urgent signal than onTrimMemory's severe
+                // levels below — it used to be logged with no corrective action at all, so a
+                // heavy local session (a multi-GB image engine plus one or more resident
+                // LiteRT-LM engines, none of them ever evicted on navigation) could still get
+                // silently killed by the OS right after this fired. Both engine caches already
+                // no-op while a generation is actively running, so this can't cut one off.
+                runCatching { com.zakir.vestra.shared.engine.lite.OrtSessionCache.clearAll() }
+                runCatching {
+                    com.zakir.vestra.shared.engine.litert.LiteRtLmEngineCache.clearAll()
+                }
+                w("Mem", "onLowMemory — cleared ORT + LiteRT-LM caches, process may be killed soon")
             }
 
             @Suppress("DEPRECATION")
@@ -374,7 +384,10 @@ object CrashReporter {
                     runCatching {
                         com.zakir.vestra.shared.engine.lite.OrtSessionCache.clearAll()
                     }
-                    w("Mem", "onTrimMemory $label ($level) — cleared ORT session cache")
+                    runCatching {
+                        com.zakir.vestra.shared.engine.litert.LiteRtLmEngineCache.clearAll()
+                    }
+                    w("Mem", "onTrimMemory $label ($level) — cleared ORT + LiteRT-LM caches")
                 } else if (
                     level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
                     level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE

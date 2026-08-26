@@ -1,5 +1,7 @@
 package com.zakir.vestra.shared.audio
 
+import com.zakir.vestra.shared.util.safeCoerceIn
+
 /**
  * Voice-changer metric knobs applied after TTS (local DSP) or as Space hints.
  * All values are clamped in [sanitized].
@@ -17,11 +19,11 @@ data class VoiceKnobs(
     val clarity: Float = 0.55f,
 ) {
     fun sanitized(): VoiceKnobs = VoiceKnobs(
-        pitchSemitones = pitchSemitones.coerceIn(-12f, 12f),
-        speed = speed.coerceIn(0.5f, 2f),
-        formant = formant.coerceIn(0.5f, 1.5f),
-        warmth = warmth.coerceIn(0f, 1f),
-        clarity = clarity.coerceIn(0f, 1f),
+        pitchSemitones = pitchSemitones.safeCoerceIn(-12f, 12f),
+        speed = speed.safeCoerceIn(0.5f, 2f),
+        formant = formant.safeCoerceIn(0.5f, 1.5f),
+        warmth = warmth.safeCoerceIn(0f, 1f),
+        clarity = clarity.safeCoerceIn(0f, 1f),
     )
 
     val isIdentity: Boolean

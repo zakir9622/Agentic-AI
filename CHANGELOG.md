@@ -1,5 +1,56 @@
 # Changelog — The Lookbook
 
+## 3.1.6
+
+Fixes four real crashes/issues from a device log bundle a user sent directly from
+Settings → Diagnostics — a Compose animation crash, a native SIGSEGV, a silent
+low-memory process kill, and a recurring voice-changer failure.
+
+- **Native SIGSEGV during concurrent local generations, fixed.** The crash traced to
+  `LiteRtLmEngineCache` having no lock spanning different model specs — only a per-spec init
+  lock, never held during the actual native generate call. Two different `LiteRtLmEngine`
+  instances (e.g. Code's model and Chat's model, both intentionally left resident so a
+  background generation keeps running when you switch tabs) could issue concurrent native
+  calls into `liblitertlm_jni.so` with nothing preventing it — the vendored SDK only
+  synchronizes native lifecycle calls per-instance. A mutex now serializes just the native
+  call moment (never engine construction/warm-up, so cold-loads still run in parallel),
+  bounded by the same 90s timeout the native call itself uses — a second studio's request
+  now fails with a clear "busy, try again" message instead of ever racing or hanging.
+- **Silent low-memory kill during local generation, fixed.** `onLowMemory`/severe
+  `onTrimMemory` used to clear only the ONNX Runtime session cache (Bonsai/SD-Turbo) — the
+  LiteRT-LM engine cache (Code/Chat/vision) was never touched by any memory-pressure
+  callback, so a heavy session (several models loaded across studios, none ever evicted on
+  navigation) could still get silently killed by the OS. Both caches are now cleared
+  together under memory pressure; neither can cut off a generation that's actively running.
+- **Compose `"current must not be NaN"` crash on the Audio screen, hardened against.** The
+  exact trigger couldn't be pinned from an R8-stripped stack, but the underlying gap is real:
+  `Float.coerceIn` doesn't filter `NaN`/`Infinite` (both `x < min` and `x > max` are false for
+  NaN), so `VoiceKnobs.sanitized()` wasn't actually NaN-safe despite looking like it. Added a
+  NaN/Infinite-aware clamp used there and in the voice-knob sliders themselves, plus in the
+  image generator's guidance-scale setter.
+- **Voice changer's "needs mono 16-bit WAV" failure, fixed.** Cloud TTS commonly saves
+  stereo or 24/32-bit WAV, which the local voice changer used to reject outright with
+  "re-generate or convert." It now auto-converts (downmix + bit-depth normalize) before
+  falling back to an error, so this only surfaces for a genuinely unreadable file.
+- **Misleading top status box removed from every studio.** Image, Video, and Code showed a
+  status line naming a fixed default model (e.g. "FLUX.1 Schnell · Hugging Face Space") even
+  when a different model — like an offline local one — was actually running; Audio's
+  equivalent header had the same problem. Removed across all four studios; the composer's own
+  model chip, which already reflects the real active model, is unaffected and stays as the
+  single source of truth.
+- **In-studio Advanced/Safety settings removed.** The Editorial/Modest fashion/Detail
+  enhance/Quality check pills and the in-studio Safety row (Image/Video) are gone — Safety
+  already had an identical control in Settings, so this removes a duplicate rather than the
+  only entry point. The one setting with no Settings-level equivalent, offline vision-assist
+  ("Analyze reference"), moved to Settings next to the Safety preset picker instead of being
+  dropped.
+- **Default in-app audio playback.** Generated audio now plays inline (play/pause, progress,
+  live spectrum) instead of only offering to open an external player.
+- **All four studios now read like a conversation.** Image, Video, Audio, and Code each keep a
+  scrolling history of prompt → result turns instead of overwriting a single result card, with
+  a typing indicator while a turn is still generating, smooth auto-scroll to the newest turn,
+  and per-item entry animation as turns append.
+
 ## 3.1.5
 
 Closes the one item 3.1.4 left explicitly unresolved — the vision-encoder error — plus a

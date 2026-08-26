@@ -9,6 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Reuses LiteRT-LM [Engine] instances per model spec — avoids cold-loading ~2.6 GB on every shot.
@@ -26,6 +29,16 @@ object LiteRtLmEngineCache {
     // single generation. Cleared alongside the engine on evictModelPath/clearAll (pack reinstall),
     // never on a bare "Retry load" — retrying a deterministic mismatch can't succeed differently.
     private val failed = ConcurrentHashMap<EngineSpec, String>()
+
+    // The vendored SDK synchronizes native lifecycle calls per-Engine-instance only — it has no
+    // documented contract for concurrent native calls across two DIFFERENT engine instances (e.g.
+    // Code's Gemma-4-E2B and Chat's Qwen3, both intentionally left resident by the StudioBag
+    // design). Two such calls racing into liblitertlm_jni.so is exactly what produced a native
+    // SIGSEGV on a background inference thread. This mutex serializes only the actual native
+    // call moment (see withEngine/withEngineFlow below) — never engine construction/warm-up,
+    // which must stay free to run in parallel, or a second studio's first cold-load would wait
+    // behind the first studio's multi-second model load.
+    private val nativeCallMutex = Mutex()
 
     // Durable counterpart to [failed] — set once from VestraApp, survives cold start. Null in
     // unit tests and before app init; failureReason() degrades gracefully to the in-memory-only
@@ -124,7 +137,14 @@ object LiteRtLmEngineCache {
         return engine
     }
 
-    /** Borrow a warm engine; [block] runs while inference depth is elevated. */
+    /**
+     * Borrow a warm engine; [block] runs while inference depth is elevated. Callers already run
+     * off the UI thread (they're invoked from `Dispatchers.Default`-flowed generation flows), so
+     * blocking here on [runBlocking] to acquire [nativeCallMutex] is safe. Bounded by the same
+     * [LiteRtLmEngine.INFERENCE_TIMEOUT_SEC] the native call itself would time out at, so a
+     * second studio's request fails with a clear "busy" message instead of hanging indefinitely
+     * behind a stuck first call.
+     */
     fun <T> withEngine(
         context: Context,
         spec: EngineSpec,
@@ -134,7 +154,7 @@ object LiteRtLmEngineCache {
         val engine = warmEngine(context, spec, tools)
         enterInference()
         return try {
-            block(engine)
+            runBlocking { withNativeCallLock { block(engine) } }
         } finally {
             leaveInference()
             drainPendingClose { path -> evictModelPath(path) }
@@ -157,10 +177,34 @@ object LiteRtLmEngineCache {
         val engine = warmEngine(context, spec, tools)
         enterInference()
         try {
-            emitAll(block(engine))
+            withNativeCallLock { emitAll(block(engine)) }
         } finally {
             leaveInference()
             drainPendingClose { path -> evictModelPath(path) }
+        }
+    }
+
+    /**
+     * Waits up to [LiteRtLmEngine.INFERENCE_TIMEOUT_SEC] to acquire [nativeCallMutex], then runs
+     * [block] holding it — serializing the actual native call moment across every EngineSpec, not
+     * just within one. Throws (rather than hanging) if the lock can't be acquired in time, so a
+     * stuck first call can never wedge a second studio forever.
+     *
+     * `internal` (not `private`) so [LiteRtLmEngineCacheTest] can exercise the exact mutex +
+     * timeout logic directly — `withEngine`/`withEngineFlow` themselves require a real, natively-
+     * initialized [LiteRtLmEngine] that isn't constructible in a JVM unit test.
+     */
+    internal suspend fun <T> withNativeCallLock(block: suspend () -> T): T {
+        val acquired = withTimeoutOrNull(LiteRtLmEngine.INFERENCE_TIMEOUT_SEC * 1000L) {
+            nativeCallMutex.lock()
+        }
+        if (acquired == null) {
+            throw IllegalStateException("Another on-device model is busy — try again in a moment.")
+        }
+        return try {
+            block()
+        } finally {
+            nativeCallMutex.unlock()
         }
     }
 

@@ -149,79 +149,33 @@ class ScreenshotTest {
     }
 
     /**
-     * The studio shape that regressed: a long provider string beside chips, and the composer
-     * docked at the bottom. Before the fix the header chips rendered as one-character-wide
-     * columns of vertical text ~1000dp tall, which also blew the layout apart. This is the
-     * screenshot that would have caught it.
+     * The composer docked at the bottom of a studio pane. Used to shoot the header status box
+     * that sat above it (a long provider string beside chips that once regressed into
+     * one-character-wide columns of vertical text) — that box was deleted entirely in 3.1.6
+     * (it could show a stale/wrong model name; the composer's own model chip is now the sole
+     * status indicator), so only the composer shape remains worth a screenshot here.
      */
     @Test
-    fun studioHeaderAndDock() {
-        val longEstimate =
-            "FLUX.1 Schnell · Ready · verified just now · Hugging Face Space (free) · Free " +
-                "infer · prompt + seed/randomize/size/steps"
-        shoot("03-studio-header-and-dock") {
+    fun studioComposerDock() {
+        shoot("03-studio-composer-dock") {
             androidx.compose.foundation.layout.Column(
-                androidx.compose.ui.Modifier.fillMaxSize(),
+                androidx.compose.ui.Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp)
+                    .padding(bottom = 10.dp, top = 4.dp),
             ) {
-                androidx.compose.foundation.layout.Column(
-                    androidx.compose.ui.Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                ) {
-                    com.zakir.vestra.ui.components.GlassSectionLabel("IMAGE STUDIO")
-                    androidx.compose.material3.Text(
-                        "Local tiny-SD ready offline — Create Studio runs on-device.",
-                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                        color = com.zakir.vestra.ui.theme.VestraColors.InkMuted,
-                    )
-                    androidx.compose.foundation.layout.Spacer(
-                        androidx.compose.ui.Modifier.height(4.dp),
-                    )
-                    androidx.compose.foundation.layout.FlowRow(
-                        modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
-                    ) {
-                        androidx.compose.material3.Text(
-                            longEstimate,
-                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                            color = com.zakir.vestra.ui.theme.VestraColors.InkMuted,
-                            maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-                        com.zakir.vestra.ui.components.GlassPill(
-                            text = "Local SD-Turbo · Ready offline",
-                            active = true,
-                        )
-                        androidx.compose.material3.Text(
-                            "Last: InstructPix2Pix",
-                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                            color = com.zakir.vestra.ui.theme.VestraColors.Accent,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                androidx.compose.foundation.layout.Column(
-                    androidx.compose.ui.Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp)
-                        .padding(bottom = 10.dp, top = 4.dp),
-                ) {
-                    PromptComposer(
-                        prompt = "i want a russian girl riding a horse",
-                        onPromptChange = {},
-                        modelLabel = "Local tiny-SD (offline)",
-                        assistCount = 1,
-                        busy = false,
-                        enabled = true,
-                        onModelClick = {},
-                        onAssistsClick = {},
-                        onSend = {},
-                        onStop = {},
-                    )
-                }
+                PromptComposer(
+                    prompt = "i want a russian girl riding a horse",
+                    onPromptChange = {},
+                    modelLabel = "Local tiny-SD (offline)",
+                    assistCount = 1,
+                    busy = false,
+                    enabled = true,
+                    onModelClick = {},
+                    onAssistsClick = {},
+                    onSend = {},
+                    onStop = {},
+                )
             }
         }
     }

@@ -69,4 +69,20 @@ class AudioVisualizationSmokeTest {
         }
         compose.waitForIdle()
     }
+
+    /**
+     * [InlineAudioPlayer]'s idle (not-yet-playing) composition — the state it mounts in whenever
+     * a [com.zakir.vestra.shared.cloud.GenerativeState.AudioReady] result renders. Actual
+     * `MediaPlayer` playback against a real file is device-only (same standing limitation as
+     * `AndroidMicRecorder`/`AndroidLatencyCalibrator`), so this only confirms the composable
+     * itself doesn't crash mounting/disposing — a real regression guard for the 3.1.6 addition of
+     * default in-app playback to `ResultPane`.
+     */
+    @Test
+    fun inlineAudioPlayerRendersInIdleState() {
+        compose.setContent {
+            InlineAudioPlayer(path = "/nonexistent/clip.wav")
+        }
+        compose.waitForIdle()
+    }
 }
