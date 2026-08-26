@@ -49,6 +49,25 @@ class AppSettings(private val settings: Settings) {
     val preferLiteRtLmGpu: StateFlow<Boolean> = _preferLiteRtLmGpu
 
     /**
+     * When true (and [preferLiteRtLmGpu] is also on), LiteRT-LM tries the NPU backend before
+     * GPU, falling back to GPU then CPU on failure — same defensive pattern as the existing
+     * GPU→CPU fallback. Default false: no device in this codebase's dev/test loop has verified
+     * an NPU delegate actually engages for the installed packs, so this stays opt-in.
+     */
+    private val _preferLiteRtLmNpu = MutableStateFlow(settings.getBoolean(KEY_PREFER_LITERT_NPU, false))
+    val preferLiteRtLmNpu: StateFlow<Boolean> = _preferLiteRtLmNpu
+
+    /**
+     * When true, sets LiteRT-LM's `ExperimentalFlags.enableSpeculativeDecoding` before a GPU or
+     * NPU engine initializes (never for CPU), for faster decode. Default false — this is an
+     * SDK-marked `@RequiresOptIn` flag ("experimental and temporary... may change or be removed
+     * without notice") with no behavior verified on real hardware here.
+     */
+    private val _preferSpeculativeDecoding =
+        MutableStateFlow(settings.getBoolean(KEY_PREFER_SPECULATIVE_DECODING, false))
+    val preferSpeculativeDecoding: StateFlow<Boolean> = _preferSpeculativeDecoding
+
+    /**
      * Master switch for cloud generation, app-wide. Default false — local-only until the
      * user explicitly opts in. When off, [preflight] blocks any capability whose selected
      * provider isn't a local generator, regardless of network/API-key state.
@@ -136,6 +155,16 @@ class AppSettings(private val settings: Settings) {
     fun setPreferLiteRtLmGpu(enabled: Boolean) {
         settings.putBoolean(KEY_PREFER_LITERT_GPU, enabled)
         _preferLiteRtLmGpu.value = enabled
+    }
+
+    fun setPreferLiteRtLmNpu(enabled: Boolean) {
+        settings.putBoolean(KEY_PREFER_LITERT_NPU, enabled)
+        _preferLiteRtLmNpu.value = enabled
+    }
+
+    fun setPreferSpeculativeDecoding(enabled: Boolean) {
+        settings.putBoolean(KEY_PREFER_SPECULATIVE_DECODING, enabled)
+        _preferSpeculativeDecoding.value = enabled
     }
 
     fun setCloudModelsEnabled(enabled: Boolean) {
@@ -448,6 +477,8 @@ class AppSettings(private val settings: Settings) {
         const val KEY_FAL_KEY = "fal_api_key"
         const val KEY_PREFER_NNAPI = "prefer_nnapi"
         const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
+        const val KEY_PREFER_LITERT_NPU = "prefer_litert_npu"
+        const val KEY_PREFER_SPECULATIVE_DECODING = "prefer_litert_speculative_decoding"
         const val KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"
         const val KEY_SAFETY_PRESET = "safety_preset_id"
         const val KEY_ANALYZE_REFERENCE = "analyze_reference_enabled"

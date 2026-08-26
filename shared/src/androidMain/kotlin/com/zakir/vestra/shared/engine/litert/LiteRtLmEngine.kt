@@ -9,6 +9,8 @@ import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
 import com.google.ai.edge.litertlm.ToolSet
@@ -34,11 +36,19 @@ class LiteRtLmEngine(
     private val audioEnabled: Boolean = false,
     private val tools: List<ToolSet> = emptyList(),
     private val managedByCache: Boolean = false,
+    // Tried before GPU (falls back to GPU, then CPU, on failure) — only meaningful when
+    // [useGpu] is also true, since NPU is a narrower preference nested under "prefer
+    // accelerated". Default false: unverified on real hardware in this codebase.
+    private val useNpu: Boolean = false,
+    // Sets the SDK's `ExperimentalFlags.enableSpeculativeDecoding` before a GPU/NPU init —
+    // never for CPU. Default false: an `@RequiresOptIn`-marked, explicitly "experimental and
+    // temporary" flag with no behavior verified on real hardware here.
+    private val enableSpeculativeDecoding: Boolean = false,
 ) : AutoCloseable {
 
     private var engine: Engine? = null
     private var loadMs: Long = 0L
-    private var usedGpu: Boolean = useGpu
+    private var usedBackend: LiteRtLmBackendTier = LiteRtLmBackendTier.CPU
 
     // Dual-write: Logcat for local dev, EngineLogHook so it also lands in the exported
     // diagnostics bundle (app_trace.log) — this was previously Logcat-only, so GPU-fallback
@@ -55,39 +65,63 @@ class LiteRtLmEngine(
 
     fun isInitialized(): Boolean = engine != null
 
-    /** Which backend actually loaded — may differ from the requested [useGpu] after a fallback. */
-    fun usedGpuBackend(): Boolean = usedGpu
+    /** True if the actually-loaded backend is GPU or NPU (may differ from [useGpu] after a fallback). */
+    fun usedGpuBackend(): Boolean = usedBackend != LiteRtLmBackendTier.CPU
+
+    /** True only if NPU specifically loaded (as opposed to falling back to GPU or CPU). */
+    fun usedNpuBackend(): Boolean = usedBackend == LiteRtLmBackendTier.NPU
 
     fun initialize() {
         val started = System.currentTimeMillis()
-        if (useGpu) {
-            runCatching { buildAndInitEngine(gpu = true) }
+        if (useGpu && useNpu) {
+            runCatching { buildAndInitEngine(LiteRtLmBackendTier.NPU) }
                 .onSuccess { eng ->
                     engine = eng
-                    usedGpu = true
+                    usedBackend = LiteRtLmBackendTier.NPU
                 }
-                .onFailure { gpuError ->
-                    // GPU delegate compilation failing for a quantized model is a real, known
-                    // class of Android-device issue (driver/op-support gaps), not necessarily
-                    // transient — confirmed live via a user's device log:
-                    // "Failed to create engine: INTERNAL ... litert_compiled_model_executor.cc".
-                    // Without this fallback, "Retry load" just repeats the identical failing GPU
-                    // path forever; CPU is slower but should load the same weights correctly.
-                    logW("GPU engine init failed, falling back to CPU: ${gpuError.message}")
-                    val eng = buildAndInitEngine(gpu = false)
-                    engine = eng
-                    usedGpu = false
+                .onFailure { npuError ->
+                    // NPU delegate availability is chipset/driver-specific and unverified on any
+                    // device in this codebase's dev/test loop — treat a failure exactly like the
+                    // established GPU failure below: fall back, don't wedge the studio.
+                    logW("NPU engine init failed, falling back to GPU: ${npuError.message}")
+                    initializeGpuThenCpu()
                 }
+        } else if (useGpu) {
+            initializeGpuThenCpu()
         } else {
-            engine = buildAndInitEngine(gpu = false)
-            usedGpu = false
+            engine = buildAndInitEngine(LiteRtLmBackendTier.CPU)
+            usedBackend = LiteRtLmBackendTier.CPU
         }
         loadMs = System.currentTimeMillis() - started
-        logI("Cold load ${loadMs}ms · ${File(modelPath).name} · ${backendLabel(usedGpu)}")
+        logI("Cold load ${loadMs}ms · ${File(modelPath).name} · ${backendLabel(usedBackend)}")
     }
 
-    private fun buildAndInitEngine(gpu: Boolean): Engine {
-        val backend = if (gpu) Backend.GPU() else Backend.CPU()
+    private fun initializeGpuThenCpu() {
+        runCatching { buildAndInitEngine(LiteRtLmBackendTier.GPU) }
+            .onSuccess { eng ->
+                engine = eng
+                usedBackend = LiteRtLmBackendTier.GPU
+            }
+            .onFailure { gpuError ->
+                // GPU delegate compilation failing for a quantized model is a real, known
+                // class of Android-device issue (driver/op-support gaps), not necessarily
+                // transient — confirmed live via a user's device log:
+                // "Failed to create engine: INTERNAL ... litert_compiled_model_executor.cc".
+                // Without this fallback, "Retry load" just repeats the identical failing GPU
+                // path forever; CPU is slower but should load the same weights correctly.
+                logW("GPU engine init failed, falling back to CPU: ${gpuError.message}")
+                val eng = buildAndInitEngine(LiteRtLmBackendTier.CPU)
+                engine = eng
+                usedBackend = LiteRtLmBackendTier.CPU
+            }
+    }
+
+    private fun buildAndInitEngine(tier: LiteRtLmBackendTier): Engine {
+        val backend = when (tier) {
+            LiteRtLmBackendTier.NPU -> Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+            LiteRtLmBackendTier.GPU -> Backend.GPU()
+            LiteRtLmBackendTier.CPU -> Backend.CPU()
+        }
         val visionBackend = if (visionEnabled) backend else null
         val audioBackend = if (audioEnabled) Backend.CPU() else null
         val config = EngineConfig(
@@ -97,9 +131,26 @@ class LiteRtLmEngine(
             visionBackend = visionBackend,
             audioBackend = audioBackend,
         )
-        val eng = Engine(config)
-        eng.initialize()
-        return eng
+        // ExperimentalFlags.enableSpeculativeDecoding is a global static on the SDK, not part of
+        // EngineConfig — set right before Engine(config).initialize() reads it. LiteRtLmEngineCache
+        // deliberately lets cold-loads for DIFFERENT EngineSpecs run concurrently on different
+        // threads (see its class doc), so without this lock two simultaneous cold-loads (e.g. one
+        // studio falling back to CPU while another initializes on GPU) could interleave: one
+        // thread's flag write lands between another thread's write and its own initialize() call,
+        // silently building an engine with the wrong flag value. Scoped to just this SDK-mandated
+        // set-then-initialize window (not the whole class's cache/warm-up locking), so it only
+        // costs anything on the rare case of two truly-simultaneous cold loads.
+        return synchronized(engineInitLock) {
+            setSpeculativeDecoding(enableSpeculativeDecoding && tier != LiteRtLmBackendTier.CPU)
+            val eng = Engine(config)
+            eng.initialize()
+            eng
+        }
+    }
+
+    @OptIn(ExperimentalApi::class)
+    private fun setSpeculativeDecoding(enabled: Boolean) {
+        ExperimentalFlags.enableSpeculativeDecoding = enabled
     }
 
     fun coldLoadMs(): Long = loadMs
@@ -283,12 +334,23 @@ class LiteRtLmEngine(
         private const val TAG = "LookbookLiteRtLm"
         const val INFERENCE_TIMEOUT_SEC = 90L
 
-        fun backendLabel(useGpu: Boolean): String = if (useGpu) "GPU" else "CPU"
+        // Shared across every LiteRtLmEngine instance — the race it guards (ExperimentalFlags is
+        // a global SDK static) is cross-instance, so a per-instance lock wouldn't help.
+        private val engineInitLock = Any()
+
+        fun backendLabel(tier: LiteRtLmBackendTier): String = when (tier) {
+            LiteRtLmBackendTier.NPU -> "NPU"
+            LiteRtLmBackendTier.GPU -> "GPU"
+            LiteRtLmBackendTier.CPU -> "CPU"
+        }
 
         fun toolsKey(tools: List<ToolSet>): String =
             tools.joinToString(",") { it.javaClass.name }
     }
 }
+
+/** Which physical backend an [LiteRtLmEngine] actually loaded on, after any fallback. */
+enum class LiteRtLmBackendTier { NPU, GPU, CPU }
 
 sealed class LiteRtLmGenerateResult {
     data class Ok(val text: String, val tokensIn: Int, val tokensOut: Int) : LiteRtLmGenerateResult()

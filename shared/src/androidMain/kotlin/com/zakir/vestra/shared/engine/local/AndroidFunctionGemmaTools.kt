@@ -13,6 +13,8 @@ class AndroidFunctionGemmaTools(
     private val packs: ModelPackManager,
     private val useGpu: () -> Boolean = { false },
     private val toolSet: LookbookStudioToolSet = LookbookStudioToolSet(),
+    private val useNpu: () -> Boolean = { false },
+    private val enableSpeculativeDecoding: () -> Boolean = { false },
 ) : LocalCodeGenerator {
 
     override fun providerId(): String = LiteRtLmPacks.FUNCTION_GEMMA
@@ -46,6 +48,8 @@ class AndroidFunctionGemmaTools(
             system = system,
             mapOk = { LocalCodeResult.Ok(it.text, it.tokensIn, it.tokensOut) },
             mapUnavailable = { LocalCodeResult.Unavailable(it) },
+            useNpu = useNpu(),
+            enableSpeculativeDecoding = enableSpeculativeDecoding(),
         ) as LocalCodeResult
     }
 }

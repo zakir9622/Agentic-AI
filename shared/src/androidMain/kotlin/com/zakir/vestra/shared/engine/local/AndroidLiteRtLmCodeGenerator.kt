@@ -19,6 +19,8 @@ class AndroidLiteRtLmCodeGenerator(
     private val packId: String = LiteRtLmPacks.GEMMA4_CODE,
     private val useGpu: () -> Boolean = { false },
     private val tools: List<ToolSet> = emptyList(),
+    private val useNpu: () -> Boolean = { false },
+    private val enableSpeculativeDecoding: () -> Boolean = { false },
     private val primaryFile: String = LiteRtLmPacks.GEMMA4_FILE,
     private val minBytes: Long = LiteRtLmPackLimits.MIN_GEMMA4_BYTES,
     private val downloadHint: String = "~2.6 GB",
@@ -50,6 +52,8 @@ class AndroidLiteRtLmCodeGenerator(
             modelPath = modelPath,
             useGpu = useGpu(),
             tools = tools,
+            useNpu = useNpu(),
+            enableSpeculativeDecoding = enableSpeculativeDecoding(),
         )
     }
 
@@ -75,6 +79,8 @@ class AndroidLiteRtLmCodeGenerator(
             system = system,
             mapOk = { LocalCodeResult.Ok(it.text, it.tokensIn, it.tokensOut) },
             mapUnavailable = { LocalCodeResult.Unavailable(it) },
+            useNpu = useNpu(),
+            enableSpeculativeDecoding = enableSpeculativeDecoding(),
         ) as LocalCodeResult
     }
 
@@ -101,6 +107,8 @@ class AndroidLiteRtLmCodeGenerator(
             tools = tools,
             prompt = prompt,
             system = system,
+            useNpu = useNpu(),
+            enableSpeculativeDecoding = enableSpeculativeDecoding(),
         ).map { event ->
             when (event) {
                 is LiteRtLmStreamEvent.Partial -> LocalCodeStreamEvent.Partial(event.textSoFar)
