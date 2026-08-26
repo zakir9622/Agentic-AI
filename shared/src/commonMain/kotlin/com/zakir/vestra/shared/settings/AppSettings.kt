@@ -38,33 +38,36 @@ class AppSettings(private val settings: Settings) {
     val onboardingComplete: StateFlow<Boolean> = _onboardingComplete
 
     /**
-     * When true, ONNX Runtime may attach NNAPI. Default false — NNAPI session
-     * create has killed the process on Pixel 9 during lite pack load/verify.
+     * When true, LiteRT-LM may use the GPU backend for Gemma 4 / vision / audio. Default true —
+     * `LiteRtLmEngine` falls back to CPU automatically if the GPU delegate fails to initialize
+     * (a real failure mode confirmed via a Pixel 9 device log; see `LiteRtLmEngine.kt`), so
+     * trying GPU first is safe: it either loads faster, or transparently degrades to the same
+     * CPU path this always had. Not removable via Settings — the fallback makes an off switch
+     * unnecessary; NNAPI below is the one backend flag that stays opt-in, since its failure mode
+     * bypasses that fallback entirely.
      */
-    /**
-     * When true, LiteRT-LM may use GPU backend for Gemma 4 / vision / audio.
-     * Default false — CPU is safer on Tensor Pixels until verified.
-     */
-    private val _preferLiteRtLmGpu = MutableStateFlow(settings.getBoolean(KEY_PREFER_LITERT_GPU, false))
+    private val _preferLiteRtLmGpu = MutableStateFlow(settings.getBoolean(KEY_PREFER_LITERT_GPU, true))
     val preferLiteRtLmGpu: StateFlow<Boolean> = _preferLiteRtLmGpu
 
     /**
      * When true (and [preferLiteRtLmGpu] is also on), LiteRT-LM tries the NPU backend before
-     * GPU, falling back to GPU then CPU on failure — same defensive pattern as the existing
-     * GPU→CPU fallback. Default false: no device in this codebase's dev/test loop has verified
-     * an NPU delegate actually engages for the installed packs, so this stays opt-in.
+     * GPU, falling back to GPU then CPU on failure — same defensive pattern as [preferLiteRtLmGpu]
+     * itself. Default true: unverified on any specific device in this codebase's dev/test loop,
+     * but the fallback chain means an unsupported NPU just costs one failed attempt before
+     * landing on GPU/CPU exactly as before, never a hang or crash.
      */
-    private val _preferLiteRtLmNpu = MutableStateFlow(settings.getBoolean(KEY_PREFER_LITERT_NPU, false))
+    private val _preferLiteRtLmNpu = MutableStateFlow(settings.getBoolean(KEY_PREFER_LITERT_NPU, true))
     val preferLiteRtLmNpu: StateFlow<Boolean> = _preferLiteRtLmNpu
 
     /**
      * When true, sets LiteRT-LM's `ExperimentalFlags.enableSpeculativeDecoding` before a GPU or
-     * NPU engine initializes (never for CPU), for faster decode. Default false — this is an
-     * SDK-marked `@RequiresOptIn` flag ("experimental and temporary... may change or be removed
-     * without notice") with no behavior verified on real hardware here.
+     * NPU engine initializes (never for CPU), for faster decode. Default true: this is an
+     * SDK-marked `@RequiresOptIn` flag Google's own docs call "experimental and temporary," but
+     * it only ever changes decode speed, not correctness, and [LiteRtLmEngine]'s init lock
+     * already closed the one real bug found here (a data race on this global SDK flag).
      */
     private val _preferSpeculativeDecoding =
-        MutableStateFlow(settings.getBoolean(KEY_PREFER_SPECULATIVE_DECODING, false))
+        MutableStateFlow(settings.getBoolean(KEY_PREFER_SPECULATIVE_DECODING, true))
     val preferSpeculativeDecoding: StateFlow<Boolean> = _preferSpeculativeDecoding
 
     /**
@@ -104,6 +107,12 @@ class AppSettings(private val settings: Settings) {
     private val _memoryEnabled = MutableStateFlow(settings.getBoolean(KEY_MEMORY_ENABLED, true))
     val memoryEnabled: StateFlow<Boolean> = _memoryEnabled
 
+    /**
+     * When true, ONNX Runtime may attach NNAPI. Default false, and stays opt-in unlike the
+     * LiteRT-LM backend flags above — NNAPI session create has been observed to SIGSEGV/OOM the
+     * whole process on Pixel 9 during lite pack load/verify (see `OrtEpPolicy.kt`), a failure
+     * mode that bypasses the try/catch fallback pattern entirely rather than degrading gracefully.
+     */
     private val _preferNnapi = MutableStateFlow(settings.getBoolean(KEY_PREFER_NNAPI, false))
     val preferNnapi: StateFlow<Boolean> = _preferNnapi
 

@@ -1,5 +1,27 @@
 # Changelog — The Lookbook
 
+## 3.1.8
+
+Reduces the Settings surface and closes a leftover copy inconsistency, based on a direct
+follow-up to the 3.1.7 LiteRT-LM audit.
+
+- **GPU, NPU, and speculative decoding now default on, with their Settings toggles removed.**
+  Both GPU and NPU already fall back automatically to a slower-but-working tier if the delegate
+  fails to init (a real, previously-fixed failure mode), so trying the fastest available backend
+  by default is safe — it either loads faster or transparently degrades to exactly the path this
+  app always had. NNAPI is the one backend preference left as an opt-in Settings toggle: its
+  documented failure mode (a process-killing SIGSEGV/OOM observed on Pixel 9) bypasses that
+  fallback pattern entirely, so it stays off by default and user-controlled.
+- **Fixed:** `preferSpeculativeDecoding`'s stored default was still `false` immediately after
+  this change (caught by self code-review before commit) — a fresh install would have silently
+  never enabled it despite the doc comments and this changelog entry saying otherwise.
+- **Removed leftover "modest fashion" branding from the Home screen's Image Studio card** — the
+  generator screens themselves were already clean of this copy from a prior pass; the Home
+  tool-picker description was the one place it still showed up first.
+- **Removed the top-of-screen EXAMPLES prompt row from Image, Video, Audio, and Code** — one
+  less thing competing for space above the conversation timeline; the composer is where prompts
+  actually get typed.
+
 ## 3.1.7
 
 Audited LiteRT-LM Android usage against Google's own integration guide and closed the gaps

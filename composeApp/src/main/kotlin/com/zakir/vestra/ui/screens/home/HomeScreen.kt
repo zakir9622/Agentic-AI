@@ -92,7 +92,7 @@ fun HomeScreen(
             HomeTool(
                 id = "image",
                 title = "Image Studio",
-                description = "Modest silhouettes, textiles & lookbook renders — on-device or cloud",
+                description = "Garment renders and lookbook photography — on-device or cloud",
                 icon = Icons.Outlined.Image,
                 accentColor = VestraColors.ModalityImage,
                 badge = "Local + Cloud",
