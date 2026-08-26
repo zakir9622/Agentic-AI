@@ -209,25 +209,35 @@ fun ResultPane(
             }
         }
         is GenerativeState.AudioReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_AUDIO_READY)) {
+            var playbackFailed by remember(state.path) { mutableStateOf(false) }
             GlassSectionLabel("AUDIO READY")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassPill(text = "AI voice", active = true)
                 GlassPill(text = "Knobs applied locally", active = true, accent = accent)
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Saved on device. Play with the system audio player or share the clip.",
-                style = MaterialTheme.typography.bodyMedium,
+            Spacer(Modifier.height(10.dp))
+            InlineAudioPlayer(
+                path = state.path,
+                accent = accent,
+                onPlaybackFailed = { playbackFailed = true },
             )
-            Spacer(Modifier.height(8.dp))
-            Text(state.path, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (playbackFailed) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Couldn't play this in-app — try opening it externally.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                GlassSecondaryButton(
-                    text = "Play",
-                    onClick = { MediaExport.openAudio(context, File(state.path)) },
-                    modifier = Modifier.weight(1f),
-                )
+                if (playbackFailed) {
+                    GlassSecondaryButton(
+                        text = "Open externally",
+                        onClick = { MediaExport.openAudio(context, File(state.path)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 GlassSecondaryButton(
                     text = LookbookCopy.ACTION_SHARE,
                     onClick = { MediaExport.share(context, File(state.path), "Share audio") },

@@ -132,6 +132,7 @@ object TestTags {
     // Studio pager (UnifiedStudioPane.kt) — A4.3, Part B.2/B.3 surfaced inline in Create.
     const val STUDIO_TOKEN_BUDGET_BAR = "studio_token_budget_bar"
     fun studioSafetyPreset(id: String): String = "studio_safety_preset_$id"
+    const val ANALYZE_REFERENCE_SWITCH = "analyze_reference_switch"
 
     // "What the assistant remembers" panel (SettingsMemorySection.kt) — Part B.1.
     const val MEMORY_ENABLED_SWITCH = "memory_enabled_switch"

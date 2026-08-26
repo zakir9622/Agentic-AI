@@ -32,6 +32,24 @@ low-memory process kill, and a recurring voice-changer failure.
   stereo or 24/32-bit WAV, which the local voice changer used to reject outright with
   "re-generate or convert." It now auto-converts (downmix + bit-depth normalize) before
   falling back to an error, so this only surfaces for a genuinely unreadable file.
+- **Misleading top status box removed from every studio.** Image, Video, and Code showed a
+  status line naming a fixed default model (e.g. "FLUX.1 Schnell · Hugging Face Space") even
+  when a different model — like an offline local one — was actually running; Audio's
+  equivalent header had the same problem. Removed across all four studios; the composer's own
+  model chip, which already reflects the real active model, is unaffected and stays as the
+  single source of truth.
+- **In-studio Advanced/Safety settings removed.** The Editorial/Modest fashion/Detail
+  enhance/Quality check pills and the in-studio Safety row (Image/Video) are gone — Safety
+  already had an identical control in Settings, so this removes a duplicate rather than the
+  only entry point. The one setting with no Settings-level equivalent, offline vision-assist
+  ("Analyze reference"), moved to Settings next to the Safety preset picker instead of being
+  dropped.
+- **Default in-app audio playback.** Generated audio now plays inline (play/pause, progress,
+  live spectrum) instead of only offering to open an external player.
+- **All four studios now read like a conversation.** Image, Video, Audio, and Code each keep a
+  scrolling history of prompt → result turns instead of overwriting a single result card, with
+  a typing indicator while a turn is still generating, smooth auto-scroll to the newest turn,
+  and per-item entry animation as turns append.
 
 ## 3.1.5
 

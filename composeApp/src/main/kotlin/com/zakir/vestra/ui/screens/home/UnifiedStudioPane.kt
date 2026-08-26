@@ -8,8 +8,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,14 +17,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,6 +61,7 @@ import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
 import com.zakir.vestra.ui.components.SafetyConfirmDialog
+import com.zakir.vestra.ui.components.StudioTurnBubble
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +90,6 @@ private fun produceLocalReadiness(
     probe: () -> Boolean,
 ): State<Boolean> = produceLocalProbe(*keys, initial = false, probe = probe)
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun UnifiedStudioPane(
     capability: AiCapability,
@@ -107,17 +106,13 @@ fun UnifiedStudioPane(
     val prompt by viewModel.prompt.collectAsState()
     val reference by viewModel.referenceUri.collectAsState()
     val state by viewModel.state.collectAsState()
+    val turns by viewModel.turns.collectAsState()
     val liveLog by viewModel.liveLog.collectAsState()
     val generationStartedAtMs by viewModel.generationStartedAtMs.collectAsState()
     val preflight by viewModel.preflightMessage.collectAsState()
     val creative by viewModel.creativeMode.collectAsState()
     val pragmatic by viewModel.pragmaticMode.collectAsState()
-    val detailBoost by viewModel.detailBoost.collectAsState()
     val fashionContext by viewModel.fashionContext.collectAsState()
-    val bypassFilter by viewModel.bypassFilter.collectAsState()
-    val qualityGuard by viewModel.qualityGuard.collectAsState()
-    val analyzeReference by viewModel.analyzeReference.collectAsState()
-    val lastUsedId by viewModel.lastUsedProviderId.collectAsState()
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
 
@@ -142,7 +137,6 @@ fun UnifiedStudioPane(
         AiCapability.AUDIO -> provider.id
         else -> provider.id
     }
-    val estimate = viewModel.usage.estimateNext(provider)
     val preflightChip = viewModel.preflightLabel(effectiveCapability)
     val busy = state is GenerativeState.Running || state is GenerativeState.Preparing
 
@@ -154,16 +148,10 @@ fun UnifiedStudioPane(
     val localImageEditReady by produceLocalReadiness(packStates, busy) { viewModel.localImageEditOfflineReady() }
     val localCodeReady by produceLocalReadiness(packStates, busy) { viewModel.localCodeOfflineReady() }
     val localVideoReady by produceLocalReadiness(packStates, busy) { viewModel.localVideoOfflineReady() }
-    val localVisionReady by produceLocalReadiness(packStates, busy) { viewModel.localVisionOfflineReady() }
-    val localVisionReason by produceLocalProbe(packStates, busy, initial = null as String?) {
-        viewModel.localVisionReadinessReason()
-    }
 
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
         AiCapability.AUDIO -> listOf(fashionContext).count { it }
-        AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO ->
-            listOf(bypassFilter, fashionContext, detailBoost, qualityGuard, analyzeReference).count { it }
         else -> 0
     }
 
@@ -227,13 +215,6 @@ fun UnifiedStudioPane(
         viewModel.setReference(uri?.toString())
     }
 
-    val subtitle = when (capability) {
-        AiCapability.IMAGE_GEN -> LookbookCopy.STUDIO_IMAGE
-        AiCapability.VIDEO -> LookbookCopy.STUDIO_VIDEO
-        AiCapability.CODE -> LookbookCopy.STUDIO_CODE
-        else -> "Studio"
-    }
-
     val placeholder = when (capability) {
         AiCapability.IMAGE_GEN -> if (reference == null) {
             "Describe the image… emerald abaya in a Lahore bazaar"
@@ -291,193 +272,136 @@ fun UnifiedStudioPane(
     }
 
     val accent = VestraColors.modalityAccent(effectiveCapability)
+    val failedMsg = (state as? GenerativeState.Failed)?.message.orEmpty()
+    val quotaOrCredits = failedMsg.contains("ZeroGPU", ignoreCase = true) ||
+        failedMsg.contains("monthly credits", ignoreCase = true) ||
+        failedMsg.contains("Inference Providers", ignoreCase = true)
+    val listState = rememberLazyListState()
+    // Auto-scroll to the newest turn as it's appended or its result comes in — the header item
+    // (index 0) means the last turn always sits at `turns.lastIndex + 1`.
+    LaunchedEffect(turns) {
+        if (turns.isNotEmpty()) listState.animateScrollToItem(turns.lastIndex + 1)
+    }
 
-    // Two regions, not one long scroll: generated content scrolls in the top region while the
-    // composer stays docked at the bottom of the screen. Previously everything lived in a single
-    // verticalScroll column, so the composer drifted mid-scroll and results pushed it off-screen.
+    // Two regions, not one long scroll: the conversation timeline scrolls in the top region
+    // while the composer stays docked at the bottom of the screen. Previously everything lived
+    // in a single verticalScroll column, so the composer drifted mid-scroll and results pushed
+    // it off-screen; now a single LazyColumn (not a verticalScroll Column) handles the header
+    // content and the turn history together, since nesting a scrollable list inside an already-
+    // scrollable Column is a measurement bug waiting to happen (unbounded height).
     Column(modifier.fillMaxSize()) {
-        Column(
-            Modifier
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = SpacingTokens.section, vertical = 8.dp),
         ) {
-        GlassSectionLabel(
-            subtitle.uppercase(),
-            color = accent,
-        )
-        Text(
-            when (capability) {
-                AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT ->
-                    when {
-                        reference != null && localImageEditReady ->
-                            "Local img2img ready offline — Edit runs on-device."
-                        reference == null && localImageReady ->
-                            "Local tiny-SD ready offline — Create Studio runs on-device."
-                        cloudModelsEnabled ->
-                            "Cloud, until you download a local pack. Settings → Model packs → local-sdturbo-v1 (~1.06 GB) for offline."
-                        else ->
-                            "On-device only (cloud is off). Download local-sdturbo-v1 (~1.06 GB) in Settings → Model packs to generate."
+            item(key = "studio-header") {
+                Column {
+                    // Model/readiness status used to duplicate here (a section label, a status
+                    // sentence, and a FlowRow with a cloud-fallback estimate that could show the
+                    // wrong model's name entirely — see 3.1.6 CHANGELOG) on top of the composer's
+                    // own model chip below. That's gone; the chip is the single source of truth
+                    // for which model is selected/loading/ready. Only a real failure still gets
+                    // its own banner here, since the send button alone can't carry a retry action.
+                    when (val w = warmup) {
+                        is GenerativeViewModel.Warmup.Failed -> {
+                            GlassErrorBanner(
+                                message = "${w.label} could not load: ${w.reason}",
+                                onRetry = { viewModel.warmUpLocal(effectiveCapability) },
+                                retryLabel = "Retry load",
+                                onDismiss = null,
+                            )
+                        }
+                        // Loading/Ready surface only via the composer's send-button spinner and
+                        // model chip.
+                        GenerativeViewModel.Warmup.Idle,
+                        is GenerativeViewModel.Warmup.Loading,
+                        is GenerativeViewModel.Warmup.Ready,
+                        -> Unit
                     }
-                AiCapability.VIDEO ->
-                    when {
-                        localVideoReady ->
-                            "Local still-clip ready — short on-device MP4 from tiny-SD (not diffusion video)."
-                        cloudModelsEnabled ->
-                            "Cloud HF Spaces, until you download local-sdturbo-v1 for offline still-clips."
-                        else ->
-                            "On-device only (cloud is off). Download local-sdturbo-v1 in Settings → Model packs to generate."
+
+                    // Editorial/fashion/detail/quality/vision-assist toggles and the in-studio
+                    // Safety row were deleted here (see 3.1.6 CHANGELOG) — Code's Pragmatic/
+                    // Creative toggles are the only ones left with a studio-side UI, so this only
+                    // renders for Code; an empty "Advanced" card that expands to nothing for
+                    // every other capability would be its own dangling-affordance bug.
+                    if (capability == AiCapability.CODE) {
+                        Spacer(Modifier.height(8.dp))
+                        AdvancedAssistSection(
+                            expanded = advancedExpanded,
+                            onToggle = { advancedExpanded = !advancedExpanded },
+                            busy = busy,
+                            pragmatic = pragmatic,
+                            creative = creative,
+                            onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
+                            onCreative = { viewModel.setCreativeMode(!creative) },
+                        )
                     }
-                AiCapability.AUDIO ->
-                    "Device TTS works offline + voice-changer knobs. Cloud TTS optional."
-                AiCapability.CODE ->
-                    when {
-                        localCodeReady ->
-                            "Local Gemma 4 / legacy Gemma ready offline — Code Studio runs on-device."
-                        cloudModelsEnabled ->
-                            "Cloud, until you download a local pack. local-gemma-4-e2b-v1 (~2.6 GB) for offline."
-                        else ->
-                            "On-device only (cloud is off). Download local-gemma-4-e2b-v1 (~2.6 GB) in Settings → Model packs to generate."
+
+                    // Shown once per capability per session — first generation or the model
+                    // finishing its load dismisses it (see the LaunchedEffect(warmup, capability)
+                    // and dispatchGenerate() above) — not a permanent fixture competing for space
+                    // on every visit.
+                    if (examples.isNotEmpty() && capability !in examplesDismissed) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "EXAMPLES",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        ExamplePromptRow(
+                            examples = examples,
+                            enabled = !busy,
+                            onPick = {
+                                viewModel.dismissExamples(capability)
+                                viewModel.setPrompt(it)
+                            },
+                        )
                     }
-                else -> estimate
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = VestraColors.InkMuted,
-        )
-        Spacer(Modifier.height(4.dp))
-        // Which model is selected/loading/ready is shown once, on the composer's own send
-        // button and model chip below — not duplicated here via a separate status card, pill,
-        // and (for Code) an animated LiteRtGemmaStatusIndicator on top of that. Only a real
-        // failure still gets its own banner: that's the one state worth interrupting the flow
-        // for, since the send button alone can't carry a retry action.
-        // FlowRow, not Row: `estimate` can be a long provider sentence, and in a plain Row it
-        // consumed the full width and squeezed the chips beside it down to one-character-wide
-        // columns of vertical text. FlowRow wraps them onto the next line instead.
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                estimate,
-                style = MaterialTheme.typography.labelSmall,
-                color = VestraColors.InkMuted,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val lastUsedName = lastUsedId?.let { id -> CloudModelCatalog.byId(id)?.displayName }
-            if (lastUsedName != null) {
-                Text(
-                    "Last: $lastUsedName",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = VestraColors.Accent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+
+                    if (preflight != null) {
+                        Spacer(Modifier.height(12.dp))
+                        GlassErrorBanner(
+                            message = preflight!!,
+                            onRetry = onOpenSettings ?: { showModelPicker = true },
+                            retryLabel = if (onOpenSettings != null) LookbookCopy.ACTION_OPEN_SETTINGS else "Choose model",
+                            onDismiss = { viewModel.clearResult() },
+                        )
+                    }
+                }
+            }
+            itemsIndexed(turns, key = { _, turn -> turn.id }) { index, turn ->
+                StudioTurnBubble(
+                    turn = turn,
+                    index = index,
+                    isLatest = index == turns.lastIndex,
+                    accent = accent,
+                    generationStartedAtMs = generationStartedAtMs,
+                    onRetry = {
+                        viewModel.clearResult()
+                        if (quotaOrCredits) {
+                            showModelPicker = true
+                        } else {
+                            onGenerate()
+                        }
+                    },
+                    onDismiss = {
+                        viewModel.clearResult()
+                        viewModel.dismissLastTurn()
+                    },
+                    retryLabel = if (quotaOrCredits) "Choose model" else LookbookCopy.ACTION_RETRY,
+                    modifier = Modifier
+                        .animateItem()
+                        .padding(vertical = 6.dp),
                 )
             }
-        }
-        when (val w = warmup) {
-            is GenerativeViewModel.Warmup.Failed -> {
-                Spacer(Modifier.height(10.dp))
-                GlassErrorBanner(
-                    message = "${w.label} could not load: ${w.reason}",
-                    onRetry = { viewModel.warmUpLocal(effectiveCapability) },
-                    retryLabel = "Retry load",
-                    onDismiss = null,
-                )
-            }
-            // Loading/Ready surface only via the composer's send-button spinner and model chip.
-            GenerativeViewModel.Warmup.Idle,
-            is GenerativeViewModel.Warmup.Loading,
-            is GenerativeViewModel.Warmup.Ready,
-            -> Unit
-        }
-
-        Spacer(Modifier.height(8.dp))
-        AdvancedAssistSection(
-            expanded = advancedExpanded,
-            onToggle = { advancedExpanded = !advancedExpanded },
-            busy = busy,
-            capability = capability,
-            bypassFilter = bypassFilter,
-            fashionContext = fashionContext,
-            detailBoost = detailBoost,
-            qualityGuard = qualityGuard,
-            analyzeReference = analyzeReference,
-            localVisionReady = localVisionReady,
-            localVisionReason = localVisionReason,
-            pragmatic = pragmatic,
-            creative = creative,
-            safetyPresetId = safetyPresetId,
-            onBypassFilter = { viewModel.setBypassFilter(!bypassFilter) },
-            onFashionContext = { viewModel.setFashionContext(!fashionContext) },
-            onDetailBoost = { viewModel.setDetailBoost(!detailBoost) },
-            onQualityGuard = { viewModel.setQualityGuard(!qualityGuard) },
-            onAnalyzeReference = { viewModel.setAnalyzeReference(!analyzeReference) },
-            onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
-            onCreative = { viewModel.setCreativeMode(!creative) },
-            onSelectSafetyPreset = { viewModel.appSettings.setSafetyPresetId(it) },
-        )
-
-        // Shown once per capability per session — first generation or the model finishing its
-        // load dismisses it (see the LaunchedEffect(warmup, capability) and dispatchGenerate()
-        // above) — not a permanent fixture competing for space on every visit.
-        if (examples.isNotEmpty() && capability !in examplesDismissed) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "EXAMPLES",
-                style = MaterialTheme.typography.labelSmall,
-                color = accent,
-            )
-            Spacer(Modifier.height(4.dp))
-            ExamplePromptRow(
-                examples = examples,
-                enabled = !busy,
-                onPick = {
-                    viewModel.dismissExamples(capability)
-                    viewModel.setPrompt(it)
-                },
-            )
-        }
-
-        if (preflight != null) {
-            Spacer(Modifier.height(12.dp))
-            GlassErrorBanner(
-                message = preflight!!,
-                onRetry = onOpenSettings ?: { showModelPicker = true },
-                retryLabel = if (onOpenSettings != null) LookbookCopy.ACTION_OPEN_SETTINGS else "Choose model",
-                onDismiss = { viewModel.clearResult() },
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-        if (viewModel.resultBelongsTo(effectiveCapability) || viewModel.resultBelongsTo(capability)) {
-            val failedMsg = (state as? GenerativeState.Failed)?.message.orEmpty()
-            val quotaOrCredits = failedMsg.contains("ZeroGPU", ignoreCase = true) ||
-                failedMsg.contains("monthly credits", ignoreCase = true) ||
-                failedMsg.contains("Inference Providers", ignoreCase = true)
-            ResultPane(
-                state = state,
-                generationStartedAtMs = generationStartedAtMs,
-                onRetry = {
-                    viewModel.clearResult()
-                    if (quotaOrCredits) {
-                        showModelPicker = true
-                    } else {
-                        onGenerate()
-                    }
-                },
-                retryLabel = if (quotaOrCredits) "Choose model" else LookbookCopy.ACTION_RETRY,
-                onDismiss = viewModel::clearResult,
-                accent = accent,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
         }
 
         // Docked composer — outside the scroll region so prompt, model pill, reference
-        // picker and send stay reachable no matter how long the result gets.
+        // picker and send stay reachable no matter how long the conversation gets.
         Column(
             Modifier
                 .fillMaxWidth()
@@ -546,7 +470,14 @@ fun UnifiedStudioPane(
                 loading = warmup is GenerativeViewModel.Warmup.Loading,
                 enabled = true,
                 onModelClick = { showModelPicker = true },
-                onAssistsClick = { advancedExpanded = !advancedExpanded },
+                // Advanced only renders for Code now (see 3.1.6 CHANGELOG) — wiring this
+                // unconditionally left the Assists chip a clickable no-op on every other
+                // capability, toggling a flag nothing was listening to anymore.
+                onAssistsClick = if (capability == AiCapability.CODE) {
+                    { advancedExpanded = !advancedExpanded }
+                } else {
+                    null
+                },
                 onSend = ::onGenerate,
                 onStop = { viewModel.forceStop() },
                 placeholder = placeholder,
@@ -618,30 +549,20 @@ fun UnifiedStudioPane(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
+// Code's Pragmatic/Creative toggles are the only Advanced controls left with a studio-side UI —
+// Editorial/Modest fashion/Detail enhance/Quality check/Analyze reference and the in-studio
+// Safety row were deleted here (see 3.1.6 CHANGELOG). Safety is still configurable from Settings
+// (SettingsSafetySection.kt, which already duplicated this row's exact behavior); Analyze
+// reference moved to a persisted AppSettings toggle next to it, since — unlike the others, which
+// all default to on — it defaulted off and had no other access point once its studio UI was gone.
 private fun AdvancedAssistSection(
     expanded: Boolean,
     onToggle: () -> Unit,
     busy: Boolean,
-    capability: AiCapability,
-    bypassFilter: Boolean,
-    fashionContext: Boolean,
-    detailBoost: Boolean,
-    qualityGuard: Boolean,
-    analyzeReference: Boolean,
-    localVisionReady: Boolean,
-    localVisionReason: String?,
     pragmatic: Boolean,
     creative: Boolean,
-    safetyPresetId: String,
-    onBypassFilter: () -> Unit,
-    onFashionContext: () -> Unit,
-    onDetailBoost: () -> Unit,
-    onQualityGuard: () -> Unit,
-    onAnalyzeReference: () -> Unit,
     onPragmatic: () -> Unit,
     onCreative: () -> Unit,
-    onSelectSafetyPreset: (String) -> Unit,
 ) {
     GlassCard(onClick = onToggle) {
         Row(
@@ -666,103 +587,19 @@ private fun AdvancedAssistSection(
             exit = shrinkVertically(),
         ) {
             Column(Modifier.padding(top = 12.dp)) {
-                when (capability) {
-                    AiCapability.CODE -> {
-                        GlassOptionToggle(
-                            text = LookbookCopy.ASSIST_PRAGMATIC,
-                            active = pragmatic,
-                            enabled = !busy,
-                            onToggle = onPragmatic,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        GlassOptionToggle(
-                            text = LookbookCopy.ASSIST_CREATIVE,
-                            active = creative,
-                            enabled = !busy,
-                            onToggle = onCreative,
-                        )
-                    }
-                    AiCapability.AUDIO -> {
-                        // Only fashion framing is applied to the spoken script.
-                        GlassOptionToggle(
-                            text = LookbookCopy.ASSIST_FASHION,
-                            active = fashionContext,
-                            enabled = !busy,
-                            onToggle = onFashionContext,
-                        )
-                    }
-                    AiCapability.IMAGE_GEN, AiCapability.IMAGE_EDIT, AiCapability.VIDEO -> {
-                        GlassOptionToggle(
-                            text = LookbookCopy.ASSIST_EDITORIAL,
-                            active = bypassFilter,
-                            enabled = !busy,
-                            onToggle = onBypassFilter,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        GlassOptionToggle(
-                            text = LookbookCopy.ASSIST_FASHION,
-                            active = fashionContext,
-                            enabled = !busy,
-                            onToggle = onFashionContext,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        GlassOptionToggle(
-                            text = LookbookCopy.ASSIST_DETAIL,
-                            active = detailBoost,
-                            enabled = !busy,
-                            onToggle = onDetailBoost,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        GlassOptionToggle(
-                            text = LookbookCopy.ASSIST_QUALITY,
-                            active = qualityGuard,
-                            enabled = !busy,
-                            onToggle = onQualityGuard,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        GlassOptionToggle(
-                            text = "Analyze reference (offline vision)",
-                            active = analyzeReference,
-                            enabled = !busy && localVisionReady,
-                            onToggle = onAnalyzeReference,
-                        )
-                        if (!localVisionReady) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                localVisionReason
-                                    ?: "Install local-gemma-4-e2b-v1 for offline reference analysis.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = VestraColors.InkMuted,
-                            )
-                        }
-                        // Steps / CFG / Seed are not exposed: cloud Space + HF Inference
-                        // payloads ignore them; showing them lied about what the model receives.
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "SAFETY",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = VestraColors.InkMuted,
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            SafetyPresets.ALL.forEach { preset ->
-                                GlassOptionToggle(
-                                    text = preset.label,
-                                    active = preset.id == safetyPresetId,
-                                    enabled = !busy,
-                                    onToggle = { onSelectSafetyPreset(preset.id) },
-                                    modifier = Modifier.testTag(
-                                        com.zakir.vestra.ui.TestTags.studioSafetyPreset(preset.id),
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                    else -> Unit
-                }
+                GlassOptionToggle(
+                    text = LookbookCopy.ASSIST_PRAGMATIC,
+                    active = pragmatic,
+                    enabled = !busy,
+                    onToggle = onPragmatic,
+                )
+                Spacer(Modifier.height(8.dp))
+                GlassOptionToggle(
+                    text = LookbookCopy.ASSIST_CREATIVE,
+                    active = creative,
+                    enabled = !busy,
+                    onToggle = onCreative,
+                )
             }
         }
     }
