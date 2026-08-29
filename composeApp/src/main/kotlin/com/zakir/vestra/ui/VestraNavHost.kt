@@ -565,6 +565,7 @@ fun VestraNavHost(
             DiagnosticsScreen(
                 diagnostics = runDiagnostics,
                 usage = usageLedger,
+                packManager = packManager,
                 onBack = { navController.popBackStack() },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
             )

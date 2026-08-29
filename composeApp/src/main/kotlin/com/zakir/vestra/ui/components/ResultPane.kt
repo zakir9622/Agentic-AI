@@ -245,6 +245,12 @@ fun ResultPane(
                     modifier = Modifier.weight(1f),
                 )
             }
+            Spacer(Modifier.height(8.dp))
+            GlassSecondaryButton(
+                text = "Save to Music",
+                onClick = { MediaExport.saveAudioToMusic(context, File(state.path)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(10.dp))
             GlassSecondaryButton(
                 text = LookbookCopy.ACTION_REPORT,

@@ -459,6 +459,10 @@ fun UnifiedStudioPane(
             onDeviceEntries = onDeviceEntries,
             health = viewModel.appSettings.modelHealth,
             accent = accent,
+            cloudGenerationEnabled = cloudModelsEnabled,
+            hasCredential = { model ->
+                !model.requiresApiKey || !viewModel.appSettings.apiKeyFor(model).isNullOrBlank()
+            },
             onSelect = { chosen ->
                 when (effectiveCapability) {
                     AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)

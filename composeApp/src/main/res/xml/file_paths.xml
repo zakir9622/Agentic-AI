@@ -2,4 +2,5 @@
 <paths>
     <files-path name="captures" path="captures/" />
     <files-path name="generations" path="generations/" />
+    <files-path name="diagnostics" path="diagnostics/" />
 </paths>

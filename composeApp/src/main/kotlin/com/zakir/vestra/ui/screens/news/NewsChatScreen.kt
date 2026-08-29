@@ -265,6 +265,8 @@ fun NewsChatScreen(
             selectedId = codeId,
             onDeviceEntries = onDeviceEntries,
             health = appSettings.modelHealth,
+            cloudGenerationEnabled = cloudEnabled,
+            hasCredential = { model -> !model.requiresApiKey || !appSettings.apiKeyFor(model).isNullOrBlank() },
             onSelect = { chosen -> appSettings.setCodeProvider(chosen.id) },
             onSelectDevice = { entry ->
                 if (entry.ready) appSettings.setLocalGenerator(AiCapability.CODE, entry.id)

@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
 fun DiagnosticsScreen(
     diagnostics: RunDiagnostics,
     usage: com.zakir.vestra.shared.usage.UsageLedger? = null,
+    packManager: com.zakir.vestra.shared.packs.ModelPackManager? = null,
     onBack: () -> Unit,
     onOpenHelp: (() -> Unit)? = null,
 ) {
@@ -144,13 +145,28 @@ fun DiagnosticsScreen(
                     exporting = true
                     scope.launch {
                         val prepared = withContext(Dispatchers.IO) {
-                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage, packManager)
                         }
                         exporting = false
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
-                            putExtra(Intent.EXTRA_TEXT, prepared.troubleshootingText)
+                        val zip = prepared.zipFile
+                        val send = if (zip != null) {
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                zip,
+                            )
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "application/zip"
+                                putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                        } else {
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
+                                putExtra(Intent.EXTRA_TEXT, prepared.troubleshootingText)
+                            }
                         }
                         context.startActivity(Intent.createChooser(send, "Share troubleshooting bundle"))
                     }
@@ -158,7 +174,7 @@ fun DiagnosticsScreen(
                 enabled = !exporting,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (exporting) "Preparing…" else "Share troubleshooting bundle")
+                Text(if (exporting) "Preparing…" else "Share troubleshooting bundle (.zip)")
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
@@ -167,7 +183,7 @@ fun DiagnosticsScreen(
                     exporting = true
                     scope.launch {
                         val prepared = withContext(Dispatchers.IO) {
-                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage, packManager)
                         }
                         exporting = false
                         val send = Intent(Intent.ACTION_SEND).apply {
