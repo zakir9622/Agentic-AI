@@ -1,6 +1,7 @@
 [versions]
 agp = "8.10.1"
 kotlin = "2.3.0"
+detekt = "1.23.8"
 litertlm = "0.10.2"
 litert = "2.1.3"
 coroutines = "1.10.2"
@@ -68,6 +69,7 @@ androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 
 [plugins]
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

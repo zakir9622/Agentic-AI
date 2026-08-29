@@ -2,9 +2,18 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.detekt)
 }
 
 import java.util.Properties
+
+// Static Kotlin quality baseline: report current findings first, non-blocking, before promoting
+// any reviewed regression to a hard failure.
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    ignoreFailures = true
+}
 
 android {
     namespace = "com.zakir.vestra"
