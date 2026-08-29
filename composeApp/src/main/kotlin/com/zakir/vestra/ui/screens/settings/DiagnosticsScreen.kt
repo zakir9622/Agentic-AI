@@ -25,6 +25,7 @@ import com.zakir.vestra.diagnostics.CrashReporter
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.diagnostics.RunRecord
+import com.zakir.vestra.shared.time.formatDurationMs
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassScreen
@@ -243,7 +244,7 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
             color = if (record.success) VestraColors.Ink else VestraColors.Accent,
         )
         Text(
-            "${record.totalDurationMs} ms · ${if (record.success) "OK" else "FAILED"}",
+            "${formatDurationMs(record.totalDurationMs)} · ${if (record.success) "OK" else "FAILED"}",
             style = MaterialTheme.typography.bodyMedium,
         )
         record.modelLabel?.let {
@@ -256,7 +257,7 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
             Spacer(Modifier.height(6.dp))
             record.stages.take(if (expanded) 12 else 4).forEach { stage ->
                 Text(
-                    "${if (stage.isWarning) "[WARN] " else "• "}${stage.name}: ${stage.durationMs}ms",
+                    "${if (stage.isWarning) "[WARN] " else "• "}${stage.name}: ${formatDurationMs(stage.durationMs)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (stage.isWarning) VestraColors.Accent else VestraColors.InkMuted,
                 )

@@ -137,10 +137,12 @@ class GenerativeViewModel(
 
     /**
      * One prompt→result exchange in a studio's conversation timeline (3.1.6). [result] is null
-     * while the generation is still [GenerativeState.Preparing]/[GenerativeState.Running] — that's
-     * the "typing indicator" state for this turn — and is set once real content exists, including
-     * intermediate [GenerativeState.CodeStreaming] chunks (each replacing the last as the same
-     * turn's output keeps growing) through to the final ready/failed state.
+     * only while the generation is still [GenerativeState.Preparing] — the brief "Starting…"
+     * moment before the first real progress update — which is this turn's "typing indicator"
+     * state. Once [GenerativeState.Running] starts arriving, [result] holds it too (so the
+     * timeline shows the real stage/progress instead of a static placeholder), then keeps
+     * updating through intermediate [GenerativeState.CodeStreaming] chunks (each replacing the
+     * last as the same turn's output keeps growing) to the final ready/failed state.
      */
     data class StudioTurn(
         val id: String,
@@ -155,7 +157,15 @@ class GenerativeViewModel(
     /** Held in memory only — unbounded turn history (esp. image/video file paths) would leak. */
     private val maxTurnsPerStudio = 50
 
-    /** Per-studio prompt/result bags so pager tabs do not wipe each other. */
+    /**
+     * Per-studio prompt/result bags so pager tabs do not wipe each other. A bag's [job] survives
+     * being unbound: [bindStudio] only swaps which bag's fields the top-level `_state`/`job`
+     * point at — it never cancels another studio's [job] — and the generation collector's
+     * `boundKey != studioKey` branch keeps writing into the owning bag even while it's not the
+     * one currently on screen. So switching tabs (or navigating away entirely, since this
+     * ViewModel is scoped above the nav graph) never stops a generation early; it just keeps
+     * running quietly until its owning studio is bound again.
+     */
     private data class StudioBag(
         var prompt: String = "",
         var referenceUri: String? = null,
@@ -226,12 +236,14 @@ class GenerativeViewModel(
 
     /**
      * Updates the last turn's [StudioTurn.result] for [studioKey] with [next], wherever it's
-     * tracked. A no-op for [GenerativeState.Preparing]/[GenerativeState.Running] — those keep the
-     * turn's typing-indicator (null-result) state — and a no-op if there's no turn to update
-     * (shouldn't happen: every generation starts with [appendTurn]).
+     * tracked. A no-op for [GenerativeState.Preparing] — that keeps the turn's typing-indicator
+     * (null-result) state for its brief "Starting…" moment — and a no-op if there's no turn to
+     * update (shouldn't happen: every generation starts with [appendTurn]). [GenerativeState.Running]
+     * is NOT filtered: it flows through like any other in-progress-but-informative state, so the
+     * timeline can render its real stage/progress instead of a static placeholder the whole time.
      */
     private fun updateLastTurn(studioKey: AiCapability, next: GenerativeState) {
-        if (next is GenerativeState.Preparing || next is GenerativeState.Running) return
+        if (next is GenerativeState.Preparing) return
         if (boundKey == studioKey) {
             val turns = _turns.value
             val last = turns.lastOrNull() ?: return

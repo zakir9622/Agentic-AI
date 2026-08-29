@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.zakir.vestra.shared.time.formatDurationSeconds
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
 
@@ -39,7 +40,7 @@ fun LiveGenConsole(lines: List<String>, generationStartedAtMs: Long? = null) {
     GlassCard(modifier = Modifier.testTag(TestTags.LIVE_CONSOLE)) {
         val header = if (generationStartedAtMs != null) {
             val elapsed = ((System.currentTimeMillis() - generationStartedAtMs) / 1_000L).coerceAtLeast(0L)
-            "LIVE · ${elapsed}s"
+            "LIVE · ${formatDurationSeconds(elapsed)}"
         } else {
             "LIVE"
         }
@@ -91,7 +92,7 @@ fun DockedLiveLog(
     val header = if (generationStartedAtMs != null) {
         @Suppress("UNUSED_EXPRESSION") tick
         val elapsed = ((System.currentTimeMillis() - generationStartedAtMs) / 1_000L).coerceAtLeast(0L)
-        "LIVE · ${elapsed}s"
+        "LIVE · ${formatDurationSeconds(elapsed)}"
     } else {
         "LIVE"
     }

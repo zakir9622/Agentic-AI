@@ -34,6 +34,7 @@ import com.zakir.vestra.data.ReportReason
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
+import com.zakir.vestra.shared.time.formatDurationSeconds
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
 import androidx.compose.ui.graphics.Color
@@ -120,8 +121,8 @@ fun ResultPane(
             }
             val message = buildString {
                 append(state.stage)
-                if (remSec != null) append(" · ${remSec}s left")
-                if (elapsedSec != null) append(" · ${elapsedSec}s elapsed")
+                if (remSec != null) append(" · ${formatDurationSeconds(remSec)} left")
+                if (elapsedSec != null) append(" · ${formatDurationSeconds(elapsedSec)} elapsed")
             }
             GlassLoadingCard(
                 message = message,

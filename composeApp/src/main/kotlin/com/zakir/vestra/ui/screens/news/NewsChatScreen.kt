@@ -206,7 +206,13 @@ fun NewsChatScreen(
                 chatMessages.takeLast(6).forEachIndexed { index, msg ->
                     ChatMessageBubble(message = msg, index = index)
                 }
-                if (chatBusy) {
+                // Local chat already streams into a live assistant placeholder in chatMessages
+                // (ChatViewModel.streamLocalReply) — once it exists, showing this indicator too
+                // is a redundant "thinking" row below an already-visible/growing reply. chatBusy
+                // alone doesn't distinguish that case since it stays true through post-reply
+                // memory extraction. Cloud chat has no placeholder, so the indicator is still the
+                // only signal there and keeps showing for the whole round-trip.
+                if (chatBusy && chatMessages.lastOrNull()?.role?.equals("assistant", ignoreCase = true) != true) {
                     ChatTypingIndicator(modelLabel = chatModelLabel)
                 }
             }
