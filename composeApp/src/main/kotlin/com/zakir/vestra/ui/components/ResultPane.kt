@@ -2,6 +2,7 @@ package com.zakir.vestra.ui.components
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,6 +55,14 @@ fun ResultPane(
     val reportStore = remember { LocalReportStore(context) }
     var reportPath by remember { mutableStateOf<String?>(null) }
     var privacyBlurPath by remember { mutableStateOf<String?>(null) }
+    var fullscreenPath by remember { mutableStateOf<String?>(null) }
+
+    fullscreenPath?.let { path ->
+        FullScreenImageViewer(
+            imagePath = path,
+            onDismiss = { fullscreenPath = null },
+        )
+    }
 
     privacyBlurPath?.let { path ->
         PrivacyBlurSheet(
@@ -130,10 +139,11 @@ fun ResultPane(
                 accent = accent,
             )
         }
-        // Creative Studio V2 batch result (1-4 candidates from one prompt). Candidate selection
-        // isn't interactive yet — no fullscreen viewer exists to open a tapped candidate into, so
-        // this renders the grid read-only with the batch's chosen candidate highlighted. All
-        // candidates are already saved to the Wardrobe (see GenerativeViewModel.ingestImageBatch).
+        // Creative Studio V2 batch result (1-4 candidates from one prompt). Tapping a candidate
+        // opens it fullscreen (Save/Share/Close only — Remix and edit-intents aren't wired since
+        // they'd need a verified content-URI conversion for a plain generation path this session
+        // has no device to confirm). All candidates are already saved to the Wardrobe (see
+        // GenerativeViewModel.ingestImageBatch).
         is GenerativeState.ImageBatchReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
             GlassSectionLabel("RESULT · ${state.batch.candidates.size} OPTIONS")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -144,7 +154,7 @@ fun ResultPane(
             ImageCandidateGrid(
                 batch = state.batch,
                 selectedCandidateId = state.batch.selectedCandidateId,
-                onOpenCandidate = {},
+                onOpenCandidate = { candidate -> fullscreenPath = candidate.path },
             )
         }
         is GenerativeState.ImageReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
@@ -156,8 +166,11 @@ fun ResultPane(
             Spacer(Modifier.height(8.dp))
             AsyncImage(
                 model = File(state.path),
-                contentDescription = "Generated look",
-                modifier = Modifier.fillMaxWidth().height(320.dp),
+                contentDescription = "Generated look. Tap to view fullscreen.",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
+                    .clickable { fullscreenPath = state.path },
                 contentScale = ContentScale.Fit,
             )
             Spacer(Modifier.height(10.dp))
