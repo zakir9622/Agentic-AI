@@ -27,6 +27,8 @@ data class GenerativeAssists(
     val inferenceSteps: Int? = null,
     val guidanceScale: Float? = null,
     val seed: Long? = null,
+    /** Image/edit: img2img noise strength override, local engines only. */
+    val strength: Float? = null,
 )
 
 object ModelAssistCatalog {

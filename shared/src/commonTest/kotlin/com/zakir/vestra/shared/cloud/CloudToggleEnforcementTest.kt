@@ -71,8 +71,14 @@ class CloudToggleEnforcementTest {
         const val REASON = "Local SD-Turbo weights incomplete (unet.onnx)."
         override fun isReady(): Boolean = true
         override fun isEditReady(): Boolean = true
-        override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult =
-            LocalImageResult.Unavailable(REASON)
+        override fun generate(
+            prompt: String,
+            seed: Long?,
+            referenceImageUri: String?,
+            steps: Int?,
+            guidanceScale: Float?,
+            strength: Float?,
+        ): LocalImageResult = LocalImageResult.Unavailable(REASON)
     }
 
     private fun settings(cloudEnabled: Boolean) = AppSettingsFactory.build(cloudEnabled)

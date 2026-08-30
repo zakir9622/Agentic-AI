@@ -217,6 +217,9 @@ class GenerativeCloudService(
                     enrichedPrompt,
                     assists.seed,
                     referenceImageUri = referenceUri,
+                    steps = assists.inferenceSteps,
+                    guidanceScale = assists.guidanceScale,
+                    strength = assists.strength,
                 ).collect { event ->
                     when (event) {
                         is LocalImageStreamEvent.Progress -> emit(GenerativeState.Running(event.fraction, event.stage))

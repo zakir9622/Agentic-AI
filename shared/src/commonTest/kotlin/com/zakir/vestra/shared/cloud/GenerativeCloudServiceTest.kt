@@ -271,8 +271,14 @@ class GenerativeCloudServiceTest {
     ) : LocalImageGenerator {
         override fun isReady(): Boolean = true
         override fun isEditReady(): Boolean = editReady
-        override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult =
-            LocalImageResult.Ok(path)
+        override fun generate(
+            prompt: String,
+            seed: Long?,
+            referenceImageUri: String?,
+            steps: Int?,
+            guidanceScale: Float?,
+            strength: Float?,
+        ): LocalImageResult = LocalImageResult.Ok(path)
     }
 
     private class FakeLocalCode(
@@ -664,8 +670,14 @@ class GenerativeCloudServiceTest {
     private class UnavailableLocalImage : LocalImageGenerator {
         override fun isReady(): Boolean = true
         override fun isEditReady(): Boolean = false
-        override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult =
-            LocalImageResult.Unavailable("pack broken")
+        override fun generate(
+            prompt: String,
+            seed: Long?,
+            referenceImageUri: String?,
+            steps: Int?,
+            guidanceScale: Float?,
+            strength: Float?,
+        ): LocalImageResult = LocalImageResult.Unavailable("pack broken")
     }
 
     private class CapturingLocalAudio : LocalAudioGenerator {
