@@ -8,6 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,6 +60,7 @@ import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.ModelPickerSheet
+import com.zakir.vestra.ui.components.ModelQuickSwitcher
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
@@ -186,6 +188,11 @@ fun UnifiedStudioPane(
     }
 
     var showModelPicker by remember { mutableStateOf(false) }
+    // Separate from showModelPicker (the full sheet, still used for search/error-recovery flows
+    // that need the sheet's richer metadata — license, quota status, "needs API key") — the
+    // composer's model chip opens this compact popup instead, so picking among a handful of
+    // already-known-usable models doesn't require leaving the composer.
+    var showQuickSwitcher by remember { mutableStateOf(false) }
     var advancedExpanded by remember { mutableStateOf(false) }
     var showSafetyConfirm by remember { mutableStateOf(false) }
     val safetyPresetId by viewModel.appSettings.safetyPresetId.collectAsState()
@@ -444,6 +451,7 @@ fun UnifiedStudioPane(
                 generationStartedAtMs = generationStartedAtMs,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
+            Box {
             PromptComposer(
                 prompt = prompt,
                 onPromptChange = viewModel::setPrompt,
@@ -469,7 +477,7 @@ fun UnifiedStudioPane(
                 busy = busy,
                 loading = warmup is GenerativeViewModel.Warmup.Loading,
                 enabled = true,
-                onModelClick = { showModelPicker = true },
+                onModelClick = { showQuickSwitcher = true },
                 // Advanced renders for Code (Pragmatic/Creative) and for Image when a local
                 // model is selected (sampler controls) — wiring this unconditionally left the
                 // Assists chip a clickable no-op on every other capability, toggling a flag
@@ -498,6 +506,49 @@ fun UnifiedStudioPane(
                     null
                 },
             )
+            // Anchored to a marker at the composer's bottom-start corner (where the model chip
+            // actually renders — PromptComposer.kt's last Row) rather than the whole multi-row
+            // Box above: the composer is docked at the screen's bottom edge with nothing below
+            // it, so anchoring to the Box's top would force Compose's flip-to-fit to jump the
+            // popup above the entire composer (quick-prompt carousel, reference row, text
+            // field) instead of appearing near the tapped chip.
+            Box(Modifier.align(Alignment.BottomStart)) {
+                ModelQuickSwitcher(
+                    expanded = showQuickSwitcher,
+                    onDismiss = { showQuickSwitcher = false },
+                    models = pickerModels,
+                    selectedId = selectedId,
+                    onSelect = { chosen ->
+                        when (effectiveCapability) {
+                            AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)
+                            AiCapability.IMAGE_GEN -> viewModel.appSettings.setImageGenProvider(chosen.id)
+                            AiCapability.VIDEO -> viewModel.appSettings.setVideoProvider(chosen.id)
+                            AiCapability.CODE -> viewModel.appSettings.setCodeProvider(chosen.id)
+                            else -> Unit
+                        }
+                    },
+                    onDeviceEntries = onDeviceEntries,
+                    onSelectDevice = { entry ->
+                        if (!entry.ready) return@ModelQuickSwitcher
+                        when (effectiveCapability) {
+                            AiCapability.IMAGE_EDIT,
+                            AiCapability.IMAGE_GEN,
+                            AiCapability.VIDEO,
+                            AiCapability.CODE,
+                            -> viewModel.appSettings.setLocalGenerator(effectiveCapability, entry.id)
+                            else -> Unit
+                        }
+                    },
+                    onBrowseAll = { showModelPicker = true },
+                    health = viewModel.appSettings.modelHealth,
+                    accent = accent,
+                    cloudGenerationEnabled = cloudModelsEnabled,
+                    hasCredential = { model ->
+                        !model.requiresApiKey || !viewModel.appSettings.apiKeyFor(model).isNullOrBlank()
+                    },
+                )
+            }
+        }
         }
     }
 
