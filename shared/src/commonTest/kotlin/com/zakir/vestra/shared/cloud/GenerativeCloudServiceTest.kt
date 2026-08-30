@@ -140,6 +140,49 @@ class GenerativeCloudServiceTest {
     }
 
     @Test
+    fun matureFashionAssistAddsReframingClauseToCloudPromptOnlyWhenEnabled() = runTest {
+        var lastRouterBody = ""
+        val engine = MockEngine { request ->
+            if (request.url.host.contains("router.huggingface.co")) {
+                lastRouterBody = (request.body as? TextContent)?.text.orEmpty()
+            }
+            respond(
+                """{"data":[{"b64_json":"$validPngB64"}]}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val http = httpClient(engine)
+        val settings = AppSettings(TestMemorySettings()).apply {
+            setCloudModelsEnabled(true)
+            setImageGenProvider("flux-schnell-hf")
+            setHfToken("hf_test")
+        }
+        val service = GenerativeCloudService(http, FakeIo(), settings, UsageLedger(TestMemorySettings()))
+
+        service.generateImage(
+            "abaya lookbook",
+            referenceUri = null,
+            assists = GenerativeAssists(matureFashionAssist = true),
+        ).toList()
+        assertTrue(
+            lastRouterBody.contains("swimwear", ignoreCase = true),
+            "matureFashionAssist=true must add the reframing clause: $lastRouterBody",
+        )
+
+        lastRouterBody = ""
+        service.generateImage(
+            "abaya lookbook",
+            referenceUri = null,
+            assists = GenerativeAssists(matureFashionAssist = false),
+        ).toList()
+        assertTrue(
+            !lastRouterBody.contains("swimwear", ignoreCase = true),
+            "matureFashionAssist=false (default) must not add the clause: $lastRouterBody",
+        )
+    }
+
+    @Test
     fun imageGenRejectsBlankInferenceOutputWhenQualityGuardOn() = runTest {
         val engine = MockEngine { request ->
             when {

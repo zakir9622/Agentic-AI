@@ -133,6 +133,7 @@ object TestTags {
     const val STUDIO_TOKEN_BUDGET_BAR = "studio_token_budget_bar"
     fun studioSafetyPreset(id: String): String = "studio_safety_preset_$id"
     const val ANALYZE_REFERENCE_SWITCH = "analyze_reference_switch"
+    const val MATURE_FASHION_ASSIST_SWITCH = "mature_fashion_assist_switch"
 
     // "What the assistant remembers" panel (SettingsMemorySection.kt) — Part B.1.
     const val MEMORY_ENABLED_SWITCH = "memory_enabled_switch"

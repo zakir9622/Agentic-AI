@@ -99,6 +99,18 @@ class AppSettings(private val settings: Settings) {
     val analyzeReferenceEnabled: StateFlow<Boolean> = _analyzeReferenceEnabled
 
     /**
+     * Opt-in, off by default: adds a stronger prompt-level reframing clause for legitimate
+     * fashion/beauty content (swimwear, lingerie, editorial catalog shots) that safety filters
+     * over-flag as a false positive. This is a wording nudge to the model, same mechanism as
+     * `GenerativeAssists.bypassFilter` (which already runs on by default for milder cases) — it
+     * does not disable or bypass a provider's own content moderation, and never softens the
+     * "no explicit content" guard from `SafetyPresets` (a separate, unrelated setting). Applies
+     * to Image and Video only — the two capabilities `enrichVisualPrompt` covers.
+     */
+    private val _matureFashionAssistEnabled = MutableStateFlow(settings.getBoolean(KEY_MATURE_FASHION_ASSIST, false))
+    val matureFashionAssistEnabled: StateFlow<Boolean> = _matureFashionAssistEnabled
+
+    /**
      * Whether News/Chat extracts durable facts from conversation turns via the local chat
      * model and re-injects them into future system prompts (Part B.1). Defaults on — the
      * extraction call and its storage never leave the device, matching this app's local-first
@@ -189,6 +201,11 @@ class AppSettings(private val settings: Settings) {
     fun setAnalyzeReferenceEnabled(enabled: Boolean) {
         settings.putBoolean(KEY_ANALYZE_REFERENCE, enabled)
         _analyzeReferenceEnabled.value = enabled
+    }
+
+    fun setMatureFashionAssistEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_MATURE_FASHION_ASSIST, enabled)
+        _matureFashionAssistEnabled.value = enabled
     }
 
     fun setMemoryEnabled(enabled: Boolean) {
@@ -492,6 +509,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_SAFETY_PRESET = "safety_preset_id"
         const val KEY_ANALYZE_REFERENCE = "analyze_reference_enabled"
         const val KEY_MEMORY_ENABLED = "chat_memory_enabled"
+        const val KEY_MATURE_FASHION_ASSIST = "mature_fashion_assist_enabled"
     }
 }
 

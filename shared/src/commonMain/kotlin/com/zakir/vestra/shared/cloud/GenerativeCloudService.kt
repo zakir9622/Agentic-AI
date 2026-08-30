@@ -1286,6 +1286,18 @@ class GenerativeCloudService(
             if (assists.bypassFilter) {
                 add("editorial photography, professional composition, SFW")
             }
+            // Opt-in (Settings → Safety), off by default — a stronger reframing clause for
+            // legitimate fashion/beauty content (swimwear, lingerie, catalog shots) that still
+            // trips false-positive safety blocks even with the milder "editorial…SFW" wording
+            // above. Never touches SafetyPresets' own guard clause (a separate setting) and
+            // doesn't claim to disable a provider's own moderation — it's the same "reframe, not
+            // bypass" mechanism as bypassFilter, just phrased more explicitly for this category.
+            if (assists.matureFashionAssist) {
+                add(
+                    "modest swimwear, lingerie and beauty photography for a fashion catalog — " +
+                        "tasteful editorial styling, not explicit or sexual content",
+                )
+            }
             if (assists.fashionContext) {
                 add("fashion photography, garment fabric detail, catalog style")
             }

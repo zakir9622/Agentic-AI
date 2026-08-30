@@ -23,6 +23,13 @@ data class GenerativeAssists(
     val qualityGuard: Boolean = true,
     /** Image/edit: offline vision assist on reference photo before generation (L2). */
     val analyzeReference: Boolean = false,
+    /**
+     * Image/video: a stronger reframing clause for legitimate fashion/beauty content that
+     * still trips safety false positives even with [bypassFilter]'s milder wording (swimwear,
+     * lingerie, editorial catalog shots). Opt-in via Settings — see AppSettings.KEY_MATURE_FASHION_ASSIST
+     * for the full explanation of scope and what this does not do.
+     */
+    val matureFashionAssist: Boolean = false,
     /** Reserved for local engines that honor sampler overrides (not cloud UI). */
     val inferenceSteps: Int? = null,
     val guidanceScale: Float? = null,

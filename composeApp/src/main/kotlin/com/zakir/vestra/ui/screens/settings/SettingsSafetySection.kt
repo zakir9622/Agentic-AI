@@ -65,6 +65,36 @@ internal fun LazyListScope.settingsSafetySection(appSettings: AppSettings) {
         }
         Spacer(Modifier.height(14.dp))
     }
+    item(key = "mature-fashion-assist") {
+        val enabled by appSettings.matureFashionAssistEnabled.collectAsState()
+        GlassCard {
+            GlassSectionLabel("REDUCE FASHION FALSE POSITIVES")
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Softens prompt phrasing for legitimate fashion, beauty, and swimwear/lingerie " +
+                    "content that safety filters over-flag as a false positive. This does not " +
+                    "enable explicit or sexual content, and it never changes what a cloud " +
+                    "provider's own moderation allows — it only affects how this app phrases " +
+                    "the request. Applies to Image and Video generation.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Reduce fashion false positives", style = MaterialTheme.typography.titleSmall)
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = appSettings::setMatureFashionAssistEnabled,
+                    modifier = Modifier.testTag(TestTags.MATURE_FASHION_ASSIST_SWITCH),
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+    }
     item(key = "analyze-reference") {
         val enabled by appSettings.analyzeReferenceEnabled.collectAsState()
         GlassCard {

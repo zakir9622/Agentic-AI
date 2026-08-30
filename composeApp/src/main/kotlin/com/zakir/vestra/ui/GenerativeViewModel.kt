@@ -335,6 +335,7 @@ class GenerativeViewModel(
         // Moved from a per-session ViewModel flag to a persisted AppSettings toggle (Settings →
         // safety section) when its studio-side UI was removed — see 3.1.6 CHANGELOG.
         analyzeReference = appSettings.analyzeReferenceEnabled.value,
+        matureFashionAssist = appSettings.matureFashionAssistEnabled.value,
         inferenceSteps = _inferenceSteps.value.takeIf { it != 22 },
         guidanceScale = _guidanceScale.value.takeIf { it != 7.0f },
         seed = _seed.value,
