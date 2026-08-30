@@ -160,7 +160,11 @@ object WavIo {
     private fun Float.toPcm16(): Short =
         (this * 32767f).roundToInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
 
-    fun writePcm16MonoWav(file: File, samples: ShortArray, sampleRate: Int) {
+    fun writePcm16MonoWav(file: File, samples: ShortArray, sampleRate: Int) =
+        writePcm16Wav(file, samples, sampleRate, channels = 1)
+
+    /** Interleaved 16-bit PCM WAV writer at any channel count — pairs with [readAnyWav]/[toMono16]. */
+    fun writePcm16Wav(file: File, samples: ShortArray, sampleRate: Int, channels: Int) {
         val dataSize = samples.size * 2
         val out = ByteArrayOutputStream()
         DataOutputStream(out).use { dos ->
@@ -181,10 +185,10 @@ object WavIo {
             writeString("fmt ")
             writeIntLE(16)
             writeShortLE(1)
-            writeShortLE(1)
+            writeShortLE(channels)
             writeIntLE(sampleRate)
-            writeIntLE(sampleRate * 2)
-            writeShortLE(2)
+            writeIntLE(sampleRate * channels * 2)
+            writeShortLE(channels * 2)
             writeShortLE(16)
             writeString("data")
             writeIntLE(dataSize)

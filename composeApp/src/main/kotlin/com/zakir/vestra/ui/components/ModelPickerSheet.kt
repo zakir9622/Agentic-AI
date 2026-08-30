@@ -56,6 +56,9 @@ data class OnDevicePickerEntry(
     val ready: Boolean,
     /** Short status when not ready — e.g. download vs coming soon. */
     val statusLabel: String = if (ready) "Ready offline" else "Download in Settings",
+    val sizeLabel: String? = null,
+    val license: String? = null,
+    val offlineAfterInstall: Boolean = true,
 )
 
 /**
@@ -73,6 +76,8 @@ fun ModelPickerSheet(
     onSelectDevice: ((OnDevicePickerEntry) -> Unit)? = null,
     health: ModelHealthTracker? = null,
     accent: Color = VestraColors.Accent,
+    cloudGenerationEnabled: Boolean = true,
+    hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
 ) {
     var query by remember { mutableStateOf("") }
     val selectable = remember(models) {
@@ -161,7 +166,7 @@ fun ModelPickerSheet(
             ) {
                 if (query.isNotBlank()) {
                     items(filtered, key = { it.id }) { model ->
-                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent)
+                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, cloudGenerationEnabled, hasCredential)
                     }
                 } else {
                     if (onDeviceEntries.isNotEmpty()) {
@@ -193,7 +198,7 @@ fun ModelPickerSheet(
                             )
                         }
                         items(models, key = { it.id }) { model ->
-                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent)
+                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, cloudGenerationEnabled, hasCredential)
                         }
                     }
                 }
@@ -273,7 +278,12 @@ private fun OnDevicePickerRow(
                 // packs…". Appending it to an already-ready row produced the contradictory
                 // "Ready offline · Download local-sdturbo-v1…", so it is only shown when the
                 // pack really is missing and that instruction is the useful next step.
-                if (entry.ready) entry.statusLabel else "${entry.statusLabel} · ${entry.detail}",
+                buildString {
+                    append(if (entry.ready) entry.statusLabel else "${entry.statusLabel} · ${entry.detail}")
+                    entry.sizeLabel?.let { append(" · $it") }
+                    entry.license?.let { append(" · $it") }
+                    if (entry.offlineAfterInstall && entry.ready) append(" · works offline")
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.InkMuted,
                 maxLines = 2,
@@ -291,10 +301,15 @@ private fun ModelPickerRow(
     onDismiss: () -> Unit,
     health: ModelHealthTracker?,
     accent: Color = VestraColors.Accent,
+    cloudGenerationEnabled: Boolean = true,
+    hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
 ) {
     val selected = model.id == selectedId
     val support = health?.effectiveSupport(model) ?: CloudModelContracts.forProvider(model).support
     val blocked = support == ModelSupportLevel.UNSUPPORTED
+    val credentialPresent = hasCredential(model)
+    val readyForRequest = !blocked && cloudGenerationEnabled && credentialPresent
+    val contract = CloudModelContracts.forProvider(model)
     Row(
         Modifier
             .fillMaxWidth()
@@ -327,10 +342,11 @@ private fun ModelPickerRow(
                     .size(10.dp)
                     .clip(CircleShape)
                     .background(
-                        when (support) {
-                            ModelSupportLevel.READY -> accent
-                            ModelSupportLevel.DEGRADED -> VestraColors.AccentSoft
-                            ModelSupportLevel.UNSUPPORTED -> VestraColors.InkMuted
+                        when {
+                            readyForRequest -> Color(0xFF32C48D)
+                            support == ModelSupportLevel.READY -> accent
+                            support == ModelSupportLevel.DEGRADED -> VestraColors.AccentSoft
+                            else -> VestraColors.InkMuted
                         },
                     ),
             )
@@ -351,13 +367,33 @@ private fun ModelPickerRow(
                     append(CloudModelContracts.liveStatusLabel(model, health))
                     append(" · ")
                     append(model.platform.name.replace('_', ' ').lowercase())
-                    if (blocked) append(" · not selectable")
+                    when {
+                        blocked -> append(" · not selectable")
+                        !cloudGenerationEnabled -> append(" · cloud disabled")
+                        !credentialPresent -> append(" · needs API key")
+                    }
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.InkMuted,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            Text(
+                text = model.description,
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.InkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (contract.requiredInputs.isNotEmpty()) {
+                Text(
+                    text = "Accepts: ${contract.requiredInputs.joinToString(" · ")}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = VestraColors.InkMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         if (selected) {
             Icon(

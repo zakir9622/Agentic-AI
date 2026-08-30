@@ -37,6 +37,7 @@ import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.domain.GenerationState
 import com.zakir.vestra.shared.domain.TryOnError
 import com.zakir.vestra.shared.engine.pipeline.ConditioningStage
+import com.zakir.vestra.shared.time.formatDurationSeconds
 import com.zakir.vestra.ui.TryOnViewModel
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
@@ -178,7 +179,7 @@ fun GenerationScreen(
                 }
                 val statusLine = buildString {
                     append(label)
-                    if (elapsedSec != null) append(" · ${elapsedSec}s elapsed")
+                    if (elapsedSec != null) append(" · ${formatDurationSeconds(elapsedSec)} elapsed")
                 }
                 Text(
                     text = statusLine,

@@ -474,6 +474,23 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
                 // onStartTryOn omitted (defaults to null) while try-on is temporarily
                 // disabled app-wide — restores the empty-state CTA when re-added.
+                onReusePrompt = { prompt, isVideo ->
+                    // bindStudio() must run before setPrompt() — UnifiedStudioPane's own
+                    // LaunchedEffect(capability) calls bindStudio() unconditionally on mount,
+                    // which would otherwise swap _prompt.value back to that studio's stored bag
+                    // prompt and silently discard the one just reused. Binding here first means
+                    // that mount's bindStudio() call is a same-key no-op (it only mutates state
+                    // when boundKey actually changes), so the value set below survives it.
+                    val capability = if (isVideo) {
+                        com.zakir.vestra.shared.cloud.AiCapability.VIDEO
+                    } else {
+                        com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN
+                    }
+                    generativeViewModel.bindStudio(capability)
+                    generativeViewModel.setPrompt(prompt)
+                    val route = if (isVideo) Routes.VIDEO else Routes.IMAGE
+                    navController.navigate(route) { popUpTo(Routes.HOME) }
+                },
             )
         }
         composable(
@@ -565,6 +582,7 @@ fun VestraNavHost(
             DiagnosticsScreen(
                 diagnostics = runDiagnostics,
                 usage = usageLedger,
+                packManager = packManager,
                 onBack = { navController.popBackStack() },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
             )

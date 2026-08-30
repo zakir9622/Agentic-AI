@@ -23,6 +23,60 @@ object MediaExport {
     /** App album under DCIM so the system Photos app lists looks in their own folder. */
     const val IMAGE_ALBUM_RELATIVE_PATH = "DCIM/The Lookbook"
     const val VIDEO_ALBUM_RELATIVE_PATH = "Movies/The Lookbook"
+    const val AUDIO_ALBUM_RELATIVE_PATH = "Music/The Lookbook"
+
+    fun saveAudioToMusic(context: Context, file: File, title: String? = null, quiet: Boolean = false): Boolean {
+        if (!file.exists()) {
+            if (!quiet) GlassSnackbar.show("File missing", SnackbarLevel.ERROR)
+            return false
+        }
+        val name = if (!title.isNullOrBlank()) {
+            val knownExtensions = setOf(".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac")
+            if (knownExtensions.any { title.endsWith(it, ignoreCase = true) }) {
+                title
+            } else {
+                "$title.${file.extension}"
+            }
+        } else {
+            file.name
+        }
+        val mime = when (file.extension.lowercase()) {
+            "mp3" -> "audio/mpeg"
+            "m4a", "aac" -> "audio/mp4"
+            "ogg" -> "audio/ogg"
+            "flac" -> "audio/flac"
+            else -> "audio/wav"
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DISPLAY_NAME, name)
+            put(MediaStore.Audio.Media.MIME_TYPE, mime)
+            put(MediaStore.Audio.Media.RELATIVE_PATH, AUDIO_ALBUM_RELATIVE_PATH)
+            put(MediaStore.Audio.Media.IS_PENDING, 1)
+        }
+        val uri = context.contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+        if (uri == null) {
+            if (!quiet) GlassSnackbar.show("Couldn't save to Music", SnackbarLevel.ERROR)
+            return false
+        }
+        val written = runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { it.copyTo(out) }
+            } != null
+        }.getOrDefault(false)
+        if (!written) {
+            runCatching { context.contentResolver.delete(uri, null, null) }
+            if (!quiet) GlassSnackbar.show("Couldn't save to Music", SnackbarLevel.ERROR)
+            return false
+        }
+        runCatching {
+            val done = ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }
+            context.contentResolver.update(uri, done, null, null)
+        }
+        if (!quiet) {
+            GlassSnackbar.show("Saved to Music · $AUDIO_ALBUM_RELATIVE_PATH", SnackbarLevel.SUCCESS)
+        }
+        return true
+    }
 
     fun saveImageToGallery(context: Context, file: File, quiet: Boolean = false): Boolean {
         if (!file.exists()) {

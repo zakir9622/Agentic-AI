@@ -212,6 +212,22 @@ object LiteRtLmEngineCache {
         }
     }
 
+    /**
+     * True if the plain (non-vision, non-audio, no-NPU, no-speculative-decoding) engine for
+     * [modelPath] is already warm — the only spec shape [Gemma4PrewarmWorker] ever warms. Matching
+     * on [modelPath] alone would also count a vision- or audio-enabled engine resident for the same
+     * file as "already warm" and skip prewarming the plain spec that Code generation actually needs.
+     */
+    fun isModelLoaded(modelPath: String): Boolean =
+        engines.entries.any { (spec, engine) ->
+            spec.modelPath == modelPath &&
+                !spec.visionEnabled &&
+                !spec.audioEnabled &&
+                !spec.useNpu &&
+                !spec.enableSpeculativeDecoding &&
+                engine.isInitialized()
+        }
+
     fun evictModelPath(modelPath: String) {
         if (hasActiveInference()) return
         engines.entries.removeIf { (spec, eng) ->

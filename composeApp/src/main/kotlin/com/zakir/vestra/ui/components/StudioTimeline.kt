@@ -17,9 +17,10 @@ import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
  * One prompt→result exchange in a studio's conversation timeline (3.1.6) — the user's prompt
  * rendered with [ChatMessageBubble] (the exact same bubble News/Chat uses, reused rather than
  * reinvented), followed by the result: a [ChatTypingIndicator] while [GenerativeViewModel.StudioTurn.result]
- * is still null (the generation hasn't produced any content yet), otherwise [ResultPane] itself —
- * reusing its existing per-[com.zakir.vestra.shared.cloud.GenerativeState]-subtype rendering
- * (image/video/audio/code/transcript/failure) rather than duplicating it.
+ * is still null (the brief moment before the engine has emitted its first progress update),
+ * otherwise [ResultPane] itself — reusing its existing per-[com.zakir.vestra.shared.cloud.GenerativeState]-subtype
+ * rendering (image/video/audio/code/transcript/failure, and — since [GenerativeViewModel.updateLastTurn]
+ * no longer filters it — the live `Running` stage/progress card too) rather than duplicating it.
  *
  * Retry/dismiss only make sense for the turn actively in flight — passed through as-is for
  * [isLatest], forced to `null` for every older turn so history stays view-only.

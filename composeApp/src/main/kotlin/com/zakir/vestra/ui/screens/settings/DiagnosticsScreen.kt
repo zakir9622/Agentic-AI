@@ -25,6 +25,7 @@ import com.zakir.vestra.diagnostics.CrashReporter
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.diagnostics.RunRecord
+import com.zakir.vestra.shared.time.formatDurationMs
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassEmptyState
 import com.zakir.vestra.ui.components.GlassScreen
@@ -43,6 +44,7 @@ import kotlinx.coroutines.withContext
 fun DiagnosticsScreen(
     diagnostics: RunDiagnostics,
     usage: com.zakir.vestra.shared.usage.UsageLedger? = null,
+    packManager: com.zakir.vestra.shared.packs.ModelPackManager? = null,
     onBack: () -> Unit,
     onOpenHelp: (() -> Unit)? = null,
 ) {
@@ -143,13 +145,28 @@ fun DiagnosticsScreen(
                     exporting = true
                     scope.launch {
                         val prepared = withContext(Dispatchers.IO) {
-                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage, packManager)
                         }
                         exporting = false
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
-                            putExtra(Intent.EXTRA_TEXT, prepared.troubleshootingText)
+                        val zip = prepared.zipFile
+                        val send = if (zip != null) {
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                zip,
+                            )
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "application/zip"
+                                putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                        } else {
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} troubleshooting")
+                                putExtra(Intent.EXTRA_TEXT, prepared.troubleshootingText)
+                            }
                         }
                         context.startActivity(Intent.createChooser(send, "Share troubleshooting bundle"))
                     }
@@ -157,7 +174,7 @@ fun DiagnosticsScreen(
                 enabled = !exporting,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (exporting) "Preparing…" else "Share troubleshooting bundle")
+                Text(if (exporting) "Preparing…" else "Share troubleshooting bundle (.zip)")
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
@@ -165,14 +182,19 @@ fun DiagnosticsScreen(
                     if (exporting) return@OutlinedButton
                     exporting = true
                     scope.launch {
-                        val prepared = withContext(Dispatchers.IO) {
-                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage)
+                        // Just the JSON string — no need for prepareShareBundle's logcat capture
+                        // and full ZIP archive write, which this action never uses.
+                        val runHistoryJson = withContext(Dispatchers.IO) {
+                            diagnostics.exportBundle(
+                                usage = usage?.summary?.value,
+                                appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                            )
                         }
                         exporting = false
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "application/json"
                             putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
-                            putExtra(Intent.EXTRA_TEXT, prepared.runHistoryJson)
+                            putExtra(Intent.EXTRA_TEXT, runHistoryJson)
                         }
                         context.startActivity(Intent.createChooser(send, "Export diagnostics"))
                     }
@@ -243,7 +265,7 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
             color = if (record.success) VestraColors.Ink else VestraColors.Accent,
         )
         Text(
-            "${record.totalDurationMs} ms · ${if (record.success) "OK" else "FAILED"}",
+            "${formatDurationMs(record.totalDurationMs)} · ${if (record.success) "OK" else "FAILED"}",
             style = MaterialTheme.typography.bodyMedium,
         )
         record.modelLabel?.let {
@@ -256,7 +278,7 @@ private fun RunRecordCard(record: RunRecord, fmt: SimpleDateFormat) {
             Spacer(Modifier.height(6.dp))
             record.stages.take(if (expanded) 12 else 4).forEach { stage ->
                 Text(
-                    "${if (stage.isWarning) "[WARN] " else "• "}${stage.name}: ${stage.durationMs}ms",
+                    "${if (stage.isWarning) "[WARN] " else "• "}${stage.name}: ${formatDurationMs(stage.durationMs)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (stage.isWarning) VestraColors.Accent else VestraColors.InkMuted,
                 )

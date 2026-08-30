@@ -137,10 +137,12 @@ class GenerativeViewModel(
 
     /**
      * One prompt→result exchange in a studio's conversation timeline (3.1.6). [result] is null
-     * while the generation is still [GenerativeState.Preparing]/[GenerativeState.Running] — that's
-     * the "typing indicator" state for this turn — and is set once real content exists, including
-     * intermediate [GenerativeState.CodeStreaming] chunks (each replacing the last as the same
-     * turn's output keeps growing) through to the final ready/failed state.
+     * only while the generation is still [GenerativeState.Preparing] — the brief "Starting…"
+     * moment before the first real progress update — which is this turn's "typing indicator"
+     * state. Once [GenerativeState.Running] starts arriving, [result] holds it too (so the
+     * timeline shows the real stage/progress instead of a static placeholder), then keeps
+     * updating through intermediate [GenerativeState.CodeStreaming] chunks (each replacing the
+     * last as the same turn's output keeps growing) to the final ready/failed state.
      */
     data class StudioTurn(
         val id: String,
@@ -155,7 +157,15 @@ class GenerativeViewModel(
     /** Held in memory only — unbounded turn history (esp. image/video file paths) would leak. */
     private val maxTurnsPerStudio = 50
 
-    /** Per-studio prompt/result bags so pager tabs do not wipe each other. */
+    /**
+     * Per-studio prompt/result bags so pager tabs do not wipe each other. A bag's [job] survives
+     * being unbound: [bindStudio] only swaps which bag's fields the top-level `_state`/`job`
+     * point at — it never cancels another studio's [job] — and the generation collector's
+     * `boundKey != studioKey` branch keeps writing into the owning bag even while it's not the
+     * one currently on screen. So switching tabs (or navigating away entirely, since this
+     * ViewModel is scoped above the nav graph) never stops a generation early; it just keeps
+     * running quietly until its owning studio is bound again.
+     */
     private data class StudioBag(
         var prompt: String = "",
         var referenceUri: String? = null,
@@ -226,12 +236,14 @@ class GenerativeViewModel(
 
     /**
      * Updates the last turn's [StudioTurn.result] for [studioKey] with [next], wherever it's
-     * tracked. A no-op for [GenerativeState.Preparing]/[GenerativeState.Running] — those keep the
-     * turn's typing-indicator (null-result) state — and a no-op if there's no turn to update
-     * (shouldn't happen: every generation starts with [appendTurn]).
+     * tracked. A no-op for [GenerativeState.Preparing] — that keeps the turn's typing-indicator
+     * (null-result) state for its brief "Starting…" moment — and a no-op if there's no turn to
+     * update (shouldn't happen: every generation starts with [appendTurn]). [GenerativeState.Running]
+     * is NOT filtered: it flows through like any other in-progress-but-informative state, so the
+     * timeline can render its real stage/progress instead of a static placeholder the whole time.
      */
     private fun updateLastTurn(studioKey: AiCapability, next: GenerativeState) {
-        if (next is GenerativeState.Preparing || next is GenerativeState.Running) return
+        if (next is GenerativeState.Preparing) return
         if (boundKey == studioKey) {
             val turns = _turns.value
             val last = turns.lastOrNull() ?: return
@@ -772,7 +784,11 @@ class GenerativeViewModel(
         )
         activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value, presetId = runId) else null
         if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.addActiveRunId(runId)
-        appendTurn(studioKey, StudioTurn(id = runId, prompt = _prompt.value, timestampMs = startedAt))
+        // Captured once at generation start (not re-read at completion) so an edit to the prompt
+        // box while this generation is still running can't attach the wrong creative direction to
+        // the resulting Wardrobe entry — the composer stays editable during generation.
+        val capturedPrompt = _prompt.value
+        appendTurn(studioKey, StudioTurn(id = runId, prompt = capturedPrompt, timestampMs = startedAt))
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
@@ -794,11 +810,13 @@ class GenerativeViewModel(
                         updateLastTurn(studioKey, next)
                         when (next) {
                             is GenerativeState.ImageReady,
+                            is GenerativeState.ImageBatchReady,
                             is GenerativeState.VideoReady,
                             is GenerativeState.AudioReady,
                             is GenerativeState.CodeReady,
                             -> owner.lastUsedProviderId = when (next) {
                                 is GenerativeState.ImageReady -> next.providerId
+                                is GenerativeState.ImageBatchReady -> next.batch.selectedCandidate?.providerId ?: owner.lastUsedProviderId
                                 is GenerativeState.VideoReady -> next.providerId
                                 is GenerativeState.AudioReady -> next.providerId
                                 is GenerativeState.CodeReady -> next.providerId
@@ -821,14 +839,22 @@ class GenerativeViewModel(
                         is GenerativeState.ImageReady -> {
                             appendLive("Image ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Create", studioKey = studioKey, local = local)
+                            ingestCreateImage(next.path, label = "Create", studioKey = studioKey, local = local, prompt = capturedPrompt)
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
+                        }
+                        is GenerativeState.ImageBatchReady -> {
+                            appendLive("${next.batch.candidates.size} candidates ready")
+                            val selectedProviderId = next.batch.selectedCandidate?.providerId
+                            if (selectedProviderId != null) _lastUsedProviderId.value = selectedProviderId
+                            ingestImageBatch(next.batch, studioKey = studioKey, local = local)
+                            builder?.complete(success = true, note = selectedProviderId.orEmpty())
                             completeLocalJob(success = true)
                         }
                         is GenerativeState.VideoReady -> {
                             appendLive("Video ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Video", studioKey = studioKey, local = local)
+                            ingestCreateImage(next.path, label = "Video", studioKey = studioKey, local = local, prompt = capturedPrompt)
                             builder?.complete(success = true, note = next.providerId)
                             completeLocalJob(success = true)
                         }
@@ -904,8 +930,9 @@ class GenerativeViewModel(
     /** Previous Wardrobe entry generated in each studio tab — chains consecutive retries. */
     private val lastEntryIdByStudioKey = mutableMapOf<AiCapability, String>()
 
-    private fun ingestCreateImage(path: String, label: String, studioKey: AiCapability, local: Boolean) {
-        val promptSnippet = _prompt.value.trim().take(80).ifBlank { label.lowercase() }
+    private fun ingestCreateImage(path: String, label: String, studioKey: AiCapability, local: Boolean, prompt: String) {
+        val trimmedPrompt = prompt.trim()
+        val promptSnippet = trimmedPrompt.take(80).ifBlank { label.lowercase() }
         val id = Uuid.random().toString()
         runCatching {
             wardrobe.add(
@@ -921,10 +948,50 @@ class GenerativeViewModel(
                     tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
                     shootId = null,
                     parentGenerationId = lastEntryIdByStudioKey[studioKey],
+                    prompt = trimmedPrompt.ifBlank { null },
                 ),
             )
         }
         lastEntryIdByStudioKey[studioKey] = id
+    }
+
+    /**
+     * Saves every candidate from a Creative Studio batch as its own Wardrobe entry, sharing
+     * [com.zakir.vestra.shared.wardrobe.WardrobeEntry.batchId] so they can be browsed as siblings.
+     * The next retry in this studio tab chains off the *selected* candidate, not just whichever
+     * one happened to finish first — matching [ingestCreateImage]'s single-image retry chaining.
+     */
+    private fun ingestImageBatch(batch: com.zakir.vestra.shared.cloud.GenerationBatch, studioKey: AiCapability, local: Boolean) {
+        val trimmedPrompt = batch.prompt.trim()
+        val promptSnippet = trimmedPrompt.take(80).ifBlank { "Create".lowercase() }
+        val parentId = lastEntryIdByStudioKey[studioKey]
+        var selectedEntryId: String? = null
+        val newEntries = batch.candidates.map { candidate ->
+            val id = Uuid.random().toString()
+            if (candidate.id == batch.selectedCandidateId) selectedEntryId = id
+            WardrobeEntry(
+                id = id,
+                createdAtEpochMillis = System.currentTimeMillis(),
+                imagePath = candidate.path,
+                garmentUri = "create:$promptSnippet",
+                personLabel = "Create",
+                tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
+                shootId = null,
+                parentGenerationId = parentId,
+                prompt = trimmedPrompt.ifBlank { null },
+                batchId = candidate.batchId,
+                candidateIndex = candidate.candidateIndex,
+                candidateCount = candidate.candidateCount,
+            )
+        }
+        // One write for the whole batch — avoids up to 4 sequential full-index re-serializations,
+        // and keeps the batch atomic (a mid-batch write failure can't leave WardrobeScreen's
+        // batch-siblings UI expecting candidateCount entries that only partially landed).
+        val wrote = runCatching { wardrobe.addAll(newEntries) }.isSuccess
+        // Only chain the next retry's parentGenerationId off an entry that was actually
+        // persisted — otherwise a write failure leaves a dangling reference ancestorChain()
+        // can never resolve.
+        if (wrote) lastEntryIdByStudioKey[studioKey] = selectedEntryId ?: return
     }
 
     private fun sanitizePrompt(raw: String): String =

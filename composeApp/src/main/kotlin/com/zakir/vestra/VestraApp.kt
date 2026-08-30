@@ -158,6 +158,9 @@ class VestraApp : Application() {
             },
         )
         PackDownloadWorker.dependencies = { packManager }
+        com.zakir.vestra.shared.engine.local.Gemma4PrewarmWorker.dependencies = { packManager }
+        com.zakir.vestra.shared.engine.local.Gemma4PrewarmWorker.gpuPreference = { appSettings.preferLiteRtLmGpu.value }
+        com.zakir.vestra.shared.engine.local.Gemma4PrewarmWorker.schedulePeriodic(this)
         appScope.launch {
             packManager.refresh(networkAllowed = isNetworkAvailable(this@VestraApp))
             // Seed bundled lite pack before verification so we never ONNX-load a half-written copy.
@@ -181,7 +184,8 @@ class VestraApp : Application() {
             this,
             liteEngineIo,
             http,
-            applyVisibleWatermark = true, // always stamp AI provenance on cloud outputs
+            // Invisible metadata provenance only — no visible mark on cloud-generated images.
+            applyVisibleWatermark = false,
         )
         val generationsDir = java.io.File(filesDir, "generations").also { it.mkdirs() }
         val localImageGen = com.zakir.vestra.shared.engine.local.AndroidLocalImageGenerator(

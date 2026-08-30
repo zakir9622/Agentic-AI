@@ -2,6 +2,7 @@ package com.zakir.vestra.ui.components
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import com.zakir.vestra.data.ReportReason
 import com.zakir.vestra.media.MediaExport
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.content.LookbookCopy
+import com.zakir.vestra.shared.time.formatDurationSeconds
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
 import androidx.compose.ui.graphics.Color
@@ -53,6 +55,14 @@ fun ResultPane(
     val reportStore = remember { LocalReportStore(context) }
     var reportPath by remember { mutableStateOf<String?>(null) }
     var privacyBlurPath by remember { mutableStateOf<String?>(null) }
+    var fullscreenPath by remember { mutableStateOf<String?>(null) }
+
+    fullscreenPath?.let { path ->
+        FullScreenImageViewer(
+            imagePath = path,
+            onDismiss = { fullscreenPath = null },
+        )
+    }
 
     privacyBlurPath?.let { path ->
         PrivacyBlurSheet(
@@ -120,13 +130,31 @@ fun ResultPane(
             }
             val message = buildString {
                 append(state.stage)
-                if (remSec != null) append(" · ${remSec}s left")
-                if (elapsedSec != null) append(" · ${elapsedSec}s elapsed")
+                if (remSec != null) append(" · ${formatDurationSeconds(remSec)} left")
+                if (elapsedSec != null) append(" · ${formatDurationSeconds(elapsedSec)} elapsed")
             }
             GlassLoadingCard(
                 message = message,
                 progress = state.fraction,
                 accent = accent,
+            )
+        }
+        // Creative Studio V2 batch result (1-4 candidates from one prompt). Tapping a candidate
+        // opens it fullscreen (Save/Share/Close only — Remix and edit-intents aren't wired since
+        // they'd need a verified content-URI conversion for a plain generation path this session
+        // has no device to confirm). All candidates are already saved to the Wardrobe (see
+        // GenerativeViewModel.ingestImageBatch).
+        is GenerativeState.ImageBatchReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
+            GlassSectionLabel("RESULT · ${state.batch.candidates.size} OPTIONS")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassPill(text = "AI-generated", active = true)
+                GlassPill(text = "In looks gallery", active = true, accent = accent)
+            }
+            Spacer(Modifier.height(8.dp))
+            ImageCandidateGrid(
+                batch = state.batch,
+                selectedCandidateId = state.batch.selectedCandidateId,
+                onOpenCandidate = { candidate -> fullscreenPath = candidate.path },
             )
         }
         is GenerativeState.ImageReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
@@ -138,8 +166,11 @@ fun ResultPane(
             Spacer(Modifier.height(8.dp))
             AsyncImage(
                 model = File(state.path),
-                contentDescription = "Generated look",
-                modifier = Modifier.fillMaxWidth().height(320.dp),
+                contentDescription = "Generated look. Tap to view fullscreen.",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
+                    .clickable { fullscreenPath = state.path },
                 contentScale = ContentScale.Fit,
             )
             Spacer(Modifier.height(10.dp))
@@ -244,6 +275,12 @@ fun ResultPane(
                     modifier = Modifier.weight(1f),
                 )
             }
+            Spacer(Modifier.height(8.dp))
+            GlassSecondaryButton(
+                text = "Save to Music",
+                onClick = { MediaExport.saveAudioToMusic(context, File(state.path)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(10.dp))
             GlassSecondaryButton(
                 text = LookbookCopy.ACTION_REPORT,
