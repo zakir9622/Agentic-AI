@@ -108,7 +108,7 @@ fun WardrobeScreen(
     wardrobe: WardrobeRepository,
     onBack: () -> Unit,
     onStartTryOn: (() -> Unit)? = null,
-    onReusePrompt: ((String) -> Unit)? = null,
+    onReusePrompt: ((String, Boolean) -> Unit)? = null,
 ) {
     val entries by wardrobe.entries.collectAsState()
     val context = LocalContext.current
@@ -154,7 +154,11 @@ fun WardrobeScreen(
                 pendingDelete = entry
             },
             onReusePrompt = onReusePrompt?.let { reuse ->
-                { prompt: String -> detail = null; reuse(prompt) }
+                { prompt: String ->
+                    val isVideo = File(entry.imagePath).extension.lowercase() in setOf("mp4", "webm")
+                    detail = null
+                    reuse(prompt, isVideo)
+                }
             },
         )
     }

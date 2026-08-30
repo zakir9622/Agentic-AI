@@ -784,7 +784,11 @@ class GenerativeViewModel(
         )
         activeLocalJobId = if (local) localJobStore?.start(capability, _prompt.value, presetId = runId) else null
         if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.addActiveRunId(runId)
-        appendTurn(studioKey, StudioTurn(id = runId, prompt = _prompt.value, timestampMs = startedAt))
+        // Captured once at generation start (not re-read at completion) so an edit to the prompt
+        // box while this generation is still running can't attach the wrong creative direction to
+        // the resulting Wardrobe entry — the composer stays editable during generation.
+        val capturedPrompt = _prompt.value
+        appendTurn(studioKey, StudioTurn(id = runId, prompt = capturedPrompt, timestampMs = startedAt))
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
@@ -833,14 +837,14 @@ class GenerativeViewModel(
                         is GenerativeState.ImageReady -> {
                             appendLive("Image ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Create", studioKey = studioKey, local = local)
+                            ingestCreateImage(next.path, label = "Create", studioKey = studioKey, local = local, prompt = capturedPrompt)
                             builder?.complete(success = true, note = next.providerId)
                             completeLocalJob(success = true)
                         }
                         is GenerativeState.VideoReady -> {
                             appendLive("Video ready")
                             _lastUsedProviderId.value = next.providerId
-                            ingestCreateImage(next.path, label = "Video", studioKey = studioKey, local = local)
+                            ingestCreateImage(next.path, label = "Video", studioKey = studioKey, local = local, prompt = capturedPrompt)
                             builder?.complete(success = true, note = next.providerId)
                             completeLocalJob(success = true)
                         }
@@ -916,8 +920,9 @@ class GenerativeViewModel(
     /** Previous Wardrobe entry generated in each studio tab — chains consecutive retries. */
     private val lastEntryIdByStudioKey = mutableMapOf<AiCapability, String>()
 
-    private fun ingestCreateImage(path: String, label: String, studioKey: AiCapability, local: Boolean) {
-        val promptSnippet = _prompt.value.trim().take(80).ifBlank { label.lowercase() }
+    private fun ingestCreateImage(path: String, label: String, studioKey: AiCapability, local: Boolean, prompt: String) {
+        val trimmedPrompt = prompt.trim()
+        val promptSnippet = trimmedPrompt.take(80).ifBlank { label.lowercase() }
         val id = Uuid.random().toString()
         runCatching {
             wardrobe.add(
@@ -933,7 +938,7 @@ class GenerativeViewModel(
                     tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
                     shootId = null,
                     parentGenerationId = lastEntryIdByStudioKey[studioKey],
-                    prompt = _prompt.value.trim().ifBlank { null },
+                    prompt = trimmedPrompt.ifBlank { null },
                 ),
             )
         }

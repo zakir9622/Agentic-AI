@@ -182,14 +182,19 @@ fun DiagnosticsScreen(
                     if (exporting) return@OutlinedButton
                     exporting = true
                     scope.launch {
-                        val prepared = withContext(Dispatchers.IO) {
-                            DiagnosticsExport.prepareShareBundle(context, diagnostics, usage, packManager)
+                        // Just the JSON string — no need for prepareShareBundle's logcat capture
+                        // and full ZIP archive write, which this action never uses.
+                        val runHistoryJson = withContext(Dispatchers.IO) {
+                            diagnostics.exportBundle(
+                                usage = usage?.summary?.value,
+                                appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                            )
                         }
                         exporting = false
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "application/json"
                             putExtra(Intent.EXTRA_SUBJECT, "${LookbookCopy.PRODUCT_NAME} run diagnostics")
-                            putExtra(Intent.EXTRA_TEXT, prepared.runHistoryJson)
+                            putExtra(Intent.EXTRA_TEXT, runHistoryJson)
                         }
                         context.startActivity(Intent.createChooser(send, "Export diagnostics"))
                     }
