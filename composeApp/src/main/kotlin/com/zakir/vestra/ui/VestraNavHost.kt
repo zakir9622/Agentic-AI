@@ -474,6 +474,10 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
                 // onStartTryOn omitted (defaults to null) while try-on is temporarily
                 // disabled app-wide — restores the empty-state CTA when re-added.
+                onReusePrompt = { prompt ->
+                    generativeViewModel.setPrompt(prompt)
+                    navController.navigate(Routes.IMAGE) { popUpTo(Routes.HOME) }
+                },
             )
         }
         composable(

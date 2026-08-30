@@ -30,6 +30,8 @@ data class WardrobeEntry(
      * first attempt in a tab, or entries from before this field existed).
      */
     val parentGenerationId: String? = null,
+    /** The full prompt this entry was generated from, when the studio it came from has one. */
+    val prompt: String? = null,
 )
 
 /** Minimal platform file seam; androidMain/iosMain provide actuals. */

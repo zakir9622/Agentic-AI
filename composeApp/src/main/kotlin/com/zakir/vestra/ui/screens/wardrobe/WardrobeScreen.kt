@@ -17,8 +17,13 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +54,7 @@ import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.theme.VestraColors
 import java.io.File
 
 /** Media-type filter (A4.4) — independent of, and composes with, the favorites filter. */
@@ -65,13 +71,22 @@ internal fun filterWardrobeEntries(
     entries: List<WardrobeEntry>,
     favoritesOnly: Boolean,
     mediaFilter: WardrobeMediaFilter,
-): List<WardrobeEntry> = entries.filter { entry ->
-    (!favoritesOnly || entry.favorited) &&
-        when (mediaFilter) {
-            WardrobeMediaFilter.ALL -> true
-            WardrobeMediaFilter.IMAGES -> !entry.isVideoEntry()
-            WardrobeMediaFilter.VIDEOS -> entry.isVideoEntry()
-        }
+    query: String = "",
+): List<WardrobeEntry> {
+    val normalizedQuery = query.trim().lowercase()
+    return entries.filter { entry ->
+        (!favoritesOnly || entry.favorited) &&
+            when (mediaFilter) {
+                WardrobeMediaFilter.ALL -> true
+                WardrobeMediaFilter.IMAGES -> !entry.isVideoEntry()
+                WardrobeMediaFilter.VIDEOS -> entry.isVideoEntry()
+            } &&
+            (
+                normalizedQuery.isBlank() ||
+                    listOfNotNull(entry.personLabel, entry.garmentUri, entry.prompt)
+                        .any { it.lowercase().contains(normalizedQuery) }
+            )
+    }
 }
 
 /**
@@ -93,15 +108,17 @@ fun WardrobeScreen(
     wardrobe: WardrobeRepository,
     onBack: () -> Unit,
     onStartTryOn: (() -> Unit)? = null,
+    onReusePrompt: ((String) -> Unit)? = null,
 ) {
     val entries by wardrobe.entries.collectAsState()
     val context = LocalContext.current
     var favoritesOnly by remember { mutableStateOf(false) }
     var mediaFilter by remember { mutableStateOf(WardrobeMediaFilter.ALL) }
+    var query by remember { mutableStateOf("") }
     var detail by remember { mutableStateOf<WardrobeEntry?>(null) }
     var pendingDelete by remember { mutableStateOf<WardrobeEntry?>(null) }
-    val visible = remember(entries, favoritesOnly, mediaFilter) {
-        filterWardrobeEntries(entries, favoritesOnly, mediaFilter)
+    val visible = remember(entries, favoritesOnly, mediaFilter, query) {
+        filterWardrobeEntries(entries, favoritesOnly, mediaFilter, query)
     }
 
     detail?.let { entry ->
@@ -135,6 +152,9 @@ fun WardrobeScreen(
             onDelete = {
                 detail = null
                 pendingDelete = entry
+            },
+            onReusePrompt = onReusePrompt?.let { reuse ->
+                { prompt: String -> detail = null; reuse(prompt) }
             },
         )
     }
@@ -220,17 +240,46 @@ fun WardrobeScreen(
                 )
             }
             Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("wardrobe_search"),
+                singleLine = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = "Search saved creations",
+                        tint = VestraColors.Accent,
+                    )
+                },
+                placeholder = { Text("Search prompts, styles, or people") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = VestraColors.Accent.copy(alpha = 0.55f),
+                    unfocusedBorderColor = VestraColors.GlassBorder,
+                    focusedContainerColor = VestraColors.GlassFill,
+                    unfocusedContainerColor = VestraColors.GlassFill,
+                ),
+                shape = RoundedCornerShape(16.dp),
+            )
+            Spacer(Modifier.height(12.dp))
             if (visible.isEmpty()) {
-                val emptyMessage = wardrobeEmptyMessage(favoritesOnly, mediaFilter)
-                val emptyActionLabel = if (favoritesOnly) {
-                    LookbookCopy.ACTION_SHOW_ALL_LOOKS
+                val emptyMessage = if (query.isNotBlank()) {
+                    "No saved looks match “$query”."
                 } else {
-                    LookbookCopy.ACTION_SHOW_ALL_TYPES
+                    wardrobeEmptyMessage(favoritesOnly, mediaFilter)
+                }
+                val emptyActionLabel = when {
+                    query.isNotBlank() -> "Clear search"
+                    favoritesOnly -> LookbookCopy.ACTION_SHOW_ALL_LOOKS
+                    else -> LookbookCopy.ACTION_SHOW_ALL_TYPES
                 }
                 GlassEmptyState(
                     message = emptyMessage,
                     actionLabel = emptyActionLabel,
                     onAction = {
+                        query = ""
                         favoritesOnly = false
                         mediaFilter = WardrobeMediaFilter.ALL
                     },
@@ -352,6 +401,7 @@ private fun LookDetailDialog(
     onShare: () -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
+    onReusePrompt: ((String) -> Unit)? = null,
 ) {
     val file = File(entry.imagePath)
     val isVideo = file.extension.lowercase() in setOf("mp4", "webm")
@@ -377,6 +427,21 @@ private fun LookDetailDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                entry.prompt?.takeIf { it.isNotBlank() }?.let { savedPrompt ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        savedPrompt,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (onReusePrompt != null) {
+                        Spacer(Modifier.height(8.dp))
+                        GlassSecondaryButton(
+                            text = "Reuse creative direction",
+                            onClick = { onReusePrompt(savedPrompt) },
+                        )
+                    }
+                }
                 if (history.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
                     Text(

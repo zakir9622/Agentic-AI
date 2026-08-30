@@ -933,6 +933,7 @@ class GenerativeViewModel(
                     tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
                     shootId = null,
                     parentGenerationId = lastEntryIdByStudioKey[studioKey],
+                    prompt = _prompt.value.trim().ifBlank { null },
                 ),
             )
         }
