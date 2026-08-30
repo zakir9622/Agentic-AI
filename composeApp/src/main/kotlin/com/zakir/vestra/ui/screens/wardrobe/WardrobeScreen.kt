@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -410,6 +411,13 @@ private fun LookDetailDialog(
     val file = File(entry.imagePath)
     val isVideo = file.extension.lowercase() in setOf("mp4", "webm")
     val history = remember(entry, allEntries) { ancestorChain(entry, allEntries) }
+    val batchCandidates = remember(entry, allEntries) {
+        entry.batchId?.let { batchId ->
+            allEntries
+                .filter { it.batchId == batchId }
+                .sortedBy { it.candidateIndex ?: Int.MAX_VALUE }
+        }.orEmpty()
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(entry.personLabel.ifBlank { "Look" }) },
@@ -444,6 +452,44 @@ private fun LookDetailDialog(
                             text = "Reuse creative direction",
                             onClick = { onReusePrompt(savedPrompt) },
                         )
+                    }
+                }
+                if (batchCandidates.size > 1) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "BATCH · ${batchCandidates.size} OPTIONS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    batchCandidates.forEach { sibling ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectEntry(sibling) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            MediaThumb(
+                                file = File(sibling.imagePath),
+                                contentDescription = "Batch option ${(sibling.candidateIndex ?: 0) + 1}",
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (sibling.id == entry.id) "Selected option" else "Option ${(sibling.candidateIndex ?: 0) + 1}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (sibling.id == entry.id) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
                     }
                 }
                 if (history.isNotEmpty()) {

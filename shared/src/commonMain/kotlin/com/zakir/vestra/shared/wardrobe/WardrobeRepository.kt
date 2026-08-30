@@ -32,6 +32,12 @@ data class WardrobeEntry(
     val parentGenerationId: String? = null,
     /** The full prompt this entry was generated from, when the studio it came from has one. */
     val prompt: String? = null,
+    /** Groups sibling candidates from one Creative Studio batch request; null outside a batch. */
+    val batchId: String? = null,
+    /** 0-based position within [batchId]'s candidates; null outside a batch. */
+    val candidateIndex: Int? = null,
+    /** Total candidates requested in [batchId]'s batch; null outside a batch. */
+    val candidateCount: Int? = null,
 )
 
 /** Minimal platform file seam; androidMain/iosMain provide actuals. */
@@ -48,6 +54,12 @@ class WardrobeRepository(private val store: TextFileStore) {
 
     fun add(entry: WardrobeEntry) {
         update(listOf(entry) + _entries.value)
+    }
+
+    /** Adds several entries (e.g. one Creative Studio batch's candidates) with a single write. */
+    fun addAll(newEntries: List<WardrobeEntry>) {
+        if (newEntries.isEmpty()) return
+        update(newEntries + _entries.value)
     }
 
     fun remove(id: String) {

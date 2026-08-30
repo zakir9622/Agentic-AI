@@ -60,6 +60,8 @@ sealed interface GenerativeState {
         val isWarning: Boolean = false,
     ) : GenerativeState
     data class ImageReady(val path: String, val providerId: String) : GenerativeState
+    /** Terminal state for a Creative Studio batch request — 1-4 candidates from one prompt. */
+    data class ImageBatchReady(val batch: GenerationBatch) : GenerativeState
     data class VideoReady(val path: String, val providerId: String) : GenerativeState
     data class AudioReady(val path: String, val providerId: String) : GenerativeState
     data class CodeReady(val text: String, val tokensIn: Int, val tokensOut: Int, val providerId: String) : GenerativeState

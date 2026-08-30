@@ -810,11 +810,13 @@ class GenerativeViewModel(
                         updateLastTurn(studioKey, next)
                         when (next) {
                             is GenerativeState.ImageReady,
+                            is GenerativeState.ImageBatchReady,
                             is GenerativeState.VideoReady,
                             is GenerativeState.AudioReady,
                             is GenerativeState.CodeReady,
                             -> owner.lastUsedProviderId = when (next) {
                                 is GenerativeState.ImageReady -> next.providerId
+                                is GenerativeState.ImageBatchReady -> next.batch.selectedCandidate?.providerId ?: owner.lastUsedProviderId
                                 is GenerativeState.VideoReady -> next.providerId
                                 is GenerativeState.AudioReady -> next.providerId
                                 is GenerativeState.CodeReady -> next.providerId
@@ -839,6 +841,14 @@ class GenerativeViewModel(
                             _lastUsedProviderId.value = next.providerId
                             ingestCreateImage(next.path, label = "Create", studioKey = studioKey, local = local, prompt = capturedPrompt)
                             builder?.complete(success = true, note = next.providerId)
+                            completeLocalJob(success = true)
+                        }
+                        is GenerativeState.ImageBatchReady -> {
+                            appendLive("${next.batch.candidates.size} candidates ready")
+                            val selectedProviderId = next.batch.selectedCandidate?.providerId
+                            if (selectedProviderId != null) _lastUsedProviderId.value = selectedProviderId
+                            ingestImageBatch(next.batch, studioKey = studioKey, local = local)
+                            builder?.complete(success = true, note = selectedProviderId.orEmpty())
                             completeLocalJob(success = true)
                         }
                         is GenerativeState.VideoReady -> {
@@ -943,6 +953,45 @@ class GenerativeViewModel(
             )
         }
         lastEntryIdByStudioKey[studioKey] = id
+    }
+
+    /**
+     * Saves every candidate from a Creative Studio batch as its own Wardrobe entry, sharing
+     * [com.zakir.vestra.shared.wardrobe.WardrobeEntry.batchId] so they can be browsed as siblings.
+     * The next retry in this studio tab chains off the *selected* candidate, not just whichever
+     * one happened to finish first — matching [ingestCreateImage]'s single-image retry chaining.
+     */
+    private fun ingestImageBatch(batch: com.zakir.vestra.shared.cloud.GenerationBatch, studioKey: AiCapability, local: Boolean) {
+        val trimmedPrompt = batch.prompt.trim()
+        val promptSnippet = trimmedPrompt.take(80).ifBlank { "Create".lowercase() }
+        val parentId = lastEntryIdByStudioKey[studioKey]
+        var selectedEntryId: String? = null
+        val newEntries = batch.candidates.map { candidate ->
+            val id = Uuid.random().toString()
+            if (candidate.id == batch.selectedCandidateId) selectedEntryId = id
+            WardrobeEntry(
+                id = id,
+                createdAtEpochMillis = System.currentTimeMillis(),
+                imagePath = candidate.path,
+                garmentUri = "create:$promptSnippet",
+                personLabel = "Create",
+                tier = if (local) EngineTier.LITE else EngineTier.CLOUD,
+                shootId = null,
+                parentGenerationId = parentId,
+                prompt = trimmedPrompt.ifBlank { null },
+                batchId = candidate.batchId,
+                candidateIndex = candidate.candidateIndex,
+                candidateCount = candidate.candidateCount,
+            )
+        }
+        // One write for the whole batch — avoids up to 4 sequential full-index re-serializations,
+        // and keeps the batch atomic (a mid-batch write failure can't leave WardrobeScreen's
+        // batch-siblings UI expecting candidateCount entries that only partially landed).
+        val wrote = runCatching { wardrobe.addAll(newEntries) }.isSuccess
+        // Only chain the next retry's parentGenerationId off an entry that was actually
+        // persisted — otherwise a write failure leaves a dangling reference ancestorChain()
+        // can never resolve.
+        if (wrote) lastEntryIdByStudioKey[studioKey] = selectedEntryId ?: return
     }
 
     private fun sanitizePrompt(raw: String): String =

@@ -130,6 +130,23 @@ fun ResultPane(
                 accent = accent,
             )
         }
+        // Creative Studio V2 batch result (1-4 candidates from one prompt). Candidate selection
+        // isn't interactive yet — no fullscreen viewer exists to open a tapped candidate into, so
+        // this renders the grid read-only with the batch's chosen candidate highlighted. All
+        // candidates are already saved to the Wardrobe (see GenerativeViewModel.ingestImageBatch).
+        is GenerativeState.ImageBatchReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
+            GlassSectionLabel("RESULT · ${state.batch.candidates.size} OPTIONS")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassPill(text = "AI-generated", active = true)
+                GlassPill(text = "In looks gallery", active = true, accent = accent)
+            }
+            Spacer(Modifier.height(8.dp))
+            ImageCandidateGrid(
+                batch = state.batch,
+                selectedCandidateId = state.batch.selectedCandidateId,
+                onOpenCandidate = {},
+            )
+        }
         is GenerativeState.ImageReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
             GlassSectionLabel("RESULT")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
