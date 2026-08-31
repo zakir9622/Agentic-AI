@@ -52,4 +52,4 @@ The app polls `manifest.json`; installed packs with a lower version show "Update
 
 ## Licensing
 
-Before publishing any exported model, record its upstream license in `MODEL_LICENSES.md` and confirm it permits redistribution + commercial use. Research-only checkpoints must not be published to the production packs repo.
+Before publishing any exported model, record its upstream license in the root [`../MODEL_LICENSES.md`](../MODEL_LICENSES.md) and confirm it permits redistribution + commercial use. Research-only checkpoints must not be published to the production packs repo.

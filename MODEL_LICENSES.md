@@ -49,6 +49,19 @@ none of the ~4 GB of weights are re-hosted. The on-device Kotlin pipeline (`Bons
 | `birefnet-v1` | BiRefNet matting (Swin-Tiny) | BiRefNet | MIT |
 | `realesrgan-v1` | Real-ESRGAN x2 | Real-ESRGAN | BSD-3-Clause |
 
+**`lite-v1` open item.** Its garment-segmentation model (U²-Net-class, MIT/Apache-lineage) is
+clean. Its human-parsing model (SCHP-class, mirrored `human_parse.onnx`) is trained on the ATR
+dataset, whose terms are academic-oriented — code is MIT but the training-data license for
+*this specific checkpoint* is not confirmed commercial-safe. **Before a Play/commercial
+release**, either get written confirmation from the dataset authors or retrain the parser on a
+commercially-licensed dataset; do not ship as-is to a paid or ad-supported release without
+resolving this. (Also unresolved for the same reason: the CatVTON/IDM-VTON/StableVITON-family
+try-on weights evaluated during model research are CC BY-NC — fine for personal/dev builds,
+blocked for public distribution. The shipped `pro-v1` pack above avoids this entirely by using
+a from-scratch SD1.5 + ControlNet-Depth + IP-Adapter chain built on commercially-usable
+weights instead — this note exists only so nobody swaps in one of the NC-licensed try-on
+models later without noticing.)
+
 **RAIL-M obligations.** CreativeML Open RAIL-M is an *open but use-restricted* licence: the
 attached use restrictions must be passed on to end users, and derivatives must not be used for
 the prohibited purposes listed in the licence. It is not an OSI-approved open-source licence.

@@ -1,5 +1,12 @@
 # Free / Open-Source Opportunities — quality without cost
 
+> **Historical research log, largely acted on since.** Compiled 2026-07-18, before the
+> LiteRT-LM local-model integration and the free-cloud (HF Spaces/Inference, Groq, OpenRouter)
+> strategy this app ships today — several of its "opportunities" below (ZeroGPU self-hosting,
+> Real-ESRGAN/BiRefNet quality post-processing) are already shipped; check `MODEL_LICENSES.md`
+> and `docs/PROJECT_HISTORY.md` for current status before treating anything below as still
+> open. Kept for its license-landscape research, which is still accurate background.
+
 Research log + action plan for improving The Lookbook using **free, open-source**
 models, libraries, and infrastructure — **without compromising image quality**.
 Compiled 2026-07-18. Sources listed at the bottom.
