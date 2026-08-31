@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -20,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +52,127 @@ import com.zakir.vestra.shared.quality.QualityRating
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.theme.VestraColors
 
+/**
+ * Compact in-place model switcher anchored at the prompt composer's model chip — a
+ * [DropdownMenu] with single-line rows instead of [ModelPickerSheet]'s full-screen bottom sheet,
+ * for the common case of picking among a handful of already-known-usable models without leaving
+ * the composer. Shows on-device ready entries first, then up to [maxCloudRows] cloud models
+ * (already sorted best-first by the same rule [ModelPickerSheet] uses), plus a trailing row that
+ * opens the full sheet for search, less-common models, or metadata (license, size, "Accepts:").
+ */
+@Composable
+fun ModelQuickSwitcher(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    models: List<CloudModelProvider>,
+    selectedId: String,
+    onSelect: (CloudModelProvider) -> Unit,
+    onDeviceEntries: List<OnDevicePickerEntry>,
+    onSelectDevice: ((OnDevicePickerEntry) -> Unit)?,
+    onBrowseAll: () -> Unit,
+    health: ModelHealthTracker? = null,
+    accent: Color = VestraColors.Accent,
+    hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
+    maxCloudRows: Int = 4,
+) {
+    // Deliberately not `remember`ed: ModelHealthTracker is a plain Settings-backed class with no
+    // Compose-observable state, so a remembered ranking would freeze at first composition and
+    // never reflect a model degrading/recovering after that. Recomputing on every recomposition
+    // is cheap (a few dozen entries) and correctly picks up the live health each time `expanded`
+    // flips true — the only time freshness actually matters.
+    val topCloud = models
+        .filter { CloudModelContracts.forProvider(it).support != ModelSupportLevel.UNSUPPORTED }
+        .sortedWith(
+            compareByDescending<CloudModelProvider> {
+                when (health?.effectiveSupport(it) ?: CloudModelContracts.forProvider(it).support) {
+                    ModelSupportLevel.READY -> 3
+                    ModelSupportLevel.DEGRADED -> 2
+                    ModelSupportLevel.UNSUPPORTED -> 0
+                }
+            }.thenByDescending { it.qualityScore },
+        )
+        .take(maxCloudRows)
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = Modifier
+            .background(VestraColors.SurfaceRaised)
+            .widthIn(min = 220.dp, max = 320.dp),
+    ) {
+        onDeviceEntries.forEach { entry ->
+            QuickSwitcherRow(
+                label = entry.displayName,
+                ready = entry.ready,
+                selected = entry.id == selectedId,
+                accent = accent,
+                enabled = onSelectDevice != null && entry.ready,
+                onClick = {
+                    onSelectDevice?.invoke(entry)
+                    onDismiss()
+                },
+            )
+        }
+        topCloud.forEach { model ->
+            val support = health?.effectiveSupport(model) ?: CloudModelContracts.forProvider(model).support
+            val blocked = support == ModelSupportLevel.UNSUPPORTED
+            QuickSwitcherRow(
+                label = model.displayName,
+                ready = !blocked && hasCredential(model),
+                selected = model.id == selectedId,
+                accent = accent,
+                enabled = !blocked,
+                onClick = {
+                    onSelect(model)
+                    onDismiss()
+                },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("Browse all models…", color = accent) },
+            onClick = {
+                onDismiss()
+                onBrowseAll()
+            },
+        )
+    }
+}
+
+@Composable
+private fun QuickSwitcherRow(
+    label: String,
+    ready: Boolean,
+    selected: Boolean,
+    accent: Color,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                label,
+                color = if (enabled) VestraColors.Ink else VestraColors.InkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        leadingIcon = {
+            Box(
+                Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (ready) accent else VestraColors.InkMuted.copy(alpha = 0.4f)),
+            )
+        },
+        trailingIcon = if (selected) {
+            { Icon(Icons.Outlined.Check, contentDescription = "Selected", tint = accent) }
+        } else {
+            null
+        },
+        enabled = enabled,
+        onClick = onClick,
+    )
+}
+
 data class OnDevicePickerEntry(
     val id: String,
     val displayName: String,
@@ -76,7 +200,6 @@ fun ModelPickerSheet(
     onSelectDevice: ((OnDevicePickerEntry) -> Unit)? = null,
     health: ModelHealthTracker? = null,
     accent: Color = VestraColors.Accent,
-    cloudGenerationEnabled: Boolean = true,
     hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
 ) {
     var query by remember { mutableStateOf("") }
@@ -166,7 +289,7 @@ fun ModelPickerSheet(
             ) {
                 if (query.isNotBlank()) {
                     items(filtered, key = { it.id }) { model ->
-                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, cloudGenerationEnabled, hasCredential)
+                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, hasCredential)
                     }
                 } else {
                     if (onDeviceEntries.isNotEmpty()) {
@@ -198,7 +321,7 @@ fun ModelPickerSheet(
                             )
                         }
                         items(models, key = { it.id }) { model ->
-                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, cloudGenerationEnabled, hasCredential)
+                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, hasCredential)
                         }
                     }
                 }
@@ -301,14 +424,13 @@ private fun ModelPickerRow(
     onDismiss: () -> Unit,
     health: ModelHealthTracker?,
     accent: Color = VestraColors.Accent,
-    cloudGenerationEnabled: Boolean = true,
     hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
 ) {
     val selected = model.id == selectedId
     val support = health?.effectiveSupport(model) ?: CloudModelContracts.forProvider(model).support
     val blocked = support == ModelSupportLevel.UNSUPPORTED
     val credentialPresent = hasCredential(model)
-    val readyForRequest = !blocked && cloudGenerationEnabled && credentialPresent
+    val readyForRequest = !blocked && credentialPresent
     val contract = CloudModelContracts.forProvider(model)
     Row(
         Modifier
@@ -369,7 +491,6 @@ private fun ModelPickerRow(
                     append(model.platform.name.replace('_', ' ').lowercase())
                     when {
                         blocked -> append(" · not selectable")
-                        !cloudGenerationEnabled -> append(" · cloud disabled")
                         !credentialPresent -> append(" · needs API key")
                     }
                 },

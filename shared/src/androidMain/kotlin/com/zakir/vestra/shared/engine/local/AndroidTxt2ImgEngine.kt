@@ -73,6 +73,10 @@ class AndroidTxt2ImgEngine(
         outputDir: File,
         referenceBitmap: Bitmap? = null,
         strength: Float = 0.65f,
+        /** Denoising step count override; null uses the pack's own config default. */
+        stepsOverride: Int? = null,
+        /** Classifier-free guidance override; null uses the pack's own config default. */
+        guidanceOverride: Float? = null,
         onStep: (step: Int, totalSteps: Int) -> Unit = { _, _ -> },
     ): LocalImageResult {
         val trimmed = prompt.trim()
@@ -91,10 +95,10 @@ class AndroidTxt2ImgEngine(
         }
         return runCatching {
             val steps = DiffusionSteps.resolve(
-                inferenceSteps = config.scheduler?.steps ?: 4,
+                inferenceSteps = stepsOverride ?: (config.scheduler?.steps ?: 4),
                 lcmDistilled = config.lcmDistilled,
             ).coerceIn(1, 12)
-            val guidance = config.scheduler?.guidance ?: 1.0f
+            val guidance = guidanceOverride ?: (config.scheduler?.guidance ?: 1.0f)
             val rng = Random(seed ?: System.currentTimeMillis())
 
             val cond = encodeText(trimmed)

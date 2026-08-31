@@ -24,12 +24,25 @@ class RoutingLocalImageGenerator(
 
     override fun warmUp(): String? = generatorFor(AiCapability.IMAGE_GEN).warmUp()
 
-    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
+    override fun generate(
+        prompt: String,
+        seed: Long?,
+        referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
+    ): LocalImageResult {
         val generator = if (!referenceImageUri.isNullOrBlank()) sdturbo else generatorFor(AiCapability.IMAGE_GEN)
-        return generator.generate(prompt, seed, referenceImageUri)
+        return generator.generate(prompt, seed, referenceImageUri, steps, guidanceScale, strength)
     }
 
-    override fun generateStream(prompt: String, seed: Long?, referenceImageUri: String?) =
-        (if (!referenceImageUri.isNullOrBlank()) sdturbo else generatorFor(AiCapability.IMAGE_GEN))
-            .generateStream(prompt, seed, referenceImageUri)
+    override fun generateStream(
+        prompt: String,
+        seed: Long?,
+        referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
+    ) = (if (!referenceImageUri.isNullOrBlank()) sdturbo else generatorFor(AiCapability.IMAGE_GEN))
+        .generateStream(prompt, seed, referenceImageUri, steps, guidanceScale, strength)
 }

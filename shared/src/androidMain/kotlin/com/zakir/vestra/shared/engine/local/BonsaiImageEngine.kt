@@ -80,14 +80,24 @@ class BonsaiImageEngine(
             .also { packs.markPackIdle(packId) }
     }
 
-    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
+    // guidanceScale and strength are accepted (interface contract) but not used: Bonsai is a
+    // guidance-distilled model with no classifier-free-guidance pass, and text-to-image only
+    // (isEditReady() is always false, so strength never applies).
+    override fun generate(
+        prompt: String,
+        seed: Long?,
+        referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
+    ): LocalImageResult {
         val ready = when (val r = checkReadiness(referenceImageUri)) {
             is Readiness.NotReady -> return LocalImageResult.Unavailable(r.reason)
             is Readiness.Ready -> r
         }
         return try {
             packs.markPackInUse(packId)
-            runGeneration(ready.dir, ready.meta, prompt, seed ?: System.currentTimeMillis())
+            runGeneration(ready.dir, ready.meta, prompt, seed ?: System.currentTimeMillis(), steps ?: this.steps)
         } finally {
             packs.markPackIdle(packId)
         }
@@ -100,10 +110,14 @@ class BonsaiImageEngine(
      * caller's `flowOn(Dispatchers.Default)`); [callbackFlow] just gives [runGeneration]'s
      * synchronous `onStage` callback somewhere to push into.
      */
+    // guidanceScale and strength are accepted (interface contract) but not used — see [generate].
     override fun generateStream(
         prompt: String,
         seed: Long?,
         referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
     ): Flow<LocalImageStreamEvent> {
         val ready = when (val r = checkReadiness(referenceImageUri)) {
             is Readiness.NotReady -> return flowOf(LocalImageStreamEvent.Unavailable(r.reason))
@@ -117,6 +131,7 @@ class BonsaiImageEngine(
                     ready.meta,
                     prompt,
                     seed ?: System.currentTimeMillis(),
+                    steps ?: this@BonsaiImageEngine.steps,
                 ) { stage, fraction ->
                     trySendBlocking(LocalImageStreamEvent.Progress(stage, fraction))
                 }
@@ -168,6 +183,7 @@ class BonsaiImageEngine(
         meta: PipelineMeta,
         prompt: String,
         seed: Long,
+        steps: Int,
         onStage: (stage: String, fraction: Float) -> Unit = { _, _ -> },
     ): LocalImageResult =
         runCatching {

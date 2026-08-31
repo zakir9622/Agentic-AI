@@ -72,7 +72,14 @@ class AndroidLocalImageGenerator(
             }
     }
 
-    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
+    override fun generate(
+        prompt: String,
+        seed: Long?,
+        referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
+    ): LocalImageResult {
         val ready = when (val r = checkReadiness(referenceImageUri)) {
             is Readiness.NotReady -> return LocalImageResult.Unavailable(r.reason)
             is Readiness.Ready -> r
@@ -87,7 +94,15 @@ class AndroidLocalImageGenerator(
             packs.markPackInUse(packId)
             OrtSessionCache.enterInference()
             AndroidTxt2ImgEngine(ready.dir, ready.config, quality).use { engine ->
-                engine.generate(prompt, seed, outputDir, referenceBitmap = referenceBitmap)
+                engine.generate(
+                    prompt,
+                    seed,
+                    outputDir,
+                    referenceBitmap = referenceBitmap,
+                    strength = strength ?: 0.65f,
+                    stepsOverride = steps,
+                    guidanceOverride = guidanceScale,
+                )
             }
         } finally {
             OrtSessionCache.leaveInference()
@@ -103,6 +118,9 @@ class AndroidLocalImageGenerator(
         prompt: String,
         seed: Long?,
         referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
     ): Flow<LocalImageStreamEvent> {
         val ready = when (val r = checkReadiness(referenceImageUri)) {
             is Readiness.NotReady -> return flowOf(LocalImageStreamEvent.Unavailable(r.reason))
@@ -126,6 +144,9 @@ class AndroidLocalImageGenerator(
                         seed,
                         outputDir,
                         referenceBitmap = referenceBitmap,
+                        strength = strength ?: 0.65f,
+                        stepsOverride = steps,
+                        guidanceOverride = guidanceScale,
                         onStep = { step, totalSteps ->
                             trySendBlocking(
                                 LocalImageStreamEvent.Progress(

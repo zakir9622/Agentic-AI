@@ -33,7 +33,6 @@ import com.zakir.vestra.ui.screens.news.ChatMessageBubble
 import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
 import com.zakir.vestra.ui.screens.news.NewsHeadlinesBar
 import com.zakir.vestra.ui.screens.settings.settingsCloudKeysSection
-import com.zakir.vestra.ui.screens.settings.settingsCloudMasterToggleSection
 import com.zakir.vestra.ui.screens.settings.settingsMemorySection
 import com.zakir.vestra.ui.screens.settings.settingsSafetySection
 import com.zakir.vestra.ui.theme.VestraTheme
@@ -130,22 +129,6 @@ class ScreenshotTest {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         println("screenshot: ${File(dir, "$name.png").absolutePath} (${bitmap.width}x${bitmap.height})")
-    }
-
-    @Test
-    fun cloudToggleOff() {
-        val settings = AppSettings(MemorySettings())
-        shoot("01-settings-cloud-toggle-off") {
-            LazyColumn { settingsCloudMasterToggleSection(appSettings = settings) }
-        }
-    }
-
-    @Test
-    fun cloudToggleOn() {
-        val settings = AppSettings(MemorySettings()).apply { setCloudModelsEnabled(true) }
-        shoot("02-settings-cloud-toggle-on") {
-            LazyColumn { settingsCloudMasterToggleSection(appSettings = settings) }
-        }
     }
 
     /**

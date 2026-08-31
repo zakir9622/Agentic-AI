@@ -12,7 +12,22 @@ interface LocalImageGenerator {
     fun isReady(): Boolean
     /** True when VAE encoder is present — enables offline image edit. */
     fun isEditReady(): Boolean = false
-    fun generate(prompt: String, seed: Long? = null, referenceImageUri: String? = null): LocalImageResult
+
+    /**
+     * @param steps Denoising step count override; null keeps the pack's own default.
+     * @param guidanceScale Classifier-free guidance override; null keeps the pack's own default.
+     *   Ignored by generators that don't use CFG (e.g. guidance-distilled models).
+     * @param strength Img2img noise strength override (0=keep reference, 1=ignore it); null
+     *   keeps the engine's own default. Ignored for text-to-image (no [referenceImageUri]).
+     */
+    fun generate(
+        prompt: String,
+        seed: Long? = null,
+        referenceImageUri: String? = null,
+        steps: Int? = null,
+        guidanceScale: Float? = null,
+        strength: Float? = null,
+    ): LocalImageResult
 
     /**
      * Opens the pack's graphs so a selected model is proven loadable before the first prompt.
@@ -32,8 +47,11 @@ interface LocalImageGenerator {
         prompt: String,
         seed: Long? = null,
         referenceImageUri: String? = null,
+        steps: Int? = null,
+        guidanceScale: Float? = null,
+        strength: Float? = null,
     ): Flow<LocalImageStreamEvent> = flow {
-        when (val result = generate(prompt, seed, referenceImageUri)) {
+        when (val result = generate(prompt, seed, referenceImageUri, steps, guidanceScale, strength)) {
             is LocalImageResult.Ok -> emit(LocalImageStreamEvent.Done(result.imagePath))
             is LocalImageResult.Unavailable -> emit(LocalImageStreamEvent.Unavailable(result.reason))
         }
@@ -55,7 +73,14 @@ sealed class LocalImageStreamEvent {
 /** Placeholder until SD-Turbo / LCM pack graphs ship. */
 object UnimplementedLocalImageGenerator : LocalImageGenerator {
     override fun isReady(): Boolean = false
-    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult =
+    override fun generate(
+        prompt: String,
+        seed: Long?,
+        referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
+    ): LocalImageResult =
         LocalImageResult.Unavailable(
             "Local image pack not published yet — use cloud Create Studio, " +
                 "or wait for local-sdturbo-v1 weights on Model packs.",
@@ -73,7 +98,14 @@ class PackAwareLocalImageGenerator(
 ) : LocalImageGenerator {
     override fun isReady(): Boolean = runnerImplemented && packReady()
 
-    override fun generate(prompt: String, seed: Long?, referenceImageUri: String?): LocalImageResult {
+    override fun generate(
+        prompt: String,
+        seed: Long?,
+        referenceImageUri: String?,
+        steps: Int?,
+        guidanceScale: Float?,
+        strength: Float?,
+    ): LocalImageResult {
         if (!runnerImplemented) {
             return LocalImageResult.Unavailable(
                 "Local SD-Turbo runner not wired yet — using cloud Create Studio.",

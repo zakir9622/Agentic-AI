@@ -109,26 +109,30 @@ class CatalogInvariantsTest {
     // ---------- settings state machine ----------
 
     @Test
-    fun cloudOffBlocksEveryCapabilityThatHasNoLocalSelection() {
+    fun noConsentBlocksEveryCapabilityWithNoLocalSelection() {
+        // Even a capability whose default provider needs no credential at all (e.g. IMAGE_GEN's
+        // flux-schnell-hf, a genuinely free HF Space) must stay blocked until the user has
+        // granted cloud consent (picked a cloud model explicitly, or added any API key) — an
+        // untouched fresh install must never reach the network on its own.
         AiCapability.entries.forEach { capability ->
             val s = settings()
             val result = s.preflight(capability)
             assertTrue(
                 result is PreflightResult.Blocked,
-                "$capability was not blocked with cloud off and no local pick",
+                "$capability was not blocked with no cloud consent granted and no local pick",
             )
         }
     }
 
     @Test
-    fun everySelectableLocalIdPassesPreflightWithCloudOff() {
+    fun everySelectableLocalIdPassesPreflightWithNoCredential() {
         AiCapability.entries.forEach { capability ->
             LocalModelCatalog.forStudioPicker(capability).forEach { entry ->
                 val s = settings()
                 s.setLocalGenerator(capability, entry.id)
                 assertTrue(
                     s.preflight(capability) is PreflightResult.Ok,
-                    "${entry.id} selected for $capability still fails preflight with cloud off",
+                    "${entry.id} selected for $capability still fails preflight with no credential",
                 )
                 assertTrue(s.prefersLocal(capability), "${entry.id} did not register as local")
             }
@@ -136,19 +140,60 @@ class CatalogInvariantsTest {
     }
 
     @Test
-    fun cloudGenerationAllowedTracksTheToggleForEveryCapability() {
+    fun cloudUsableRequiresConsentAndCredentialForEveryCapability() {
         val s = settings()
-        assertFalse(s.cloudGenerationAllowed(), "cloud must be off by default")
-        s.setCloudModelsEnabled(true)
-        assertTrue(s.cloudGenerationAllowed())
-        s.setCloudModelsEnabled(false)
-        assertFalse(s.cloudGenerationAllowed())
         AiCapability.entries.forEach { capability ->
+            val provider = s.selectedProvider(capability)
+            // No cloud consent granted yet — unusable regardless of whether this specific
+            // provider happens to need a credential.
+            assertFalse(
+                s.cloudUsable(provider),
+                "${provider.id} ($capability) should be unusable before cloud consent is granted",
+            )
             assertTrue(
-                s.cloudDisabledReason(capability).isNotBlank(),
-                "no disabled-reason copy for $capability",
+                s.cloudBlockedReason(provider).isNotBlank(),
+                "no blocked-reason copy for $capability's provider ${provider.id}",
             )
         }
+        // Consent granted explicitly, as the interactive Settings "Save" flow does — setHfToken
+        // alone (also used by automatic boot-time token restoration) does not grant it. Now only
+        // a provider that still lacks its own required credential (e.g. Groq, untouched) stays
+        // blocked.
+        s.setHfToken("hf_test")
+        s.confirmCloudConsentFromApiKeyEntry()
+        AiCapability.entries.forEach { capability ->
+            val provider = s.selectedProvider(capability)
+            if (!provider.requiresApiKey || s.apiKeyFor(provider) == "hf_test") {
+                assertTrue(
+                    s.cloudUsable(provider),
+                    "${provider.id} ($capability) should be usable once consent + its credential are set",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun pickingAKeylessCloudModelGrantsConsentAndUnblocksIt() {
+        // flux-schnell-hf needs no API key — before this call, its capability is still blocked
+        // purely on missing consent (covered above). Explicitly picking it must be enough.
+        val s = settings()
+        val provider = s.selectedProvider(AiCapability.IMAGE_GEN)
+        assertFalse(provider.requiresApiKey, "test assumes IMAGE_GEN's default needs no key")
+        assertFalse(s.cloudConsentGranted.value)
+        s.setImageGenProvider(provider.id)
+        assertTrue(s.cloudConsentGranted.value, "picking a cloud model must grant cloud consent")
+        assertTrue(s.cloudUsable(provider))
+        assertTrue(s.preflight(AiCapability.IMAGE_GEN) is PreflightResult.Ok)
+    }
+
+    @Test
+    fun preExistingLegacyToggleOnMigratesToConsentGranted() {
+        // An install that had the old (now-removed) master switch on is the only way cloud could
+        // have ever run before consent existed — it must not be silently cut off on upgrade.
+        val store = MemorySettings()
+        store.putBoolean("cloud_models_enabled", true)
+        val s = AppSettings(store)
+        assertTrue(s.cloudConsentGranted.value, "a prior 'cloud allowed' choice must carry over")
     }
 
     @Test
@@ -157,12 +202,12 @@ class CatalogInvariantsTest {
         val store = MemorySettings()
         AppSettings(store).apply {
             setLocalGenerator(AiCapability.CODE, "local-qwen3-06b-v1")
-            setCloudModelsEnabled(true)
+            setHfToken("hf_test")
         }
         val reloaded = AppSettings(store)
         assertEquals("local-qwen3-06b-v1", reloaded.selectionId(AiCapability.CODE))
         assertTrue(reloaded.prefersLocal(AiCapability.CODE))
-        assertTrue(reloaded.cloudGenerationAllowed(), "cloud toggle did not persist")
+        assertEquals("hf_test", reloaded.hfToken.value, "HF token did not persist")
     }
 
     @Test

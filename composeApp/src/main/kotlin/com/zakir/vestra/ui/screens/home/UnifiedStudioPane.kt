@@ -6,7 +6,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +26,8 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -56,6 +60,7 @@ import com.zakir.vestra.ui.components.GlassOptionToggle
 import com.zakir.vestra.ui.components.GlassPill
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.ModelPickerSheet
+import com.zakir.vestra.ui.components.ModelQuickSwitcher
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
 import com.zakir.vestra.ui.components.ResultPane
@@ -112,11 +117,15 @@ fun UnifiedStudioPane(
     val creative by viewModel.creativeMode.collectAsState()
     val pragmatic by viewModel.pragmaticMode.collectAsState()
     val fashionContext by viewModel.fashionContext.collectAsState()
+    val inferenceSteps by viewModel.inferenceSteps.collectAsState()
+    val guidanceScale by viewModel.guidanceScale.collectAsState()
+    val seed by viewModel.seed.collectAsState()
+    val strength by viewModel.strength.collectAsState()
+    val candidateCount by viewModel.candidateCount.collectAsState()
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
 
     val warmup by viewModel.warmup.collectAsState()
-    val cloudModelsEnabled by viewModel.appSettings.cloudModelsEnabled.collectAsState()
     val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
     val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
     val codeId by viewModel.appSettings.codeProviderId.collectAsState()
@@ -147,25 +156,52 @@ fun UnifiedStudioPane(
     val localCodeReady by produceLocalReadiness(packStates, busy) { viewModel.localCodeOfflineReady() }
     val localVideoReady by produceLocalReadiness(packStates, busy) { viewModel.localVideoOfflineReady() }
 
+    // Mirrors ImageParameterSection's own showGuidance/isEdit gating exactly — otherwise the
+    // "Advanced" badge counts an override on a slider the current mode doesn't even display
+    // (e.g. edit strength left non-default after removing the reference photo), with no way
+    // to see or clear whatever the badge is counting.
+    val imageEditActive = reference != null
+    val imageShowsGuidance = imageGenId != "local-bonsai-image-v1" || imageEditActive
     val assistCount = when (capability) {
         AiCapability.CODE -> listOf(pragmatic, creative).count { it }
         AiCapability.AUDIO -> listOf(fashionContext).count { it }
+        AiCapability.IMAGE_GEN -> listOfNotNull(
+            inferenceSteps != 22,
+            (guidanceScale != 7.0f).takeIf { imageShowsGuidance },
+            seed != null,
+            (strength != 0.65f).takeIf { imageEditActive },
+            candidateCount > 1,
+        ).count { it }
         else -> 0
     }
 
+    // The Candidates control only renders while a local pack is ready (batching isn't reachable
+    // for cloud through this UI). If the local pack becomes unavailable after the user set a
+    // count > 1 — uninstalled, or "prefer local" turned off — a stale count would otherwise keep
+    // multiplying real cloud API calls on the next generation with no visible control left to
+    // explain or reset it.
+    LaunchedEffect(localImageReady, localImageEditReady) {
+        if (!localImageReady && !localImageEditReady) {
+            viewModel.setCandidateCount(1)
+        }
+    }
+
     var showModelPicker by remember { mutableStateOf(false) }
+    // Separate from showModelPicker (the full sheet, still used for search/error-recovery flows
+    // that need the sheet's richer metadata — license, quota status, "needs API key") — the
+    // composer's model chip opens this compact popup instead, so picking among a handful of
+    // already-known-usable models doesn't require leaving the composer.
+    var showQuickSwitcher by remember { mutableStateOf(false) }
     var advancedExpanded by remember { mutableStateOf(false) }
     var showSafetyConfirm by remember { mutableStateOf(false) }
     val safetyPresetId by viewModel.appSettings.safetyPresetId.collectAsState()
-    // Cloud rows must disappear entirely when the master toggle is off — otherwise the picker
-    // offers models that preflight and the runtime gate will refuse to run.
-    val pickerModels = remember(effectiveCapability, freeCloudDiscovery, cloudModelsEnabled) {
-        if (!cloudModelsEnabled) {
-            emptyList()
-        } else {
-            freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
-                ?: CloudModelCatalog.forCapability(effectiveCapability)
-        }
+    // No master toggle anymore — FreeCloudDiscovery.selectable already filters the catalog down
+    // to providers that are actually usable right now (free tier, supported, and either no
+    // credential needed or one is configured), so preflight and the runtime gate never see a
+    // row here they'd refuse to run.
+    val pickerModels = remember(effectiveCapability, freeCloudDiscovery) {
+        freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
+            ?: CloudModelCatalog.forCapability(effectiveCapability)
     }
     val onDeviceEntries = remember(
         packStates,
@@ -307,6 +343,27 @@ fun UnifiedStudioPane(
                             onPragmatic = { viewModel.setPragmaticMode(!pragmatic) },
                             onCreative = { viewModel.setCreativeMode(!creative) },
                         )
+                    } else if (capability == AiCapability.IMAGE_GEN &&
+                        (localImageReady || localImageEditReady)
+                    ) {
+                        Spacer(Modifier.height(8.dp))
+                        ImageParameterSection(
+                            expanded = advancedExpanded,
+                            onToggle = { advancedExpanded = !advancedExpanded },
+                            busy = busy,
+                            isEdit = imageEditActive,
+                            showGuidance = imageShowsGuidance,
+                            steps = inferenceSteps,
+                            guidance = guidanceScale,
+                            seed = seed,
+                            strength = strength,
+                            candidateCount = candidateCount,
+                            onSteps = viewModel::setInferenceSteps,
+                            onGuidance = viewModel::setGuidanceScale,
+                            onSeed = viewModel::setSeed,
+                            onStrength = viewModel::setStrength,
+                            onCandidateCount = viewModel::setCandidateCount,
+                        )
                     }
 
                     if (preflight != null) {
@@ -391,6 +448,7 @@ fun UnifiedStudioPane(
                 generationStartedAtMs = generationStartedAtMs,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
+            Box {
             PromptComposer(
                 prompt = prompt,
                 onPromptChange = viewModel::setPrompt,
@@ -416,11 +474,14 @@ fun UnifiedStudioPane(
                 busy = busy,
                 loading = warmup is GenerativeViewModel.Warmup.Loading,
                 enabled = true,
-                onModelClick = { showModelPicker = true },
-                // Advanced only renders for Code now (see 3.1.6 CHANGELOG) — wiring this
-                // unconditionally left the Assists chip a clickable no-op on every other
-                // capability, toggling a flag nothing was listening to anymore.
-                onAssistsClick = if (capability == AiCapability.CODE) {
+                onModelClick = { showQuickSwitcher = true },
+                // Advanced renders for Code (Pragmatic/Creative) and for Image when a local
+                // model is selected (sampler controls) — wiring this unconditionally left the
+                // Assists chip a clickable no-op on every other capability, toggling a flag
+                // nothing was listening to anymore.
+                onAssistsClick = if (capability == AiCapability.CODE ||
+                    (capability == AiCapability.IMAGE_GEN && (localImageReady || localImageEditReady))
+                ) {
                     { advancedExpanded = !advancedExpanded }
                 } else {
                     null
@@ -442,6 +503,46 @@ fun UnifiedStudioPane(
                     null
                 },
             )
+            // Anchored to a marker at the composer's bottom-start corner (where the model chip
+            // actually renders — PromptComposer.kt's last Row) rather than the whole multi-row
+            // Box above: the composer is docked at the screen's bottom edge with nothing below
+            // it, so anchoring to the Box's top would force Compose's flip-to-fit to jump the
+            // popup above the entire composer (quick-prompt carousel, reference row, text
+            // field) instead of appearing near the tapped chip.
+            Box(Modifier.align(Alignment.BottomStart)) {
+                ModelQuickSwitcher(
+                    expanded = showQuickSwitcher,
+                    onDismiss = { showQuickSwitcher = false },
+                    models = pickerModels,
+                    selectedId = selectedId,
+                    onSelect = { chosen ->
+                        when (effectiveCapability) {
+                            AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)
+                            AiCapability.IMAGE_GEN -> viewModel.appSettings.setImageGenProvider(chosen.id)
+                            AiCapability.VIDEO -> viewModel.appSettings.setVideoProvider(chosen.id)
+                            AiCapability.CODE -> viewModel.appSettings.setCodeProvider(chosen.id)
+                            else -> Unit
+                        }
+                    },
+                    onDeviceEntries = onDeviceEntries,
+                    onSelectDevice = { entry ->
+                        if (!entry.ready) return@ModelQuickSwitcher
+                        when (effectiveCapability) {
+                            AiCapability.IMAGE_EDIT,
+                            AiCapability.IMAGE_GEN,
+                            AiCapability.VIDEO,
+                            AiCapability.CODE,
+                            -> viewModel.appSettings.setLocalGenerator(effectiveCapability, entry.id)
+                            else -> Unit
+                        }
+                    },
+                    onBrowseAll = { showModelPicker = true },
+                    health = viewModel.appSettings.modelHealth,
+                    accent = accent,
+                    hasCredential = { model -> viewModel.appSettings.cloudUsable(model) },
+                )
+            }
+        }
         }
     }
 
@@ -453,16 +554,13 @@ fun UnifiedStudioPane(
                 AiCapability.VIDEO -> "Video models"
                 AiCapability.CODE -> "Coding models"
                 else -> "Models"
-            } + if (cloudModelsEnabled) "" else " · on-device",
+            } + if (pickerModels.isNotEmpty()) "" else " · on-device",
             models = pickerModels,
             selectedId = selectedId,
             onDeviceEntries = onDeviceEntries,
             health = viewModel.appSettings.modelHealth,
             accent = accent,
-            cloudGenerationEnabled = cloudModelsEnabled,
-            hasCredential = { model ->
-                !model.requiresApiKey || !viewModel.appSettings.apiKeyFor(model).isNullOrBlank()
-            },
+            hasCredential = { model -> viewModel.appSettings.cloudUsable(model) },
             onSelect = { chosen ->
                 when (effectiveCapability) {
                     AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)
@@ -554,4 +652,165 @@ private fun AdvancedAssistSection(
             }
         }
     }
+}
+
+/**
+ * Local-generation sampler controls (steps / guidance / seed / img2img strength / candidate
+ * count) — the engines already accept these per call, but nothing surfaced them (see the audit
+ * that added this section). Only meaningful for on-device generation: cloud Spaces/HF Inference
+ * payloads don't accept sampler overrides (see [ModelAssistCatalog]'s own note), so this only
+ * renders while a local model is selected.
+ */
+@Composable
+private fun ImageParameterSection(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    busy: Boolean,
+    isEdit: Boolean,
+    showGuidance: Boolean,
+    steps: Int,
+    guidance: Float,
+    seed: Long?,
+    strength: Float,
+    candidateCount: Int,
+    onSteps: (Int) -> Unit,
+    onGuidance: (Float) -> Unit,
+    onSeed: (Long?) -> Unit,
+    onStrength: (Float) -> Unit,
+    onCandidateCount: (Int) -> Unit,
+) {
+    GlassCard(onClick = onToggle) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Advanced",
+                style = MaterialTheme.typography.titleMedium,
+                color = VestraColors.Ink,
+            )
+            Icon(
+                if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                contentDescription = if (expanded) "Collapse advanced options" else "Expand advanced options",
+                tint = VestraColors.Accent,
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(Modifier.padding(top = 12.dp)) {
+                ParamSlider(
+                    label = "Steps",
+                    valueLabel = steps.toString(),
+                    value = steps.toFloat(),
+                    range = 4f..50f,
+                    enabled = !busy,
+                    onChange = { onSteps(it.toInt()) },
+                )
+                Text(
+                    "Distilled local packs round this to their own supported step count " +
+                        "(typically 4–8) — this sets an upper bound, not an exact count.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VestraColors.InkMuted,
+                )
+                if (showGuidance) {
+                    Spacer(Modifier.height(10.dp))
+                    ParamSlider(
+                        label = "Guidance",
+                        valueLabel = "%.1f".format(guidance),
+                        value = guidance,
+                        range = 1f..15f,
+                        enabled = !busy,
+                        onChange = onGuidance,
+                    )
+                }
+                if (isEdit) {
+                    Spacer(Modifier.height(10.dp))
+                    ParamSlider(
+                        label = "Edit strength",
+                        valueLabel = "%.2f".format(strength),
+                        value = strength,
+                        range = 0.15f..0.95f,
+                        enabled = !busy,
+                        onChange = onStrength,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Seed" + if (seed != null) ": $seed" else ": Random",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VestraColors.Ink,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        GlassPill(
+                            text = "Reroll",
+                            active = false,
+                            modifier = Modifier.clickable(enabled = !busy) {
+                                onSeed(kotlin.random.Random.nextLong(0L, Long.MAX_VALUE))
+                            },
+                        )
+                        if (seed != null) {
+                            GlassPill(
+                                text = "Random",
+                                active = false,
+                                modifier = Modifier.clickable(enabled = !busy) { onSeed(null) },
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Candidates",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VestraColors.Ink,
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (count in 1..4) {
+                        GlassPill(
+                            text = "${count}×",
+                            active = candidateCount == count,
+                            modifier = Modifier.clickable(enabled = !busy) { onCandidateCount(count) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParamSlider(
+    label: String,
+    valueLabel: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    enabled: Boolean,
+    onChange: (Float) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = VestraColors.Ink)
+        Text(valueLabel, style = MaterialTheme.typography.bodyMedium, color = VestraColors.InkMuted)
+    }
+    Slider(
+        value = value,
+        onValueChange = onChange,
+        valueRange = range,
+        enabled = enabled,
+        colors = SliderDefaults.colors(
+            thumbColor = VestraColors.Accent,
+            activeTrackColor = VestraColors.Accent,
+        ),
+    )
 }

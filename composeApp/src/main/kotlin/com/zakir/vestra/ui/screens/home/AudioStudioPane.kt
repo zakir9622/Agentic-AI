@@ -103,7 +103,6 @@ fun AudioStudioPane(
     val knobs by viewModel.voiceKnobs.collectAsState()
     val reference by viewModel.referenceUri.collectAsState()
     val audioId by viewModel.appSettings.audioProviderId.collectAsState()
-    val cloudModelsEnabled by viewModel.appSettings.cloudModelsEnabled.collectAsState()
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
 
@@ -591,10 +590,7 @@ fun AudioStudioPane(
             onDismiss = { showModelPicker = false },
             onDeviceEntries = onDeviceEntries,
             health = viewModel.appSettings.modelHealth,
-            cloudGenerationEnabled = cloudModelsEnabled,
-            hasCredential = { model ->
-                !model.requiresApiKey || !viewModel.appSettings.apiKeyFor(model).isNullOrBlank()
-            },
+            hasCredential = { model -> viewModel.appSettings.cloudUsable(model) },
             accent = accent,
         )
     }

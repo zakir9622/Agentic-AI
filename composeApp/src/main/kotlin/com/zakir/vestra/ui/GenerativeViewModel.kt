@@ -98,6 +98,12 @@ class GenerativeViewModel(
     private val _seed = MutableStateFlow<Long?>(null)
     val seed: StateFlow<Long?> = _seed
 
+    private val _strength = MutableStateFlow(0.65f)
+    val strength: StateFlow<Float> = _strength
+
+    private val _candidateCount = MutableStateFlow(1)
+    val candidateCount: StateFlow<Int> = _candidateCount
+
     private val _voicePersonaId = MutableStateFlow(com.zakir.vestra.shared.audio.VoiceCatalog.defaultId)
     val voicePersonaId: StateFlow<String> = _voicePersonaId
 
@@ -309,6 +315,16 @@ class GenerativeViewModel(
         _seed.value = value?.coerceAtLeast(0L)
     }
 
+    /** Img2img noise strength (0=keep the reference photo, 1=ignore it). Local edit only. */
+    fun setStrength(value: Float) {
+        _strength.value = value.safeCoerceIn(0.15f, 0.95f)
+    }
+
+    /** Number of image candidates to generate per request (1–4), via [generateImageBatch]. */
+    fun setCandidateCount(value: Int) {
+        _candidateCount.value = value.coerceIn(1, 4)
+    }
+
     fun currentAssists(): GenerativeAssists = GenerativeAssists(
         pragmatic = _pragmaticMode.value,
         creative = _creativeMode.value,
@@ -319,9 +335,11 @@ class GenerativeViewModel(
         // Moved from a per-session ViewModel flag to a persisted AppSettings toggle (Settings →
         // safety section) when its studio-side UI was removed — see 3.1.6 CHANGELOG.
         analyzeReference = appSettings.analyzeReferenceEnabled.value,
+        matureFashionAssist = appSettings.matureFashionAssistEnabled.value,
         inferenceSteps = _inferenceSteps.value.takeIf { it != 22 },
         guidanceScale = _guidanceScale.value.takeIf { it != 7.0f },
         seed = _seed.value,
+        strength = _strength.value.takeIf { it != 0.65f },
     )
 
     fun prepareStudio(resetIfIdle: Boolean = true) {
@@ -540,13 +558,24 @@ class GenerativeViewModel(
             p,
             appSettings.safetyPresetId.value,
         )
+        val requestedCandidates = _candidateCount.value
         startGeneration(
             capability = if (_referenceUri.value == null) RunCapability.IMAGE_GEN else RunCapability.IMAGE_EDIT,
             modelLabel = if (bypassPreflight) localLabel else appSettings.selectedProvider(capability).displayName,
             local = bypassPreflight,
             studio = capability,
         ) {
-            generative.generateImage(guardedPrompt, _referenceUri.value, currentAssists())
+            if (requestedCandidates > 1) {
+                generateImageBatch(
+                    service = generative,
+                    prompt = guardedPrompt,
+                    referenceUri = _referenceUri.value,
+                    assists = currentAssists(),
+                    candidateCount = requestedCandidates,
+                )
+            } else {
+                generative.generateImage(guardedPrompt, _referenceUri.value, currentAssists())
+            }
         }
     }
 

@@ -45,7 +45,10 @@ class CloudModelRoutingTest {
 
     @Test
     fun imageFallbackIncludesInferenceWhenHfTokenConfigured() {
-        val settings = AppSettings(MemorySettings()).apply { setHfToken("hf_test") }
+        val settings = AppSettings(MemorySettings()).apply {
+            setHfToken("hf_test")
+            confirmCloudConsentFromApiKeyEntry()
+        }
         val selected = CloudModelCatalog.byId("flux-schnell-hf")!!
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_GEN, settings)
         assertTrue(chain.any { it.id == "flux-schnell-inference" })
@@ -98,6 +101,7 @@ class CloudModelRoutingTest {
             setHfToken("hf_test")
             setGroqApiKey("gsk_test")
             setOpenRouterApiKey("sk-or-test")
+            confirmCloudConsentFromApiKeyEntry()
         }
         val chain = CloudModelRouting.codeFallbackChain(
             CloudModelCatalog.byId("qwen25-coder-hf")!!,
@@ -114,7 +118,10 @@ class CloudModelRoutingTest {
 
     @Test
     fun imageEditFallbackExcludesBrokenInferenceRoute() {
-        val settings = AppSettings(MemorySettings()).apply { setHfToken("hf_test") }
+        val settings = AppSettings(MemorySettings()).apply {
+            setHfToken("hf_test")
+            confirmCloudConsentFromApiKeyEntry()
+        }
         val selected = CloudModelCatalog.byId("qwen-image-edit-hf")!!
         val chain = CloudModelRouting.fallbackChain(selected, AiCapability.IMAGE_EDIT, settings)
         assertEquals("qwen-image-edit-hf", chain.first().id)
@@ -139,7 +146,10 @@ class CloudModelRoutingTest {
 
     @Test
     fun imageFallbackSkipsInferenceWhenCreditsCooldown() {
-        val settings = AppSettings(MemorySettings()).apply { setHfToken("hf_test") }
+        val settings = AppSettings(MemorySettings()).apply {
+            setHfToken("hf_test")
+            confirmCloudConsentFromApiKeyEntry()
+        }
         val health = ModelHealthTracker(MemorySettings())
         health.recordFailure("flux-schnell-inference", ModelHealthTracker.FailureKind.CREDITS)
         val selected = CloudModelCatalog.byId("flux-schnell-hf")!!
