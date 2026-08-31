@@ -79,18 +79,15 @@ fun NewsChatScreen(
 
     val codeId by appSettings?.codeProviderId?.collectAsState()
         ?: remember { mutableStateOf(CloudModelCatalog.defaultFor(AiCapability.CODE).id) }
-    val cloudEnabled by appSettings?.cloudModelsEnabled?.collectAsState()
-        ?: remember { mutableStateOf(false) }
     val packStates by packManager?.states?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
     val chatProvider = appSettings?.selectedProvider(AiCapability.CODE)
         ?: CloudModelCatalog.defaultFor(AiCapability.CODE)
 
-    // Cloud rows only exist once the master toggle is on — otherwise the sheet is
-    // on-device only, matching what preflight() will actually allow to run.
-    val pickerModels = remember(freeCloudDiscovery, appSettings, cloudEnabled) {
+    // No master toggle anymore — FreeCloudDiscovery.selectable already filters the catalog down
+    // to providers that are actually usable right now, matching what preflight() will allow.
+    val pickerModels = remember(freeCloudDiscovery, appSettings) {
         when {
-            !cloudEnabled -> emptyList()
             appSettings != null && freeCloudDiscovery != null ->
                 freeCloudDiscovery.selectable(appSettings, AiCapability.CODE)
             else -> CloudModelCatalog.forCapability(AiCapability.CODE)
@@ -260,13 +257,12 @@ fun NewsChatScreen(
 
     if (showModelPicker && appSettings != null) {
         ModelPickerSheet(
-            title = if (cloudEnabled) "Chat models" else "Chat models · on-device",
+            title = if (pickerModels.isNotEmpty()) "Chat models" else "Chat models · on-device",
             models = pickerModels,
             selectedId = codeId,
             onDeviceEntries = onDeviceEntries,
             health = appSettings.modelHealth,
-            cloudGenerationEnabled = cloudEnabled,
-            hasCredential = { model -> !model.requiresApiKey || !appSettings.apiKeyFor(model).isNullOrBlank() },
+            hasCredential = { model -> appSettings.cloudUsable(model) },
             onSelect = { chosen -> appSettings.setCodeProvider(chosen.id) },
             onSelectDevice = { entry ->
                 if (entry.ready) appSettings.setLocalGenerator(AiCapability.CODE, entry.id)

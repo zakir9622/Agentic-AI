@@ -126,7 +126,6 @@ fun UnifiedStudioPane(
         ?: remember { mutableStateOf(emptyMap()) }
 
     val warmup by viewModel.warmup.collectAsState()
-    val cloudModelsEnabled by viewModel.appSettings.cloudModelsEnabled.collectAsState()
     val imageGenId by viewModel.appSettings.imageGenProviderId.collectAsState()
     val imageEditId by viewModel.appSettings.imageEditProviderId.collectAsState()
     val codeId by viewModel.appSettings.codeProviderId.collectAsState()
@@ -196,15 +195,13 @@ fun UnifiedStudioPane(
     var advancedExpanded by remember { mutableStateOf(false) }
     var showSafetyConfirm by remember { mutableStateOf(false) }
     val safetyPresetId by viewModel.appSettings.safetyPresetId.collectAsState()
-    // Cloud rows must disappear entirely when the master toggle is off — otherwise the picker
-    // offers models that preflight and the runtime gate will refuse to run.
-    val pickerModels = remember(effectiveCapability, freeCloudDiscovery, cloudModelsEnabled) {
-        if (!cloudModelsEnabled) {
-            emptyList()
-        } else {
-            freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
-                ?: CloudModelCatalog.forCapability(effectiveCapability)
-        }
+    // No master toggle anymore — FreeCloudDiscovery.selectable already filters the catalog down
+    // to providers that are actually usable right now (free tier, supported, and either no
+    // credential needed or one is configured), so preflight and the runtime gate never see a
+    // row here they'd refuse to run.
+    val pickerModels = remember(effectiveCapability, freeCloudDiscovery) {
+        freeCloudDiscovery?.selectable(viewModel.appSettings, effectiveCapability)
+            ?: CloudModelCatalog.forCapability(effectiveCapability)
     }
     val onDeviceEntries = remember(
         packStates,
@@ -542,10 +539,7 @@ fun UnifiedStudioPane(
                     onBrowseAll = { showModelPicker = true },
                     health = viewModel.appSettings.modelHealth,
                     accent = accent,
-                    cloudGenerationEnabled = cloudModelsEnabled,
-                    hasCredential = { model ->
-                        !model.requiresApiKey || !viewModel.appSettings.apiKeyFor(model).isNullOrBlank()
-                    },
+                    hasCredential = { model -> viewModel.appSettings.cloudUsable(model) },
                 )
             }
         }
@@ -560,16 +554,13 @@ fun UnifiedStudioPane(
                 AiCapability.VIDEO -> "Video models"
                 AiCapability.CODE -> "Coding models"
                 else -> "Models"
-            } + if (cloudModelsEnabled) "" else " · on-device",
+            } + if (pickerModels.isNotEmpty()) "" else " · on-device",
             models = pickerModels,
             selectedId = selectedId,
             onDeviceEntries = onDeviceEntries,
             health = viewModel.appSettings.modelHealth,
             accent = accent,
-            cloudGenerationEnabled = cloudModelsEnabled,
-            hasCredential = { model ->
-                !model.requiresApiKey || !viewModel.appSettings.apiKeyFor(model).isNullOrBlank()
-            },
+            hasCredential = { model -> viewModel.appSettings.cloudUsable(model) },
             onSelect = { chosen ->
                 when (effectiveCapability) {
                     AiCapability.IMAGE_EDIT -> viewModel.appSettings.setImageEditProvider(chosen.id)

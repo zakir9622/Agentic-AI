@@ -137,6 +137,12 @@ class GenerativeCloudService(
         val capability = if (referenceUri.isNullOrBlank()) AiCapability.IMAGE_GEN else AiCapability.IMAGE_EDIT
         val provider = settings.selectedProvider(capability)
         var attempted = provider
+        // fallbackChain always includes `provider` itself in `head` regardless of whether it has
+        // a credential (its own per-candidate loop skips unusable ones via `continue`), so the
+        // gate below must ask "is anything in the whole chain usable", not just "is `provider`
+        // usable" — otherwise a missing key on the primary pick would block a perfectly reachable
+        // fallback the loop would have found on its own.
+        val candidates by lazy { CloudModelRouting.fallbackChain(provider, capability, settings, health) }
         try {
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
@@ -240,12 +246,12 @@ class GenerativeCloudService(
                     )
                     return@flow
                 }
-                if (!settings.cloudGenerationAllowed()) {
+                if (candidates.none { settings.cloudUsable(it) }) {
                     emit(
                         GenerativeState.Failed(
                             "On-device image generation failed: $reason\n\n" +
-                                "Cloud models are off, so nothing was sent to the network. " +
-                                "Fix the pack in Settings → Model packs, or enable cloud models.",
+                                "${settings.cloudBlockedReason(provider)} " +
+                                "Or fix the pack in Settings → Model packs.",
                         ),
                     )
                     return@flow
@@ -267,11 +273,10 @@ class GenerativeCloudService(
                 )
                 return@flow
             }
-            if (!settings.cloudGenerationAllowed()) {
-                emit(GenerativeState.Failed(settings.cloudDisabledReason(capability)))
+            if (candidates.none { settings.cloudUsable(it) }) {
+                emit(GenerativeState.Failed(settings.cloudBlockedReason(provider)))
                 return@flow
             }
-            val candidates = CloudModelRouting.fallbackChain(provider, capability, settings, health)
             val referenceDataUrl = referenceUri?.takeIf { it.isNotBlank() }?.let {
                 val bytes = io.loadImageBytes(it) ?: error("Couldn't read the reference image")
                 io.toDataUrl(bytes)
@@ -586,6 +591,10 @@ class GenerativeCloudService(
     ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.CODE)
         var attempted = provider
+        // Unlike fallbackChain, codeFallbackChain already drops every candidate (including
+        // `provider` itself) that needs a credential it doesn't have, so an empty list here
+        // genuinely means nothing in the whole chain is reachable.
+        val candidates by lazy { CloudModelRouting.codeFallbackChain(provider, settings) }
         try {
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
@@ -628,12 +637,12 @@ class GenerativeCloudService(
                     )
                     return@flow
                 }
-                if (!settings.cloudGenerationAllowed()) {
+                if (candidates.isEmpty()) {
                     emit(
                         GenerativeState.Failed(
                             "On-device Code failed: $reason\n\n" +
-                                "Cloud models are off, so nothing was sent to the network. " +
-                                "Fix the pack in Settings → Model packs, or enable cloud models.",
+                                "${settings.cloudBlockedReason(provider)} " +
+                                "Or fix the pack in Settings → Model packs.",
                         ),
                     )
                     return@flow
@@ -647,8 +656,8 @@ class GenerativeCloudService(
                     ),
                 )
             }
-            if (!settings.cloudGenerationAllowed()) {
-                emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.CODE)))
+            if (candidates.isEmpty()) {
+                emit(GenerativeState.Failed(settings.cloudBlockedReason(provider)))
                 return@flow
             }
             if (!settings.networkLikelyAvailable()) {
@@ -660,7 +669,6 @@ class GenerativeCloudService(
                 )
                 return@flow
             }
-            val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
             val system = buildCodeSystem(assists)
             val temperature = when {
                 assists.creative && assists.pragmatic -> 0.5
@@ -759,6 +767,7 @@ class GenerativeCloudService(
     ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.VIDEO)
         var attempted = provider
+        val candidates by lazy { CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health) }
         try {
             when (val safety = InputSafetyGate.checkPrompt(prompt)) {
                 is SafetyVerdict.Blocked -> error(safety.reason)
@@ -802,8 +811,8 @@ class GenerativeCloudService(
                     }
                 }
             }
-            if (!settings.cloudGenerationAllowed()) {
-                emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.VIDEO)))
+            if (candidates.none { settings.cloudUsable(it) }) {
+                emit(GenerativeState.Failed(settings.cloudBlockedReason(provider)))
                 return@flow
             }
             // Hard stop when offline with no local pack — do not burn time on cloud, matching
@@ -817,7 +826,6 @@ class GenerativeCloudService(
                 )
                 return@flow
             }
-            val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.VIDEO, settings, health)
             val variants = visualPromptVariants(prompt, assists)
             val budget = GenerationBudget.forVideo()
             val deadline = budget.deadlineMs
@@ -994,6 +1002,7 @@ class GenerativeCloudService(
     ): Flow<GenerativeState> = flow {
         val provider = settings.selectedProvider(AiCapability.AUDIO)
         var attempted = provider
+        val candidates by lazy { CloudModelRouting.fallbackChain(provider, AiCapability.AUDIO, settings, health) }
         val safeKnobs = knobs.sanitized()
         val spoken = enrichAudioPrompt(prompt.trim(), assists)
         // Mirrors the three unconditional local branches below (voice-changer, scribe, TTS —
@@ -1078,11 +1087,10 @@ class GenerativeCloudService(
                 )
                 return@flow
             }
-            if (!settings.cloudGenerationAllowed()) {
-                emit(GenerativeState.Failed(settings.cloudDisabledReason(AiCapability.AUDIO)))
+            if (candidates.none { settings.cloudUsable(it) }) {
+                emit(GenerativeState.Failed(settings.cloudBlockedReason(provider)))
                 return@flow
             }
-            val candidates = CloudModelRouting.fallbackChain(provider, AiCapability.AUDIO, settings, health)
             val budget = GenerationBudget.forAudio()
             val deadline = budget.deadlineMs
             var lastError: Exception? = null
@@ -1364,6 +1372,7 @@ class GenerativeCloudService(
         assists: GenerativeAssists = GenerativeAssists(),
     ): Pair<LlmResult, CloudModelProvider> {
         val provider = settings.selectedProvider(capability)
+        val candidates by lazy { CloudModelRouting.codeFallbackChain(provider, settings) }
         val effectiveSystem = buildCodeSystem(assists).let { base ->
             if (system.isBlank()) base else "$base\n\n$system"
         }
@@ -1397,15 +1406,14 @@ class GenerativeCloudService(
                 }
             }
         }
-        if (!settings.cloudGenerationAllowed()) {
-            error(settings.cloudDisabledReason(capability))
+        if (candidates.isEmpty()) {
+            error(settings.cloudBlockedReason(provider))
         }
         if (!settings.networkLikelyAvailable()) {
             error(
                 "You're offline. Download local-gemma-4-e2b-v1 from Model packs for offline chat.",
             )
         }
-        val candidates = CloudModelRouting.codeFallbackChain(provider, settings)
         var lastError: Exception? = null
         for (candidate in candidates) {
             if (CloudModelContracts.preflightOrNull(candidate) != null) continue

@@ -17,7 +17,7 @@ BOTTOM_BAR_SETTINGS = "bottom_bar_settings"
 HOME_TAB_IMAGE = "home_tab_image"
 PROMPT_INPUT = "composer_prompt_input"
 CHAT_REFRESH_BUTTON = "chat_news_refresh"
-PROCESSING_MODE_LOCAL = "processing_mode_local"
+ANALYZE_REFERENCE_SWITCH = "analyze_reference_switch"
 
 
 def _tap(driver, tag: str):
@@ -51,10 +51,10 @@ class TestBottomBar:
         )
         _tap(driver, BOTTOM_BAR_HOME)
 
-    def test_settings_tab_opens_settings_and_processing_mode_is_reachable(self, driver):
+    def test_settings_tab_opens_settings_and_safety_section_is_reachable(self, driver):
         _tap(driver, BOTTOM_BAR_SETTINGS)
-        assert tag_exists(driver, PROCESSING_MODE_LOCAL), (
-            "Settings destination did not render the Processing Mode card"
+        assert tag_exists(driver, ANALYZE_REFERENCE_SWITCH), (
+            "Settings destination did not render the Safety section"
         )
         _tap(driver, BOTTOM_BAR_HOME)
 

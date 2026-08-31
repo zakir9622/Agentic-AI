@@ -74,25 +74,31 @@ class AppSettingsMigrationTest {
     }
 
     @Test
-    fun cloudModelsOffByDefaultBlocksCloudCapability() {
+    fun noCredentialByDefaultBlocksCloudCapability() {
+        // CODE's default provider (llama33-70b-groq) requires a key, unlike IMAGE_GEN's default
+        // (flux-schnell-hf, a genuinely free HF Space) — pick a capability whose default actually
+        // needs a credential to exercise the blocked path meaningfully.
         val settings = AppSettings(MemorySettings())
-        val result = settings.preflight(AiCapability.IMAGE_GEN)
+        val result = settings.preflight(AiCapability.CODE)
         assertTrue(result is PreflightResult.Blocked)
-        assertTrue((result as PreflightResult.Blocked).reason.contains("Cloud models are off"))
+        assertTrue((result as PreflightResult.Blocked).reason.contains("API key"))
     }
 
     @Test
-    fun enablingCloudModelsRemovesTheGlobalBlock() {
+    fun configuringACredentialRemovesTheBlock() {
         val settings = AppSettings(MemorySettings())
-        settings.setCloudModelsEnabled(true)
-        val result = settings.preflight(AiCapability.IMAGE_GEN)
-        val blockedOnGlobalToggle =
-            result is PreflightResult.Blocked && result.reason.contains("Cloud models are off")
-        assertFalse(blockedOnGlobalToggle)
+        settings.setGroqApiKey("groq_test")
+        // setGroqApiKey alone (as via TokenSidecar's automatic restore) does not grant cloud
+        // consent — only genuine interactive key entry does; simulate that here.
+        settings.confirmCloudConsentFromApiKeyEntry()
+        val result = settings.preflight(AiCapability.CODE)
+        val blockedOnMissingCredential =
+            result is PreflightResult.Blocked && result.reason.contains("API key")
+        assertFalse(blockedOnMissingCredential)
     }
 
     @Test
-    fun localSelectionBypassesTheCloudToggleEvenWhenOff() {
+    fun localSelectionBypassesTheCloudGateEvenWithNoCredential() {
         val settings = AppSettings(MemorySettings())
         settings.setLocalGenerator(AiCapability.IMAGE_GEN, "local-sdturbo-v1")
         val result = settings.preflight(AiCapability.IMAGE_GEN)
@@ -113,7 +119,8 @@ class AppSettingsMigrationTest {
             settings.setLocalGenerator(AiCapability.CODE, entry.id)
             assertEquals(entry.id, settings.selectionId(AiCapability.CODE))
             assertTrue(settings.prefersLocal(AiCapability.CODE), "${entry.id} should prefer local")
-            // Cloud off is the default — a local chat pick must still be allowed through.
+            // No cloud credential is configured by default — a local chat pick must still be
+            // allowed through.
             assertTrue(settings.preflight(AiCapability.CODE) is PreflightResult.Ok)
         }
     }

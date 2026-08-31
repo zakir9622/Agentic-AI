@@ -17,7 +17,6 @@ wrong, expect to find that out on the first real run, not before.
 | `test_prompt_isolation.py` | Prompts stay isolated per studio tab (Image/Video/Code/Audio); direct regression test for a real bug found and fixed this session — tapping a News headline used to overwrite whatever prompt was typed in the currently-active studio tab. Updated for A3: Chat is now a bottom-dock destination, not a pager tab, so the round trip goes through `bottom_bar_chat`/`bottom_bar_home`. |
 | `test_generation_flows.py` | Local image generation, local code generation (streaming → ready), local chat reach a genuine terminal state — a real result or a legible failure, never a hang or a raw stack trace. |
 | `test_image_edit.py` | The image-to-image/edit entry point (attach a reference photo on the Image tab) actually works: attach → thumbnail appears → clear → thumbnail disappears → generation with a reference reaches a terminal state. |
-| `test_processing_mode.py` | The On-device-only / Cloud-allowed card in Settings renders both options and switching between them doesn't crash. Settings is reached via the bottom dock (`bottom_bar_settings`) since A3. |
 | `test_bottom_bar.py` | A3: the bottom dock's five destinations (Home/Library/Create/Chat/Settings) are all present and navigate correctly, the bar stays visible on every top-level destination, the Create FAB lands back on the studio pager, and a studio prompt survives a round trip through Library (session-isolation regression guard for the nav refactor). |
 
 ## What's deliberately NOT covered yet

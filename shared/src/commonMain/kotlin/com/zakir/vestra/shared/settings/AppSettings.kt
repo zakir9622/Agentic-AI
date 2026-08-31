@@ -70,13 +70,53 @@ class AppSettings(private val settings: Settings) {
         MutableStateFlow(settings.getBoolean(KEY_PREFER_SPECULATIVE_DECODING, true))
     val preferSpeculativeDecoding: StateFlow<Boolean> = _preferSpeculativeDecoding
 
+    // A manual "cloud on/off" master switch (a dedicated Settings card the user had to find and
+    // flip) used to live here. Removed, but *not* replaced with "cloud just works whenever it
+    // technically can": several catalog defaults (e.g. flux-schnell-hf for IMAGE_GEN) need no API
+    // key at all, and migrateProviderId() below silently persists that default on first read —
+    // without some gate, a fresh install with no local pack and no keys would reach a third-party
+    // network endpoint (with the user's prompt, and for edit/video their photo) the first time a
+    // generation runs, before the user ever touched Settings. That contradicts this app's own
+    // onboarding promise ("AUTO mode never picks cloud on its own — you always choose").
+    // [_cloudConsentGranted] is the automatic, no-extra-UI stand-in for the removed switch: it
+    // flips true the moment the user does something that unambiguously means "cloud is fine" —
+    // explicitly picking a cloud model in a picker ([setProvider]) or entering any API key
+    // ([putSecret]) — never from an app-internal default being persisted. [cloudUsable] requires
+    // both this and a credential the provider actually needs.
+    // Migration: an install that already had the old master switch on (the only way cloud could
+    // have ever actually run before this key existed) starts consented — otherwise upgrading
+    // would silently cut off cloud for a user who deliberately turned it on previously.
+    private val _cloudConsentGranted = MutableStateFlow(
+        settings.getBoolean(KEY_CLOUD_CONSENT, false) ||
+            settings.getBoolean(LEGACY_KEY_CLOUD_MODELS_ENABLED, false),
+    )
+    val cloudConsentGranted: StateFlow<Boolean> = _cloudConsentGranted
+
     /**
-     * Master switch for cloud generation, app-wide. Default false — local-only until the
-     * user explicitly opts in. When off, [preflight] blocks any capability whose selected
-     * provider isn't a local generator, regardless of network/API-key state.
+     * Call after the user interactively enters and saves an API key in Settings — never from
+     * automatic token restoration (TokenSidecar's boot-time restore-from-file / sideload-default
+     * paths in VestraApp.onCreate, which also call setHfToken/setGroqApiKey/setOpenRouterApiKey
+     * but run before the user has done anything). This is why consent-granting lives here and
+     * not inside [putSecret] itself, which both paths share.
      */
-    private val _cloudModelsEnabled = MutableStateFlow(settings.getBoolean(KEY_CLOUD_MODELS_ENABLED, false))
-    val cloudModelsEnabled: StateFlow<Boolean> = _cloudModelsEnabled
+    fun confirmCloudConsentFromApiKeyEntry() = grantCloudConsent()
+
+    /**
+     * Reverts to local-only: the removed master switch's "On-device only" guarantee — no network
+     * call is made — has to survive somewhere even without that dedicated card. Does not touch
+     * any saved API key or model selection, only the consent gate itself; re-picking a cloud
+     * model or re-saving a key grants it again.
+     */
+    fun revokeCloudConsent() {
+        settings.putBoolean(KEY_CLOUD_CONSENT, false)
+        _cloudConsentGranted.value = false
+    }
+
+    private fun grantCloudConsent() {
+        if (_cloudConsentGranted.value) return
+        settings.putBoolean(KEY_CLOUD_CONSENT, true)
+        _cloudConsentGranted.value = true
+    }
 
     /**
      * Prompt-level safety preset (see `com.zakir.vestra.shared.safety.SafetyPresets`) — its
@@ -186,11 +226,6 @@ class AppSettings(private val settings: Settings) {
     fun setPreferSpeculativeDecoding(enabled: Boolean) {
         settings.putBoolean(KEY_PREFER_SPECULATIVE_DECODING, enabled)
         _preferSpeculativeDecoding.value = enabled
-    }
-
-    fun setCloudModelsEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_CLOUD_MODELS_ENABLED, enabled)
-        _cloudModelsEnabled.value = enabled
     }
 
     fun setSafetyPresetId(id: String) {
@@ -356,20 +391,28 @@ class AppSettings(private val settings: Settings) {
     fun networkLikelyAvailable(): Boolean = networkProbe()
 
     /**
-     * Whether any network generation call is permitted at all.
-     *
-     * [preflight] is only a pre-check and deliberately lets a local selection through, so it
-     * cannot be the sole gate: a local pack that fails at runtime would otherwise fall back to
-     * cloud with the toggle off. Every code path that is about to reach the network must consult
-     * this immediately before doing so.
+     * Whether [provider] is actually reachable right now: the user has granted cloud consent
+     * (see [_cloudConsentGranted]) AND the provider either needs no credential or the one it
+     * needs is configured. This is the sole gate for whether a network generation call is
+     * permitted — there is no separate global on/off switch, but there is still a real one-time
+     * consent requirement so a keyless catalog default (e.g. flux-schnell-hf) can't reach the
+     * network before the user has ever picked a cloud model or added a key. [preflight] is only a
+     * pre-check and deliberately lets a local selection through, so it cannot be the sole gate: a
+     * local pack that fails at runtime would otherwise fall back to cloud unconditionally. Every
+     * code path that is about to reach the network must consult this immediately before doing so,
+     * against the specific provider it is about to call.
      */
-    fun cloudGenerationAllowed(): Boolean = _cloudModelsEnabled.value
+    fun cloudUsable(provider: CloudModelProvider): Boolean =
+        _cloudConsentGranted.value && (!provider.requiresApiKey || !apiKeyFor(provider).isNullOrBlank())
 
-    /** User-facing reason for a blocked cloud call, shared by preflight and the runtime gates. */
-    fun cloudDisabledReason(capability: AiCapability): String {
-        val label = capability.name.lowercase().replace('_', ' ')
-        return "Cloud models are off — enable them in Settings to use $label via cloud, " +
-            "or pick a local model instead."
+    /** User-facing reason [provider] is unreachable, shared by preflight and the runtime gates. */
+    fun cloudBlockedReason(provider: CloudModelProvider): String = when {
+        !_cloudConsentGranted.value ->
+            "Pick a cloud model in the model picker, or add a free API key in Settings, to use " +
+                "${provider.displayName} — nothing is sent to the network until you do."
+        else ->
+            "Add a free ${provider.platform.name} API key in Settings to use ${provider.displayName}, " +
+                "or pick a local model instead."
     }
 
     fun preflight(capability: AiCapability): PreflightResult {
@@ -379,17 +422,12 @@ class AppSettings(private val settings: Settings) {
             // fallback. Do not treat this early return as "cloud is permitted".
             return PreflightResult.Ok(selectedProvider(capability))
         }
-        if (!_cloudModelsEnabled.value) {
-            return PreflightResult.Blocked(cloudDisabledReason(capability))
-        }
         val provider = selectedProvider(capability)
         // Do not hard-block on ConnectivityManager — it often lags 5G/Wi‑Fi and caused
         // false "No internet" while the status bar showed signal. Generation attempts
         // the HTTP call; CloudFailureClassifier maps real DNS failures.
-        if (provider.requiresApiKey && apiKeyFor(provider).isNullOrBlank()) {
-            return PreflightResult.Blocked(
-                "Add a free ${provider.platform.name} API key in Settings to use ${provider.displayName}.",
-            )
+        if (!cloudUsable(provider)) {
+            return PreflightResult.Blocked(cloudBlockedReason(provider))
         }
         CloudModelContracts.preflightOrNull(provider)?.let { hint ->
             return PreflightResult.Blocked(hint)
@@ -408,6 +446,10 @@ class AppSettings(private val settings: Settings) {
             flow.value = id
             return
         }
+        // Reached only from an explicit setXProvider(...) call (never from migrateProviderId's
+        // own settings.putString), so this is a real user pick of a cloud model — see
+        // _cloudConsentGranted's doc comment above.
+        grantCloudConsent()
         val resolved = resolveProvider(id, capability)
         settings.putString(key, resolved.id)
         flow.value = resolved.id
@@ -473,6 +515,12 @@ class AppSettings(private val settings: Settings) {
     private fun putSecret(key: String, value: String?, flow: MutableStateFlow<String?>) {
         if (value.isNullOrBlank()) settings.remove(key) else settings.putString(key, value)
         flow.value = value?.takeIf { it.isNotBlank() }
+        // Deliberately does NOT grant cloud consent here: setHfToken/setGroqApiKey/
+        // setOpenRouterApiKey (which all funnel through this) are also called by
+        // TokenSidecar's automatic boot-time token restoration (VestraApp.onCreate, before the
+        // user has done anything) — see confirmCloudConsentFromApiKeyEntry's doc comment. The
+        // interactive Settings "Save" flow calls that separately once it knows a key actually
+        // came from the user typing it in.
     }
 
     private fun readTier(): EngineTier =
@@ -505,11 +553,13 @@ class AppSettings(private val settings: Settings) {
         const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
         const val KEY_PREFER_LITERT_NPU = "prefer_litert_npu"
         const val KEY_PREFER_SPECULATIVE_DECODING = "prefer_litert_speculative_decoding"
-        const val KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"
         const val KEY_SAFETY_PRESET = "safety_preset_id"
         const val KEY_ANALYZE_REFERENCE = "analyze_reference_enabled"
         const val KEY_MEMORY_ENABLED = "chat_memory_enabled"
         const val KEY_MATURE_FASHION_ASSIST = "mature_fashion_assist_enabled"
+        const val KEY_CLOUD_CONSENT = "cloud_consent_granted"
+        /** The removed master switch's old storage key — read once, for migration, never written. */
+        private const val LEGACY_KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"
     }
 }
 

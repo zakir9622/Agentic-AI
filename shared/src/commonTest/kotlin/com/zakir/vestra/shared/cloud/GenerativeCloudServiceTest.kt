@@ -124,8 +124,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             setImageGenProvider("flux-schnell-hf")
             setHfToken("hf_test")
         }
@@ -154,7 +152,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            setCloudModelsEnabled(true)
             setImageGenProvider("flux-schnell-hf")
             setHfToken("hf_test")
         }
@@ -204,8 +201,6 @@ class GenerativeCloudServiceTest {
             }
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             setImageGenProvider("flux-schnell-hf")
             setHfToken("hf_test")
         }
@@ -236,8 +231,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             setImageGenProvider("flux-schnell-hf")
         }
         val service = GenerativeCloudService(http, FakeIo(), settings, UsageLedger(TestMemorySettings()))
@@ -266,8 +259,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             setCodeProvider("llama33-70b-groq")
             setHfToken("hf_test")
         }
@@ -296,8 +287,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             setCodeProvider("llama33-70b-groq")
             setOpenRouterApiKey("sk-or-test")
         }
@@ -377,8 +366,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -406,7 +393,6 @@ class GenerativeCloudServiceTest {
     fun codeGenUsesLocalWhenReadyWithoutConnectingToCloudMessage() = runTest {
         val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
         val settings = AppSettings(TestMemorySettings()).apply {
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -428,7 +414,6 @@ class GenerativeCloudServiceTest {
     fun videoGenUsesLocalWhenReadyWithoutConnectingToCloudMessage() = runTest {
         val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
         val settings = AppSettings(TestMemorySettings()).apply {
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -456,7 +441,10 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            setCloudModelsEnabled(true)
+            // Cloud consent must be granted so the "nothing usable" gate doesn't fire before
+            // this reaches the offline check below.
+            setHfToken("hf_test")
+            confirmCloudConsentFromApiKeyEntry()
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -479,7 +467,6 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -503,7 +490,6 @@ class GenerativeCloudServiceTest {
     fun audioGenUsesLocalWithoutConnectingToCloudMessage() = runTest {
         val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
         val settings = AppSettings(TestMemorySettings()).apply {
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -581,8 +567,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -610,8 +594,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -637,8 +619,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -664,8 +644,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { true }
             setLocalGenerator(AiCapability.IMAGE_GEN, "local-sdturbo-v1")
         }
@@ -692,8 +670,6 @@ class GenerativeCloudServiceTest {
         }
         val http = httpClient(engine)
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { true }
             setLocalGenerator(AiCapability.CODE, "local-gemma-v1")
         }
@@ -745,8 +721,6 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -771,8 +745,6 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -833,8 +805,11 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
+            // A credential must be configured (plus consent) so the fallback chain isn't empty —
+            // otherwise the "nothing usable" gate fires first and this never reaches the offline
+            // check below.
+            setGroqApiKey("groq_test")
+            confirmCloudConsentFromApiKeyEntry()
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -857,8 +832,6 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
         }
         val service = GenerativeCloudService(
@@ -882,8 +855,6 @@ class GenerativeCloudServiceTest {
             respond("{}", HttpStatusCode.OK)
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { false }
             setLocalGenerator(AiCapability.IMAGE_GEN, "local-sdturbo-v1")
         }
@@ -917,10 +888,9 @@ class GenerativeCloudServiceTest {
             error("Unable to resolve host \"innoai-Edge-TTS-Text-to-Speech.hf.space\"")
         }
         val settings = AppSettings(TestMemorySettings()).apply {
-            // Cloud is off by default app-wide; these cases exercise cloud routing.
-            setCloudModelsEnabled(true)
             networkProbe = { true }
             setHfToken("hf_test_token_for_unit")
+            confirmCloudConsentFromApiKeyEntry()
         }
         val service = GenerativeCloudService(
             httpClient(engine),

@@ -85,7 +85,7 @@ object CloudModelRouting {
         }
 
     private fun isUsable(candidate: CloudModelProvider, settings: AppSettings): Boolean =
-        !candidate.requiresApiKey || !settings.apiKeyFor(candidate).isNullOrBlank()
+        settings.cloudUsable(candidate)
 
     private fun healthAwarePriority(health: ModelHealthTracker?): Comparator<CloudModelProvider> =
         compareByDescending<CloudModelProvider> { provider ->

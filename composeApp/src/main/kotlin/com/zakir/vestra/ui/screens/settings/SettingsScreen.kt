@@ -134,7 +134,6 @@ fun SettingsScreen(
     val hfToken by appSettings.hfToken.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
     val openRouterKey by appSettings.openRouterApiKey.collectAsState()
-    val cloudModelsEnabled by appSettings.cloudModelsEnabled.collectAsState()
 
     var hfInput by remember(hfToken) { mutableStateOf(hfToken.orEmpty()) }
     var groqInput by remember(groqKey) { mutableStateOf(groqKey.orEmpty()) }
@@ -191,9 +190,17 @@ fun SettingsScreen(
     }
 
     fun saveTokens() {
-        appSettings.setHfToken(hfInput.trim().ifBlank { null })
-        appSettings.setGroqApiKey(groqInput.trim().ifBlank { null })
-        appSettings.setOpenRouterApiKey(openRouterInput.trim().ifBlank { null })
+        val hf = hfInput.trim().ifBlank { null }
+        val groq = groqInput.trim().ifBlank { null }
+        val openRouter = openRouterInput.trim().ifBlank { null }
+        appSettings.setHfToken(hf)
+        appSettings.setGroqApiKey(groq)
+        appSettings.setOpenRouterApiKey(openRouter)
+        // A key actually typed in and saved here is genuine interactive consent to use cloud
+        // models — unlike TokenSidecar's boot-time restore, which calls the same setters.
+        if (hf != null || groq != null || openRouter != null) {
+            appSettings.confirmCloudConsentFromApiKeyEntry()
+        }
         keysSavedFlash = true
         clipboardHint = null
         val saved = TokenSidecar.persist(context, appSettings)
@@ -399,10 +406,6 @@ fun SettingsScreen(
             }
 
             if (showCloud) {
-                settingsCloudMasterToggleSection(appSettings = appSettings)
-            }
-
-            if (showCloud && cloudModelsEnabled) {
                 settingsCloudKeysSection(
                     appSettings = appSettings,
                     connectivityChecker = connectivityChecker,
@@ -429,7 +432,7 @@ fun SettingsScreen(
                 )
             }
 
-            if (showCloud && cloudModelsEnabled) {
+            if (showCloud) {
                 settingsCloudCapabilitiesSection(
                     appSettings = appSettings,
                     freeCloudDiscovery = freeCloudDiscovery,

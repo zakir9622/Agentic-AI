@@ -72,7 +72,6 @@ fun ModelQuickSwitcher(
     onBrowseAll: () -> Unit,
     health: ModelHealthTracker? = null,
     accent: Color = VestraColors.Accent,
-    cloudGenerationEnabled: Boolean = true,
     hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
     maxCloudRows: Int = 4,
 ) {
@@ -118,7 +117,7 @@ fun ModelQuickSwitcher(
             val blocked = support == ModelSupportLevel.UNSUPPORTED
             QuickSwitcherRow(
                 label = model.displayName,
-                ready = !blocked && cloudGenerationEnabled && hasCredential(model),
+                ready = !blocked && hasCredential(model),
                 selected = model.id == selectedId,
                 accent = accent,
                 enabled = !blocked,
@@ -201,7 +200,6 @@ fun ModelPickerSheet(
     onSelectDevice: ((OnDevicePickerEntry) -> Unit)? = null,
     health: ModelHealthTracker? = null,
     accent: Color = VestraColors.Accent,
-    cloudGenerationEnabled: Boolean = true,
     hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
 ) {
     var query by remember { mutableStateOf("") }
@@ -291,7 +289,7 @@ fun ModelPickerSheet(
             ) {
                 if (query.isNotBlank()) {
                     items(filtered, key = { it.id }) { model ->
-                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, cloudGenerationEnabled, hasCredential)
+                        ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, hasCredential)
                     }
                 } else {
                     if (onDeviceEntries.isNotEmpty()) {
@@ -323,7 +321,7 @@ fun ModelPickerSheet(
                             )
                         }
                         items(models, key = { it.id }) { model ->
-                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, cloudGenerationEnabled, hasCredential)
+                            ModelPickerRow(model, selectedId, onSelect, onDismiss, health, accent, hasCredential)
                         }
                     }
                 }
@@ -426,14 +424,13 @@ private fun ModelPickerRow(
     onDismiss: () -> Unit,
     health: ModelHealthTracker?,
     accent: Color = VestraColors.Accent,
-    cloudGenerationEnabled: Boolean = true,
     hasCredential: (CloudModelProvider) -> Boolean = { !it.requiresApiKey },
 ) {
     val selected = model.id == selectedId
     val support = health?.effectiveSupport(model) ?: CloudModelContracts.forProvider(model).support
     val blocked = support == ModelSupportLevel.UNSUPPORTED
     val credentialPresent = hasCredential(model)
-    val readyForRequest = !blocked && cloudGenerationEnabled && credentialPresent
+    val readyForRequest = !blocked && credentialPresent
     val contract = CloudModelContracts.forProvider(model)
     Row(
         Modifier
@@ -494,7 +491,6 @@ private fun ModelPickerRow(
                     append(model.platform.name.replace('_', ' ').lowercase())
                     when {
                         blocked -> append(" · not selectable")
-                        !cloudGenerationEnabled -> append(" · cloud disabled")
                         !credentialPresent -> append(" · needs API key")
                     }
                 },
