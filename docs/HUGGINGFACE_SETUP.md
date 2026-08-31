@@ -61,6 +61,7 @@ in the meantime.
 ## What stays private
 
 - **Dev / research-weight packs** (`export_dev_pack.py`) → a *private* repo only.
-- **Replicate token** and the **Supabase service-role key** → never in any repo;
-  they live only in Supabase Edge Function secrets (see `supabase/README.md`).
-- The Supabase **anon key** is publishable by design and goes in `VestraApp.kt`.
+- User-supplied cloud API keys (Hugging Face, Groq, OpenRouter) → entered by the user in
+  Settings, stored locally on-device only; never committed to any repo. The app has no server
+  component to hold a service-role key for — an earlier Supabase/Replicate cloud backend was
+  retired; see `docs/PROJECT_HISTORY.md`.

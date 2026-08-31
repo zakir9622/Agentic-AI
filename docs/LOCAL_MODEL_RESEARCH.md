@@ -1,5 +1,11 @@
 # Local model research (v3)
 
+> **Superseded for the app's current on-device models.** This file predates the LiteRT-LM
+> integration (Qwen3/Gemma local chat+code, Bonsai local image-gen) — its tables below cover
+> only the original try-on ONNX pipeline's research. For the current, shipping model catalog
+> and its licenses, see `MODEL_LICENSES.md`; for how it fits together, see
+> `docs/FUNCTIONALITY.md`. Kept here for its still-relevant try-on-specific research notes.
+
 Open-source models evaluated for on-device use in The Lookbook.
 
 **Device floor:** app `minSdk = 35` (Android 15+).

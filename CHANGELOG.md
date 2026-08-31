@@ -1,5 +1,39 @@
 # Changelog — The Lookbook
 
+## Unreleased (post-3.1.8)
+
+Two large PRs merged since the 3.1.8 version bump; `versionName`/`versionCode` have not been
+bumped again yet. Full detail in `docs/PROJECT_HISTORY.md` (Eras 6–7).
+
+**GoogleLookBookUI cross-repo port (PR #80).** A structured, phase-gated comparison against an
+earlier development snapshot of this same codebase found and ported genuinely additive
+features: a periodic model-prewarm worker, a real ZIP-bundle diagnostics export, searchable
+Wardrobe with recipe reuse, Creative Studio V2 (1–4 image candidates per request, sharing a
+batch id/lineage), a structured Prompt Director prompt-builder + Gemini-style pinch-zoom image
+viewer, and a full voice-cloning/vocal-editor pipeline (capture, DSP effects, waveform/spectrum
+player, permission checklist) — ~1,900+ new lines, the largest single addition in the port.
+Deliberately not ported: a fake per-provider connectivity "ping" UI in the source repo, since a
+genuine version (`ProviderConnectivityChecker`) already shipped independently in 3.1.2.
+
+**Generation audit follow-through (PR #81).** Wired five previously-dead local
+image-generation parameters (steps/guidance/seed/strength/batch) to a new Advanced UI section;
+added an in-composer model quick switcher; added a narrow, opt-in "reduce fashion false
+positives" safety assist (a broader "unlock explicit/uncensored content" toggle was requested
+and explicitly declined — see `docs/PROJECT_HISTORY.md`'s Era 7); and removed the manual
+cloud/on-device processing-mode setting entirely, replacing it with automatic, credential-based
+model availability gated by an implicit consent flag granted only by genuine user action
+(picking a cloud model, or saving an API key) — never by automatic token restoration at boot.
+Two gaps a second code-review pass caught before merge: the model picker's readiness indicator
+was still checking only credential presence (now checks real reachability via
+`AppSettings.cloudUsable`), and an offline-fallback error message had a duplicated clause.
+
+**Documentation pass.** Added `docs/PROJECT_HISTORY.md`, `docs/UI_DESIGN.md`, and
+`docs/FUNCTIONALITY.md`; refreshed `README.md`, `docs/PROJECT_STATUS.md`, and
+`docs/ARCHITECTURE.md` to describe the app's current architecture instead of the retired
+Supabase/Replicate cloud backend; removed the stale duplicate `ml/MODEL_LICENSES.md` (folding
+its still-relevant licensing caveat into the root `MODEL_LICENSES.md` first) and the
+already-superseded `docs/plans/lookbookweb-exact-ui-parity/` plan.
+
 ## 3.1.8
 
 Reduces the Settings surface and closes a leftover copy inconsistency, based on a direct

@@ -10,7 +10,7 @@ overwrite the live HF pro-v1 tree.
   vae_decoder.onnx   latent -> image
   unet.onnx          9ch inpaint UNet
 
-⚠ LICENSING (read ml/MODEL_LICENSES.md): CatVTON weights are CC BY-NC-SA 4.0 —
+⚠ LICENSING (read ../MODEL_LICENSES.md): CatVTON weights are CC BY-NC-SA 4.0 —
 personal / eval only, not redistributable in a commercial app.
 
 Usage:

@@ -1,70 +1,86 @@
-# The Lookbook — Local Modest-Wear AI Studio
+# The Lookbook — local-first multi-modal AI studio
 
-An Android app that turns a garment photo into a photorealistic model wearing it — abaya, hijab, niqab, shalwar kameez, kurta, and more. **Everything runs on-device.** Model packs download once; generation works fully offline after that.
+A local-first Android AI content studio: generate images, video clips, code, and audio/voice —
+mostly **on-device**, with optional free cloud fallback you opt into per model. It started as a
+single-purpose virtual try-on app (garment photo → photorealistic model wearing it) and grew
+into a general creative studio; try-on is still in the codebase but currently has no entry point
+in the main navigation. See `docs/PROJECT_HISTORY.md` for the full story.
 
 > Internal package: `com.zakir.vestra` · Product name: **The Lookbook**
 
-## Features
+## What it does
 
-- **Fully local AI** — SD1.5 + ControlNet-Depth + IP-Adapter try-on via ONNX Runtime
-- **Casting parameters** — ethnicity, skin tone, body type, hair coverage, garment color, scenario
-- **Modest-wear first** — abaya, hijab, niqab, dupatta, Pakistani traditional wear
-- **Spatial Material 3 UI** — elevated cards, light spatial palette
-- **Pixel 9 ready** — 10 GB+ RAM gate, NNAPI acceleration, INT8 pack support
-- **Sideload build** — unrestricted local generation, no cloud dependency
+| Studio | On-device | Cloud (opt-in, free) |
+|---|---|---|
+| **Image** — generate & edit | Bonsai Image (LiteRT-LM) / SD-Turbo-class ONNX | HF Spaces / HF Inference |
+| **Video** | — | HF Spaces (LTX-Video etc.) |
+| **Code** | LiteRT-LM (Qwen3 / Gemma), streaming | Groq, OpenRouter, HF Inference |
+| **Chat** | LiteRT-LM, streaming | same fallback chain as Code |
+| **Audio** | System TTS, local voice changer/DSP editor | HF Spaces (Edge-TTS) |
+| **Try-on** *(implemented, not currently reachable in the UI)* | Lite (ONNX compositor) / Pro (SD1.5+ControlNet+IP-Adapter diffusion) | — (its old cloud backend was retired) |
 
-## Generation engines
+Everything the user does day-to-day works **fully offline** once a model pack is downloaded.
+The network is only used to download packs, and — only once the user opts in by picking a cloud
+model or saving an API key — for cloud generation. There is no manual "enable cloud" switch:
+availability is automatic and credential-based (a free model is always listed; a keyed one
+appears once its key is saved), gated by an implicit consent flag that's only ever granted by a
+genuine user action. See `docs/FUNCTIONALITY.md` for exactly how that works.
 
-| Tier | Where | Devices | Pack |
-|---|---|---|---|
-| **Pro** | On-device diffusion | 10 GB+ RAM (Pixel 9) | `pro-v1` (~4.3 GB FP16) on HF; `pro-v2-int8` (~2 GB) export ready, upload pending |
-| **Lite** | On-device compositor | Android 15+ (`minSdk 35`) | `lite-v1` (~68 MB) |
-| **Auto** | Best installed on-device | — | Never uses network |
-
-## Build & install (Pixel 9)
+## Build & install
 
 Requires JDK 17+, Android SDK (platform 36), and a device/emulator on **Android 15 (API 35)+**.
 
-
 ```bash
-# Sideload release uses the committed stable key (in-place updates across versions):
+# Sideload release build (unrestricted local generation, no cloud dependency)
 ./gradlew :composeApp:assembleSideloadRelease
-
-# Install / update on Pixel 9 (after v3.0.16, no uninstall needed between builds)
-# Latest RC: https://github.com/zakir9622/Agentic-AI/releases/download/v3.1.0-rc1/the-lookbook-v3.1.0-rc1.apk
 adb install -r composeApp/build/outputs/apk/sideload/release/*.apk
 ```
 
-> **Note:** APKs before v3.0.16 used a random CI keystore each build. Uninstall once,
-> then install v3.0.16+ — later updates install over the existing app.
-
-After install: open app → **Model packs** → download Pro pack over Wi-Fi → create a look.
-
-## Project layout
-
-- `composeApp/` — Android UI (Jetpack Compose, Spatial Material 3)
-- `shared/` — KMP core: engines, pack manager, domain models
-- `ml/` — Python tooling to export/quantize model packs (not shipped in APK)
-- `docs/` — architecture, pipeline, compliance
-
-## Model packs
-
-Pro packs are hosted on Hugging Face (`Iamzakirzr/vestra-packs`). To rebuild:
-
-```bash
-cd ml && ./download_pro_models.sh pro_src
-python convert_pro_pack.py --src pro_src --out exports/pro-v1
-python export_depth.py --out exports/pro-v1/depth.onnx
-python quantize_pro_pack.py --src exports/pro-v1 --out exports/pro-v2-int8
-python manifest_gen.py exports/ --base-url https://huggingface.co/datasets/Iamzakirzr/vestra-packs/resolve/main
-```
+After install: open the app → **Home → Model Packs** → download a local pack over Wi-Fi → start
+generating. Cloud generation is entirely optional — add a free API key in Settings, or just pick
+a cloud model in any studio's model picker, to opt in.
 
 ## Tests
 
 ```bash
-./gradlew :shared:testDebugUnitTest
-./gradlew :composeApp:lintDebug
+./gradlew :shared:testDebugUnitTest :composeApp:testSideloadDebugUnitTest
+./gradlew :composeApp:lintSideloadDebug
 ```
+
+## Project layout
+
+- `composeApp/` — Android UI (Jetpack Compose, Material 3 + custom design tokens)
+- `shared/` — Kotlin Multiplatform core: generation dispatch, model catalogs/routing, settings,
+  safety, diagnostics (`commonMain`, reusable if an iOS target is ever added; engine
+  implementations live in `androidMain`)
+- `ml/` — Python tooling to export/quantize/publish model packs (not shipped in the APK)
+- `appium/` — end-to-end UI test suite (Python/Appium)
+- `docs/` — architecture, UI design, functionality, project history, compliance, model research
+
+## Documentation
+
+Start with [`docs/PROJECT_HISTORY.md`](docs/PROJECT_HISTORY.md) for how the app got to its
+current shape, then:
+
+| Doc | Covers |
+|---|---|
+| [`docs/PROJECT_HISTORY.md`](docs/PROJECT_HISTORY.md) | What's been built, era by era, and why |
+| [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) | Current navigation/screen design and its redesign history |
+| [`docs/FUNCTIONALITY.md`](docs/FUNCTIONALITY.md) | Generation pipeline, cloud-consent model, safety, diagnostics |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Module layout, DI, engine routing |
+| [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) | Current build/version status at a glance |
+| [`docs/DRAWBACKS.md`](docs/DRAWBACKS.md) | Honest, continuously-updated list of real limitations |
+| [`CHANGELOG.md`](CHANGELOG.md) | Full version-by-version change history |
+| [`MODEL_LICENSES.md`](MODEL_LICENSES.md) | Every model shipped/downloaded and its license |
+| [`docs/HUGGINGFACE_SETUP.md`](docs/HUGGINGFACE_SETUP.md) | Hosting your own model-pack manifest |
+| [`docs/PLAY_COMPLIANCE.md`](docs/PLAY_COMPLIANCE.md) | Google Play submission checklist |
+
+## Model packs
+
+On-device model packs (LiteRT-LM Qwen3/Gemma, Bonsai Image, and the legacy try-on Lite/Pro ONNX
+packs) are hosted on Hugging Face (`Iamzakirzr/vestra-packs`). See
+[`docs/HUGGINGFACE_SETUP.md`](docs/HUGGINGFACE_SETUP.md) to host your own manifest, or
+[`MODEL_LICENSES.md`](MODEL_LICENSES.md) for what's shipped and under what license.
 
 ## License
 

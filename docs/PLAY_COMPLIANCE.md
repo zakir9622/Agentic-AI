@@ -5,9 +5,13 @@ for the owner; ☑ are implemented in the codebase.
 
 ## AI-Generated Content policy
 
-- ☑ **In-app reporting**: every result screen has a Report action with a reason
-  taxonomy (sexual content / violence / likeness misuse / other). Reports queue
-  offline and deliver to the `report` Edge Function (`ReportQueue`).
+- ☐ **In-app reporting**: every result screen has a Report action with a reason
+  taxonomy (sexual content / violence / likeness misuse / other) — the UI half is implemented.
+  Reports are recorded locally (`LocalReportStore`) only; the app has no server component to
+  deliver them to since the earlier Supabase Edge Function backend was retired
+  (`docs/PROJECT_HISTORY.md`). Decide on and build an actual delivery/review mechanism before
+  relying on this for policy compliance —
+  today "queued" means "stored on the user's own device," not "sent anywhere."
 - ☑ **Provenance marking**: every generated image carries a visible
   "✦ AI generated" watermark plus EXIF `UserComment`/`Software` tags
   (`Watermark`, `LiteEngineIo.saveResult`) across all three engines.
@@ -57,7 +61,7 @@ No ads, no purchases in v1.
 
 ## Licensing gates (must clear before store listing)
 
-- ☐ `ml/MODEL_LICENSES.md`: resolve the human-parsing weights question
+- ☐ `MODEL_LICENSES.md`: resolve the human-parsing weights question
   (retrain or confirm) and do NOT publish a Pro pack built from
   CC BY-NC weights — see the resolution paths documented there.
 - ☑ App code is original; repo is GPL-3.0.
