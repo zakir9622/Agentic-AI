@@ -139,4 +139,12 @@ object TestTags {
 
     // Top-center glass snackbar (GlassSnackbar.kt) — A7, replaces bottom-anchored Toast.
     const val GLASS_SNACKBAR = "glass_snackbar"
+
+    // API Usage and Token Monitoring Dashboard Card (ApiUsageDashboardCard.kt)
+    const val API_USAGE_DASHBOARD_CARD = "api_usage_dashboard_card"
+    const val API_USAGE_TOGGLE_BUTTON = "api_usage_toggle_button"
+    const val API_USAGE_EXPAND_BUTTON = "api_usage_expand_button"
+    const val API_USAGE_CLEAR_HISTORY_BUTTON = "api_usage_clear_history_button"
+    const val API_USAGE_SETTINGS_BUTTON = "api_usage_settings_button"
+    fun apiUsageServiceCard(serviceKey: String): String = "api_usage_service_$serviceKey"
 }

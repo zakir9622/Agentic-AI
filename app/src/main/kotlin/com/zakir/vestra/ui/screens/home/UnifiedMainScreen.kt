@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -38,12 +39,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.widthIn
@@ -53,6 +56,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.style.TextOverflow
+import com.zakir.vestra.VestraApp
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.shared.chat.ChatMessage
 import com.zakir.vestra.shared.cloud.AiCapability
@@ -64,9 +68,11 @@ import com.zakir.vestra.shared.jobs.LocalJobStore
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
+import com.zakir.vestra.storage.ApiKeyDataStore
 import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.components.ApiUsageDashboardCard
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.ModelPickerSheet
@@ -78,6 +84,7 @@ import com.zakir.vestra.ui.screens.news.ChatMessageBubble
 import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
+import kotlinx.coroutines.launch
 
 /**
  * The whole app is one screen: a single scrolling conversation that mixes Chat replies with
@@ -304,12 +311,22 @@ fun UnifiedMainScreen(
         }
     }
 
+    val context = LocalContext.current
+    val vestraApp = remember(context) { context.applicationContext as? VestraApp }
+    val apiKeyDataStore = vestraApp?.apiKeyDataStore
+    val usageData by apiKeyDataStore?.usageDashboardFlow?.collectAsState(initial = ApiKeyDataStore.ApiUsageDashboardData())
+        ?: remember { mutableStateOf(ApiKeyDataStore.ApiUsageDashboardData()) }
+    var showUsageDashboard by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
     SpatialBackground {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             UnifiedTopBar(
                 currentModelLabel = currentActiveModelLabel,
                 currentServiceLabel = currentServiceLabel,
                 isCloud = isCloud,
+                isUsageActive = showUsageDashboard,
+                onToggleUsage = { showUsageDashboard = !showUsageDashboard },
                 onModelSelectorClick = { showModelPicker = true },
                 onSelectService = ::onSelectService,
                 onOpenLibrary = onOpenLibrary,
@@ -320,12 +337,43 @@ fun UnifiedMainScreen(
                 InterruptedJobsBanner(localJobStore)
             }
 
+            if (showUsageDashboard && entries.isNotEmpty()) {
+                Box(Modifier.padding(horizontal = SpacingTokens.section, vertical = 4.dp)) {
+                    ApiUsageDashboardCard(
+                        data = usageData,
+                        onOpenSettings = onOpenSettings,
+                        onClearHistory = {
+                            scope.launch { apiKeyDataStore?.clearSessionUsageHistory() }
+                        },
+                        initiallyExpanded = true,
+                    )
+                }
+            }
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = SpacingTokens.section, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                if (entries.isEmpty()) {
+                    item(key = "usage_dashboard_empty_card") {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            ApiUsageDashboardCard(
+                                data = usageData,
+                                onOpenSettings = onOpenSettings,
+                                onClearHistory = {
+                                    scope.launch { apiKeyDataStore?.clearSessionUsageHistory() }
+                                },
+                                initiallyExpanded = true,
+                            )
+                        }
+                    }
+                }
+
                 itemsIndexed(
                     entries,
                     key = { _, entry ->
@@ -478,6 +526,8 @@ private fun UnifiedTopBar(
     currentModelLabel: String,
     currentServiceLabel: String,
     isCloud: Boolean,
+    isUsageActive: Boolean = false,
+    onToggleUsage: () -> Unit = {},
     onModelSelectorClick: () -> Unit,
     onSelectService: (String) -> Unit,
     onOpenLibrary: () -> Unit,
@@ -615,6 +665,13 @@ private fun UnifiedTopBar(
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             TopBarIconButton(
+                icon = Icons.Outlined.Analytics,
+                contentDescription = "Cloud Usage & Token Monitor",
+                testTag = TestTags.API_USAGE_TOGGLE_BUTTON,
+                isActive = isUsageActive,
+                onClick = onToggleUsage,
+            )
+            TopBarIconButton(
                 icon = Icons.Outlined.Checkroom,
                 contentDescription = "Open Library",
                 testTag = TestTags.UNIFIED_LIBRARY_BUTTON,
@@ -631,18 +688,27 @@ private fun UnifiedTopBar(
 }
 
 @Composable
-private fun TopBarIconButton(icon: ImageVector, contentDescription: String, testTag: String, onClick: () -> Unit) {
+private fun TopBarIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    testTag: String,
+    isActive: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val bg = if (isActive) VestraColors.Accent.copy(alpha = 0.18f) else VestraColors.GlassFillStrong
+    val borderCol = if (isActive) VestraColors.Accent else VestraColors.GlassBorder
+    val iconTint = if (isActive) VestraColors.Accent else VestraColors.InkMuted
     Box(
         Modifier
             .size(36.dp)
             .testTag(testTag)
             .clip(CircleShape)
-            .background(VestraColors.GlassFillStrong)
-            .border(1.dp, VestraColors.GlassBorder, CircleShape)
+            .background(bg)
+            .border(1.dp, borderCol, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = VestraColors.InkMuted, modifier = Modifier.size(17.dp))
+        Icon(icon, contentDescription = contentDescription, tint = iconTint, modifier = Modifier.size(17.dp))
     }
 }
 

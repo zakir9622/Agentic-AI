@@ -154,6 +154,7 @@ class VestraApp : Application() {
         }
         appScope.launch {
             apiKeyDataStore.syncWithAppSettings(appSettings)
+            apiKeyDataStore.syncWithUsageLedger(usageLedger)
         }
         packManager = ModelPackManager(
             fs = AndroidPackFileSystem(this) { DurableStorage.resolvePacksRoot(this) },
