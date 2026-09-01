@@ -56,14 +56,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class SettingsSection {
-    HUB,
-    CLOUD,
-    ENGINES,
-    APPEARANCE,
-    ALL,
-}
-
+/**
+ * Single flowing screen — every section, one scroll, no hub/sub-screen split. Reached from the
+ * unified main screen's top-right gear icon (there's no bottom dock any more to give Settings
+ * its own tab), so there's nothing to navigate *between* here, only through.
+ */
 @Composable
 fun SettingsScreen(
     appSettings: AppSettings,
@@ -79,42 +76,12 @@ fun SettingsScreen(
     onOpenChangelog: () -> Unit = {},
     onOpenDiagnostics: (() -> Unit)? = null,
     onBack: () -> Unit,
-    section: SettingsSection = SettingsSection.ALL,
-    onNavigateSection: ((SettingsSection) -> Unit)? = null,
 ) {
-    if (section == SettingsSection.HUB) {
-        SettingsHubScreen(
-            onBack = onBack,
-            onOpenCloud = { onNavigateSection?.invoke(SettingsSection.CLOUD) },
-            onOpenEngines = { onNavigateSection?.invoke(SettingsSection.ENGINES) },
-            onOpenAppearance = { onNavigateSection?.invoke(SettingsSection.APPEARANCE) },
-            onOpenUsage = onOpenUsage,
-            onOpenHelp = onOpenHelp,
-            onOpenPrivacy = onOpenPrivacy,
-            onOpenDiagnostics = onOpenDiagnostics,
-        )
-        return
-    }
-
     val connectivityChecker = remember {
         com.zakir.vestra.shared.cloud.ProviderConnectivityChecker(com.zakir.vestra.shared.platformHttpClient())
     }
-    val showCloud = section == SettingsSection.ALL || section == SettingsSection.CLOUD
-    val showEngines = section == SettingsSection.ALL || section == SettingsSection.ENGINES
-    val showAppearance = section == SettingsSection.ALL || section == SettingsSection.APPEARANCE
-    val showGeneral = section == SettingsSection.ALL
-    val sectionTitle = when (section) {
-        SettingsSection.CLOUD -> "Cloud models & keys"
-        SettingsSection.ENGINES -> "Engines & packs"
-        SettingsSection.APPEARANCE -> "Appearance & privacy"
-        else -> LookbookCopy.STUDIO_SETTINGS
-    }
-    val sectionSubtitle = when (section) {
-        SettingsSection.CLOUD -> "HF · Groq · OpenRouter"
-        SettingsSection.ENGINES -> "Lite · Pro · Cloud tier"
-        SettingsSection.APPEARANCE -> "Theme · storage · permissions"
-        else -> "API keys · engines · models · help"
-    }
+    val sectionTitle = LookbookCopy.STUDIO_SETTINGS
+    val sectionSubtitle = "API keys · engines · models · help"
     val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
     val appearance by appSettings.appearanceMode.collectAsState()
@@ -317,151 +284,136 @@ fun SettingsScreen(
 
             // Section order matches lookbookweb's settings.tsx (A4.9): appearance & accessibility
             // → device/engine lab → provider/cloud settings → diagnostics → "what the assistant
-            // remembers" → about/changelog (not yet built — A4.10). Account and a sample-data
-            // toggle are omitted per that same audit — no accounts exist in this app, and there's
-            // no demo-content banner to gate a toggle for.
-            if (showAppearance) {
-                settingsThemeSection(
-                    appSettings = appSettings,
-                    appearance = appearance,
-                )
-                settingsStoragePermissionsSection(
-                    clearingCache = clearingCache,
-                    onClearingCache = { clearingCache = it },
-                    usageLedger = usageLedger,
-                    permissionEpoch = permissionEpoch,
-                    onConfirmClearTokens = { confirmClearTokens = true },
-                )
-            }
+            // remembers" → about/changelog. Account and a sample-data toggle are omitted per that
+            // same audit — no accounts exist in this app, and there's no demo-content banner to
+            // gate a toggle for.
+            settingsThemeSection(
+                appSettings = appSettings,
+                appearance = appearance,
+            )
+            settingsStoragePermissionsSection(
+                clearingCache = clearingCache,
+                onClearingCache = { clearingCache = it },
+                usageLedger = usageLedger,
+                permissionEpoch = permissionEpoch,
+                onConfirmClearTokens = { confirmClearTokens = true },
+            )
 
-            if (showEngines) {
-                settingsEnginesSection(
-                    appSettings = appSettings,
-                    engineRouter = engineRouter,
-                    selectedTier = selectedTier,
-                    selectedPackId = selectedPackId,
-                    onSelectPackId = { selectedPackId = it },
-                    localPackChoices = localPackChoices,
-                    packStates = packStates,
-                    packCatalogError = packCatalogError,
-                    startDownload = startDownload,
-                    onOpenPacks = onOpenPacks,
-                    onOpenUsage = onOpenUsage,
-                    handshakeBusy = handshakeBusy,
-                    handshakeDetail = handshakeDetail,
-                    handshakeOk = handshakeOk,
-                    onHandshakeSelected = {
-                        if (handshakeBusy || selectedPackId.isBlank()) return@settingsEnginesSection
-                        scope.launch {
-                            handshakeBusy = true
-                            handshakeDetail = "Handshaking ${selectedPackId}…"
-                            handshakeOk = null
-                            val result = withContext(Dispatchers.Default) {
-                                packManager.handshake(selectedPackId)
-                            }
-                            handshakeBusy = false
-                            handshakeOk = result.ok
-                            handshakeDetail = PackHandshakeWires.formatDetail(result)
-                            GlassSnackbar.show(
-                                PackHandshakeWires.formatUserSummary(result),
-                                if (result.ok) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR,
-                            )
+            settingsEnginesSection(
+                appSettings = appSettings,
+                engineRouter = engineRouter,
+                selectedTier = selectedTier,
+                selectedPackId = selectedPackId,
+                onSelectPackId = { selectedPackId = it },
+                localPackChoices = localPackChoices,
+                packStates = packStates,
+                packCatalogError = packCatalogError,
+                startDownload = startDownload,
+                onOpenPacks = onOpenPacks,
+                onOpenUsage = onOpenUsage,
+                handshakeBusy = handshakeBusy,
+                handshakeDetail = handshakeDetail,
+                handshakeOk = handshakeOk,
+                onHandshakeSelected = {
+                    if (handshakeBusy || selectedPackId.isBlank()) return@settingsEnginesSection
+                    scope.launch {
+                        handshakeBusy = true
+                        handshakeDetail = "Handshaking ${selectedPackId}…"
+                        handshakeOk = null
+                        val result = withContext(Dispatchers.Default) {
+                            packManager.handshake(selectedPackId)
                         }
-                    },
-                    onHandshakeAll = {
-                        if (handshakeBusy) return@settingsEnginesSection
-                        scope.launch {
-                            handshakeBusy = true
-                            handshakeDetail = "Handshaking all installed packs…"
-                            handshakeOk = null
-                            val report = withContext(Dispatchers.Default) {
-                                packManager.handshakeAll()
-                            }
-                            handshakeBusy = false
-                            handshakeOk = report.allOk && report.results.isNotEmpty()
-                            handshakeDetail = buildString {
-                                append(report.summary)
-                                report.results.take(4).forEach { r ->
-                                    append('\n')
-                                    append(PackHandshakeWires.formatUserSummary(r))
-                                }
-                                if (report.results.size > 4) {
-                                    append("\n… +${report.results.size - 4} more")
-                                }
-                            }
-                            GlassSnackbar.show(
-                                report.summary,
-                                if (handshakeOk == true) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
-                            )
+                        handshakeBusy = false
+                        handshakeOk = result.ok
+                        handshakeDetail = PackHandshakeWires.formatDetail(result)
+                        GlassSnackbar.show(
+                            PackHandshakeWires.formatUserSummary(result),
+                            if (result.ok) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR,
+                        )
+                    }
+                },
+                onHandshakeAll = {
+                    if (handshakeBusy) return@settingsEnginesSection
+                    scope.launch {
+                        handshakeBusy = true
+                        handshakeDetail = "Handshaking all installed packs…"
+                        handshakeOk = null
+                        val report = withContext(Dispatchers.Default) {
+                            packManager.handshakeAll()
                         }
-                    },
-                )
-            }
+                        handshakeBusy = false
+                        handshakeOk = report.allOk && report.results.isNotEmpty()
+                        handshakeDetail = buildString {
+                            append(report.summary)
+                            report.results.take(4).forEach { r ->
+                                append('\n')
+                                append(PackHandshakeWires.formatUserSummary(r))
+                            }
+                            if (report.results.size > 4) {
+                                append("\n… +${report.results.size - 4} more")
+                            }
+                        }
+                        GlassSnackbar.show(
+                            report.summary,
+                            if (handshakeOk == true) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
+                        )
+                    }
+                },
+            )
 
             // Applies to every image generation regardless of local/cloud routing (see
-            // GenerativeViewModel.generateImage), so it's visible from both the Cloud and
-            // Engines section entry points, not gated behind the cloud-only toggle below.
-            if (showCloud || showEngines) {
-                settingsSafetySection(appSettings = appSettings)
-            }
+            // GenerativeViewModel.generateImage).
+            settingsSafetySection(appSettings = appSettings)
 
-            if (showCloud) {
-                settingsCloudKeysSection(
-                    appSettings = appSettings,
-                    connectivityChecker = connectivityChecker,
-                    hfTokenSaved = !hfToken.isNullOrBlank(),
-                    hfInput = hfInput,
-                    groqInput = groqInput,
-                    openRouterInput = openRouterInput,
-                    onHfInput = { hfInput = it },
-                    onGroqInput = { groqInput = it },
-                    onOpenRouterInput = { openRouterInput = it },
-                    keysSavedFlash = keysSavedFlash,
-                    clipboardHint = clipboardHint,
-                    durableReady = durableReady,
-                    onApplyClipboard = { applyClipboardToken() },
-                    onOpenPortal = ::openPortal,
-                    onSaveTokens = ::saveTokens,
-                    importTokensLauncher = importTokensLauncher,
-                    onKeysLoadedFromDocuments = { count ->
-                        hfInput = appSettings.hfToken.value.orEmpty()
-                        groqInput = appSettings.groqApiKey.value.orEmpty()
-                        openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
-                        keysSavedFlash = count > 0
-                    },
-                )
-            }
+            settingsCloudKeysSection(
+                appSettings = appSettings,
+                connectivityChecker = connectivityChecker,
+                hfTokenSaved = !hfToken.isNullOrBlank(),
+                hfInput = hfInput,
+                groqInput = groqInput,
+                openRouterInput = openRouterInput,
+                onHfInput = { hfInput = it },
+                onGroqInput = { groqInput = it },
+                onOpenRouterInput = { openRouterInput = it },
+                keysSavedFlash = keysSavedFlash,
+                clipboardHint = clipboardHint,
+                durableReady = durableReady,
+                onApplyClipboard = { applyClipboardToken() },
+                onOpenPortal = ::openPortal,
+                onSaveTokens = ::saveTokens,
+                importTokensLauncher = importTokensLauncher,
+                onKeysLoadedFromDocuments = { count ->
+                    hfInput = appSettings.hfToken.value.orEmpty()
+                    groqInput = appSettings.groqApiKey.value.orEmpty()
+                    openRouterInput = appSettings.openRouterApiKey.value.orEmpty()
+                    keysSavedFlash = count > 0
+                },
+            )
 
-            if (showCloud) {
-                settingsCloudCapabilitiesSection(
-                    appSettings = appSettings,
-                    freeCloudDiscovery = freeCloudDiscovery,
-                    tryOnId = tryOnId,
-                    imageGenId = imageGenId,
-                    imageEditId = imageEditId,
-                    codeId = codeId,
-                    videoId = videoId,
-                    audioId = audioId,
-                )
-            }
+            settingsCloudCapabilitiesSection(
+                appSettings = appSettings,
+                freeCloudDiscovery = freeCloudDiscovery,
+                tryOnId = tryOnId,
+                imageGenId = imageGenId,
+                imageEditId = imageEditId,
+                codeId = codeId,
+                videoId = videoId,
+                audioId = audioId,
+            )
 
-            if (showCloud || showAppearance) {
-                settingsDurableStatusSection(
-                    appSettings = appSettings,
-                    durableReady = durableReady,
-                )
-            }
+            settingsDurableStatusSection(
+                appSettings = appSettings,
+                durableReady = durableReady,
+            )
 
-            if (showGeneral) {
-                settingsGeneralSection(
-                    onOpenHelp = onOpenHelp,
-                    onOpenPrivacy = onOpenPrivacy,
-                    onOpenChangelog = onOpenChangelog,
-                    onOpenDiagnostics = onOpenDiagnostics,
-                )
-                if (memoryRepository != null) {
-                    settingsMemorySection(appSettings = appSettings, memory = memoryRepository)
-                }
+            settingsGeneralSection(
+                onOpenHelp = onOpenHelp,
+                onOpenPrivacy = onOpenPrivacy,
+                onOpenChangelog = onOpenChangelog,
+                onOpenDiagnostics = onOpenDiagnostics,
+            )
+            if (memoryRepository != null) {
+                settingsMemorySection(appSettings = appSettings, memory = memoryRepository)
             }
         }
     }

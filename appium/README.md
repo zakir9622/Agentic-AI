@@ -14,10 +14,15 @@ wrong, expect to find that out on the first real run, not before.
 
 | File | What it actually asserts |
 |---|---|
-| `test_prompt_isolation.py` | Prompts stay isolated per studio tab (Image/Video/Code/Audio); direct regression test for a real bug found and fixed this session — tapping a News headline used to overwrite whatever prompt was typed in the currently-active studio tab. Updated for A3: Chat is now a bottom-dock destination, not a pager tab, so the round trip goes through `bottom_bar_chat`/`bottom_bar_home`. |
-| `test_generation_flows.py` | Local image generation, local code generation (streaming → ready), local chat reach a genuine terminal state — a real result or a legible failure, never a hang or a raw stack trace. |
+| `test_prompt_isolation.py` | Prompts stay isolated per studio tab (Image/Video/Code/Audio); direct regression test for a real bug found and fixed this session — tapping a News headline used to overwrite whatever prompt was typed in the currently-active studio tab. **Stale as of the unified-screen redesign** — it still references `bottom_bar_chat`/`bottom_bar_home`, which no longer exist; needs a rewrite against the modality chips on the unified main screen. |
+| `test_generation_flows.py` | Local image generation, local code generation (streaming → ready), local chat reach a genuine terminal state — a real result or a legible failure, never a hang or a raw stack trace. Also references `bottom_bar_chat` and needs the same update. |
 | `test_image_edit.py` | The image-to-image/edit entry point (attach a reference photo on the Image tab) actually works: attach → thumbnail appears → clear → thumbnail disappears → generation with a reference reaches a terminal state. |
-| `test_bottom_bar.py` | A3: the bottom dock's five destinations (Home/Library/Create/Chat/Settings) are all present and navigate correctly, the bar stays visible on every top-level destination, the Create FAB lands back on the studio pager, and a studio prompt survives a round trip through Library (session-isolation regression guard for the nav refactor). |
+
+**Removed:** `test_bottom_bar.py` — the bottom dock it tested (Home/Library/Settings tabs) no longer
+exists; the app now opens directly into one unified screen with Library/Settings reached via two
+top-right icons instead (`unified_library_button`/`unified_settings_button`). `test_wardrobe.py`
+and `test_model_packs.py` also reference now-removed `bottom_bar_*` tags and need the same pass —
+none of this has been re-verified on a device yet.
 
 ## What's deliberately NOT covered yet
 

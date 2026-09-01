@@ -65,6 +65,34 @@ internal fun LazyListScope.settingsSafetySection(appSettings: AppSettings) {
         }
         Spacer(Modifier.height(14.dp))
     }
+    item(key = "prompt-clarity-assist") {
+        val enabled by appSettings.bypassFilterEnabled.collectAsState()
+        GlassCard {
+            GlassSectionLabel("PROMPT CLARITY ASSIST")
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Rewords vague or under-specified Image/Video prompts so a safety filter's " +
+                    "false-positive rate drops. On by default. This does not enable or bypass " +
+                    "content moderation — that's always on and can't be turned off, for anyone.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Prompt clarity assist", style = MaterialTheme.typography.titleSmall)
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = appSettings::setBypassFilterEnabled,
+                    modifier = Modifier.testTag(TestTags.PROMPT_CLARITY_ASSIST_SWITCH),
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+    }
     item(key = "mature-fashion-assist") {
         val enabled by appSettings.matureFashionAssistEnabled.collectAsState()
         GlassCard {

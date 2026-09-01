@@ -31,7 +31,7 @@ class SettingsTierSmokeTest {
     }
 }
 
-/** Mirrors [HomeScreen] tab route keys for navigation smoke tests. */
+/** Legacy tab-route key constants, retained only for this self-contained smoke assertion. */
 object HomeTabRoute {
     const val TRY_ON = "tryon"
     const val IMAGE = "image"
