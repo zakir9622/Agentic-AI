@@ -10,12 +10,13 @@ object TokenFileParser {
         val hfToken: String? = null,
         val groqApiKey: String? = null,
         val openRouterApiKey: String? = null,
+        val geminiApiKey: String? = null,
     ) {
         fun anyPresent(): Boolean =
-            !hfToken.isNullOrBlank() || !groqApiKey.isNullOrBlank() || !openRouterApiKey.isNullOrBlank()
+            !hfToken.isNullOrBlank() || !groqApiKey.isNullOrBlank() || !openRouterApiKey.isNullOrBlank() || !geminiApiKey.isNullOrBlank()
 
         fun countPresent(): Int =
-            listOf(hfToken, groqApiKey, openRouterApiKey).count { !it.isNullOrBlank() }
+            listOf(hfToken, groqApiKey, openRouterApiKey, geminiApiKey).count { !it.isNullOrBlank() }
     }
 
     fun parse(raw: String): Tokens {
@@ -49,10 +50,15 @@ object TokenFileParser {
             "openRouterApiKey", "open_router_api_key", "OPENROUTER_API_KEY",
             "openrouter", "OPEN_ROUTER_API_KEY",
         )
+        val gemini = pick(
+            "geminiApiKey", "gemini_api_key", "GEMINI_API_KEY", "gemini",
+            "googleApiKey", "google_api_key", "GOOGLE_API_KEY",
+        )
         return Tokens(
             hfToken = hf ?: detectBare(text, TokenPortals.Kind.HF),
             groqApiKey = groq ?: detectBare(text, TokenPortals.Kind.GROQ),
             openRouterApiKey = openRouter ?: detectBare(text, TokenPortals.Kind.OPENROUTER),
+            geminiApiKey = gemini ?: detectBare(text, TokenPortals.Kind.GEMINI),
         )
     }
 
@@ -60,6 +66,7 @@ object TokenFileParser {
         var hf: String? = null
         var groq: String? = null
         var openRouter: String? = null
+        var gemini: String? = null
         for (line in text.lineSequence()) {
             val trimmed = line.trim()
             if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("//")) continue
@@ -71,6 +78,7 @@ object TokenFileParser {
                     key.contains("HF") || key.contains("HUGGING") -> hf = value
                     key.contains("GROQ") -> groq = value
                     key.contains("OPENROUTER") || key.contains("OPEN_ROUTER") -> openRouter = value
+                    key.contains("GEMINI") || key.contains("GOOGLE") -> gemini = value
                 }
                 continue
             }
@@ -78,10 +86,11 @@ object TokenFileParser {
                 TokenPortals.Kind.HF -> if (hf == null) hf = trimmed
                 TokenPortals.Kind.GROQ -> if (groq == null) groq = trimmed
                 TokenPortals.Kind.OPENROUTER -> if (openRouter == null) openRouter = trimmed
+                TokenPortals.Kind.GEMINI -> if (gemini == null) gemini = trimmed
                 null -> Unit
             }
         }
-        return Tokens(hfToken = hf, groqApiKey = groq, openRouterApiKey = openRouter)
+        return Tokens(hfToken = hf, groqApiKey = groq, openRouterApiKey = openRouter, geminiApiKey = gemini)
     }
 
     private fun detectBare(text: String, kind: TokenPortals.Kind): String? {

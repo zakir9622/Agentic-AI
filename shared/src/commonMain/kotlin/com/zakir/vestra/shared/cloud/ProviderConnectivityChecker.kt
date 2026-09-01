@@ -55,6 +55,11 @@ class ProviderConnectivityChecker(
             }
         }
 
+    suspend fun checkGemini(apiKey: String?): ConnectivityResult =
+        probe(apiKey) { key ->
+            http.get("https://generativelanguage.googleapis.com/v1beta/models?key=$key")
+        }
+
     private suspend fun probe(
         key: String?,
         call: suspend (String) -> HttpResponse,

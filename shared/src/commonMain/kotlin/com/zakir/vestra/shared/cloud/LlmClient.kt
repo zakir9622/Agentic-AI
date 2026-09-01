@@ -50,7 +50,9 @@ class LlmClient(
                 "https://openrouter.ai/api/v1/chat/completions" to "Bearer $apiKey"
             CloudPlatform.HF_INFERENCE ->
                 "https://router.huggingface.co/v1/chat/completions" to "Bearer $apiKey"
-            else -> error("LLM not supported on $platform — pick Groq, OpenRouter, or HF Inference in Settings")
+            CloudPlatform.GEMINI ->
+                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" to "Bearer $apiKey"
+            else -> error("LLM not supported on $platform — pick Groq, OpenRouter, Gemini, or HF Inference in Settings")
         }
 
         val body = buildJsonObject {

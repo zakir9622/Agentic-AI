@@ -159,6 +159,7 @@ fun CloudPlatform.displayLabel(): String = when (this) {
     CloudPlatform.HF_INFERENCE -> "Hugging Face Inference (free)"
     CloudPlatform.GROQ -> "Groq (free tier)"
     CloudPlatform.OPENROUTER -> "OpenRouter (free)"
+    CloudPlatform.GEMINI -> "Google Gemini (AI Studio)"
 }
 
 fun AiCapability.displayLabel(): String = when (this) {

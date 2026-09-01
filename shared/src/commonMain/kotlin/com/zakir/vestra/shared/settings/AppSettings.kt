@@ -206,6 +206,9 @@ class AppSettings(private val settings: Settings) {
     private val _openRouterApiKey = MutableStateFlow(settings.getStringOrNull(KEY_OPENROUTER_KEY))
     val openRouterApiKey: StateFlow<String?> = _openRouterApiKey
 
+    private val _geminiApiKey = MutableStateFlow(settings.getStringOrNull(KEY_GEMINI_KEY))
+    val geminiApiKey: StateFlow<String?> = _geminiApiKey
+
     /** Injected by Android; defaults optimistic for unit tests. */
     var networkProbe: () -> Boolean = { true }
 
@@ -268,6 +271,7 @@ class AppSettings(private val settings: Settings) {
         setHfToken(null)
         setGroqApiKey(null)
         setOpenRouterApiKey(null)
+        setGeminiApiKey(null)
     }
 
     fun setLikenessConsentAccepted() {
@@ -293,6 +297,7 @@ class AppSettings(private val settings: Settings) {
     }
     fun setGroqApiKey(key: String?) = putSecret(KEY_GROQ_KEY, key, _groqApiKey)
     fun setOpenRouterApiKey(key: String?) = putSecret(KEY_OPENROUTER_KEY, key, _openRouterApiKey)
+    fun setGeminiApiKey(key: String?) = putSecret(KEY_GEMINI_KEY, key, _geminiApiKey)
 
     private val _discoveredProviders = MutableStateFlow<List<CloudModelProvider>>(emptyList())
     val discoveredProviders: StateFlow<List<CloudModelProvider>> = _discoveredProviders
@@ -402,6 +407,7 @@ class AppSettings(private val settings: Settings) {
         CloudPlatform.HF_SPACE, CloudPlatform.HF_INFERENCE -> _hfToken.value
         CloudPlatform.GROQ -> _groqApiKey.value
         CloudPlatform.OPENROUTER -> _openRouterApiKey.value
+        CloudPlatform.GEMINI -> _geminiApiKey.value
     }
 
     fun networkLikelyAvailable(): Boolean = networkProbe()
@@ -563,6 +569,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_HF_TOKEN = "hf_token"
         const val KEY_GROQ_KEY = "groq_api_key"
         const val KEY_OPENROUTER_KEY = "openrouter_api_key"
+        const val KEY_GEMINI_KEY = "gemini_api_key"
         const val KEY_REPLICATE_TOKEN = "replicate_token"
         const val KEY_FAL_KEY = "fal_api_key"
         const val KEY_PREFER_NNAPI = "prefer_nnapi"

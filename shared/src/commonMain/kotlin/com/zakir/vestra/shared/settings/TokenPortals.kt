@@ -5,8 +5,9 @@ object TokenPortals {
     const val HF = "https://huggingface.co/settings/tokens"
     const val GROQ = "https://console.groq.com/keys"
     const val OPENROUTER = "https://openrouter.ai/keys"
+    const val GEMINI = "https://aistudio.google.com/app/apikey"
 
-    enum class Kind { HF, GROQ, OPENROUTER }
+    enum class Kind { HF, GROQ, OPENROUTER, GEMINI }
 
     fun detectClipboardToken(raw: String): Pair<Kind, String>? {
         val token = raw.trim().lineSequence().firstOrNull()?.trim().orEmpty()
@@ -15,6 +16,7 @@ object TokenPortals {
             token.startsWith("hf_") -> Kind.HF to token
             token.startsWith("gsk_") -> Kind.GROQ to token
             token.startsWith("sk-or-") -> Kind.OPENROUTER to token
+            token.startsWith("AIzaSy") -> Kind.GEMINI to token
             token.startsWith("sk-") && token.length > 20 -> Kind.OPENROUTER to token
             else -> null
         }

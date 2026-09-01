@@ -14,6 +14,8 @@ enum class CloudPlatform {
     GROQ,
     /** OpenRouter free models only (`:free` suffix). */
     OPENROUTER,
+    /** Google Gemini / AI Studio models. */
+    GEMINI,
 }
 
 enum class AiCapability {
@@ -302,6 +304,20 @@ object CloudModelCatalog {
             speedScore = 98,
             estTokensPerRequest = 2000,
             usageNote = "Ready · Groq TPM limits. Tokens tracked in Usage. Recommended for Code.",
+        ),
+        CloudModelProvider(
+            id = "gemini-2.5-flash",
+            displayName = "Gemini 2.5 Flash",
+            description = "Google DeepMind high-speed multimodal reasoning & coding via Google AI Studio API.",
+            platform = CloudPlatform.GEMINI,
+            capability = AiCapability.CODE,
+            endpoint = "gemini-2.5-flash",
+            license = "Google AI Studio Terms",
+            requiresApiKey = true,
+            qualityScore = 96,
+            speedScore = 96,
+            estTokensPerRequest = 2000,
+            usageNote = "Ready · Google AI Studio free tier. Fast reasoning & code generation.",
         ),
         CloudModelProvider(
             id = "openrouter-free",
