@@ -5,6 +5,27 @@
 Three large PRs merged since the 3.1.8 version bump; `versionName`/`versionCode` have not been
 bumped again yet. Full detail in `docs/PROJECT_HISTORY.md` (Eras 6–7).
 
+**CI fix: restored `composeApp` module after an external-tool module rename.** Three commits
+pushed directly to `main` via Google AI Studio renamed the app module from `composeApp` to `app`
+in `settings.gradle.kts`, which — combined with `gradlew` losing its executable bit — broke every
+CI job (`Permission denied` on `./gradlew`, then `project 'composeApp' not found`). The rename
+also silently dropped the entire previously-tracked `composeApp` module (133 files: all core
+source, `AndroidManifest.xml`, `MainActivity.kt`, ~20 tests) from git, leaving only a 16-file
+`app/` module carrying genuine new work — Gemini API model support and an API usage monitoring
+dashboard — layered on an older copy of the same files. Fixed forward without touching the 3
+existing commits: restored `composeApp` from its last-known-good state, re-pointed
+`settings.gradle.kts` back to `:composeApp`, and reconciled the 16 `app/` files against the
+restored originals, porting only the confirmed-safe/additive deltas (Gemini `BuildConfig` fields
+and token wiring, the new `ApiKeyDataStore`/`ApiUsageDashboardCard`, cloud quick-switcher and
+usage dashboard in `UnifiedMainScreen`, `PromptComposer` UX polish) into `composeApp`, then
+deleted the now-redundant `app/` module. Deliberately not ported: `ResultPane.kt`'s swap to an
+`AudioPlayerView` component that doesn't exist anywhere in this codebase (would break the build),
+and `build.gradle.kts`'s removal of the `sideload`/`store` product flavors and `minSdk` 35→28
+change — both unrelated to the Gemini work and would have broken the existing gate/CI task names
+and device-support guarantees. `shared`'s own Gemini cloud-platform support (`CloudModelCatalog`,
+`LlmClient`, `AppSettings.geminiApiKey`, etc.) was untouched by the deletion and required no
+reconciliation.
+
 **Gemini-style unified main screen.** Replaced the Home dashboard, the 3-item bottom dock, and
 the four isolated per-modality screens (Image/Video/Audio/Code Studio, News & Chat) with a
 single screen (`UnifiedMainScreen.kt`): one continuous, timestamp-merged conversation thread
