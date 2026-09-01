@@ -22,5 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "vestra"
 
-include(":app")
+include(":composeApp")
 include(":shared")
