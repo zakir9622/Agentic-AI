@@ -14,7 +14,7 @@ import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassSectionLabel
 
-/** Help · diagnostics · about — shown only for [SettingsSection.ALL]. */
+/** Help · diagnostics · about. */
 internal fun LazyListScope.settingsGeneralSection(
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,

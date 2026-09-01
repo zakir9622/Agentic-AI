@@ -3,11 +3,8 @@ package com.zakir.vestra.ui
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -19,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -36,24 +32,19 @@ import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.shared.wardrobe.WardrobeRepository
-import com.zakir.vestra.ui.components.BottomBarDestination
-import com.zakir.vestra.ui.components.LookbookBottomBar
 import com.zakir.vestra.ui.screens.capture.GarmentScreen
 import com.zakir.vestra.ui.screens.casting.CastingStudioScreen
 import com.zakir.vestra.ui.screens.onboarding.OnboardingScreen
 import com.zakir.vestra.ui.screens.packs.PacksScreen
 import com.zakir.vestra.ui.screens.generate.GenerationScreen
-import com.zakir.vestra.ui.screens.news.NewsChatScreen
 import com.zakir.vestra.ui.screens.person.PersonSourceScreen
 import com.zakir.vestra.ui.screens.result.ResultScreen
 import com.zakir.vestra.shared.chat.ChatRepository
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.jobs.LocalJobStore
 import com.zakir.vestra.ui.screens.settings.DiagnosticsScreen
-import com.zakir.vestra.ui.screens.settings.SettingsSection
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
-import com.zakir.vestra.ui.screens.home.HomeScreen
-import com.zakir.vestra.ui.screens.home.UnifiedStudioPane
+import com.zakir.vestra.ui.screens.home.UnifiedMainScreen
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
 import com.zakir.vestra.ui.screens.usage.UsageScreen
@@ -64,8 +55,9 @@ import com.zakir.vestra.ui.screens.wardrobe.WardrobeScreen
 
 object Routes {
     const val ONBOARDING = "onboarding"
-    // Home is the tool-picker grid — no tab argument any more. Image/Video/Audio/Code are each
-    // a fully isolated screen (see IMAGE/VIDEO/AUDIO/CODE below), never a shared tab/pager.
+    // Home is now the single Gemini-style unified screen — Image/Video/Code/Audio/Chat all live
+    // in one merged thread there (UnifiedMainScreen.kt), routed by a composer mode chip rather
+    // than by separate isolated screens/routes.
     const val HOME = "home"
     const val GARMENT = "garment"
     const val CASTING = "casting"
@@ -74,20 +66,12 @@ object Routes {
     const val RESULT = "result"
     const val WARDROBE = "wardrobe"
     const val SETTINGS = "settings"
-    const val SETTINGS_CLOUD = "settings/cloud"
-    const val SETTINGS_ENGINES = "settings/engines"
-    const val SETTINGS_APPEARANCE = "settings/appearance"
     const val SETTINGS_DIAGNOSTICS = "settings/diagnostics"
     const val PACKS = "packs"
     const val CREATE = "create"
-    const val IMAGE = "image"
-    const val CODE = "code"
-    const val VIDEO = "video"
-    const val AUDIO = "audio"
     const val USAGE = "usage"
     const val HELP = "help"
     const val PRIVACY = "privacy"
-    const val CHAT = "chat"
     const val CHANGELOG = "changelog"
 
     fun deepLink(route: String) = "lookbook://screen/$route"
@@ -169,53 +153,12 @@ fun VestraNavHost(
         CrashReporter.breadcrumb(if (tab != null) "$route#$tab" else route)
     }
 
-    // The bottom dock only appears on its three top-level destinations — Home, Library, Settings.
-    // Every isolated modality screen (Image/Video/Audio/Code) and Chat is reached only from
-    // Home's tool grid, so they get their own back arrow instead of a dock (there's nothing to
-    // jump directly into a specific studio with any more), same as the try-on capture flow,
-    // nested Settings sections, Packs, Usage, Help, and Privacy.
-    val currentRoute = navEntry?.destination?.route
-    val bottomBarSelected = when (currentRoute) {
-        Routes.HOME -> BottomBarDestination.HOME
-        Routes.WARDROBE -> BottomBarDestination.LIBRARY
-        Routes.SETTINGS -> BottomBarDestination.SETTINGS
-        else -> null
-    }
-
-    fun navigateToTopLevel(route: String) {
-        navController.navigate(route) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
-        }
-    }
-
+    // No bottom dock any more — Home is a single Gemini-style unified screen, and Library/
+    // Settings are reached from its own top-right icons instead of a shared tab bar.
     Box(Modifier.fillMaxSize()) {
-    Scaffold(
-        // Zeroed out deliberately: each screen already calls its own `.safeDrawingPadding()` for
-        // status/nav-bar insets. Leaving Scaffold's default `WindowInsets.safeDrawing` here would
-        // double-apply that padding once via Scaffold's innerPadding and again inside the screen.
-        // `innerPadding` below then reflects only the bottom bar's own measured height.
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            if (bottomBarSelected != null) {
-                LookbookBottomBar(
-                    selected = bottomBarSelected,
-                    onSelect = { destination ->
-                        when (destination) {
-                            BottomBarDestination.HOME -> navigateToTopLevel(Routes.HOME)
-                            BottomBarDestination.LIBRARY -> navigateToTopLevel(Routes.WARDROBE)
-                            BottomBarDestination.SETTINGS -> navigateToTopLevel(Routes.SETTINGS)
-                        }
-                    },
-                )
-            }
-        },
-    ) { innerPadding ->
     NavHost(
         navController = navController,
         startDestination = start,
-        modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
         enterTransition = { EnterTransition.None },
         exitTransition = { ExitTransition.None },
         popEnterTransition = { EnterTransition.None },
@@ -234,96 +177,6 @@ fun VestraNavHost(
         composable(
             route = Routes.HOME,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.HOME) }),
-        ) {
-            HomeScreen(
-                localJobStore = localJobStore,
-                onSelectImage = { navController.navigate(Routes.IMAGE) },
-                onSelectVideo = { navController.navigate(Routes.VIDEO) },
-                onSelectAudio = { navController.navigate(Routes.AUDIO) },
-                onSelectCode = { navController.navigate(Routes.CODE) },
-                onOpenChat = { navController.navigate(Routes.CHAT) },
-                onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenHelp = { navController.navigate(Routes.HELP) },
-            )
-        }
-        composable(
-            route = Routes.IMAGE,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.IMAGE) }),
-        ) {
-            com.zakir.vestra.ui.components.IsolatedStudioScreen(
-                title = "Image Studio",
-                onBack = { navController.popBackStack() },
-                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityImage,
-            ) {
-                UnifiedStudioPane(
-                    capability = com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN,
-                    viewModel = generativeViewModel,
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    freeCloudDiscovery = freeCloudDiscovery,
-                    packManager = packManager,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        composable(
-            route = Routes.VIDEO,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.VIDEO) }),
-        ) {
-            com.zakir.vestra.ui.components.IsolatedStudioScreen(
-                title = "Video Studio",
-                onBack = { navController.popBackStack() },
-                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityVideo,
-            ) {
-                UnifiedStudioPane(
-                    capability = com.zakir.vestra.shared.cloud.AiCapability.VIDEO,
-                    viewModel = generativeViewModel,
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    freeCloudDiscovery = freeCloudDiscovery,
-                    packManager = packManager,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        composable(
-            route = Routes.AUDIO,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.AUDIO) }),
-        ) {
-            com.zakir.vestra.ui.components.IsolatedStudioScreen(
-                title = "Audio Studio",
-                onBack = { navController.popBackStack() },
-                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityAudio,
-            ) {
-                com.zakir.vestra.ui.screens.home.AudioStudioPane(
-                    viewModel = generativeViewModel,
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    freeCloudDiscovery = freeCloudDiscovery,
-                    packManager = packManager,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        composable(
-            route = Routes.CODE,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CODE) }),
-        ) {
-            com.zakir.vestra.ui.components.IsolatedStudioScreen(
-                title = "Code Studio",
-                onBack = { navController.popBackStack() },
-                accent = com.zakir.vestra.ui.theme.VestraColors.ModalityCode,
-            ) {
-                UnifiedStudioPane(
-                    capability = com.zakir.vestra.shared.cloud.AiCapability.CODE,
-                    viewModel = generativeViewModel,
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    freeCloudDiscovery = freeCloudDiscovery,
-                    packManager = packManager,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        composable(
-            route = Routes.CHAT,
-            deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CHAT) }),
         ) {
             val context = LocalContext.current
             val newsRepository = remember(context) {
@@ -344,14 +197,15 @@ fun VestraNavHost(
                         ) as T
                 },
             )
-            NewsChatScreen(
-                newsRepository = newsRepository,
+            UnifiedMainScreen(
+                generativeViewModel = generativeViewModel,
                 chatViewModel = chatViewModel,
                 appSettings = appSettings,
+                localJobStore = localJobStore,
                 freeCloudDiscovery = freeCloudDiscovery,
                 packManager = packManager,
-                memoryRepository = memoryRepository,
-                onBack = { navController.popBackStack() },
+                onOpenLibrary = { navController.navigate(Routes.WARDROBE) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(
@@ -415,7 +269,8 @@ fun VestraNavHost(
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.CREATE) }),
         ) {
             LaunchedEffect(Unit) {
-                navController.navigate(Routes.IMAGE) {
+                generativeViewModel.bindStudio(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN)
+                navController.navigate(Routes.HOME) {
                     launchSingleTop = true
                     popUpTo(Routes.CREATE) { inclusive = true }
                 }
@@ -432,7 +287,8 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenCreate = {
                     generativeViewModel.prepareStudio(resetIfIdle = true)
-                    navController.navigate(Routes.IMAGE)
+                    generativeViewModel.bindStudio(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN)
+                    navController.navigate(Routes.HOME)
                 },
             )
         }
@@ -475,12 +331,10 @@ fun VestraNavHost(
                 // onStartTryOn omitted (defaults to null) while try-on is temporarily
                 // disabled app-wide — restores the empty-state CTA when re-added.
                 onReusePrompt = { prompt, isVideo ->
-                    // bindStudio() must run before setPrompt() — UnifiedStudioPane's own
-                    // LaunchedEffect(capability) calls bindStudio() unconditionally on mount,
-                    // which would otherwise swap _prompt.value back to that studio's stored bag
-                    // prompt and silently discard the one just reused. Binding here first means
-                    // that mount's bindStudio() call is a same-key no-op (it only mutates state
-                    // when boundKey actually changes), so the value set below survives it.
+                    // bindStudio() must run before setPrompt() — the unified screen's own
+                    // composer reads the bound studio's remembered prompt on first composition,
+                    // which would otherwise overwrite the one just reused. Binding here first
+                    // means that read is a same-key no-op, so the value set below survives it.
                     val capability = if (isVideo) {
                         com.zakir.vestra.shared.cloud.AiCapability.VIDEO
                     } else {
@@ -488,8 +342,7 @@ fun VestraNavHost(
                     }
                     generativeViewModel.bindStudio(capability)
                     generativeViewModel.setPrompt(prompt)
-                    val route = if (isVideo) Routes.VIDEO else Routes.IMAGE
-                    navController.navigate(route) { popUpTo(Routes.HOME) }
+                    navController.navigate(Routes.HOME) { popUpTo(Routes.HOME) }
                 },
             )
         }
@@ -511,71 +364,6 @@ fun VestraNavHost(
                 onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
                 onBack = { navController.popBackStack() },
-                section = SettingsSection.HUB,
-                onNavigateSection = { target ->
-                    navController.navigate(
-                        when (target) {
-                            SettingsSection.CLOUD -> Routes.SETTINGS_CLOUD
-                            SettingsSection.ENGINES -> Routes.SETTINGS_ENGINES
-                            SettingsSection.APPEARANCE -> Routes.SETTINGS_APPEARANCE
-                            else -> Routes.SETTINGS
-                        },
-                    )
-                },
-            )
-        }
-        composable(Routes.SETTINGS_CLOUD) {
-            SettingsScreen(
-                appSettings = appSettings,
-                engineRouter = engineRouter,
-                packManager = packManager,
-                freeCloudDiscovery = freeCloudDiscovery,
-                usageLedger = usageLedger,
-                memoryRepository = memoryRepository,
-                onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenUsage = { navController.navigate(Routes.USAGE) },
-                onOpenHelp = { navController.navigate(Routes.HELP) },
-                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
-                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
-                onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
-                onBack = { navController.popBackStack() },
-                section = SettingsSection.CLOUD,
-            )
-        }
-        composable(Routes.SETTINGS_ENGINES) {
-            SettingsScreen(
-                appSettings = appSettings,
-                engineRouter = engineRouter,
-                packManager = packManager,
-                freeCloudDiscovery = freeCloudDiscovery,
-                usageLedger = usageLedger,
-                memoryRepository = memoryRepository,
-                onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenUsage = { navController.navigate(Routes.USAGE) },
-                onOpenHelp = { navController.navigate(Routes.HELP) },
-                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
-                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
-                onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
-                onBack = { navController.popBackStack() },
-                section = SettingsSection.ENGINES,
-            )
-        }
-        composable(Routes.SETTINGS_APPEARANCE) {
-            SettingsScreen(
-                appSettings = appSettings,
-                engineRouter = engineRouter,
-                packManager = packManager,
-                freeCloudDiscovery = freeCloudDiscovery,
-                usageLedger = usageLedger,
-                memoryRepository = memoryRepository,
-                onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenUsage = { navController.navigate(Routes.USAGE) },
-                onOpenHelp = { navController.navigate(Routes.HELP) },
-                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
-                onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
-                onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
-                onBack = { navController.popBackStack() },
-                section = SettingsSection.APPEARANCE,
             )
         }
         composable(Routes.SETTINGS_DIAGNOSTICS) {
@@ -596,7 +384,6 @@ fun VestraNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
-    }
     }
 
     com.zakir.vestra.ui.components.GlassSnackbarHost(

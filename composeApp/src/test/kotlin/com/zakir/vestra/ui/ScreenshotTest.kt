@@ -20,9 +20,7 @@ import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudModelCatalog
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.shared.settings.AppSettings
-import com.zakir.vestra.ui.components.BottomBarDestination
 import com.zakir.vestra.ui.components.LiteRtStatusIndicator
-import com.zakir.vestra.ui.components.LookbookBottomBar
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
@@ -327,19 +325,8 @@ class ScreenshotTest {
     }
 
     // --- 3.1.1 GoogleLookBookUI-ported UI, rendered for real to confirm the port visually ---
-
-    @Test
-    fun bottomDockFloatingPill() {
-        shoot("11-bottom-dock-floating-pill") {
-            Box(androidx.compose.ui.Modifier.fillMaxSize()) {
-                LookbookBottomBar(
-                    selected = BottomBarDestination.HOME,
-                    onSelect = {},
-                    modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter),
-                )
-            }
-        }
-    }
+    // bottomDockFloatingPill was removed with LookbookBottomBar — the app has no bottom dock any
+    // more (see UnifiedMainScreen.kt).
 
     @Test
     fun chatBubbleUserAndAssistant() {

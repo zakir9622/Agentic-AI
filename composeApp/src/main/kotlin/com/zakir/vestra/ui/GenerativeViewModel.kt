@@ -14,6 +14,7 @@ import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.shared.diagnostics.RunCapability
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.engine.litert.LiteRtLmEngineCache
 import com.zakir.vestra.shared.engine.local.LocalStudioToolBridge
 import com.zakir.vestra.shared.jobs.LocalJobStore
 import com.zakir.vestra.shared.settings.AppSettings
@@ -83,9 +84,6 @@ class GenerativeViewModel(
     private val _fashionContext = MutableStateFlow(true)
     val fashionContext: StateFlow<Boolean> = _fashionContext
 
-    private val _bypassFilter = MutableStateFlow(true)
-    val bypassFilter: StateFlow<Boolean> = _bypassFilter
-
     private val _qualityGuard = MutableStateFlow(true)
     val qualityGuard: StateFlow<Boolean> = _qualityGuard
 
@@ -112,6 +110,9 @@ class GenerativeViewModel(
 
     private var job: Job? = null
     private var generationEpoch = 0
+
+    /** Capability the most recent [startGeneration] call actually dispatched to. */
+    private var lastDispatchedCapability: AiCapability? = null
 
     init {
         LocalStudioToolBridge.onAppendPrompt = { clause ->
@@ -154,11 +155,29 @@ class GenerativeViewModel(
         val id: String,
         val prompt: String,
         val timestampMs: Long,
+        val capability: AiCapability,
         val result: GenerativeState? = null,
     )
 
     private val _turns = MutableStateFlow<List<StudioTurn>>(emptyList())
     val turns: StateFlow<List<StudioTurn>> = _turns
+
+    /**
+     * Every studio's turns merged into one timestamp-ordered list — the unified main screen's
+     * single scrolling thread mixes Image/Video/Code/Audio results together (per the Gemini-style
+     * redesign), unlike [turns] which only ever reflects whichever studio is currently [boundKey].
+     * Recomputed on every [appendTurn]/[updateLastTurn]/[dismissLastTurn]/[prepareStudio] call so
+     * a generation that keeps running in a backgrounded studio still updates this list live.
+     */
+    private val _allTurns = MutableStateFlow<List<StudioTurn>>(emptyList())
+    val allTurns: StateFlow<List<StudioTurn>> = _allTurns
+
+    private fun refreshAllTurns() {
+        val keys = bags.keys + boundKey
+        _allTurns.value = keys
+            .flatMap { key -> if (key == boundKey) _turns.value else bag(key).turns }
+            .sortedBy { it.timestampMs }
+    }
 
     /** Held in memory only — unbounded turn history (esp. image/video file paths) would leak. */
     private val maxTurnsPerStudio = 50
@@ -188,6 +207,9 @@ class GenerativeViewModel(
 
     private val bags = mutableMapOf<AiCapability, StudioBag>()
     private var boundKey: AiCapability = AiCapability.IMAGE_GEN
+
+    /** Which studio's composer state is currently live in [prompt]/[referenceUri]/[state]/[turns]. */
+    val currentStudio: AiCapability get() = boundKey
 
     private fun studioKey(capability: AiCapability): AiCapability =
         if (capability == AiCapability.IMAGE_EDIT) AiCapability.IMAGE_GEN else capability
@@ -238,6 +260,7 @@ class GenerativeViewModel(
             val owner = bag(studioKey)
             owner.turns = (owner.turns + turn).takeLast(maxTurnsPerStudio)
         }
+        refreshAllTurns()
     }
 
     /**
@@ -259,6 +282,7 @@ class GenerativeViewModel(
             val last = owner.turns.lastOrNull() ?: return
             owner.turns = owner.turns.dropLast(1) + last.copy(result = next)
         }
+        refreshAllTurns()
     }
 
     val isBusy: Boolean
@@ -295,10 +319,6 @@ class GenerativeViewModel(
         _fashionContext.value = enabled
     }
 
-    fun setBypassFilter(enabled: Boolean) {
-        _bypassFilter.value = enabled
-    }
-
     fun setQualityGuard(enabled: Boolean) {
         _qualityGuard.value = enabled
     }
@@ -330,10 +350,11 @@ class GenerativeViewModel(
         creative = _creativeMode.value,
         fashionContext = _fashionContext.value,
         detailBoost = _detailBoost.value,
-        bypassFilter = _bypassFilter.value,
-        qualityGuard = _qualityGuard.value,
         // Moved from a per-session ViewModel flag to a persisted AppSettings toggle (Settings →
-        // safety section) when its studio-side UI was removed — see 3.1.6 CHANGELOG.
+        // safety section) — see 3.1.6 CHANGELOG for the analyzeReference/matureFashionAssist
+        // precedent this followed.
+        bypassFilter = appSettings.bypassFilterEnabled.value,
+        qualityGuard = _qualityGuard.value,
         analyzeReference = appSettings.analyzeReferenceEnabled.value,
         matureFashionAssist = appSettings.matureFashionAssistEnabled.value,
         inferenceSteps = _inferenceSteps.value.takeIf { it != 22 },
@@ -359,6 +380,7 @@ class GenerativeViewModel(
         cur.preflightMessage = null
         cur.resultCapability = null
         cur.turns = emptyList()
+        refreshAllTurns()
     }
 
     /** True when [state] belongs to this studio (or shared Image Create/Edit). */
@@ -474,8 +496,7 @@ class GenerativeViewModel(
      * wrong model's context window. Takes [localReady] rather than re-deriving it via
      * `generative.localCodeReady()`: that call stats pack files on disk, and this is evaluated
      * on every prompt keystroke, so the caller must pass the already off-main-thread-hoisted
-     * readiness state (see `produceLocalReadiness` in `UnifiedStudioPane.kt`) instead of
-     * reintroducing a synchronous disk read into composition.
+     * readiness state instead of reintroducing a synchronous disk read into composition.
      */
     fun currentCodeModelId(localReady: Boolean): String {
         val localCode = localReady && (!appSettings.networkLikelyAvailable() || appSettings.prefersLocal(AiCapability.CODE))
@@ -764,6 +785,7 @@ class GenerativeViewModel(
      */
     fun dismissLastTurn() {
         _turns.value = _turns.value.dropLast(1)
+        refreshAllTurns()
     }
 
     private fun appendLive(line: String) {
@@ -774,6 +796,28 @@ class GenerativeViewModel(
         }
     }
 
+    /**
+     * On the unified main screen, one continuous thread can dispatch to a different studio
+     * (Image → Code → Video, ...) from one message to the next — unlike the old isolated-screen
+     * IA, where only one studio's local model was ever loaded because you had to navigate away
+     * to reach another. LiteRT-LM engines are otherwise deliberately left resident across studios
+     * (see [LiteRtLmEngineCache]'s class doc — Code's and Chat's engines both stay warm normally,
+     * evicted only reactively under real OS memory pressure) since that's the better tradeoff on
+     * a device with room for it. Below [LOW_RAM_THRESHOLD_MB] there usually isn't room for two
+     * ~2-4 GB engines at once, so here we proactively free whatever was loaded for the previous
+     * studio before this one cold-loads its own — trading a cold-load on every switch for not
+     * OOM-failing the new one. No-ops when RAM is unknown, the device has headroom, or the
+     * studio didn't actually change.
+     */
+    private fun maybeEvictForModalitySwitch(next: AiCapability) {
+        val ram = deviceRamMb ?: return
+        if (ram >= LOW_RAM_THRESHOLD_MB) return
+        val previous = lastDispatchedCapability
+        lastDispatchedCapability = next
+        if (previous == null || studioKey(previous) == studioKey(next)) return
+        runCatching { LiteRtLmEngineCache.clearAll() }
+    }
+
     private fun startGeneration(
         capability: RunCapability,
         modelLabel: String?,
@@ -781,6 +825,7 @@ class GenerativeViewModel(
         local: Boolean,
         block: () -> kotlinx.coroutines.flow.Flow<GenerativeState>,
     ) {
+        if (local) maybeEvictForModalitySwitch(studio)
         job?.cancel()
         val epoch = ++generationEpoch
         val studioKey = studioKey(studio)
@@ -817,7 +862,10 @@ class GenerativeViewModel(
         // box while this generation is still running can't attach the wrong creative direction to
         // the resulting Wardrobe entry — the composer stays editable during generation.
         val capturedPrompt = _prompt.value
-        appendTurn(studioKey, StudioTurn(id = runId, prompt = capturedPrompt, timestampMs = startedAt))
+        appendTurn(
+            studioKey,
+            StudioTurn(id = runId, prompt = capturedPrompt, timestampMs = startedAt, capability = studioKey),
+        )
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
@@ -1032,5 +1080,9 @@ class GenerativeViewModel(
 
     private companion object {
         const val MAX_PROMPT = 4000
+
+        /** Below this, [maybeEvictForModalitySwitch] proactively frees the previous studio's
+         * resident local engine before the next studio cold-loads its own. */
+        const val LOW_RAM_THRESHOLD_MB = 6144L
     }
 }

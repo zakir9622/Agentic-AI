@@ -2,8 +2,32 @@
 
 ## Unreleased (post-3.1.8)
 
-Two large PRs merged since the 3.1.8 version bump; `versionName`/`versionCode` have not been
+Three large PRs merged since the 3.1.8 version bump; `versionName`/`versionCode` have not been
 bumped again yet. Full detail in `docs/PROJECT_HISTORY.md` (Eras 6–7).
+
+**Gemini-style unified main screen.** Replaced the Home dashboard, the 3-item bottom dock, and
+the four isolated per-modality screens (Image/Video/Audio/Code Studio, News & Chat) with a
+single screen (`UnifiedMainScreen.kt`): one continuous, timestamp-merged conversation thread
+mixing Chat replies with Image/Video/Code/Audio results, selected per-message via a composer
+mode chip row. Library and Settings move to two icons at top right — there is no bottom dock any
+more. `GenerativeViewModel.StudioTurn` now carries its own `capability` and is exposed as a
+merged `allTurns` flow across every studio (not just the currently-bound one) so a generation
+still running in the background keeps updating the thread live; retry/dismiss stay scoped to
+each studio's own latest turn, not a single global latest. On low-RAM devices (<6 GB), switching
+composer mode to a different local-model capability now proactively evicts the previous LiteRT-LM
+engine before the next one cold-loads, trading a cold reload for not risking an OOM — devices
+with headroom keep the existing "leave resident, evict only under real memory pressure" behavior.
+Settings collapses from a hub-plus-three-sub-screens split into one flowing screen, and gains a
+persisted "Prompt clarity assist" toggle (`AppSettings.bypassFilterEnabled`) for the existing
+image/video prompt-reframing assist, which previously had no UI. Known trade-offs from this pass,
+not yet re-ported: the in-composer per-generation Advanced tuning panel (steps/guidance/seed/
+strength/candidate count, creative/pragmatic/detail-boost/fashion-context/quality-guard toggles),
+on-device warm-up loading feedback, Audio Studio's recording/voice-change/transcribe/import UI
+(Audio mode currently only does plain device TTS), and the News headlines bar in Chat — the
+model picker itself (choosing which cloud or on-device model a generation uses) is restored.
+The Appium suite's `bottom_bar_*`-tag tests are now stale and need a rewrite against the unified
+screen's `modality_chip_*`/`unified_library_button`/`unified_settings_button` tags; see
+`appium/README.md`.
 
 **GoogleLookBookUI cross-repo port (PR #80).** A structured, phase-gated comparison against an
 earlier development snapshot of this same codebase found and ported genuinely additive

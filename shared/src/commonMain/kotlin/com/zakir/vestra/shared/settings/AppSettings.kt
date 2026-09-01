@@ -151,6 +151,17 @@ class AppSettings(private val settings: Settings) {
     val matureFashionAssistEnabled: StateFlow<Boolean> = _matureFashionAssistEnabled
 
     /**
+     * Milder prompt-level reframing for vague/under-specified Image and Video prompts, so a
+     * safety filter's false-positive rate drops without changing what's actually generated. On
+     * by default (unlike [matureFashionAssistEnabled], which is opt-in and stronger). Previously
+     * a `GenerativeViewModel`-only session flag with no Settings UI — moved here so the user's
+     * choice survives app restarts, following the same migration [analyzeReferenceEnabled]
+     * already went through. Never disables or bypasses a provider's own content moderation.
+     */
+    private val _bypassFilterEnabled = MutableStateFlow(settings.getBoolean(KEY_BYPASS_FILTER, true))
+    val bypassFilterEnabled: StateFlow<Boolean> = _bypassFilterEnabled
+
+    /**
      * Whether News/Chat extracts durable facts from conversation turns via the local chat
      * model and re-injects them into future system prompts (Part B.1). Defaults on — the
      * extraction call and its storage never leave the device, matching this app's local-first
@@ -241,6 +252,11 @@ class AppSettings(private val settings: Settings) {
     fun setMatureFashionAssistEnabled(enabled: Boolean) {
         settings.putBoolean(KEY_MATURE_FASHION_ASSIST, enabled)
         _matureFashionAssistEnabled.value = enabled
+    }
+
+    fun setBypassFilterEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_BYPASS_FILTER, enabled)
+        _bypassFilterEnabled.value = enabled
     }
 
     fun setMemoryEnabled(enabled: Boolean) {
@@ -557,6 +573,7 @@ class AppSettings(private val settings: Settings) {
         const val KEY_ANALYZE_REFERENCE = "analyze_reference_enabled"
         const val KEY_MEMORY_ENABLED = "chat_memory_enabled"
         const val KEY_MATURE_FASHION_ASSIST = "mature_fashion_assist_enabled"
+        const val KEY_BYPASS_FILTER = "bypass_filter_enabled"
         const val KEY_CLOUD_CONSENT = "cloud_consent_granted"
         /** The removed master switch's old storage key — read once, for migration, never written. */
         private const val LEGACY_KEY_CLOUD_MODELS_ENABLED = "cloud_models_enabled"

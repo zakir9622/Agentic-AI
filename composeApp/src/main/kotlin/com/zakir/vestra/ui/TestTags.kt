@@ -40,9 +40,10 @@ object TestTags {
     // Model picker sheet (ModelPickerSheet.kt) — per-model-id row, cloud and on-device.
     fun modelPickerRow(modelId: String): String = "model_picker_row_$modelId"
 
-    // News & Chat window (NewsChatScreen.kt) — on-device by default (cloud models are hidden
-    // from this screen's picker until the global cloud toggle is on), so Appium can drive the
-    // whole "type a prompt, get a local reply" loop without ever touching a network call.
+    // Chat (now the unified main screen's default composer mode, UnifiedMainScreen.kt) —
+    // on-device by default (cloud models are hidden from the picker until the global cloud
+    // toggle is on), so Appium can drive the whole "type a prompt, get a local reply" loop
+    // without ever touching a network call.
     const val CHAT_REFRESH_BUTTON = "chat_news_refresh"
     fun chatHeadlineCard(index: Int): String = "chat_headline_$index"
     fun chatMessageBubble(index: Int, role: String): String = "chat_message_${index}_$role"
@@ -53,9 +54,6 @@ object TestTags {
     fun chatStarterPrompt(index: Int): String = "chat_starter_prompt_$index"
     const val QUICK_PROMPT_CAROUSEL = "quick_prompt_carousel"
     fun quickPromptChip(index: Int): String = "quick_prompt_chip_$index"
-
-    // Audio Studio (AudioStudioPane.kt) — import an existing audio file from device storage.
-    const val AUDIO_IMPORT_BUTTON = "audio_import_button"
 
     // Interrupted-job banner (InterruptedJobsBanner.kt) — a local run still RUNNING/QUEUED from
     // a previous app process, surfaced on Home rather than silently lost.
@@ -79,11 +77,10 @@ object TestTags {
     const val WARDROBE_DELETE_CONFIRM = "wardrobe_delete_confirm"
     const val WARDROBE_DELETE_CANCEL = "wardrobe_delete_cancel"
 
-    // Bottom dock navigation (LookbookBottomBar.kt) — Home/Library/Settings only.
-    const val BOTTOM_BAR = "bottom_bar"
-    const val BOTTOM_BAR_HOME = "bottom_bar_home"
-    const val BOTTOM_BAR_LIBRARY = "bottom_bar_library"
-    const val BOTTOM_BAR_SETTINGS = "bottom_bar_settings"
+    // Unified main screen (UnifiedMainScreen.kt) — top-right icons, no bottom dock any more.
+    const val UNIFIED_LIBRARY_BUTTON = "unified_library_button"
+    const val UNIFIED_SETTINGS_BUTTON = "unified_settings_button"
+    fun modalityChip(id: String): String = "modality_chip_$id"
 
     // Privacy blur post-process (PrivacyBlurSheet.kt, RegionBlurOverlay.kt) — B7.
     const val PRIVACY_BLUR_BUTTON = "privacy_blur_button"
@@ -117,7 +114,7 @@ object TestTags {
     // Prompt-level safety preset picker (SettingsSafetySection.kt) — Part B.3.
     fun safetyPreset(id: String): String = "safety_preset_$id"
 
-    // Safety-preset confirm-before-generate dialog (UnifiedStudioPane.kt) — shown only for
+    // Safety-preset confirm-before-generate dialog (UnifiedMainScreen.kt) — shown only for
     // presets with SafetyPreset.confirm = true (Blur identities, Redact details).
     const val SAFETY_PRESET_CONFIRM_GENERATE = "safety_preset_confirm_generate"
     const val SAFETY_PRESET_CONFIRM_CANCEL = "safety_preset_confirm_cancel"
@@ -125,11 +122,9 @@ object TestTags {
     // Live context-budget indicator above the chat composer (ChatComponents.kt) — Part B.2.
     const val CONTEXT_BUDGET_BAR = "context_budget_bar"
 
-    // Studio pager (UnifiedStudioPane.kt) — A4.3, Part B.2/B.3 surfaced inline in Create.
-    const val STUDIO_TOKEN_BUDGET_BAR = "studio_token_budget_bar"
-    fun studioSafetyPreset(id: String): String = "studio_safety_preset_$id"
     const val ANALYZE_REFERENCE_SWITCH = "analyze_reference_switch"
     const val MATURE_FASHION_ASSIST_SWITCH = "mature_fashion_assist_switch"
+    const val PROMPT_CLARITY_ASSIST_SWITCH = "prompt_clarity_assist_switch"
 
     // "What the assistant remembers" panel (SettingsMemorySection.kt) — Part B.1.
     const val MEMORY_ENABLED_SWITCH = "memory_enabled_switch"

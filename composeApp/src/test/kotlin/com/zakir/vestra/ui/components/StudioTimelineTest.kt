@@ -1,6 +1,7 @@
 package com.zakir.vestra.ui.components
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.GenerativeState
 import com.zakir.vestra.ui.GenerativeViewModel
 import org.junit.Rule
@@ -26,6 +27,7 @@ class StudioTimelineTest {
         id = "turn-1",
         prompt = "a test prompt",
         timestampMs = 0L,
+        capability = AiCapability.IMAGE_GEN,
         result = result,
     )
 
@@ -106,7 +108,7 @@ class StudioTimelineTest {
 
     @Test
     fun olderTurnRendersWithoutRetryOrDismissCallbacks() {
-        // Mirrors how UnifiedStudioPane/AudioStudioPane call this for every turn except the
+        // Mirrors how UnifiedMainScreen calls this for every turn except the
         // latest: onRetry/onDismiss forced to null so history stays view-only.
         compose.setContent {
             StudioTurnBubble(

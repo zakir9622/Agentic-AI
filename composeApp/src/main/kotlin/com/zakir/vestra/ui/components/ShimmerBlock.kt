@@ -30,7 +30,7 @@ import com.zakir.vestra.ui.util.rememberReduceMotion
  * animation in this app (see `rememberReduceMotion()`).
  *
  * Use this wherever a result/history panel is loading instead of rolling an ad hoc
- * `CircularProgressIndicator` or blank space — see `NewsChatScreen`'s headline list for the
+ * `CircularProgressIndicator` or blank space — see `NewsHeadlinesBar`'s headline list for the
  * reference call site.
  */
 @Composable
