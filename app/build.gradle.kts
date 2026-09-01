@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId = "com.zakir.vestra"
-        minSdk = 35
+        minSdk = 28
         targetSdk = 36
         versionCode = 94
         versionName = "3.1.8"

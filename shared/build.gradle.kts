@@ -50,7 +50,7 @@ android {
     namespace = "com.zakir.vestra.shared"
     compileSdk = 36
     defaultConfig {
-        minSdk = 35
+        minSdk = 28
         consumerProguardFiles("consumer-rules.pro")
     }
     compileOptions {
