@@ -417,9 +417,7 @@ fun VestraNavHost(
             StoragePrivacyScreen(
                 appSettings = appSettings,
                 usageLedger = usageLedger,
-                // Clearing keys from here jumps to the page that owns them, so the destructive
-                // confirm lives beside the fields it empties rather than being duplicated.
-                onConfirmClearTokens = { navController.navigate(Routes.SETTINGS_API_KEYS) },
+                onOpenApiKeys = { navController.navigate(Routes.SETTINGS_API_KEYS) },
                 onBack = { navController.popBackStack() },
             )
         }

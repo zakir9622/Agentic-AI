@@ -106,7 +106,7 @@ fun SafetyScreen(appSettings: AppSettings, onBack: () -> Unit) {
 fun StoragePrivacyScreen(
     appSettings: AppSettings,
     usageLedger: UsageLedger,
-    onConfirmClearTokens: () -> Unit,
+    onOpenApiKeys: () -> Unit,
     onBack: () -> Unit,
 ) {
     var clearingCache by remember { mutableStateOf(false) }
@@ -130,7 +130,7 @@ fun StoragePrivacyScreen(
             onClearingCache = { clearingCache = it },
             usageLedger = usageLedger,
             permissionEpoch = permissionEpoch,
-            onConfirmClearTokens = onConfirmClearTokens,
+            onOpenApiKeys = onOpenApiKeys,
         )
         settingsDurableStatusSection(appSettings = appSettings, durableReady = durableReady)
     }

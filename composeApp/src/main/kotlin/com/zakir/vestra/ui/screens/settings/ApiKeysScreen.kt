@@ -42,6 +42,7 @@ import com.zakir.vestra.shared.settings.TokenPortals
 import com.zakir.vestra.storage.DurableStorage
 import com.zakir.vestra.storage.TokenSidecar
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.GlassTopBar
 import com.zakir.vestra.ui.components.SnackbarLevel
@@ -284,6 +285,20 @@ fun ApiKeysScreen(
                     keysSavedFlash = count > 0
                 },
             )
+
+            // The destructive action lives on the page that owns the fields it empties. It used
+            // to sit under Storage & privacy, two sections away from the keys themselves — and
+            // moving the keys here without moving this left the confirm dialog with no trigger
+            // at all, which made clearing keys unreachable in the app.
+            item(key = "clear-keys") {
+                Spacer(Modifier.height(6.dp))
+                GlassSecondaryButton(
+                    text = "Clear all API keys",
+                    onClick = { confirmClearTokens = true },
+                    modifier = Modifier.testTag(TestTags.SETTINGS_CLEAR_TOKENS_BUTTON),
+                )
+                Spacer(Modifier.height(14.dp))
+            }
         }
     }
 }
