@@ -578,7 +578,10 @@ fun CodeBlock(
             .fillMaxWidth()
             .testTag(TestTags.CHAT_CODE_BLOCK)
             .clip(shape)
-            .background(VestraColors.Canvas.copy(alpha = 0.55f))
+            // `Surface`, not `Canvas`: in light mode the canvas is a pale lilac within a few
+            // percent of the white bubble behind it, so a canvas-tinted block was delineated
+            // only by its border. `Surface` is a real step down from the bubble in both palettes.
+            .background(VestraColors.Surface.copy(alpha = 0.85f))
             .border(1.dp, VestraColors.GlassBorder, shape)
             .padding(SpacingTokens.sm),
     ) {
