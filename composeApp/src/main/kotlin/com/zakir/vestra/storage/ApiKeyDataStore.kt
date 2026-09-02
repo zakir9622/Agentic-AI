@@ -72,7 +72,12 @@ class ApiKeyDataStore(
         val totalTokens: Int = 0,
         val estCostUsd: Double = 0.0,
         val lastUsedMs: Long? = null,
-    )
+        /** Mean round-trip over this service's recorded runs; 0 when it has none. */
+        val avgLatencyMs: Long = 0L,
+    ) {
+        /** 0f..1f over recorded runs. Null when nothing ran — "no data" is not "0% success". */
+        val successRate: Float? get() = if (requestCount == 0) null else successCount.toFloat() / requestCount
+    }
 
     data class ApiUsageDashboardData(
         val totalRequests: Int = 0,
@@ -83,7 +88,16 @@ class ApiKeyDataStore(
         val totalEstCostUsd: Double = 0.0,
         val services: List<ServiceUsageSummary> = emptyList(),
         val sessionHistory: List<SessionUsageRecord> = emptyList(),
-    )
+        /** Mean round-trip across every recorded run; 0 when there are none. */
+        val avgLatencyMs: Long = 0L,
+    ) {
+        /**
+         * 0f..1f over recorded runs, or null when nothing has run yet. Deliberately nullable:
+         * rendering a fresh install as "0% success" is a lie, and the caller needs to be able
+         * to tell "no data" from "everything failed".
+         */
+        val successRate: Float? get() = if (totalRequests == 0) null else successfulRequests.toFloat() / totalRequests
+    }
 
     private fun parseRecordsFromJson(rawJson: String?): List<SessionUsageRecord> {
         if (rawJson.isNullOrBlank()) return emptyList()
@@ -187,6 +201,11 @@ class ApiKeyDataStore(
                 val tokOut = serviceEvents.sumOf { it.tokensOut }
                 val cost = serviceEvents.sumOf { it.estCostUsd }
                 val lastUsed = serviceEvents.maxOfOrNull { it.timestampMs }
+                // Only runs that actually reported a latency count toward the mean; a run
+                // recorded with latencyMs = 0 never measured, and averaging those in would
+                // drag every provider's number toward zero.
+                val timed = serviceEvents.filter { it.latencyMs > 0L }
+                val avgLatency = if (timed.isEmpty()) 0L else timed.sumOf { it.latencyMs } / timed.size
 
                 ServiceUsageSummary(
                     serviceKey = key,
@@ -199,6 +218,7 @@ class ApiKeyDataStore(
                     totalTokens = tokIn + tokOut,
                     estCostUsd = cost,
                     lastUsedMs = lastUsed,
+                    avgLatencyMs = avgLatency,
                 )
             }
 
@@ -207,6 +227,8 @@ class ApiKeyDataStore(
             val totalIn = events.sumOf { it.tokensIn }
             val totalOut = events.sumOf { it.tokensOut }
             val totalCost = events.sumOf { it.estCostUsd }
+            val timedEvents = events.filter { it.latencyMs > 0L }
+            val avgLatency = if (timedEvents.isEmpty()) 0L else timedEvents.sumOf { it.latencyMs } / timedEvents.size
 
             ApiUsageDashboardData(
                 totalRequests = totalReqs,
@@ -217,6 +239,7 @@ class ApiKeyDataStore(
                 totalEstCostUsd = totalCost,
                 services = serviceSummaries,
                 sessionHistory = events,
+                avgLatencyMs = avgLatency,
             )
         }
 

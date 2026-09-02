@@ -18,6 +18,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -42,12 +44,17 @@ import com.zakir.vestra.ui.screens.result.ResultScreen
 import com.zakir.vestra.shared.chat.ChatRepository
 import com.zakir.vestra.shared.diagnostics.RunDiagnostics
 import com.zakir.vestra.shared.jobs.LocalJobStore
+import com.zakir.vestra.ui.screens.settings.ApiMonitorScreen
+import com.zakir.vestra.ui.screens.settings.DefaultModelsScreen
+import com.zakir.vestra.ui.screens.settings.ModelsScreen
+import com.zakir.vestra.ui.screens.settings.NotificationsScreen
+import com.zakir.vestra.ui.screens.settings.ProviderModelsScreen
+import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.ui.screens.settings.DiagnosticsScreen
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.home.UnifiedMainScreen
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
-import com.zakir.vestra.ui.screens.usage.UsageScreen
 import com.zakir.vestra.ui.screens.changelog.ChangelogScreen
 import com.zakir.vestra.ui.screens.help.HelpScreen
 import com.zakir.vestra.ui.screens.privacy.PrivacyScreen
@@ -67,6 +74,15 @@ object Routes {
     const val WARDROBE = "wardrobe"
     const val SETTINGS = "settings"
     const val SETTINGS_DIAGNOSTICS = "settings/diagnostics"
+    const val SETTINGS_MODELS = "settings/models"
+    const val SETTINGS_DEFAULT_MODELS = "settings/models/defaults"
+    const val SETTINGS_NOTIFICATIONS = "settings/notifications"
+    const val SETTINGS_API_MONITOR = "settings/api-monitor"
+
+    /** [SETTINGS_MODELS_PROVIDER] takes the [CloudPlatform] enum name as its one argument. */
+    const val SETTINGS_MODELS_PROVIDER = "settings/models/provider"
+    const val ARG_PLATFORM = "platform"
+    fun providerModels(platform: CloudPlatform) = "$SETTINGS_MODELS_PROVIDER/${platform.name}"
     const val PACKS = "packs"
     const val CREATE = "create"
     const val USAGE = "usage"
@@ -128,6 +144,13 @@ fun VestraNavHost(
         },
     )
 
+    // Null outside a real Android app process (tests, previews) — every notifier call is
+    // null-safe, so a missing one never affects generation.
+    val appContext = LocalContext.current.applicationContext
+    val notifier = remember(appContext) {
+        (appContext as? com.zakir.vestra.VestraApp)?.generationNotifier
+    }
+
     val generativeViewModel: GenerativeViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -140,6 +163,7 @@ fun VestraNavHost(
                     runDiagnostics,
                     deviceRamMb,
                     localJobStore,
+                    notifier,
                 ) as T
         },
     )
@@ -280,16 +304,13 @@ fun VestraNavHost(
             route = Routes.USAGE,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.USAGE) }),
         ) {
-            UsageScreen(
-                usage = usageLedger,
-                appSettings = appSettings,
-                packManager = packManager,
+            // Was UsageScreen, which rendered the same ApiUsageDashboardCard as ApiMonitorScreen
+            // plus a UsageLedger summary — two screens doing one job. The route is kept because
+            // it is deep-linked and scripts/visual-verify.sh drives it; it resolves to the one
+            // monitor screen now, which absorbed the ledger summary.
+            ApiMonitorScreen(
                 onBack = { navController.popBackStack() },
-                onOpenCreate = {
-                    generativeViewModel.prepareStudio(resetIfIdle = true)
-                    generativeViewModel.bindStudio(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN)
-                    navController.navigate(Routes.HOME)
-                },
+                onOpenKeys = { navController.navigate(Routes.SETTINGS_MODELS) },
             )
         }
         composable(
@@ -352,18 +373,66 @@ fun VestraNavHost(
         ) {
             SettingsScreen(
                 appSettings = appSettings,
-                engineRouter = engineRouter,
                 packManager = packManager,
                 freeCloudDiscovery = freeCloudDiscovery,
                 usageLedger = usageLedger,
                 memoryRepository = memoryRepository,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
                 onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
+                onOpenModels = { navController.navigate(Routes.SETTINGS_MODELS) },
+                onOpenDefaultModels = { navController.navigate(Routes.SETTINGS_DEFAULT_MODELS) },
+                onOpenNotifications = { navController.navigate(Routes.SETTINGS_NOTIFICATIONS) },
+                onOpenApiMonitor = { navController.navigate(Routes.SETTINGS_API_MONITOR) },
                 onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS_MODELS) {
+            ModelsScreen(
+                appSettings = appSettings,
+                packManager = packManager,
+                engineRouter = engineRouter,
+                onOpenProvider = { navController.navigate(Routes.providerModels(it)) },
+                onOpenPacks = { navController.navigate(Routes.PACKS) },
+                onOpenDefaults = { navController.navigate(Routes.SETTINGS_DEFAULT_MODELS) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = "${Routes.SETTINGS_MODELS_PROVIDER}/{${Routes.ARG_PLATFORM}}",
+            arguments = listOf(navArgument(Routes.ARG_PLATFORM) { type = NavType.StringType }),
+        ) { entry ->
+            // An unparseable argument can only come from a hand-typed deep link; fall back to
+            // Hugging Face rather than crashing on valueOf.
+            val platform = entry.arguments?.getString(Routes.ARG_PLATFORM)
+                ?.let { name -> CloudPlatform.entries.firstOrNull { it.name == name } }
+                ?: CloudPlatform.HF_INFERENCE
+            ProviderModelsScreen(
+                platform = platform,
+                appSettings = appSettings,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS_DEFAULT_MODELS) {
+            DefaultModelsScreen(
+                appSettings = appSettings,
+                freeCloudDiscovery = freeCloudDiscovery,
+                packManager = packManager,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS_NOTIFICATIONS) {
+            NotificationsScreen(
+                appSettings = appSettings,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS_API_MONITOR) {
+            ApiMonitorScreen(
+                onBack = { navController.popBackStack() },
+                onOpenKeys = { navController.navigate(Routes.SETTINGS_MODELS) },
             )
         }
         composable(Routes.SETTINGS_DIAGNOSTICS) {

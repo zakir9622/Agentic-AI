@@ -13,6 +13,12 @@ import com.zakir.vestra.R
 /**
  * Fashion-atelier type: Syne (geometric display) + Outfit (clean body).
  * Variable fonts with explicit weight axes — line heights stay Sp for Material fields.
+ *
+ * Every role Material3 defines that the app actually calls is overridden here. Leaving one
+ * out is not neutral: an unset role silently falls back to Material's Roboto default at its
+ * own tracking, so a screen mixing `titleMedium` with `titleSmall` renders in two typefaces.
+ * `headlineSmall`, `titleSmall`, `bodySmall` and `labelSmall` were exactly that gap — all
+ * four were used across the usage dashboard and model picker while undefined.
  */
 @OptIn(ExperimentalTextApi::class)
 private fun syne(weight: Int, fontWeight: FontWeight) = Font(
@@ -80,6 +86,13 @@ val VestraTypography = Typography(
         lineHeight = 28.sp,
         letterSpacing = (-0.2).sp,
     ),
+    headlineSmall = TextStyle(
+        fontFamily = Display,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 19.sp,
+        lineHeight = 24.sp,
+        letterSpacing = (-0.1).sp,
+    ),
     titleLarge = TextStyle(
         fontFamily = Body,
         fontWeight = FontWeight.SemiBold,
@@ -92,6 +105,12 @@ val VestraTypography = Typography(
         fontSize = 15.sp,
         lineHeight = 20.sp,
     ),
+    titleSmall = TextStyle(
+        fontFamily = Body,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+    ),
     bodyLarge = TextStyle(
         fontFamily = Body,
         fontWeight = FontWeight.Normal,
@@ -103,6 +122,12 @@ val VestraTypography = Typography(
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
+    ),
+    bodySmall = TextStyle(
+        fontFamily = Body,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
     ),
     labelLarge = TextStyle(
         fontFamily = Body,
@@ -117,5 +142,15 @@ val VestraTypography = Typography(
         fontSize = 11.sp,
         lineHeight = 14.sp,
         letterSpacing = 1.2.sp,
+    ),
+    // Dense metric/caption role. `labelMedium`'s 1.2sp tracking is what makes chips and
+    // service tiles overrun their measured width, so this one stays near-neutral — it is
+    // the style every stat line, badge and metric row uses.
+    labelSmall = TextStyle(
+        fontFamily = Body,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.2.sp,
     ),
 )

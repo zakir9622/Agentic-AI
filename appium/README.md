@@ -24,6 +24,15 @@ top-right icons instead (`unified_library_button`/`unified_settings_button`). `t
 and `test_model_packs.py` also reference now-removed `bottom_bar_*` tags and need the same pass —
 none of this has been re-verified on a device yet.
 
+**Also stale as of the professional-UI pass:** `top_model_selector` no longer exists — the home
+top bar's service chip and its dropdown were removed, and model selection happens entirely
+through the composer's `composer_model_chip`. Settings is a hub now, so anything reaching a
+model or key setting must first tap `settings_row_models` (then `models_provider_row_<PLATFORM>`
+for a specific service) or `settings_row_default_models`; the flat scroll those tests assumed is
+gone. New tags worth covering: `home_empty_state` / `home_suggestion_<n>` (the two-tap path to a
+first generation), `composer_blocked_hint`, `settings_row_notifications`,
+`settings_row_api_monitor`, `provider_refresh_models` and `provider_model_row_<id>`.
+
 ## What's deliberately NOT covered yet
 
 - Video and Audio generation end-to-end (Image and Code were prioritized as the higher-risk

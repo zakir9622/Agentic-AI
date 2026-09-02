@@ -2,6 +2,79 @@
 
 ## Unreleased (post-3.1.8)
 
+**Professional-UI pass.** A design review of the shipped build against real screenshots, plus
+the first Compose renders this repo has had at 360dp and in light mode. Four visible defects,
+all with concrete causes:
+
+- **The API usage dashboard was the home screen's hero** — pinned above the thread *and*
+  duplicated as the empty-state item, so a fresh install opened on a token counter above ~900px
+  of nothing (and the top-bar analytics toggle was inert while the thread was empty, since the
+  pinned copy was gated on it and the empty-state copy was not). Both call sites removed; the
+  monitor moved to **Settings → API monitor**, where it also gained real success-rate and
+  average-latency metrics derived from data `SessionUsageRecord` was already storing. Home's
+  empty state is now a greeting plus three per-mode one-tap starters that fill and send.
+- **Service tiles rendered text one character per line.** A `FlowRow` with
+  `weight(1f, fill = false)` on all five children and no `maxItemsInEachRow` never wrapped, so
+  each tile got ~52dp on a 360dp phone; the five unweighted `Text`s inside had no `maxLines`.
+  Fixed with `maxItemsInEachRow = 2` and bounds on every `Text`.
+- **The composer's model chip displayed an error sentence.** It received
+  `GenerativeViewModel.preflightLabel()`, which returns the blocked *reason* when cloud is
+  gated — 140 characters of consent copy ellipsized to `Pick a cloud model in the model pi…`.
+  Split into `modelLabel()` and `blockedReason()`, with the reason given its own hint row. The
+  composer also drops from three concentric borders to one, recesses its field by fill rather
+  than outline, and hides the permanently inert `Layers 0` assist chip.
+- **The top bar demanded ~423dp of a 324dp row** (three unweighted children under
+  `SpaceBetween`, with the model chip capped at 130dp for a compound `service · model` string
+  that therefore always truncated). The chip and its hand-rolled `DropdownMenu` are gone — the
+  composer already owns model selection — leaving a `weight(1f)` brand block and two buttons.
+
+Two **pre-existing palette bugs** surfaced by rendering in light mode and dark for the first
+time: `LightPalette`'s glass border/fill were white-on-white against white cards (so
+`GlassSecondaryButton` drew no button at all and unconfigured tiles had no rim), and
+`GlassTopBar` never set a content color, so every screen title inherited black and was
+invisible in dark mode. Both fixed at the token/component level, which repairs them app-wide.
+
+**Settings is now a hub.** Navigable rows for Models, Default models, Notifications, API
+monitor and Diagnostics; API keys, appearance, storage, permissions, safety and memory stay
+inline. The single 443-line scroll that mixed engine tiers, pack downloads, four key fields and
+five per-capability model dropdowns is gone.
+
+Retiring that scroll initially orphaned three things, caught by auditing every `AppSettings`
+setter for a call site: the **engine-tier dropdown** and the **Prefer NNAPI toggle** lost their
+only UI while still driving real behaviour (which local try-on tier runs, and whether ONNX
+attaches the NNAPI delegate), and **Cloud usage** became unreachable. Both engine controls now
+live at the top of Settings → Models, above the on-device catalog rather than buried under it.
+`Routes.USAGE` is kept — it is deep-linked and `scripts/visual-verify.sh` drives it — but
+resolves to the one API-monitor screen, which absorbed the `UsageLedger` free-tier request
+summary that was the only thing the retired `UsageScreen` showed and the monitor did not.
+`SettingsEnginesSection.kt`, `UsageScreen.kt`, `settingsCloudCapabilitiesSection`,
+`CloudCapabilityDropdown` and `PackDropdown` are deleted rather than left orphaned (~800 lines).
+
+**Live per-provider model directories.** New `shared/cloud/ProviderModelDirectory.kt` fetches
+Groq's, OpenRouter's, Gemini's and the HF router's own `/models` endpoints behind a 1h TTL
+cache — two of which `ProviderConnectivityChecker` was already calling and discarding. Each
+provider page shows a masked key field, a real connectivity test, and **every** model the key
+returns with its context window, modalities, owner and pricing; rows the app has a payload
+route for are marked Ready and are selectable, the rest are greyed with the reason rather than
+hidden. Selecting writes the matching per-capability default.
+
+**Generation notifications.** New `notify/GenerationNotifier.kt` and a `generation_results`
+channel, hooked into `GenerativeViewModel`'s single terminal-state funnel and gated on three
+things: the per-category preference (`AppSettings.notifyOnGeneration*`), the OS
+`POST_NOTIFICATIONS` grant, and the app being backgrounded. Settings → Notifications controls
+all of it; before this the only notification the app could post was pack-download progress.
+
+**Typography roles that were silently missing.** `headlineSmall`, `titleSmall`, `bodySmall` and
+`labelSmall` were used across the usage dashboard and model picker but never defined, so they
+fell back to Material's Roboto at the wrong tracking — two typefaces on one screen. All four
+are now defined in Outfit, and a `ControlTokens` scale fixes controls that shared a row at
+three different heights.
+
+**Verification.** New `RedesignScreenshotTest` renders 18 cases at 360dp and 411dp in both
+palettes via the existing Robolectric harness, and `ProviderModelDirectoryTest` covers each
+provider's response shape, `:free` filtering, Ready/Not-usable decoration, 401 handling and the
+TTL cache against `MockEngine`.
+
 Three large PRs merged since the 3.1.8 version bump; `versionName`/`versionCode` have not been
 bumped again yet. Full detail in `docs/PROJECT_HISTORY.md` (Eras 6–7).
 

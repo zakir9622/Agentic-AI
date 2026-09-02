@@ -58,12 +58,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zakir.vestra.storage.ApiKeyDataStore
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.theme.ControlTokens
 import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -133,6 +135,8 @@ fun ApiUsageDashboardCard(
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                     color = VestraColors.Accent,
                                     fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false,
                                 )
                             }
                         }
@@ -168,22 +172,23 @@ fun ApiUsageDashboardCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 QuickStatPill(
-                    label = "Total Tokens",
+                    label = "Tokens",
                     value = if (data.totalTokens > 0) String.format(Locale.getDefault(), "%,d", data.totalTokens) else "0",
                     accent = VestraColors.Accent,
                     icon = Icons.Outlined.Speed,
                     modifier = Modifier.weight(1f),
                 )
                 QuickStatPill(
-                    label = "Requests",
+                    label = "Runs",
                     value = "${data.totalRequests}",
                     accent = VestraColors.SaffronDeep,
                     icon = Icons.Outlined.Cloud,
                     modifier = Modifier.weight(1f),
                 )
                 QuickStatPill(
-                    label = "Est. Spend",
-                    value = "\$0.00",
+                    // Was hardcoded "$0.00" while `data.totalEstCostUsd` sat unread.
+                    label = "Spend",
+                    value = String.format(Locale.getDefault(), "$%.2f", data.totalEstCostUsd),
                     accent = VestraColors.SaffronDeep,
                     icon = Icons.Outlined.CheckCircle,
                     modifier = Modifier.weight(1f),
@@ -206,6 +211,7 @@ fun ApiUsageDashboardCard(
                     HorizontalDivider(color = VestraColors.GlassBorder)
                     Spacer(Modifier.height(12.dp))
 
+                    if (data.services.isNotEmpty()) {
                     Text(
                         "CONFIGURED CLOUD SERVICES",
                         style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
@@ -214,23 +220,29 @@ fun ApiUsageDashboardCard(
                     )
                     Spacer(Modifier.height(8.dp))
 
-                    // Service Cards
+                    // Two per row, never five. `weight()` children have no intrinsic minimum,
+                    // so the previous `weight(1f, fill = false)` with no `maxItemsInEachRow`
+                    // packed all five services onto a single line and handed each ~52dp on a
+                    // 360dp phone — which is what forced "0 reqs · 0 tok" to soft-wrap one
+                    // character per line. `maxItemsInEachRow` is what makes FlowRow wrap here.
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
+                        verticalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
+                        maxItemsInEachRow = 2,
                     ) {
                         data.services.forEach { service ->
                             ServiceUsageChip(
                                 service = service,
                                 modifier = Modifier
                                     .testTag(TestTags.apiUsageServiceCard(service.serviceKey))
-                                    .weight(1f, fill = false),
+                                    .weight(1f),
                             )
                         }
                     }
-
                     Spacer(Modifier.height(16.dp))
+                    }
+
 
                     // Recent Session History
                     Row(
@@ -340,20 +352,20 @@ private fun QuickStatPill(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(RadiusTokens.sm))
             .background(VestraColors.GlassFill)
-            .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(10.dp))
-            .padding(horizontal = 8.dp, vertical = 7.dp),
+            .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(RadiusTokens.sm))
+            .padding(horizontal = SpacingTokens.xs, vertical = SpacingTokens.xs),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 icon,
                 contentDescription = null,
                 tint = accent,
                 modifier = Modifier.size(15.dp),
             )
-            Spacer(Modifier.width(6.dp))
-            Column {
+            Spacer(Modifier.width(SpacingTokens.xxs + 2.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
                     text = value,
                     style = MaterialTheme.typography.titleSmall,
@@ -362,11 +374,14 @@ private fun QuickStatPill(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // maxLines=1 with the default Clip overflow hard-cut "Total Tokens"
+                // mid-glyph in the ~56dp a third-width pill leaves for text.
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    style = MaterialTheme.typography.labelSmall,
                     color = VestraColors.InkMuted,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -390,9 +405,12 @@ private fun TokenDistributionBar(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "${services.sumOf { it.tokensIn }} in · ${services.sumOf { it.tokensOut }} out",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                "${formatCount(services.sumOf { it.tokensIn })} in · " +
+                    "${formatCount(services.sumOf { it.tokensOut })} out",
+                style = MaterialTheme.typography.labelSmall,
                 color = VestraColors.InkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Spacer(Modifier.height(4.dp))
@@ -435,61 +453,76 @@ private fun ServiceUsageChip(
     modifier: Modifier = Modifier,
 ) {
     val accent = serviceColor(service.serviceKey)
-    Box(
+    Column(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(RadiusTokens.sm))
             .background(VestraColors.GlassFill)
             .border(
                 1.dp,
                 if (service.isConfigured) accent.copy(alpha = 0.35f) else VestraColors.GlassBorder,
-                RoundedCornerShape(10.dp),
+                RoundedCornerShape(RadiusTokens.sm),
             )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = SpacingTokens.sm, vertical = SpacingTokens.xs + 2.dp),
     ) {
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(
-                    Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(if (service.isConfigured) accent else VestraColors.InkMuted),
-                )
-                Text(
-                    service.serviceName,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = VestraColors.Ink,
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (service.isConfigured) "Active" else "Key Unset",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = if (service.isConfigured) accent else VestraColors.InkMuted,
-                )
-                Text("·", style = MaterialTheme.typography.labelSmall, color = VestraColors.InkMuted)
-                Text(
-                    "${service.requestCount} reqs",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = VestraColors.Ink,
-                )
-                Text("·", style = MaterialTheme.typography.labelSmall, color = VestraColors.InkMuted)
-                Text(
-                    "${service.totalTokens} tok",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = VestraColors.Ink,
-                )
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xxs + 2.dp),
+        ) {
+            Box(
+                Modifier
+                    .size(ControlTokens.dot)
+                    .clip(CircleShape)
+                    .background(if (service.isConfigured) accent else VestraColors.InkMuted),
+            )
+            // "Google Gemini" and "Hugging Face" both wrapped to two lines here before these
+            // bounds existed. Every Text in this chip is now single-line and ellipsized.
+            Text(
+                service.serviceName,
+                style = MaterialTheme.typography.titleSmall,
+                color = VestraColors.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(Modifier.height(SpacingTokens.xxs))
+        Text(
+            if (service.isConfigured) "Active" else "Key not set",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (service.isConfigured) accent else VestraColors.InkMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(SpacingTokens.xxs))
+        // Metrics stack rather than sharing one row. Five unweighted Texts in a single Row was
+        // the other half of the vertical-wrap bug; two short lines always fit a half-width chip.
+        Text(
+            "${formatCount(service.requestCount)} req · ${formatCount(service.totalTokens)} tok",
+            style = MaterialTheme.typography.labelSmall,
+            color = VestraColors.Ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        val rate = service.successRate
+        if (rate != null) {
+            Text(
+                "${(rate * 100).roundToInt()}% ok · ${service.avgLatencyMs} ms avg",
+                style = MaterialTheme.typography.labelSmall,
+                color = VestraColors.InkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
+
+/** Thousands separator so a six-figure token count doesn't blow out a half-width chip. */
+private fun formatCount(value: Int): String =
+    if (value >= 1000) String.format(Locale.getDefault(), "%,d", value) else value.toString()
 
 @Composable
 private fun SessionEventRow(

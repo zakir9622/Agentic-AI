@@ -147,4 +147,38 @@ object TestTags {
     const val API_USAGE_CLEAR_HISTORY_BUTTON = "api_usage_clear_history_button"
     const val API_USAGE_SETTINGS_BUTTON = "api_usage_settings_button"
     fun apiUsageServiceCard(serviceKey: String): String = "api_usage_service_$serviceKey"
+
+    // Composer blocked-reason hint (PromptComposer.kt) — the slot that used to be crammed
+    // into the model chip, where it rendered as "Pick a cloud model in the model pi…".
+    const val COMPOSER_BLOCKED_HINT = "composer_blocked_hint"
+
+    // Home empty state (UnifiedMainScreen.kt) — replaced the pinned usage dashboard.
+    const val HOME_EMPTY_STATE = "home_empty_state"
+    fun homeSuggestion(index: Int): String = "home_suggestion_$index"
+
+    // Settings hub navigation rows (SettingsScreen.kt).
+    const val SETTINGS_ROW_MODELS = "settings_row_models"
+    const val SETTINGS_ROW_DEFAULT_MODELS = "settings_row_default_models"
+    const val SETTINGS_ROW_NOTIFICATIONS = "settings_row_notifications"
+    const val SETTINGS_ROW_API_MONITOR = "settings_row_api_monitor"
+
+    // Models screen (ModelsScreen.kt) and per-provider detail (ProviderModelsScreen.kt).
+    const val MODELS_ON_DEVICE_SECTION = "models_on_device_section"
+    const val MODELS_CLOUD_SECTION = "models_cloud_section"
+    fun modelsProviderRow(platform: String): String = "models_provider_row_$platform"
+    const val PROVIDER_TOKEN_FIELD = "provider_token_field"
+    const val PROVIDER_TOKEN_SAVE = "provider_token_save"
+    const val PROVIDER_REFRESH_MODELS = "provider_refresh_models"
+    const val PROVIDER_MODEL_LIST = "provider_model_list"
+    fun providerModelRow(id: String): String = "provider_model_row_$id"
+
+    // Default-model-per-modality screen (DefaultModelsScreen.kt).
+    fun defaultModelRow(capability: String): String = "default_model_row_$capability"
+
+    // Notifications screen (NotificationsScreen.kt).
+    const val NOTIFICATIONS_PERMISSION_CARD = "notifications_permission_card"
+    const val NOTIFY_GENERATION_COMPLETE_SWITCH = "notify_generation_complete_switch"
+    const val NOTIFY_GENERATION_FAILED_SWITCH = "notify_generation_failed_switch"
+    const val NOTIFY_PACK_DOWNLOAD_SWITCH = "notify_pack_download_switch"
+    const val NOTIFICATIONS_SYSTEM_SETTINGS_BUTTON = "notifications_system_settings_button"
 }

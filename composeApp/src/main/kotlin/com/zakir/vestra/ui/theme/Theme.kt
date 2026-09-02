@@ -39,6 +39,23 @@ object RadiusTokens {
     val xl4: Dp = 44.dp
 }
 
+/**
+ * Interactive-control heights. Before these existed the composer's model chip measured ~30dp
+ * against a 48dp send orb in the same centered row, leaving ~9dp of dead air on either side
+ * of every chip; the home top bar mixed a 26dp brand mark, a ~29dp chip and 36dp icon buttons.
+ * Controls that sit on one row must share one height.
+ */
+object ControlTokens {
+    /** Pills, chips and dropdown anchors. */
+    val chip: Dp = 40.dp
+    /** Circular icon buttons in bars. */
+    val iconButton: Dp = 40.dp
+    /** The composer's send/stop orb — one step up from a chip so it reads as primary. */
+    val orb: Dp = 44.dp
+    /** Status/selection dot used inside chips and list rows. */
+    val dot: Dp = 8.dp
+}
+
 object SpacingTokens {
     val xxs: Dp = 4.dp
     val xs: Dp = 8.dp
@@ -105,11 +122,19 @@ private val LightPalette = VestraPalette(
     accent = Color(0xFF1F7DCF),
     accentSoft = Color(0xFF4E9BDB),
     accentGlow = Color(0x331F7DCF),
-    // glass-border/highlight: white at 70%/85% alpha (styles.css --glass-border/--glass-highlight)
-    glassFill = Color(0xF2FFFFFF),
-    glassFillStrong = Color(0xFAFFFFFF),
-    glassBorder = Color(0xB3FFFFFF),
-    glassHighlight = Color(0xD9FFFFFF),
+    // These were a literal port of lookbookweb's `--glass-*` tokens: white at 95%/98% fill and
+    // white at 70%/85% for the border and highlight. That works on the *web* app, whose glass
+    // sits over a tinted canvas — but this app draws glass on white cards
+    // (`surfaceContainer = Color.White` below), where white-on-white is nothing at all.
+    // Screenshot renders showed the consequence plainly: `GlassSecondaryButton` rendered as bare
+    // centred text with no button, and unconfigured service tiles floated with neither fill nor
+    // rim beside bordered ones. The fill is now a step off white and the border a low-alpha ink,
+    // so every glass surface has an edge in both palettes. Dark mode is untouched — its
+    // white-alpha values were always visible against a dark ground.
+    glassFill = Color(0xFFF3F6F9),
+    glassFillStrong = Color(0xFFFFFFFF),
+    glassBorder = Color(0x1F111419),
+    glassHighlight = Color(0x0D111419),
     glassShadow = Color(0x1A111419),
     danger = Color(0xFFD01C29),
     // atelierCanvas/atelierContainer/ivory/ivoryMuted are theme-independent by original design

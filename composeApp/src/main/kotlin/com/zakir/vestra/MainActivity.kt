@@ -28,6 +28,18 @@ import com.zakir.vestra.ui.theme.VestraTheme
  * `adb shell am start -a android.intent.action.VIEW -d lookbook://screen/settings -n com.zakir.vestra/.MainActivity`
  */
 class MainActivity : ComponentActivity() {
+    // Drives GenerationNotifier's foreground gate. A result already on screen does not need a
+    // notification telling the user about itself, so alerts only fire once the app is away.
+    override fun onResume() {
+        super.onResume()
+        (application as? VestraApp)?.generationNotifier?.appInForeground = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        (application as? VestraApp)?.generationNotifier?.appInForeground = false
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
