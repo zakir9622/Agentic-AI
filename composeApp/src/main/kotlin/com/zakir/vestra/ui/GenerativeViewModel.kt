@@ -27,6 +27,7 @@ import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.zakir.vestra.notify.GenerationNotifier
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -39,6 +40,11 @@ class GenerativeViewModel(
     private val runDiagnostics: RunDiagnostics? = null,
     private val deviceRamMb: Long? = null,
     private val localJobStore: LocalJobStore? = null,
+    /**
+     * Posts "your generation finished" alerts. Null in tests and in any host that has no
+     * Android context — every call site is null-safe, so generation never depends on it.
+     */
+    private val notifier: GenerationNotifier? = null,
 ) : ViewModel() {
 
     /** The in-flight [LocalJobStore] job id, if the current generation is local — null otherwise. */
@@ -273,6 +279,7 @@ class GenerativeViewModel(
      */
     private fun updateLastTurn(studioKey: AiCapability, next: GenerativeState) {
         if (next is GenerativeState.Preparing) return
+        notifyIfTerminal(studioKey, next)
         if (boundKey == studioKey) {
             val turns = _turns.value
             val last = turns.lastOrNull() ?: return
@@ -283,6 +290,37 @@ class GenerativeViewModel(
             owner.turns = owner.turns.dropLast(1) + last.copy(result = next)
         }
         refreshAllTurns()
+    }
+
+    /**
+     * Fires a notification when [next] is a terminal state.
+     *
+     * Hooked into [updateLastTurn] rather than each `generate*()` because every generation —
+     * local or cloud, image or code — funnels its result through here. Adding it per-call-site
+     * would mean six chances to forget one. [GenerativeState.CodeStreaming] is explicitly not
+     * terminal: it arrives repeatedly while a local model streams, and notifying on it would
+     * fire once per token batch.
+     */
+    private fun notifyIfTerminal(studioKey: AiCapability, next: GenerativeState) {
+        val notifier = notifier ?: return
+        when (next) {
+            is GenerativeState.Failed -> notifier.notifyFailed(
+                capability = studioKey,
+                reason = next.message,
+                enabled = appSettings.notifyOnGenerationFailed.value,
+            )
+            is GenerativeState.ImageReady,
+            is GenerativeState.ImageBatchReady,
+            is GenerativeState.VideoReady,
+            is GenerativeState.AudioReady,
+            is GenerativeState.CodeReady,
+            is GenerativeState.TranscribeReady,
+            -> notifier.notifyComplete(
+                capability = studioKey,
+                enabled = appSettings.notifyOnGenerationComplete.value,
+            )
+            is GenerativeState.Preparing, is GenerativeState.Running, is GenerativeState.CodeStreaming -> Unit
+        }
     }
 
     val isBusy: Boolean
@@ -391,47 +429,59 @@ class GenerativeViewModel(
         return want == have
     }
 
-    fun preflightLabel(capability: AiCapability): String? {
-        if (capability == AiCapability.IMAGE_GEN &&
-            (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
-            generative.localImageReady()
-        ) {
-            // Reflects whichever engine the user actually selected — was hardcoded to
-            // "Local SD-Turbo", mislabeling every Bonsai-selected run the same way local Code
-            // runs were mislabeled "Local Gemma" regardless of which local model actually ran.
-            val label = if (appSettings.selectionId(capability) == "local-bonsai-image-v1") {
-                "Bonsai Image 4B (LiteRT)"
-            } else {
-                "Local SD-Turbo"
-            }
-            return "$label · Ready offline"
-        }
-        if (capability == AiCapability.IMAGE_EDIT &&
-            (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
-            generative.localImageEditReady()
-        ) {
-            return "Local SD-Turbo edit · Ready offline"
-        }
-        if (capability == AiCapability.AUDIO && generative.localAudioReady()) {
-            return "Device TTS · Ready offline"
-        }
-        if (capability == AiCapability.CODE &&
-            (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
-            generative.localCodeReady()
-        ) {
-            val label = com.zakir.vestra.shared.local.LocalModelCatalog
-                .byId(generative.localCodeProviderId())?.displayName ?: "Local Gemma"
-            return "$label · Ready offline"
-        }
-        if (capability == AiCapability.VIDEO &&
-            (appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()) &&
-            generative.localVideoReady()
-        ) {
-            return "Local still-clip · Ready offline"
-        }
+    /**
+     * The name of the model [capability]'s next generation would use — always a name, never a
+     * sentence, and never null. Callers render this in a one-line chip.
+     *
+     * This used to be one `preflightLabel()` that returned either a name or the blocked
+     * reason. That conflation put a 140-character cloud-consent paragraph into the composer's
+     * model chip, where it rendered as "Pick a cloud model in the model pi…". The reason now
+     * has its own accessor, [blockedReason].
+     */
+    fun modelLabel(capability: AiCapability): String {
+        localReadyLabel(capability)?.let { return it }
         return when (val check = appSettings.preflight(capability)) {
-            is PreflightResult.Blocked -> check.reason
-            is PreflightResult.Ok -> "${check.provider.displayName} · ${CloudModelContracts.liveStatusLabel(check.provider, appSettings.modelHealth)}"
+            is PreflightResult.Ok ->
+                "${check.provider.displayName} · ${CloudModelContracts.liveStatusLabel(check.provider, appSettings.modelHealth)}"
+            // Still name the model the user has selected, even while it is gated — the reason
+            // it is gated is [blockedReason]'s job, not the chip's.
+            is PreflightResult.Blocked -> appSettings.selectedProvider(capability).displayName
+        }
+    }
+
+    /** Why [capability] cannot generate right now, or null when it can. A full sentence. */
+    fun blockedReason(capability: AiCapability): String? {
+        if (localReadyLabel(capability) != null) return null
+        return (appSettings.preflight(capability) as? PreflightResult.Blocked)?.reason
+    }
+
+    /**
+     * "<model> · Ready offline" when an on-device engine would serve [capability] — either
+     * because the user selected a local model or because the network is down. Null otherwise.
+     */
+    private fun localReadyLabel(capability: AiCapability): String? {
+        val prefersLocal = appSettings.prefersLocal(capability) || !appSettings.networkLikelyAvailable()
+        return when {
+            capability == AiCapability.IMAGE_GEN && prefersLocal && generative.localImageReady() -> {
+                val label = if (appSettings.selectionId(capability) == "local-bonsai-image-v1") {
+                    "Bonsai Image 4B (LiteRT)"
+                } else {
+                    "Local SD-Turbo"
+                }
+                "$label · Ready offline"
+            }
+            capability == AiCapability.IMAGE_EDIT && prefersLocal && generative.localImageEditReady() ->
+                "Local SD-Turbo edit · Ready offline"
+            capability == AiCapability.AUDIO && generative.localAudioReady() ->
+                "Device TTS · Ready offline"
+            capability == AiCapability.CODE && prefersLocal && generative.localCodeReady() -> {
+                val label = com.zakir.vestra.shared.local.LocalModelCatalog
+                    .byId(generative.localCodeProviderId())?.displayName ?: "Local Gemma"
+                "$label · Ready offline"
+            }
+            capability == AiCapability.VIDEO && prefersLocal && generative.localVideoReady() ->
+                "Local still-clip · Ready offline"
+            else -> null
         }
     }
 

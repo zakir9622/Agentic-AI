@@ -1,5 +1,6 @@
 package com.zakir.vestra.ui.components
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,12 +48,27 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.theme.ControlTokens
+import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 
 /**
  * Prompt-first floating composer — model pill, assist count, send/stop.
  * Pattern adapted from modern generative shells; copy and brand are Lookbook.
+ *
+ * Two rules this component learned the hard way:
+ *
+ * 1. **[modelLabel] is a name, never a sentence.** It used to receive
+ *    `GenerativeViewModel.preflightLabel()`, which returns the *blocked reason* when cloud is
+ *    gated — a 140-character consent paragraph. Rendered in a one-line chip that came out as
+ *    "Pick a cloud model in the model pi…", so the control that is supposed to name the
+ *    selected model instead showed a truncated error. The reason now has its own slot,
+ *    [blockedReason], rendered as a full-width hint row above the actions.
+ * 2. **One rim per surface.** The container, the text field and each chip all used to draw
+ *    their own 1dp border at three different radii inside 14dp of padding. The field is now
+ *    borderless and recessed by fill instead ([VestraColors.Canvas] against the container's
+ *    [VestraColors.GlassFillStrong]), so depth reads from tone, not from stacked outlines.
  */
 @Composable
 fun PromptComposer(
@@ -71,6 +89,11 @@ fun PromptComposer(
     modifier: Modifier = Modifier,
     accent: Color = VestraColors.Accent,
     placeholder: String = "Describe the look…",
+    /**
+     * Why generation is currently gated, if it is — e.g. "Add a free API key in Settings".
+     * Shown as its own hint row; never folded into [modelLabel].
+     */
+    blockedReason: String? = null,
     referenceUri: String? = null,
     onAddReference: (() -> Unit)? = null,
     onClearReference: (() -> Unit)? = null,
@@ -78,20 +101,17 @@ fun PromptComposer(
     quickPrompts: List<QuickPromptItem> = emptyList(),
     onSelectQuickPrompt: ((String) -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(RadiusTokens.xl2)
     Column(
         modifier
             .fillMaxWidth()
             .clip(shape)
             .background(VestraColors.GlassFillStrong)
-            .border(
-                1.dp,
-                Brush.verticalGradient(
-                    listOf(VestraColors.GlassHighlight, accent.copy(alpha = 0.35f)),
-                ),
-                shape,
-            )
-            .padding(14.dp),
+            .border(1.dp, VestraColors.GlassBorder, shape)
+            // The reference row only exists in Image mode, so the composer's height changes
+            // when the modality chip changes. Animating it keeps that from reading as a jump.
+            .animateContentSize()
+            .padding(SpacingTokens.sm),
     ) {
         if (quickPrompts.isNotEmpty() && onSelectQuickPrompt != null && !busy) {
             QuickPromptCarousel(
@@ -104,34 +124,35 @@ fun PromptComposer(
         if (onAddReference != null || referenceUri != null) {
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 referenceUri?.let { uri ->
                     Row(
                         Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(VestraColors.GlassFill)
-                            .border(1.dp, accent.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
-                            .padding(4.dp),
+                            .clip(RoundedCornerShape(RadiusTokens.md))
+                            .background(VestraColors.Canvas)
+                            .padding(SpacingTokens.xxs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         AsyncImage(
                             model = uri,
                             contentDescription = "Reference",
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(44.dp)
                                 .testTag(TestTags.REFERENCE_IMAGE_THUMB)
-                                .clip(RoundedCornerShape(12.dp)),
+                                .clip(RoundedCornerShape(RadiusTokens.sm)),
                             contentScale = ContentScale.Crop,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(SpacingTokens.xs))
                         Text(
                             "Reference attached",
                             style = MaterialTheme.typography.labelSmall,
                             color = VestraColors.Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(SpacingTokens.xxs))
                         if (onClearReference != null) {
                             Box(
                                 Modifier
@@ -148,7 +169,7 @@ fun PromptComposer(
                                     modifier = Modifier.size(16.dp),
                                 )
                             }
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(SpacingTokens.xxs))
                         }
                     }
                 }
@@ -156,13 +177,13 @@ fun PromptComposer(
                     Row(
                         Modifier
                             .testTag(TestTags.ADD_REFERENCE_BUTTON)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(VestraColors.GlassFill)
-                            .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(14.dp))
+                            .heightIn(min = ControlTokens.chip)
+                            .clip(RoundedCornerShape(50))
+                            .background(VestraColors.Canvas)
                             .clickable(enabled = !busy, onClick = onAddReference)
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = SpacingTokens.sm),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xxs + 2.dp),
                     ) {
                         Icon(
                             Icons.Outlined.AddPhotoAlternate,
@@ -172,13 +193,15 @@ fun PromptComposer(
                         )
                         Text(
                             "Attach Reference",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = VestraColors.InkMuted,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = VestraColors.Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(SpacingTokens.xs))
         }
 
         OutlinedTextField(
@@ -188,7 +211,14 @@ fun PromptComposer(
             enabled = !busy,
             minLines = 2,
             maxLines = 5,
-            placeholder = { Text(placeholder) },
+            placeholder = {
+                Text(
+                    placeholder,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VestraColors.InkMuted,
+                )
+            },
+            textStyle = MaterialTheme.typography.bodyMedium,
             trailingIcon = if (prompt.isNotBlank() && !busy) {
                 {
                     IconButton(onClick = { onPromptChange("") }) {
@@ -201,32 +231,43 @@ fun PromptComposer(
                     }
                 }
             } else null,
+            // Borderless by design — see the KDoc's "one rim per surface". The field reads as
+            // recessed because `Canvas` sits a step below the container's `GlassFillStrong` in
+            // both palettes, not because it is outlined.
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = accent.copy(alpha = 0.55f),
-                unfocusedBorderColor = VestraColors.GlassBorder,
-                focusedContainerColor = VestraColors.GlassFill,
-                unfocusedContainerColor = VestraColors.GlassFill,
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                disabledBorderColor = Color.Transparent,
+                focusedContainerColor = VestraColors.Canvas,
+                unfocusedContainerColor = VestraColors.Canvas,
+                disabledContainerColor = VestraColors.Canvas,
+                cursorColor = accent,
             ),
-            shape = RoundedCornerShape(SpacingTokens.section),
+            shape = RoundedCornerShape(RadiusTokens.lg),
         )
 
         if (assistToggles != null) {
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(SpacingTokens.xs))
             Row(
                 Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
             ) {
                 assistToggles()
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        if (!blockedReason.isNullOrBlank()) {
+            Spacer(Modifier.height(SpacingTokens.xs))
+            BlockedReasonRow(reason = blockedReason, onClick = onModelClick)
+        }
+
+        Spacer(Modifier.height(SpacingTokens.sm))
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
         ) {
             // The model chip takes the free space directly. It used to share it 50/50 with a
             // weighted Spacer, which squeezed the label so hard that "Local tiny-SD (offline)"
@@ -238,11 +279,15 @@ fun PromptComposer(
                 accent = accent,
                 modifier = Modifier.weight(1f).testTag(TestTags.MODEL_CHIP),
             )
-            AssistChip(
-                count = assistCount,
-                onClick = onAssistsClick,
-                modifier = Modifier.testTag(TestTags.ASSIST_CHIP),
-            )
+            // A count of zero with no handler is not information — it was rendering a
+            // permanently inert "Layers 0" between the model chip and the send button.
+            if (assistCount > 0 || onAssistsClick != null) {
+                AssistChip(
+                    count = assistCount,
+                    onClick = onAssistsClick,
+                    modifier = Modifier.testTag(TestTags.ASSIST_CHIP),
+                )
+            }
             SendOrb(
                 busy = busy,
                 loading = loading,
@@ -252,6 +297,40 @@ fun PromptComposer(
                 modifier = Modifier.testTag(TestTags.SEND_BUTTON),
             )
         }
+    }
+}
+
+/**
+ * Why generation is gated right now. Full width and up to two lines, because these strings are
+ * sentences — the whole point of splitting them out of the one-line model chip.
+ */
+@Composable
+private fun BlockedReasonRow(reason: String, onClick: (() -> Unit)?) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(RadiusTokens.md))
+            .background(VestraColors.Canvas)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .testTag(TestTags.COMPOSER_BLOCKED_HINT)
+            .padding(horizontal = SpacingTokens.sm, vertical = SpacingTokens.xs),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
+    ) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            tint = VestraColors.InkMuted,
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            reason,
+            style = MaterialTheme.typography.bodySmall,
+            color = VestraColors.InkMuted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -270,24 +349,24 @@ private fun ModelChip(
     }
     Row(
         modifier
+            .heightIn(min = ControlTokens.chip)
             .clip(shape)
-            .background(VestraColors.GlassFill)
-            .border(1.dp, accent.copy(alpha = 0.4f), shape)
+            .background(VestraColors.Canvas)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics { contentDescription = a11y }
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = SpacingTokens.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
-                .size(8.dp)
+                .size(ControlTokens.dot)
                 .clip(CircleShape)
                 .background(accent),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(SpacingTokens.xs))
         Text(
             label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             color = VestraColors.Ink,
             maxLines = 1,
             // Without this the default Clip cut "Local tiny-SD (offline)" down to "Local" with
@@ -297,7 +376,7 @@ private fun ModelChip(
             modifier = Modifier.weight(1f, fill = false),
         )
         if (onClick != null) {
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(SpacingTokens.xxs))
             Icon(
                 Icons.Outlined.ArrowDropDown,
                 contentDescription = null,
@@ -318,12 +397,12 @@ private fun AssistChip(count: Int, onClick: (() -> Unit)?, modifier: Modifier = 
     }
     Row(
         modifier
+            .heightIn(min = ControlTokens.chip)
             .clip(shape)
-            .background(VestraColors.GlassFill)
-            .border(1.dp, VestraColors.GlassBorder, shape)
+            .background(VestraColors.Canvas)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics { contentDescription = a11y }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = SpacingTokens.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -332,11 +411,12 @@ private fun AssistChip(count: Int, onClick: (() -> Unit)?, modifier: Modifier = 
             tint = VestraColors.InkMuted,
             modifier = Modifier.size(16.dp),
         )
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(SpacingTokens.xxs + 2.dp))
         Text(
             count.toString(),
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             color = VestraColors.Ink,
+            maxLines = 1,
         )
     }
 }
@@ -352,13 +432,13 @@ private fun SendOrb(
 ) {
     Box(
         modifier
-            .size(48.dp)
+            .size(ControlTokens.orb)
             .clip(CircleShape)
             .background(
                 if (busy || loading) {
                     Brush.radialGradient(listOf(VestraColors.Danger, VestraColors.SaffronDeep))
                 } else if (enabled) {
-                    Brush.radialGradient(listOf(VestraColors.AccentSoft, VestraColors.SaffronDeep))
+                    Brush.radialGradient(listOf(VestraColors.AccentSoft, VestraColors.Accent))
                 } else {
                     Brush.radialGradient(
                         listOf(
@@ -385,7 +465,7 @@ private fun SendOrb(
                 if (busy) Icons.Outlined.Stop else Icons.AutoMirrored.Filled.Send,
                 contentDescription = if (busy) "Cancel generation" else "Generate",
                 tint = VestraColors.Ivory,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(20.dp),
             )
         }
     }

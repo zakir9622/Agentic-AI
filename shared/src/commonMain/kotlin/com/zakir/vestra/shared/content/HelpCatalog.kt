@@ -10,6 +10,9 @@ object LookbookCopy {
         "Modest fashion atelier with true on-device AI. Try-on, Image Create/Edit, Video still-clips, " +
             "Code (Gemma), and Speak run offline after you download Model packs — cloud studios stay optional."
 
+    /** Home's empty-state headline — the first line on a cold install. */
+    const val HOME_GREETING = "What are we making?"
+
     const val STUDIO_HOME = "Atelier"
     const val STUDIO_TRY_ON = "Virtual try-on"
     const val STUDIO_IMAGE = "Image studio"

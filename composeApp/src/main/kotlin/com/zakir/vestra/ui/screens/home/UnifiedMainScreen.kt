@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -73,6 +75,7 @@ import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.ApiUsageDashboardCard
+import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.ModelPickerSheet
@@ -82,6 +85,8 @@ import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.components.StudioTurnBubble
 import com.zakir.vestra.ui.screens.news.ChatMessageBubble
 import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
+import com.zakir.vestra.ui.theme.ControlTokens
+import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.VestraColors
 import kotlinx.coroutines.launch
@@ -92,13 +97,71 @@ import kotlinx.coroutines.launch
  * to browse and no bottom dock — Library and Settings are reached from the two icons at top
  * right. A composer mode chip (Chat/Image/Video/Code/Audio) picks which generator the next
  * message routes to; everything it produces lands in the same thread.
+ *
+ * [ComposerMode], [UnifiedTopBar], [HomeEmptyState] and [ModalityChipRow] are `internal` rather
+ * than `private` so `ScreenshotTest` can render the real composables at several widths instead of
+ * a reconstruction of them — the vertical-text regression this screen shipped with was invisible
+ * precisely because nothing rendered these surfaces outside the app.
  */
-private enum class ComposerMode(val label: String, val capability: AiCapability?) {
-    CHAT("Chat", null),
-    IMAGE("Image", AiCapability.IMAGE_GEN),
-    VIDEO("Video", AiCapability.VIDEO),
-    CODE("Code", AiCapability.CODE),
-    AUDIO("Audio", AiCapability.AUDIO);
+internal enum class ComposerMode(
+    val label: String,
+    val capability: AiCapability?,
+    /** One line under the greeting on an empty thread, naming what this mode does. */
+    val emptyStatePrompt: String,
+    /** One-tap starters for the empty state. Tapping one fills the composer and sends. */
+    val suggestions: List<String>,
+) {
+    CHAT(
+        "Chat",
+        null,
+        "Ask anything — styling advice, ideas, or a second opinion.",
+        listOf(
+            "Build me a capsule wardrobe for a week of travel",
+            "What colours flatter a warm skin tone?",
+            "Suggest three outfits for a winter wedding",
+        ),
+    ),
+    IMAGE(
+        "Image",
+        AiCapability.IMAGE_GEN,
+        "Describe a look and it gets rendered.",
+        listOf(
+            "A flowing linen abaya in warm sand, studio lighting",
+            "Editorial street style, oversized wool coat, overcast city",
+            "Silk scarf detail, macro shot, soft window light",
+        ),
+    ),
+    VIDEO(
+        "Video",
+        AiCapability.VIDEO,
+        "Describe a short clip and it gets animated.",
+        listOf(
+            "Slow pan across a rack of autumn coats",
+            "Fabric catching the light as it falls",
+            "A model turning to camera, golden hour",
+        ),
+    ),
+    CODE(
+        "Code",
+        AiCapability.CODE,
+        "Ask for code and get a runnable answer.",
+        listOf(
+            "Write a Kotlin extension that formats a price range",
+            "Explain this Compose recomposition problem",
+            "A SQL query for top sellers by category",
+        ),
+    ),
+    AUDIO(
+        "Audio",
+        AiCapability.AUDIO,
+        "Type something and hear it spoken.",
+        listOf(
+            "Read this season's lookbook introduction aloud",
+            "Narrate a thirty-second product description",
+            "Speak a friendly welcome message",
+        ),
+    ),
+    ;
 
     val accent: Color
         get() = capability?.let(VestraColors::modalityAccent) ?: VestraColors.Accent
@@ -260,94 +323,48 @@ fun UnifiedMainScreen(
         generativeViewModel.setReference(uri?.toString())
     }
 
-    val currentActiveModelLabel = if (mode == ComposerMode.CHAT) {
+    // The chip names the model; the hint row underneath explains why it can't run, if it can't.
+    // Folding both into one string is what produced "Pick a cloud model in the model pi…".
+    val composerModelLabel = if (mode == ComposerMode.CHAT) {
         chatModelLabel(chatViewModel, appSettings)
     } else {
-        generativeViewModel.preflightLabel(mode.capability!!) ?: "Select model"
+        generativeViewModel.modelLabel(mode.capability!!)
     }
-    val activeProvider = pickerModels.firstOrNull { it.id == selectedModelId }
-    val currentServiceLabel = when {
-        selectedModelId.startsWith("local-") -> "On-Device"
-        activeProvider?.platform == CloudPlatform.GEMINI -> "Gemini"
-        activeProvider?.platform == CloudPlatform.HF_SPACE || activeProvider?.platform == CloudPlatform.HF_INFERENCE -> "HuggingFace"
-        activeProvider?.platform == CloudPlatform.GROQ -> "Groq"
-        activeProvider?.platform == CloudPlatform.OPENROUTER -> "OpenRouter"
-        else -> if (selectedModelId.startsWith("local")) "On-Device" else "Cloud"
-    }
-    val isCloud = !selectedModelId.startsWith("local-")
+    val composerBlockedReason = mode.capability?.let(generativeViewModel::blockedReason)
 
-    fun onSelectService(serviceKey: String) {
-        when (serviceKey) {
-            "GEMINI" -> {
-                val geminiModel = pickerModels.firstOrNull { it.platform == CloudPlatform.GEMINI }
-                if (geminiModel != null) selectModel(geminiModel.id) else showModelPicker = true
-            }
-            "HF" -> {
-                val hfModel = pickerModels.firstOrNull {
-                    it.platform == CloudPlatform.HF_SPACE || it.platform == CloudPlatform.HF_INFERENCE
-                }
-                if (hfModel != null) selectModel(hfModel.id) else showModelPicker = true
-            }
-            "GROQ" -> {
-                val groqModel = pickerModels.firstOrNull { it.platform == CloudPlatform.GROQ }
-                if (groqModel != null) selectModel(groqModel.id) else showModelPicker = true
-            }
-            "OPENROUTER" -> {
-                val openRouterModel = pickerModels.firstOrNull { it.platform == CloudPlatform.OPENROUTER }
-                if (openRouterModel != null) selectModel(openRouterModel.id) else showModelPicker = true
-            }
-            "ON_DEVICE" -> {
-                val readyLocal = onDeviceEntries.firstOrNull { it.ready }
-                if (readyLocal != null) {
-                    when (pickerCapability) {
-                        AiCapability.IMAGE_EDIT, AiCapability.IMAGE_GEN, AiCapability.VIDEO, AiCapability.CODE ->
-                            appSettings.setLocalGenerator(pickerCapability, readyLocal.id)
-                        else -> Unit
-                    }
-                } else {
-                    showModelPicker = true
-                }
-            }
+    fun send(text: String) {
+        when (mode) {
+            ComposerMode.CHAT -> chatViewModel.send(text)
+            ComposerMode.IMAGE -> onGenerate(AiCapability.IMAGE_GEN)
+            ComposerMode.VIDEO -> onGenerate(AiCapability.VIDEO)
+            ComposerMode.CODE -> onGenerate(AiCapability.CODE)
+            ComposerMode.AUDIO -> onGenerate(AiCapability.AUDIO)
         }
     }
 
-    val context = LocalContext.current
-    val vestraApp = remember(context) { context.applicationContext as? VestraApp }
-    val apiKeyDataStore = vestraApp?.apiKeyDataStore
-    val usageData by apiKeyDataStore?.usageDashboardFlow?.collectAsState(initial = ApiKeyDataStore.ApiUsageDashboardData())
-        ?: remember { mutableStateOf(ApiKeyDataStore.ApiUsageDashboardData()) }
-    var showUsageDashboard by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    /**
+     * Empty-state starter tap: seed the composer with the suggestion and fire it in one action.
+     * Chat sends the text directly (its input is local state); every generative mode has to go
+     * through the view model's prompt first, since that is what `generate*()` reads.
+     */
+    fun sendSuggestion(suggestion: String) {
+        if (mode == ComposerMode.CHAT) {
+            chatInput = ""
+        } else {
+            generativeViewModel.setPrompt(suggestion)
+        }
+        send(suggestion)
+    }
 
     SpatialBackground {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             UnifiedTopBar(
-                currentModelLabel = currentActiveModelLabel,
-                currentServiceLabel = currentServiceLabel,
-                isCloud = isCloud,
-                isUsageActive = showUsageDashboard,
-                onToggleUsage = { showUsageDashboard = !showUsageDashboard },
-                onModelSelectorClick = { showModelPicker = true },
-                onSelectService = ::onSelectService,
                 onOpenLibrary = onOpenLibrary,
                 onOpenSettings = onOpenSettings,
             )
 
             Box(Modifier.padding(horizontal = SpacingTokens.section)) {
                 InterruptedJobsBanner(localJobStore)
-            }
-
-            if (showUsageDashboard && entries.isNotEmpty()) {
-                Box(Modifier.padding(horizontal = SpacingTokens.section, vertical = 4.dp)) {
-                    ApiUsageDashboardCard(
-                        data = usageData,
-                        onOpenSettings = onOpenSettings,
-                        onClearHistory = {
-                            scope.launch { apiKeyDataStore?.clearSessionUsageHistory() }
-                        },
-                        initiallyExpanded = true,
-                    )
-                }
             }
 
             LazyColumn(
@@ -357,20 +374,12 @@ fun UnifiedMainScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 if (entries.isEmpty()) {
-                    item(key = "usage_dashboard_empty_card") {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            ApiUsageDashboardCard(
-                                data = usageData,
-                                onOpenSettings = onOpenSettings,
-                                onClearHistory = {
-                                    scope.launch { apiKeyDataStore?.clearSessionUsageHistory() }
-                                },
-                                initiallyExpanded = true,
-                            )
-                        }
+                    item(key = "home_empty_state") {
+                        HomeEmptyState(
+                            mode = mode,
+                            suggestions = mode.suggestions,
+                            onSuggestion = ::sendSuggestion,
+                        )
                     }
                 }
 
@@ -441,26 +450,15 @@ fun UnifiedMainScreen(
                     onPromptChange = {
                         if (mode == ComposerMode.CHAT) chatInput = it else generativeViewModel.setPrompt(it)
                     },
-                    modelLabel = if (mode == ComposerMode.CHAT) {
-                        chatModelLabel(chatViewModel, appSettings)
-                    } else {
-                        generativeViewModel.preflightLabel(mode.capability!!) ?: "Select a model in Settings"
-                    },
+                    modelLabel = composerModelLabel,
+                    blockedReason = composerBlockedReason,
                     busy = if (mode == ComposerMode.CHAT) chatBusy else genBusy,
                     onModelClick = { showModelPicker = true },
                     enabled = true,
                     onSend = {
-                        when (mode) {
-                            ComposerMode.CHAT -> {
-                                val text = chatInput
-                                chatInput = ""
-                                chatViewModel.send(text)
-                            }
-                            ComposerMode.IMAGE -> onGenerate(AiCapability.IMAGE_GEN)
-                            ComposerMode.VIDEO -> onGenerate(AiCapability.VIDEO)
-                            ComposerMode.CODE -> onGenerate(AiCapability.CODE)
-                            ComposerMode.AUDIO -> onGenerate(AiCapability.AUDIO)
-                        }
+                        val text = chatInput
+                        if (mode == ComposerMode.CHAT) chatInput = ""
+                        send(text)
                     },
                     onStop = { if (mode == ComposerMode.CHAT) chatViewModel.cancel() else generativeViewModel.forceStop() },
                     accent = mode.accent,
@@ -522,155 +520,46 @@ fun UnifiedMainScreen(
 }
 
 @Composable
-private fun UnifiedTopBar(
-    currentModelLabel: String,
-    currentServiceLabel: String,
-    isCloud: Boolean,
-    isUsageActive: Boolean = false,
-    onToggleUsage: () -> Unit = {},
-    onModelSelectorClick: () -> Unit,
-    onSelectService: (String) -> Unit,
+internal fun UnifiedTopBar(
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // Three unweighted children under `SpaceBetween` used to demand ~423dp of a 324dp content
+    // width here: a brand block with no maxLines, a model chip capped at 130dp showing a
+    // compound "service · model" string that therefore always ellipsized, and a fixed 120dp
+    // action row. The chip is gone — the composer already owns model selection, and one model
+    // control beats two — so the brand can take `weight(1f)` and the actions their natural size.
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = SpacingTokens.section, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(horizontal = SpacingTokens.section, vertical = SpacingTokens.sm),
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Box(
                 Modifier
-                    .size(26.dp)
-                    .clip(RoundedCornerShape(9.dp))
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(RadiusTokens.sm))
                     .background(VestraColors.Accent),
             )
-            Spacer(Modifier.width(9.dp))
-            Text(LookbookCopy.PRODUCT_NAME, style = MaterialTheme.typography.titleMedium, color = VestraColors.Ink)
-        }
-
-        Box(contentAlignment = Alignment.Center) {
-            var dropdownExpanded by remember { mutableStateOf(false) }
-            Row(
-                Modifier
-                    .testTag(TestTags.TOP_MODEL_SELECTOR)
-                    .clip(RoundedCornerShape(50))
-                    .background(VestraColors.GlassFillStrong)
-                    .border(1.dp, VestraColors.GlassBorder, RoundedCornerShape(50))
-                    .clickable { dropdownExpanded = true }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(if (isCloud) VestraColors.Accent else VestraColors.SaffronDeep),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "$currentServiceLabel · $currentModelLabel",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = VestraColors.Ink,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 130.dp),
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    Icons.Outlined.ArrowDropDown,
-                    contentDescription = "Switch model or service",
-                    tint = VestraColors.InkMuted,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-
-            DropdownMenu(
-                expanded = dropdownExpanded,
-                onDismissRequest = { dropdownExpanded = false },
-                modifier = Modifier
-                    .background(VestraColors.SurfaceRaised)
-                    .widthIn(min = 220.dp, max = 280.dp),
-            ) {
-                DropdownMenuItem(
-                    text = { Text("⚡ Google Gemini", color = VestraColors.Ink) },
-                    onClick = {
-                        dropdownExpanded = false
-                        onSelectService("GEMINI")
-                    },
-                    leadingIcon = {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(VestraColors.Accent))
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("🤗 Hugging Face", color = VestraColors.Ink) },
-                    onClick = {
-                        dropdownExpanded = false
-                        onSelectService("HF")
-                    },
-                    leadingIcon = {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(VestraColors.SaffronDeep))
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("⚡ Groq", color = VestraColors.Ink) },
-                    onClick = {
-                        dropdownExpanded = false
-                        onSelectService("GROQ")
-                    },
-                    leadingIcon = {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(VestraColors.AccentSoft))
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("🌐 OpenRouter", color = VestraColors.Ink) },
-                    onClick = {
-                        dropdownExpanded = false
-                        onSelectService("OPENROUTER")
-                    },
-                    leadingIcon = {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(VestraColors.ModalityCode))
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("💻 On-Device (Offline)", color = VestraColors.Ink) },
-                    onClick = {
-                        dropdownExpanded = false
-                        onSelectService("ON_DEVICE")
-                    },
-                    leadingIcon = {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(VestraColors.SaffronDeep))
-                    },
-                )
-                HorizontalDivider(color = VestraColors.GlassBorder)
-                DropdownMenuItem(
-                    text = { Text("Browse all models…", color = VestraColors.Accent) },
-                    onClick = {
-                        dropdownExpanded = false
-                        onModelSelectorClick()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Outlined.Search,
-                            contentDescription = null,
-                            tint = VestraColors.Accent,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    },
-                )
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            TopBarIconButton(
-                icon = Icons.Outlined.Analytics,
-                contentDescription = "Cloud Usage & Token Monitor",
-                testTag = TestTags.API_USAGE_TOGGLE_BUTTON,
-                isActive = isUsageActive,
-                onClick = onToggleUsage,
+            Spacer(Modifier.width(SpacingTokens.sm))
+            Text(
+                LookbookCopy.PRODUCT_NAME,
+                style = MaterialTheme.typography.titleLarge,
+                color = VestraColors.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             TopBarIconButton(
                 icon = Icons.Outlined.Checkroom,
                 contentDescription = "Open Library",
@@ -692,55 +581,139 @@ private fun TopBarIconButton(
     icon: ImageVector,
     contentDescription: String,
     testTag: String,
-    isActive: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val bg = if (isActive) VestraColors.Accent.copy(alpha = 0.18f) else VestraColors.GlassFillStrong
-    val borderCol = if (isActive) VestraColors.Accent else VestraColors.GlassBorder
-    val iconTint = if (isActive) VestraColors.Accent else VestraColors.InkMuted
     Box(
         Modifier
-            .size(36.dp)
+            .size(ControlTokens.iconButton)
             .testTag(testTag)
             .clip(CircleShape)
-            .background(bg)
-            .border(1.dp, borderCol, CircleShape)
+            .background(VestraColors.GlassFillStrong)
+            .border(1.dp, VestraColors.GlassBorder, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = iconTint, modifier = Modifier.size(17.dp))
+        Icon(icon, contentDescription = contentDescription, tint = VestraColors.Ink, modifier = Modifier.size(18.dp))
+    }
+}
+
+/**
+ * What the user sees before their first generation. This slot used to hold the API usage
+ * dashboard — a token counter as the hero of an otherwise empty screen. It is a greeting and
+ * four one-tap starters now; the monitor moved to Settings, where telemetry belongs.
+ *
+ * Tapping a starter fills the composer and fires immediately, so a cold install reaches its
+ * first result in two taps: pick a mode, tap a starter.
+ */
+@Composable
+internal fun HomeEmptyState(
+    mode: ComposerMode,
+    suggestions: List<String>,
+    onSuggestion: (String) -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag(TestTags.HOME_EMPTY_STATE)
+            .padding(top = SpacingTokens.xxl, bottom = SpacingTokens.md),
+        horizontalAlignment = Alignment.Start,
+    ) {
+        Text(
+            LookbookCopy.HOME_GREETING,
+            style = MaterialTheme.typography.headlineMedium,
+            color = VestraColors.Ink,
+        )
+        Spacer(Modifier.height(SpacingTokens.xs))
+        Text(
+            mode.emptyStatePrompt,
+            style = MaterialTheme.typography.bodyLarge,
+            color = VestraColors.InkMuted,
+        )
+        Spacer(Modifier.height(SpacingTokens.xl))
+        GlassSectionLabel("TRY ONE OF THESE", color = VestraColors.InkMuted)
+        suggestions.forEachIndexed { index, suggestion ->
+            SuggestionCard(
+                text = suggestion,
+                accent = mode.accent,
+                index = index,
+                onClick = { onSuggestion(suggestion) },
+            )
+            Spacer(Modifier.height(SpacingTokens.xs))
+        }
     }
 }
 
 @Composable
-private fun ModalityChipRow(selected: ComposerMode, onSelect: (ComposerMode) -> Unit) {
+private fun SuggestionCard(text: String, accent: Color, index: Int, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(RadiusTokens.lg)
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Modifier
+            .fillMaxWidth()
+            .testTag(TestTags.homeSuggestion(index))
+            .clip(shape)
+            .background(VestraColors.GlassFillStrong)
+            .border(1.dp, VestraColors.GlassBorder, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = SpacingTokens.md, vertical = SpacingTokens.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
+    ) {
+        Icon(
+            Icons.Outlined.AutoAwesome,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = VestraColors.Ink,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            Icons.AutoMirrored.Outlined.ArrowForward,
+            contentDescription = null,
+            tint = VestraColors.InkMuted,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+@Composable
+internal fun ModalityChipRow(selected: ComposerMode, onSelect: (ComposerMode) -> Unit) {
+    // Five short chips fit every phone this app supports, so the row distributes width evenly
+    // rather than sitting in a `horizontalScroll` that offered no affordance and silently
+    // stopped the chips from ever sharing the available space.
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xxs + 2.dp),
     ) {
         ComposerMode.entries.forEach { candidate ->
             val isSelected = candidate == selected
             val shape = RoundedCornerShape(50)
-            Row(
+            Box(
                 Modifier
+                    .weight(1f)
                     .testTag(TestTags.modalityChip(candidate.name.lowercase()))
+                    .height(ControlTokens.chip)
                     .clip(shape)
-                    .background(if (isSelected) candidate.accent.copy(alpha = 0.16f) else VestraColors.GlassFill)
-                    .border(
-                        1.dp,
-                        if (isSelected) candidate.accent.copy(alpha = 0.5f) else VestraColors.GlassBorder,
-                        shape,
+                    // Selection reads from a filled accent against a flat surface, not from a
+                    // 16%-vs-0% alpha shift that was nearly invisible at chip size.
+                    .background(if (isSelected) candidate.accent else VestraColors.GlassFillStrong)
+                    .then(
+                        if (isSelected) Modifier else Modifier.border(1.dp, VestraColors.GlassBorder, shape),
                     )
-                    .clickable { onSelect(candidate) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .clickable { onSelect(candidate) },
+                contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.size(7.dp).clip(CircleShape).background(candidate.accent))
-                Spacer(Modifier.width(7.dp))
                 Text(
                     candidate.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) VestraColors.Ink else VestraColors.InkMuted,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isSelected) VestraColors.Ivory else VestraColors.InkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

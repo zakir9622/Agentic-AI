@@ -14,6 +14,11 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Tune
+import com.zakir.vestra.ui.TestTags
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,9 +62,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Single flowing screen — every section, one scroll, no hub/sub-screen split. Reached from the
- * unified main screen's top-right gear icon (there's no bottom dock any more to give Settings
- * its own tab), so there's nothing to navigate *between* here, only through.
+ * Settings hub. Reached from the unified main screen's top-right gear icon.
+ *
+ * This was one flowing scroll carrying every setting the app has — engine tiers and pack
+ * downloads, four API-key fields, five per-capability model dropdowns, safety presets, storage,
+ * permissions, memory and about, in one column. Everything model-shaped moved out to
+ * [ModelsScreen] / [DefaultModelsScreen], usage telemetry to [ApiMonitorScreen], and
+ * notifications to [NotificationsScreen]; what stays here is either a hub row pointing at one of
+ * those or a setting that genuinely isn't about models.
+ *
+ * The API-key card stays in place deliberately, even though each provider page also has its own
+ * key field: this is the one screen that can take a whole tokens.json at once, and losing that
+ * would trade one paste for four.
  */
 @Composable
 fun SettingsScreen(
@@ -75,13 +89,17 @@ fun SettingsScreen(
     onOpenPrivacy: () -> Unit,
     onOpenChangelog: () -> Unit = {},
     onOpenDiagnostics: (() -> Unit)? = null,
+    onOpenModels: () -> Unit = {},
+    onOpenDefaultModels: () -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
+    onOpenApiMonitor: () -> Unit = {},
     onBack: () -> Unit,
 ) {
     val connectivityChecker = remember {
         com.zakir.vestra.shared.cloud.ProviderConnectivityChecker(com.zakir.vestra.shared.platformHttpClient())
     }
     val sectionTitle = LookbookCopy.STUDIO_SETTINGS
-    val sectionSubtitle = "API keys · engines · models · help"
+    val sectionSubtitle = "Models · keys · notifications · privacy"
     val context = LocalContext.current
     val selectedTier by appSettings.engineTier.collectAsState()
     val appearance by appSettings.appearanceMode.collectAsState()
@@ -319,67 +337,40 @@ fun SettingsScreen(
                 onConfirmClearTokens = { confirmClearTokens = true },
             )
 
-            settingsEnginesSection(
-                appSettings = appSettings,
-                engineRouter = engineRouter,
-                selectedTier = selectedTier,
-                selectedPackId = selectedPackId,
-                onSelectPackId = { selectedPackId = it },
-                localPackChoices = localPackChoices,
-                packStates = packStates,
-                packCatalogError = packCatalogError,
-                startDownload = startDownload,
-                onOpenPacks = onOpenPacks,
-                onOpenUsage = onOpenUsage,
-                handshakeBusy = handshakeBusy,
-                handshakeDetail = handshakeDetail,
-                handshakeOk = handshakeOk,
-                onHandshakeSelected = {
-                    if (handshakeBusy || selectedPackId.isBlank()) return@settingsEnginesSection
-                    scope.launch {
-                        handshakeBusy = true
-                        handshakeDetail = "Handshaking ${selectedPackId}…"
-                        handshakeOk = null
-                        val result = withContext(Dispatchers.Default) {
-                            packManager.handshake(selectedPackId)
-                        }
-                        handshakeBusy = false
-                        handshakeOk = result.ok
-                        handshakeDetail = PackHandshakeWires.formatDetail(result)
-                        GlassSnackbar.show(
-                            PackHandshakeWires.formatUserSummary(result),
-                            if (result.ok) SnackbarLevel.SUCCESS else SnackbarLevel.ERROR,
-                        )
-                    }
-                },
-                onHandshakeAll = {
-                    if (handshakeBusy) return@settingsEnginesSection
-                    scope.launch {
-                        handshakeBusy = true
-                        handshakeDetail = "Handshaking all installed packs…"
-                        handshakeOk = null
-                        val report = withContext(Dispatchers.Default) {
-                            packManager.handshakeAll()
-                        }
-                        handshakeBusy = false
-                        handshakeOk = report.allOk && report.results.isNotEmpty()
-                        handshakeDetail = buildString {
-                            append(report.summary)
-                            report.results.take(4).forEach { r ->
-                                append('\n')
-                                append(PackHandshakeWires.formatUserSummary(r))
-                            }
-                            if (report.results.size > 4) {
-                                append("\n… +${report.results.size - 4} more")
-                            }
-                        }
-                        GlassSnackbar.show(
-                            report.summary,
-                            if (handshakeOk == true) SnackbarLevel.SUCCESS else SnackbarLevel.WARNING,
-                        )
-                    }
-                },
-            )
+            item(key = "hub") {
+                SettingsNavRow(
+                    icon = Icons.Outlined.Memory,
+                    title = "Models",
+                    description = "Cloud services, API keys and on-device packs.",
+                    onClick = onOpenModels,
+                    testTag = TestTags.SETTINGS_ROW_MODELS,
+                )
+                Spacer(Modifier.height(10.dp))
+                SettingsNavRow(
+                    icon = Icons.Outlined.Tune,
+                    title = "Default models",
+                    description = "Which model Chat, Image, Video, Code and Audio each use.",
+                    onClick = onOpenDefaultModels,
+                    testTag = TestTags.SETTINGS_ROW_DEFAULT_MODELS,
+                )
+                Spacer(Modifier.height(10.dp))
+                SettingsNavRow(
+                    icon = Icons.Outlined.Notifications,
+                    title = "Notifications",
+                    description = "What the app is allowed to tell you, and when.",
+                    onClick = onOpenNotifications,
+                    testTag = TestTags.SETTINGS_ROW_NOTIFICATIONS,
+                )
+                Spacer(Modifier.height(10.dp))
+                SettingsNavRow(
+                    icon = Icons.Outlined.Analytics,
+                    title = "API monitor",
+                    description = "Requests, tokens, latency and estimated spend.",
+                    onClick = onOpenApiMonitor,
+                    testTag = TestTags.SETTINGS_ROW_API_MONITOR,
+                )
+                Spacer(Modifier.height(14.dp))
+            }
 
             // Applies to every image generation regardless of local/cloud routing (see
             // GenerativeViewModel.generateImage).
@@ -411,17 +402,6 @@ fun SettingsScreen(
                     geminiInput = appSettings.geminiApiKey.value.orEmpty()
                     keysSavedFlash = count > 0
                 },
-            )
-
-            settingsCloudCapabilitiesSection(
-                appSettings = appSettings,
-                freeCloudDiscovery = freeCloudDiscovery,
-                tryOnId = tryOnId,
-                imageGenId = imageGenId,
-                imageEditId = imageEditId,
-                codeId = codeId,
-                videoId = videoId,
-                audioId = audioId,
             )
 
             settingsDurableStatusSection(

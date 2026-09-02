@@ -171,6 +171,24 @@ class AppSettings(private val settings: Settings) {
     val memoryEnabled: StateFlow<Boolean> = _memoryEnabled
 
     /**
+     * Notification preferences. All default on: a generation can take minutes on a cloud Space
+     * or a cold local engine, so leaving the app while one runs is the normal case, and an alert
+     * is the whole reason the user would background it. They are still only a *preference* —
+     * `POST_NOTIFICATIONS` is a separate OS grant, and nothing posts without both.
+     */
+    private val _notifyOnGenerationComplete =
+        MutableStateFlow(settings.getBoolean(KEY_NOTIFY_GEN_COMPLETE, true))
+    val notifyOnGenerationComplete: StateFlow<Boolean> = _notifyOnGenerationComplete
+
+    private val _notifyOnGenerationFailed =
+        MutableStateFlow(settings.getBoolean(KEY_NOTIFY_GEN_FAILED, true))
+    val notifyOnGenerationFailed: StateFlow<Boolean> = _notifyOnGenerationFailed
+
+    private val _notifyOnPackDownload =
+        MutableStateFlow(settings.getBoolean(KEY_NOTIFY_PACK_DOWNLOAD, true))
+    val notifyOnPackDownload: StateFlow<Boolean> = _notifyOnPackDownload
+
+    /**
      * When true, ONNX Runtime may attach NNAPI. Default false, and stays opt-in unlike the
      * LiteRT-LM backend flags above — NNAPI session create has been observed to SIGSEGV/OOM the
      * whole process on Pixel 9 during lite pack load/verify (see `OrtEpPolicy.kt`), a failure
@@ -265,6 +283,21 @@ class AppSettings(private val settings: Settings) {
     fun setMemoryEnabled(enabled: Boolean) {
         settings.putBoolean(KEY_MEMORY_ENABLED, enabled)
         _memoryEnabled.value = enabled
+    }
+
+    fun setNotifyOnGenerationComplete(enabled: Boolean) {
+        settings.putBoolean(KEY_NOTIFY_GEN_COMPLETE, enabled)
+        _notifyOnGenerationComplete.value = enabled
+    }
+
+    fun setNotifyOnGenerationFailed(enabled: Boolean) {
+        settings.putBoolean(KEY_NOTIFY_GEN_FAILED, enabled)
+        _notifyOnGenerationFailed.value = enabled
+    }
+
+    fun setNotifyOnPackDownload(enabled: Boolean) {
+        settings.putBoolean(KEY_NOTIFY_PACK_DOWNLOAD, enabled)
+        _notifyOnPackDownload.value = enabled
     }
 
     fun clearApiTokens() {
@@ -576,6 +609,9 @@ class AppSettings(private val settings: Settings) {
         const val KEY_PREFER_LITERT_GPU = "prefer_litert_gpu"
         const val KEY_PREFER_LITERT_NPU = "prefer_litert_npu"
         const val KEY_PREFER_SPECULATIVE_DECODING = "prefer_litert_speculative_decoding"
+        const val KEY_NOTIFY_GEN_COMPLETE = "notify_generation_complete"
+        const val KEY_NOTIFY_GEN_FAILED = "notify_generation_failed"
+        const val KEY_NOTIFY_PACK_DOWNLOAD = "notify_pack_download"
         const val KEY_SAFETY_PRESET = "safety_preset_id"
         const val KEY_ANALYZE_REFERENCE = "analyze_reference_enabled"
         const val KEY_MEMORY_ENABLED = "chat_memory_enabled"

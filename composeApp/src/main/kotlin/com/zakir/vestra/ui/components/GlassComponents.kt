@@ -158,6 +158,21 @@ fun SpatialBackground(
  * cost rather than a full 3D perspective tilt. Skipped entirely when the user has reduced
  * motion enabled (`rememberReduceMotion()`), same as every other animation in this app.
  */
+/**
+ * Provides [VestraColors.Ink] as the content color for a card's children.
+ *
+ * Compose's default `LocalContentColor` is black, and none of these glass shells are Material
+ * `Surface`s, so a `Text` that omits `color` renders black regardless of theme. Rather than
+ * requiring every call site to remember, the shells supply it.
+ */
+@Composable
+private fun InkContent(content: @Composable () -> Unit) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.material3.LocalContentColor provides VestraColors.Ink,
+        content = content,
+    )
+}
+
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
@@ -211,10 +226,10 @@ fun GlassCard(
             shape = shape,
             interactionSource = interactionSource,
         ) {
-            Column(Modifier.padding(SpacingTokens.section), content = content)
+            InkContent { Column(Modifier.padding(SpacingTokens.section), content = content) }
         }
     } else {
-        Column(base.padding(SpacingTokens.section), content = content)
+        InkContent { Column(base.padding(SpacingTokens.section), content = content) }
     }
 }
 
@@ -295,7 +310,17 @@ fun GlassTopBar(
             if (subtitle != null) {
                 Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
-            Text(title, style = MaterialTheme.typography.headlineMedium)
+            // Explicit, not inherited. Nothing in this component tree provides a content color,
+            // so an unset `Text` falls back to `LocalContentColor`'s default of black — which
+            // rendered every screen title black-on-black in dark mode. It went unnoticed because
+            // the only screenshots that existed were of cards, never of a screen's own top bar.
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = VestraColors.Ink,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
         }
         Row(content = actions)
     }

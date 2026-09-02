@@ -15,8 +15,9 @@ earlier 5-item dock (Home/Library/**Create FAB**/Chat/Settings) — see
   used to live behind a "+" FAB popup (`QuickCreateSheet`); it is now Home's own content.
 - **Library** — the Wardrobe screen: generation history, searchable, with recipe reuse (pull a
   prior generation's parameters back into the composer).
-- **Settings** — a sectioned hub: API Keys, per-capability cloud model dropdowns, Safety
-  presets, Engine preferences (GPU/NPU/speculative decoding), Diagnostics export, About/Privacy.
+- **Settings** — a hub of navigable rows (Models, Default models, Notifications, API monitor,
+  Diagnostics) plus inline sections for API keys, appearance, storage, permissions, safety and
+  memory. See "Redesign: professional-UI pass" below.
 
 Each modality screen (Image/Video/Audio/Code, and Chat separately under `Routes.CHAT`) is a
 fully isolated route wrapped in `IsolatedStudioScreen` — a back arrow + title, no shared chrome
@@ -50,6 +51,58 @@ Image, Video, Audio, and Code studios (`UnifiedStudioPane` for the first three +
 Chat (`NewsChatScreen`) follows the same conversation pattern independently, with its own
 richer chat bubbles, a typing indicator, an empty state, a headlines bar, and a quick-prompt
 carousel (all ported from the GoogleLookBookUI source in Era 6 of the project history).
+
+## Redesign: professional-UI pass (post-3.1.8)
+
+A review against the shipped build found the home screen reading as a debug console rather
+than a product, and three of the four symptoms traced to concrete layout defects rather than
+taste:
+
+- **The usage dashboard was the hero.** `UnifiedMainScreen` pinned `ApiUsageDashboardCard`
+  above the thread *and* rendered a second copy as the empty-state item, so a fresh install
+  opened on a token counter above ~900px of dead space. Both call sites are gone; the monitor
+  now lives at **Settings → API monitor**. The empty state is a greeting plus three one-tap
+  starters (per composer mode) that fill the prompt and send, so a cold install reaches its
+  first result in two taps.
+- **Service tiles laid text out vertically.** A `FlowRow` gave all five service chips
+  `weight(1f, fill = false)` with no `maxItemsInEachRow`, so they never wrapped and each got
+  ~52dp on a 360dp phone; the five unweighted `Text`s inside had no `maxLines`, so
+  `"0 reqs · 0 tok"` soft-wrapped one character per line. Now `maxItemsInEachRow = 2` with
+  every `Text` bounded.
+- **The composer chip showed an error, not a model.** It was fed
+  `GenerativeViewModel.preflightLabel()`, which returns the *blocked reason* when cloud is
+  gated — a 140-character consent sentence rendered as `Pick a cloud model in the model pi…`.
+  That accessor is now split into `modelLabel()` and `blockedReason()`, and the composer has a
+  dedicated hint row for the latter.
+- **The top bar could not fit.** Three unweighted children under `SpaceBetween` demanded
+  ~423dp of a 324dp content width. The service chip and its inline `DropdownMenu` were removed
+  entirely (the composer already owns model selection), leaving a `weight(1f)` brand block and
+  two icon buttons.
+
+Two palette bugs surfaced during the same pass, both pre-existing and app-wide:
+
+- `LightPalette`'s `glassBorder`/`glassFill` were white-on-white against white cards, so
+  `GlassSecondaryButton` rendered as bare text and unbordered tiles floated. Light-mode glass
+  tokens are now a low-alpha ink border over an off-white fill.
+- `GlassTopBar` never set a content color, so every screen title inherited `LocalContentColor`'s
+  black default and was invisible in dark mode. Titles are explicitly `VestraColors.Ink`, and
+  `GlassCard` now provides ink as its content color so no child has to remember.
+
+Settings became a **hub**: navigable rows for Models, Default models, Notifications, API
+monitor and Diagnostics, with API keys, appearance, storage, permissions, safety and memory
+staying inline. Model configuration — engine tier, packs, keys, and the five per-capability
+dropdowns — moved out to `ModelsScreen` / `ProviderModelsScreen` / `DefaultModelsScreen`.
+`ProviderModelsScreen` fetches the provider's own `/models` endpoint live
+(`shared/cloud/ProviderModelDirectory.kt`, covering Groq, OpenRouter, Gemini and the HF router
+behind a 1h TTL cache) and lists **everything the key returns**, marking rows Ready or
+Not-usable from `CloudModelContracts` rather than hiding the ones the app cannot route.
+
+Generations now post notifications (`notify/GenerationNotifier.kt`, `generation_results`
+channel), gated on a per-category preference, the OS grant, and the app being backgrounded.
+
+Verification for all of the above is `composeApp/src/test/.../RedesignScreenshotTest.kt` —
+real Compose renders at **360dp and 411dp, light and dark**, since the vertical-text
+regression was invisible at the 411dp-dark-only coverage that existed before.
 
 ## Model selection UI
 

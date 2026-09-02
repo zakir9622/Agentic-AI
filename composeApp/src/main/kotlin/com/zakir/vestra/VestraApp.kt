@@ -84,6 +84,18 @@ class VestraApp : Application() {
     lateinit var freeCloudDiscovery: FreeCloudDiscovery
         private set
 
+    /** Live per-provider `/models` listings for Settings → Models. Shares the app's HttpClient. */
+    lateinit var providerModelDirectory: com.zakir.vestra.shared.cloud.ProviderModelDirectory
+        private set
+
+    /**
+     * Posts generation-finished alerts. Owned here, not by the view model, because its
+     * `appInForeground` flag is driven by the activity's lifecycle and has to outlive any one
+     * view model instance.
+     */
+    lateinit var generationNotifier: com.zakir.vestra.notify.GenerationNotifier
+        private set
+
     lateinit var humanParsing: HumanParsing
         private set
 
@@ -141,6 +153,8 @@ class VestraApp : Application() {
 
         val http = platformHttpClient()
         freeCloudDiscovery = FreeCloudDiscovery(http)
+        providerModelDirectory = com.zakir.vestra.shared.cloud.ProviderModelDirectory(http)
+        generationNotifier = com.zakir.vestra.notify.GenerationNotifier(this)
         apiKeyDataStore = com.zakir.vestra.storage.ApiKeyDataStore(this)
         // Restore tokens from Documents/TheLookbook/tokens.json after reinstall.
         TokenSidecar.restoreIntoPrefsIfEmpty(this, appSettings)
