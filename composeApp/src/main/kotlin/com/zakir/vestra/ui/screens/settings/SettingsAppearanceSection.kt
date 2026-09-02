@@ -119,7 +119,7 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
     onClearingCache: (Boolean) -> Unit,
     usageLedger: UsageLedger,
     permissionEpoch: Int,
-    onConfirmClearTokens: () -> Unit,
+    onOpenApiKeys: () -> Unit,
 ) {
     item(key = "storage") {
         val context = LocalContext.current
@@ -164,11 +164,14 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
                 Text("Clear usage ledger")
             }
             Spacer(Modifier.height(8.dp))
+            // A cross-link, not the action. The clear itself — and its confirm — belong on the
+            // page that holds the fields; a button here labelled "Clear API keys" that only
+            // navigated would promise a destructive action and quietly do something else.
             OutlinedButton(
-                onClick = onConfirmClearTokens,
-                modifier = Modifier.fillMaxWidth().testTag(TestTags.SETTINGS_CLEAR_TOKENS_BUTTON),
+                onClick = onOpenApiKeys,
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.SETTINGS_OPEN_API_KEYS_BUTTON),
             ) {
-                Text("Clear API keys")
+                Text("Manage API keys")
             }
             Spacer(Modifier.height(8.dp))
             Text(

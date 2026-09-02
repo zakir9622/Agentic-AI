@@ -59,6 +59,30 @@ class ChatViewModel(
         logStateManager.clear()
     }
 
+    /**
+     * Re-run the last exchange: drop the reply that is on screen and send its prompt again.
+     *
+     * This is the reference app's regenerate button, and it is the one message action that has
+     * to touch the repository rather than just the clipboard. Dropping the old reply first
+     * matters — [send] rebuilds the model's context from [ChatRepository.contextForLlm], so
+     * leaving the stale assistant turn in place would feed the model its own previous answer and
+     * make "regenerate" read as "continue".
+     *
+     * A no-op while busy, and a no-op when there is no user turn to re-send.
+     */
+    fun regenerate() {
+        if (_busy.value) return
+        val history = messages.value
+        val lastUser = history.lastOrNull { it.role.equals("user", ignoreCase = true) } ?: return
+        history.asReversed()
+            .takeWhile { it.timestampMs >= lastUser.timestampMs && !it.role.equals("user", ignoreCase = true) }
+            .forEach { chat.removeMessage(it.id) }
+        // The prompt is re-appended by send(), so the original user turn goes too — otherwise
+        // the thread would show the same question twice.
+        chat.removeMessage(lastUser.id)
+        send(lastUser.text)
+    }
+
     fun send(prompt: String) {
         val text = prompt.trim().take(4000)
         if (text.isEmpty() || _busy.value) return

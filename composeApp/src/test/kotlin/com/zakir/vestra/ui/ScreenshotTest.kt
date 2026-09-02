@@ -148,12 +148,8 @@ class ScreenshotTest {
                 PromptComposer(
                     prompt = "i want a russian girl riding a horse",
                     onPromptChange = {},
-                    modelLabel = "Local tiny-SD (offline)",
-                    assistCount = 1,
                     busy = false,
                     enabled = true,
-                    onModelClick = {},
-                    onAssistsClick = {},
                     onSend = {},
                     onStop = {},
                 )
@@ -294,12 +290,8 @@ class ScreenshotTest {
             PromptComposer(
                 prompt = "Emerald abaya in a Lahore bazaar, soft afternoon light",
                 onPromptChange = {},
-                modelLabel = "Local tiny-SD (offline)",
-                assistCount = 2,
                 busy = false,
                 enabled = true,
-                onModelClick = {},
-                onAssistsClick = {},
                 onSend = {},
                 onStop = {},
                 placeholder = "Describe the image…",
@@ -313,11 +305,8 @@ class ScreenshotTest {
             PromptComposer(
                 prompt = "Emerald abaya in a Lahore bazaar",
                 onPromptChange = {},
-                modelLabel = "Local Qwen3 0.6B (offline)",
-                assistCount = 0,
                 busy = true,
                 enabled = true,
-                onModelClick = {},
                 onSend = {},
                 onStop = {},
             )

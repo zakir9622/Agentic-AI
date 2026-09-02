@@ -2,6 +2,44 @@
 
 ## Unreleased (post-3.1.8)
 
+**One chatbox.** The shell had five always-visible modality chips, a composer that carried both
+an "Attach Reference" row and a leading attach button at the same time (the chip sat on top of
+the placeholder), a model chip that rendered "FLUX.1 Schnell · Ready · verified 6m ago" into
+about 150dp, and an empty state stacking a hero card, a 2×2 capability grid, starters and history
+above all of it. The reference this was measured against — the Gemini app — puts one `+`, one
+field and one send button on screen and nothing else.
+
+- **The composer is one control.** `PromptComposer` now renders a `+`, a field, an optional mic
+  and a send button. The chip row is gone; the generator lives in the `+` sheet.
+- **`ComposerToolsSheet`** — the `+` sheet: attachment sources (Photos / Camera / Files) across
+  the top, generators below (Chat, Images, Videos, Canvas, Audio). One way to attach, one way to
+  switch generator. The active generator shows as a small dismissible chip in the composer when
+  it isn't plain Chat, and renders nothing at all when it is.
+- **Attachment is real on all three sources.** Photos uses the photo picker, Camera captures
+  through the existing `FileProvider` behind the same permission gate as garment capture, and
+  Files takes a persistable read grant so the URI still resolves when generation runs.
+- **Dictation** via the system recogniser (`RecognizerIntent`, so no `RECORD_AUDIO` grant). The
+  mic is hidden — not disabled — on a device with no recogniser installed.
+- **The model selector moved to the top bar**, where a name fits. **New chat** joined it, hidden
+  while the thread is already empty.
+- **Markdown renders.** `Markdown.kt` parses headings, bullets, ordered items, quotes, rules and
+  inline `**bold**` / `*italic*` / `` `code` `` / `~~strike~~` / links. Every reply in the app was
+  previously showing its markers literally — `- **Fashion try-on** features and tips` — on the
+  first message of every conversation. Unmatched markers degrade to literal text rather than
+  swallowing the rest of the line; the tests pin that no visible text is ever lost.
+- **Assistant turns lost their bubble** and gained an action row: copy, regenerate (drops the
+  stale reply so the model isn't fed its own answer), read aloud via platform TTS, and share.
+  User turns stay as short right-aligned pills.
+- **The empty state is a mark, a greeting and three starters.** The hero card and capability grid
+  were removed — they offered the same five generators the `+` sheet now does, from a second
+  place, in different words.
+- **Settings is a hub and only a hub.** The previous pass added four hub rows and left appearance,
+  storage, permissions, safety, four API-key fields, durable-storage status, about and memory
+  inline around them. Those are now six more pages — API keys, Safety & content, Appearance,
+  Storage & privacy, Memory, About & help — grouped under GENERATION / APP / YOUR DATA. Each page
+  calls the same section function the hub used to call inline, so no setting logic changed.
+
+
 **Glassmorphism redesign.** The app had a glass *component set* on a light-blue palette with
 near-opaque cards over a near-black ground — which is a dark theme, not glassmorphism. Frosted
 glass only reads as glass when something varied shows through it.

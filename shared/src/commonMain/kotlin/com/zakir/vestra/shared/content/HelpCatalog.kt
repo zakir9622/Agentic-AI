@@ -17,6 +17,13 @@ object LookbookCopy {
     const val HOME_STATUS_LINE = "ASSISTANT ACTIVE"
 
     /**
+     * The line under the composer. Every serious assistant ships one and this app needs it more
+     * than most: replies can come from a small on-device model with no retrieval at all, so the
+     * failure mode is a confidently wrong answer rather than a refusal.
+     */
+    const val COMPOSER_DISCLAIMER = "The Lookbook can make mistakes — check anything important."
+
+    /**
      * Trust line under the first-run CTA. Deliberately about the app's stance rather than a user
      * count — this app has no accounts and no analytics, so a "trusted by N users" figure would
      * be invented.

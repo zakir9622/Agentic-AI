@@ -42,6 +42,8 @@ import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -77,23 +79,46 @@ import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.components.MarkdownText
+import com.zakir.vestra.ui.util.rememberSpeaker
+import com.zakir.vestra.ui.util.shareText
+import androidx.compose.ui.platform.LocalContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * Chat bubble distinguishing User vs Assistant with glass styling, a chat-tail shape,
- * an avatar, a timestamp, and a copy-to-clipboard action.
+ * One turn in the thread.
+ *
+ * The two sides are deliberately asymmetric, matching the reference app: a **user** turn is a
+ * short right-aligned pill, because it is usually one line and the user already knows what they
+ * typed; an **assistant** turn has no bubble at all. It is the page.
+ *
+ * Dropping the assistant bubble is not cosmetic. A reply is the longest content the app renders
+ * and the bubble was costing it 28dp of horizontal padding plus a 32dp avatar gutter, on a
+ * surface that is already glass over an aurora background. Bare text on the canvas reads at the
+ * width the prose was written for, and the model name plus the action row give the turn its
+ * identity instead of a border does.
+ *
+ * The body renders through [MarkdownText]. Before that, a completely ordinary reply arrived on
+ * screen as `- **Fashion try-on** features and tips` — markers intact — which was the app's most
+ * visible defect because it was on the first reply of every conversation. Fenced code still
+ * splits out to [CodeBlock] first, via [MessageSegment].
  */
 @Composable
+@Suppress("LongMethod")
 fun ChatMessageBubble(
     message: ChatMessage,
     index: Int,
     modifier: Modifier = Modifier,
     modelDisplayName: String? = null,
+    /** Re-runs the last exchange. Only supplied for the newest assistant turn. */
+    onRegenerate: (() -> Unit)? = null,
 ) {
     val isUser = message.role.equals("user", ignoreCase = true)
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val speaker = rememberSpeaker()
     var copied by remember { mutableStateOf(false) }
 
     val formattedTime = remember(message.timestampMs) {
@@ -105,196 +130,145 @@ fun ChatMessageBubble(
         }
     }
 
-    val bubbleShape = if (isUser) {
-        RoundedCornerShape(
-            topStart = RadiusTokens.lg,
-            topEnd = RadiusTokens.lg,
-            bottomStart = RadiusTokens.lg,
-            bottomEnd = 4.dp,
-        )
-    } else {
-        RoundedCornerShape(
-            topStart = RadiusTokens.lg,
-            topEnd = RadiusTokens.lg,
-            bottomStart = 4.dp,
-            bottomEnd = RadiusTokens.lg,
-        )
+    val segments = remember(message.text) { MessageSegment.split(message.text.ifBlank { "…" }) }
+
+    if (isUser) {
+        Row(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            Surface(
+                // Uniform, no tail. A tail is a speech-bubble convention and this thread has
+                // only one bubble in it — the assistant side is bare text — so the tail pointed
+                // at nothing and turned a two-character "hi" into a lopsided blob.
+                shape = RoundedCornerShape(RadiusTokens.lg),
+                color = VestraColors.Accent,
+                modifier = Modifier
+                    .widthIn(max = 300.dp)
+                    .testTag(TestTags.chatMessageBubble(index, message.role)),
+                shadowElevation = 0.dp,
+            ) {
+                Text(
+                    text = message.text,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 21.sp),
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
+                )
+            }
+        }
+        return
     }
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom,
+            .testTag(TestTags.chatMessageBubble(index, message.role))
+            .padding(horizontal = 2.dp, vertical = 6.dp),
     ) {
-        if (!isUser) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .padding(end = 8.dp, bottom = 4.dp)
-                    .size(32.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
-                            listOf(VestraColors.Accent.copy(alpha = 0.25f), VestraColors.SaffronDeep.copy(alpha = 0.4f)),
+                            listOf(VestraColors.Accent, VestraColors.SaffronDeep),
                         ),
-                    )
-                    .border(1.dp, VestraColors.Accent.copy(alpha = 0.5f), CircleShape),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Outlined.AutoAwesome,
-                    contentDescription = "AI Assistant",
-                    modifier = Modifier.size(16.dp),
-                    tint = VestraColors.Accent,
+                    contentDescription = "Assistant",
+                    modifier = Modifier.size(11.dp),
+                    tint = Color.White,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = modelDisplayName ?: (message.providerId ?: "Lookbook AI"),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = VestraColors.InkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (formattedTime.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = formattedTime,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = VestraColors.InkMuted.copy(alpha = 0.7f),
                 )
             }
         }
 
-        // User bubble: exact-match of lookbookweb's `rounded-br-lg bg-primary
-        // text-primary-foreground` — a solid accent fill, not the glass treatment (that stays
-        // for the assistant side, which keeps this app's richer model-badge/timestamp header
-        // rather than lookbookweb's plain-text-no-bubble assistant style — a deliberate
-        // deviation, not a compromise: same accent color/tail shape/radius tokens either way).
-        Surface(
-            shape = bubbleShape,
-            color = if (isUser) VestraColors.Accent else VestraColors.GlassFill,
-            modifier = Modifier
-                .widthIn(max = 320.dp)
-                .then(
-                    if (isUser) {
-                        Modifier
-                    } else {
-                        Modifier.border(
-                            width = 1.dp,
-                            brush = Brush.verticalGradient(
-                                listOf(
-                                    VestraColors.GlassHighlight,
-                                    VestraColors.GlassBorder.copy(alpha = 0.4f),
-                                ),
-                            ),
-                            shape = bubbleShape,
-                        )
-                    },
-                )
-                .testTag(TestTags.chatMessageBubble(index, message.role)),
-            shadowElevation = 0.dp,
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Row(
+        Spacer(Modifier.height(8.dp))
+
+        segments.forEachIndexed { segmentIndex, segment ->
+            if (segmentIndex > 0) Spacer(Modifier.height(10.dp))
+            when (segment) {
+                is MessageSegment.Prose -> MarkdownText(
+                    text = segment.text,
+                    color = VestraColors.Ink,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (isUser) {
-                            Icon(
-                                imageVector = Icons.Outlined.Person,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = Color.White.copy(alpha = 0.85f),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "YOU",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                ),
-                                color = Color.White.copy(alpha = 0.85f),
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(VestraColors.Accent),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = modelDisplayName ?: (message.providerId ?: "LOOKBOOK AI"),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    letterSpacing = 0.5.sp,
-                                ),
-                                color = VestraColors.Accent,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-
-                    val secondaryTint = if (isUser) Color.White.copy(alpha = 0.7f) else VestraColors.InkMuted
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (formattedTime.isNotBlank()) {
-                            Text(
-                                text = formattedTime,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = secondaryTint,
-                            )
-                            Spacer(Modifier.width(6.dp))
-                        }
-                        IconButton(
-                            onClick = {
-                                clipboardManager.setText(AnnotatedString(message.text))
-                                copied = true
-                                GlassSnackbar.show("Copied to clipboard", SnackbarLevel.SUCCESS)
-                            },
-                            modifier = Modifier.size(20.dp),
-                        ) {
-                            Icon(
-                                imageVector = if (copied) Icons.Outlined.Done else Icons.Outlined.ContentCopy,
-                                contentDescription = "Copy message",
-                                modifier = Modifier.size(12.dp),
-                                tint = if (copied && !isUser) VestraColors.Accent else secondaryTint,
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(6.dp))
-
-                // A reply that contains a fenced block is split so the code renders as a real
-                // code block — monospace, syntax-coloured, horizontally scrollable — instead of
-                // as prose. Before this, a generated snippet arrived as one wrapped grey
-                // paragraph, which is unreadable at bubble width and the thing the Code studio
-                // exists to produce.
-                val segments = remember(message.text) { MessageSegment.split(message.text.ifBlank { "…" }) }
-                segments.forEachIndexed { segmentIndex, segment ->
-                    if (segmentIndex > 0) Spacer(Modifier.height(8.dp))
-                    when (segment) {
-                        is MessageSegment.Prose -> Text(
-                            text = segment.text,
-                            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, letterSpacing = 0.2.sp),
-                            color = if (isUser) Color.White else VestraColors.Ink,
-                        )
-                        is MessageSegment.Code -> CodeBlock(
-                            code = segment.code,
-                            language = segment.language,
-                        )
-                    }
-                }
-            }
-        }
-
-        if (isUser) {
-            Box(
-                modifier = Modifier
-                    .padding(start = 8.dp, bottom = 4.dp)
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(VestraColors.GlassFill)
-                    .border(1.dp, VestraColors.GlassBorder, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Person,
-                    contentDescription = "You",
-                    modifier = Modifier.size(16.dp),
-                    tint = VestraColors.Ink,
+                )
+                is MessageSegment.Code -> CodeBlock(
+                    code = segment.code,
+                    language = segment.language,
                 )
             }
         }
+
+        Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ReplyAction(
+                icon = if (copied) Icons.Outlined.Done else Icons.Outlined.ContentCopy,
+                label = "Copy reply",
+                tint = if (copied) VestraColors.Accent else VestraColors.InkMuted,
+                testTag = TestTags.messageAction("copy", index),
+            ) {
+                clipboardManager.setText(AnnotatedString(message.text))
+                copied = true
+                GlassSnackbar.show("Copied to clipboard", SnackbarLevel.SUCCESS)
+            }
+            if (onRegenerate != null) {
+                ReplyAction(
+                    icon = Icons.Outlined.Refresh,
+                    label = "Regenerate reply",
+                    testTag = TestTags.messageAction("regenerate", index),
+                    onClick = onRegenerate,
+                )
+            }
+            ReplyAction(
+                icon = Icons.AutoMirrored.Outlined.VolumeUp,
+                label = "Read reply aloud",
+                testTag = TestTags.messageAction("speak", index),
+            ) { speaker.toggle(message.text) }
+            ReplyAction(
+                icon = Icons.Outlined.Share,
+                label = "Share reply",
+                testTag = TestTags.messageAction("share", index),
+            ) { shareText(context, message.text) }
+        }
+    }
+}
+
+/** One icon in an assistant turn's action row. */
+@Composable
+private fun ReplyAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    testTag: String,
+    tint: Color = VestraColors.InkMuted,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, modifier = Modifier.size(32.dp).testTag(testTag)) {
+        Icon(icon, contentDescription = label, modifier = Modifier.size(16.dp), tint = tint)
     }
 }
 

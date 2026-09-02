@@ -101,6 +101,7 @@ object TestTags {
 
     // Settings screen (SettingsScreen.kt) — destructive/confirm actions.
     const val SETTINGS_CLEAR_TOKENS_BUTTON = "settings_clear_tokens_button"
+    const val SETTINGS_OPEN_API_KEYS_BUTTON = "settings_open_api_keys_button"
     const val SETTINGS_CLEAR_TOKENS_CONFIRM = "settings_clear_tokens_confirm"
     const val SETTINGS_CLEAR_TOKENS_CANCEL = "settings_clear_tokens_cancel"
 
@@ -175,18 +176,38 @@ object TestTags {
     // Default-model-per-modality screen (DefaultModelsScreen.kt).
     fun defaultModelRow(capability: String): String = "default_model_row_$capability"
 
-    // Glass UI kit (GlassUiKit.kt) — the redesigned home and chat surfaces.
-    const val HOME_GREETING_HEADER = "home_greeting_header"
-    const val HOME_NOTIFICATIONS_BUTTON = "home_notifications_button"
-    const val HOME_HERO_CARD = "home_hero_card"
-    const val HOME_HERO_PRIMARY = "home_hero_primary"
-    const val HOME_CAPABILITIES_SECTION = "home_capabilities_section"
-    fun homeCapabilityTile(id: String): String = "home_capability_$id"
+    // Glass UI kit (GlassUiKit.kt) and the home thread. The greeting header, hero card and
+    // capability tiles that lived here were removed with the one-chatbox redesign: they offered
+    // the same generators the composer's + sheet does, from a second place.
     const val HOME_HISTORY_SECTION = "home_history_section"
     fun homeHistoryRow(index: Int): String = "home_history_row_$index"
-    const val CHAT_STATUS_HEADER = "chat_status_header"
     const val CHAT_CODE_BLOCK = "chat_code_block"
     const val COMPOSER_ATTACH_BUTTON = "composer_attach_button"
+
+    // The single chatbox (PromptComposer.kt) and its `+` sheet (ComposerToolsSheet.kt). The
+    // modality chip row these replaced is gone; `modalityChip` above is retained only because
+    // older Appium specs still reference it and must fail loudly rather than match nothing.
+    const val PROMPT_COMPOSER = "prompt_composer"
+    const val COMPOSER_CONTEXT_ROW = "composer_context_row"
+    const val COMPOSER_ACTIVE_TOOL = "composer_active_tool"
+    const val COMPOSER_CLEAR_BUTTON = "composer_clear_button"
+    const val COMPOSER_MIC_BUTTON = "composer_mic_button"
+    const val COMPOSER_TOOLS_SHEET = "composer_tools_sheet"
+    const val NEW_CHAT_BUTTON = "new_chat_button"
+    fun composerSource(id: String): String = "composer_source_$id"
+    fun composerTool(id: String): String = "composer_tool_$id"
+
+
+    // Assistant reply actions (ChatComponents.kt): copy, regenerate, speak, share.
+    fun messageAction(action: String, index: Int): String = "message_action_${action}_$index"
+
+    // Further settings sub-pages, so the hub is a list of destinations rather than a long scroll.
+    const val SETTINGS_ROW_API_KEYS = "settings_row_api_keys"
+    const val SETTINGS_ROW_SAFETY = "settings_row_safety"
+    const val SETTINGS_ROW_APPEARANCE = "settings_row_appearance"
+    const val SETTINGS_ROW_STORAGE = "settings_row_storage"
+    const val SETTINGS_ROW_MEMORY = "settings_row_memory"
+    const val SETTINGS_ROW_ABOUT = "settings_row_about"
 
     // Notifications screen (NotificationsScreen.kt).
     const val NOTIFICATIONS_PERMISSION_CARD = "notifications_permission_card"
