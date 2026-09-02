@@ -308,7 +308,15 @@ fun GlassTopBar(
         navigation()
         Column(Modifier.weight(1f)) {
             if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                // Bounded for the same reason the title is: an over-long subtitle wrapped to a
+                // second line at 360dp and shoved the screen title down past the back arrow.
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
             }
             // Explicit, not inherited. Nothing in this component tree provides a content color,
             // so an unset `Text` falls back to `LocalContentColor`'s default of black — which

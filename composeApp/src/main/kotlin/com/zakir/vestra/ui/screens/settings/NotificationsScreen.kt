@@ -77,7 +77,7 @@ fun NotificationsScreen(appSettings: AppSettings, onBack: () -> Unit) {
 
     GlassScreen(
         title = "Notifications",
-        subtitle = "What The Lookbook is allowed to tell you",
+        subtitle = "Permissions · alerts",
         onBack = onBack,
     ) {
         GlassCard(modifier = Modifier.testTag(TestTags.NOTIFICATIONS_PERMISSION_CARD)) {
