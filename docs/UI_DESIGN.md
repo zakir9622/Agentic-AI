@@ -92,6 +92,11 @@ Settings became a **hub**: navigable rows for Models, Default models, Notificati
 monitor and Diagnostics, with API keys, appearance, storage, permissions, safety and memory
 staying inline. Model configuration — engine tier, packs, keys, and the five per-capability
 dropdowns — moved out to `ModelsScreen` / `ProviderModelsScreen` / `DefaultModelsScreen`.
+The engine-tier dropdown and the Prefer NNAPI toggle sit at the top of Models, above the
+on-device catalog — they briefly had no UI at all when the old engine section was retired, which
+an audit of every `AppSettings` setter for a call site caught. `Routes.USAGE` now resolves to the
+API-monitor screen instead of a near-duplicate `UsageScreen`.
+
 `ProviderModelsScreen` fetches the provider's own `/models` endpoint live
 (`shared/cloud/ProviderModelDirectory.kt`, covering Groq, OpenRouter, Gemini and the HF router
 behind a 1h TTL cache) and lists **everything the key returns**, marking rows Ready or

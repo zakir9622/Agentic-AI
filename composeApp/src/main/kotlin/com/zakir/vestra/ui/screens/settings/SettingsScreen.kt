@@ -78,13 +78,11 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsScreen(
     appSettings: AppSettings,
-    engineRouter: EngineRouter,
     packManager: ModelPackManager,
     freeCloudDiscovery: FreeCloudDiscovery,
     usageLedger: UsageLedger,
     memoryRepository: com.zakir.vestra.shared.chat.MemoryRepository? = null,
     onOpenPacks: () -> Unit,
-    onOpenUsage: () -> Unit,
     onOpenHelp: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenChangelog: () -> Unit = {},
@@ -101,20 +99,10 @@ fun SettingsScreen(
     val sectionTitle = LookbookCopy.STUDIO_SETTINGS
     val sectionSubtitle = "Models · keys · notifications · privacy"
     val context = LocalContext.current
-    val selectedTier by appSettings.engineTier.collectAsState()
     val appearance by appSettings.appearanceMode.collectAsState()
-    val packStates by packManager.states.collectAsState()
-    val packCatalogError by packManager.lastError.collectAsState()
-    val startDownload = rememberPackDownloadStarter(showToast = true)
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { packManager.refresh() }
 
-    val tryOnId by appSettings.cloudProviderId.collectAsState()
-    val imageGenId by appSettings.imageGenProviderId.collectAsState()
-    val imageEditId by appSettings.imageEditProviderId.collectAsState()
-    val codeId by appSettings.codeProviderId.collectAsState()
-    val videoId by appSettings.videoProviderId.collectAsState()
-    val audioId by appSettings.audioProviderId.collectAsState()
 
     val hfToken by appSettings.hfToken.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
@@ -245,29 +233,6 @@ fun SettingsScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    val localPackChoices = remember { LocalModelCatalog.entries.filter { it.packId != null && it.runnable } }
-    var selectedPackId by remember {
-        val preferred = when (appSettings.engineTier.value) {
-            EngineTier.LITE -> localPackChoices.firstOrNull { it.engineTier == EngineTier.LITE }?.packId
-            EngineTier.PRO -> localPackChoices.firstOrNull { it.engineTier == EngineTier.PRO }?.packId
-            EngineTier.AUTO, EngineTier.CLOUD -> null
-        }
-        mutableStateOf(preferred ?: localPackChoices.firstOrNull()?.packId.orEmpty())
-    }
-    var handshakeBusy by remember { mutableStateOf(false) }
-    var handshakeDetail by remember { mutableStateOf<String?>(null) }
-    var handshakeOk by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(selectedTier) {
-        val match = when (selectedTier) {
-            EngineTier.LITE -> localPackChoices.firstOrNull { it.engineTier == EngineTier.LITE }?.packId
-            EngineTier.PRO -> localPackChoices.firstOrNull { it.engineTier == EngineTier.PRO }?.packId
-            else -> null
-        }
-        if (match != null && selectedPackId != match) {
-            selectedPackId = match
-        }
     }
 
     if (confirmClearTokens) {

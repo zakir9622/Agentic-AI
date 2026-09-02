@@ -38,7 +38,12 @@ import kotlin.math.roundToInt
 @Composable
 fun ApiMonitorScreen(onBack: () -> Unit, onOpenKeys: () -> Unit) {
     val context = LocalContext.current
-    val dataStore = remember(context) { (context.applicationContext as? VestraApp)?.apiKeyDataStore }
+    val app = remember(context) { context.applicationContext as? VestraApp }
+    val dataStore = app?.apiKeyDataStore
+    // The free-tier ledger is a different count from the DataStore's token history: it tracks
+    // cloud *requests* against provider quotas. It was the one thing the retired UsageScreen
+    // showed that this screen did not, so it comes across rather than being dropped.
+    val ledgerSummary by app?.usageLedger?.summary?.collectAsState() ?: remember { mutableStateOf(null) }
     val data by dataStore?.usageDashboardFlow?.collectAsState(initial = ApiKeyDataStore.ApiUsageDashboardData())
         ?: remember { mutableStateOf(ApiKeyDataStore.ApiUsageDashboardData()) }
     val scope = rememberCoroutineScope()
@@ -83,6 +88,24 @@ fun ApiMonitorScreen(onBack: () -> Unit, onOpenKeys: () -> Unit) {
             }
         }
         Spacer(Modifier.height(SpacingTokens.sm))
+
+        ledgerSummary?.takeIf { it.totalRequests > 0 }?.let { summary ->
+            GlassCard {
+                GlassSectionLabel("FREE-TIER CLOUD REQUESTS")
+                Text(
+                    "${summary.totalRequests} requests · ${summary.successCount} ok · " +
+                        "${summary.totalRequests - summary.successCount} failed",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = VestraColors.Ink,
+                )
+                Text(
+                    "Tokens in ${summary.totalTokensIn} · out ${summary.totalTokensOut}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VestraColors.InkMuted,
+                )
+            }
+            Spacer(Modifier.height(SpacingTokens.sm))
+        }
 
         ApiUsageDashboardCard(
             data = data,

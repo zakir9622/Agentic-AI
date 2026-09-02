@@ -39,6 +39,17 @@ monitor and Diagnostics; API keys, appearance, storage, permissions, safety and 
 inline. The single 443-line scroll that mixed engine tiers, pack downloads, four key fields and
 five per-capability model dropdowns is gone.
 
+Retiring that scroll initially orphaned three things, caught by auditing every `AppSettings`
+setter for a call site: the **engine-tier dropdown** and the **Prefer NNAPI toggle** lost their
+only UI while still driving real behaviour (which local try-on tier runs, and whether ONNX
+attaches the NNAPI delegate), and **Cloud usage** became unreachable. Both engine controls now
+live at the top of Settings → Models, above the on-device catalog rather than buried under it.
+`Routes.USAGE` is kept — it is deep-linked and `scripts/visual-verify.sh` drives it — but
+resolves to the one API-monitor screen, which absorbed the `UsageLedger` free-tier request
+summary that was the only thing the retired `UsageScreen` showed and the monitor did not.
+`SettingsEnginesSection.kt`, `UsageScreen.kt`, `settingsCloudCapabilitiesSection`,
+`CloudCapabilityDropdown` and `PackDropdown` are deleted rather than left orphaned (~800 lines).
+
 **Live per-provider model directories.** New `shared/cloud/ProviderModelDirectory.kt` fetches
 Groq's, OpenRouter's, Gemini's and the HF router's own `/models` endpoints behind a 1h TTL
 cache — two of which `ProviderConnectivityChecker` was already calling and discarding. Each

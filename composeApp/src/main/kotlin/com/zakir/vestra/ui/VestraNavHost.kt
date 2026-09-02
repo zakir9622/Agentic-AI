@@ -55,7 +55,6 @@ import com.zakir.vestra.ui.screens.settings.SettingsScreen
 import com.zakir.vestra.ui.screens.home.UnifiedMainScreen
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
-import com.zakir.vestra.ui.screens.usage.UsageScreen
 import com.zakir.vestra.ui.screens.changelog.ChangelogScreen
 import com.zakir.vestra.ui.screens.help.HelpScreen
 import com.zakir.vestra.ui.screens.privacy.PrivacyScreen
@@ -305,16 +304,13 @@ fun VestraNavHost(
             route = Routes.USAGE,
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.USAGE) }),
         ) {
-            UsageScreen(
-                usage = usageLedger,
-                appSettings = appSettings,
-                packManager = packManager,
+            // Was UsageScreen, which rendered the same ApiUsageDashboardCard as ApiMonitorScreen
+            // plus a UsageLedger summary — two screens doing one job. The route is kept because
+            // it is deep-linked and scripts/visual-verify.sh drives it; it resolves to the one
+            // monitor screen now, which absorbed the ledger summary.
+            ApiMonitorScreen(
                 onBack = { navController.popBackStack() },
-                onOpenCreate = {
-                    generativeViewModel.prepareStudio(resetIfIdle = true)
-                    generativeViewModel.bindStudio(com.zakir.vestra.shared.cloud.AiCapability.IMAGE_GEN)
-                    navController.navigate(Routes.HOME)
-                },
+                onOpenKeys = { navController.navigate(Routes.SETTINGS_MODELS) },
             )
         }
         composable(
@@ -377,13 +373,11 @@ fun VestraNavHost(
         ) {
             SettingsScreen(
                 appSettings = appSettings,
-                engineRouter = engineRouter,
                 packManager = packManager,
                 freeCloudDiscovery = freeCloudDiscovery,
                 usageLedger = usageLedger,
                 memoryRepository = memoryRepository,
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
-                onOpenUsage = { navController.navigate(Routes.USAGE) },
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
                 onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
@@ -399,6 +393,7 @@ fun VestraNavHost(
             ModelsScreen(
                 appSettings = appSettings,
                 packManager = packManager,
+                engineRouter = engineRouter,
                 onOpenProvider = { navController.navigate(Routes.providerModels(it)) },
                 onOpenPacks = { navController.navigate(Routes.PACKS) },
                 onOpenDefaults = { navController.navigate(Routes.SETTINGS_DEFAULT_MODELS) },

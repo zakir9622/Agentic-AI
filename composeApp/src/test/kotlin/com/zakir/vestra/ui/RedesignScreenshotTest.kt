@@ -353,6 +353,25 @@ class RedesignScreenshotTest {
             ModelsScreen(
                 appSettings = settings(),
                 packManager = null,
+                engineRouter = null,
+                onOpenProvider = {},
+                onOpenPacks = {},
+                onOpenDefaults = {},
+                onBack = {},
+            )
+        }
+    }
+
+    // The engine tier dropdown and NNAPI toggle were briefly orphaned when the old Settings
+    // engine section was retired; this shoots the bottom of Models, where they live now.
+    @Test
+    @Config(qualifiers = "w360dp-h1400dp-xxhdpi")
+    fun `48 models screen engine controls`() {
+        shoot("48-models-engine-360") {
+            ModelsScreen(
+                appSettings = settings(),
+                packManager = null,
+                engineRouter = null,
                 onOpenProvider = {},
                 onOpenPacks = {},
                 onOpenDefaults = {},
@@ -367,6 +386,7 @@ class RedesignScreenshotTest {
             ModelsScreen(
                 appSettings = settings(),
                 packManager = null,
+                engineRouter = null,
                 onOpenProvider = {},
                 onOpenPacks = {},
                 onOpenDefaults = {},

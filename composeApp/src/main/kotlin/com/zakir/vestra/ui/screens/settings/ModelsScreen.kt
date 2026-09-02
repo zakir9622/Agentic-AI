@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,6 +32,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.cloud.AiCapability
 import com.zakir.vestra.shared.cloud.CloudPlatform
+import com.zakir.vestra.shared.domain.EngineTier
+import com.zakir.vestra.shared.engine.Availability
+import com.zakir.vestra.shared.engine.EngineRouter
 import com.zakir.vestra.shared.local.LocalModelCatalog
 import com.zakir.vestra.shared.packs.ModelPackManager
 import com.zakir.vestra.shared.settings.AppSettings
@@ -59,11 +63,14 @@ import com.zakir.vestra.ui.theme.VestraColors
 fun ModelsScreen(
     appSettings: AppSettings,
     packManager: ModelPackManager?,
+    engineRouter: EngineRouter?,
     onOpenProvider: (CloudPlatform) -> Unit,
     onOpenPacks: () -> Unit,
     onOpenDefaults: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val selectedTier by appSettings.engineTier.collectAsState()
+    val preferNnapi by appSettings.preferNnapi.collectAsState()
     val hfToken by appSettings.hfToken.collectAsState()
     val groqKey by appSettings.groqApiKey.collectAsState()
     val openRouterKey by appSettings.openRouterApiKey.collectAsState()
@@ -123,6 +130,52 @@ fun ModelsScreen(
         }
         Spacer(Modifier.height(SpacingTokens.sm))
 
+        // These two lived in the old Settings scroll's engine section. When that section moved
+        // here they nearly went missing entirely — `engineTier` and `preferNnapi` still drive
+        // real behaviour (which local try-on engine runs, and whether ONNX attaches NNAPI), so
+        // removing their only UI would have silently frozen both at whatever they were.
+        GlassCard {
+            GlassSectionLabel("ON-DEVICE ENGINE")
+            Text(
+                "Which local engine tier runs, and how it talks to the hardware. Cloud is never " +
+                    "chosen by Auto.",
+                style = MaterialTheme.typography.bodySmall,
+                color = VestraColors.InkMuted,
+            )
+            Spacer(Modifier.height(SpacingTokens.xs))
+            if (engineRouter != null) {
+                EngineDropdown(
+                    selected = selectedTier,
+                    availability = { tier ->
+                        if (tier == EngineTier.AUTO) Availability.Ready else engineRouter.availability(tier)
+                    },
+                    onSelect = appSettings::setEngineTier,
+                )
+                Spacer(Modifier.height(SpacingTokens.sm))
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Prefer NNAPI",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = VestraColors.Ink,
+                    )
+                    Text(
+                        // NNAPI stays opt-in while GPU/NPU/speculative decoding default on:
+                        // its documented failure mode is a process-killing SIGSEGV that bypasses
+                        // the fallback the others degrade through. See AppSettings' doc comments.
+                        "Off by default — safer on Pixel. Turn on only if try-on is stable.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VestraColors.InkMuted,
+                    )
+                }
+                Switch(checked = preferNnapi, onCheckedChange = appSettings::setPreferNnapi)
+            }
+        }
         GlassCard(modifier = Modifier.testTag(TestTags.MODELS_ON_DEVICE_SECTION)) {
             GlassSectionLabel("ON-DEVICE")
             Text(
@@ -162,6 +215,8 @@ fun ModelsScreen(
             Spacer(Modifier.height(SpacingTokens.xxs))
             GlassSecondaryButton(text = "Manage model packs", onClick = onOpenPacks)
         }
+        Spacer(Modifier.height(SpacingTokens.sm))
+
         Spacer(Modifier.height(SpacingTokens.xxl))
     }
 }
