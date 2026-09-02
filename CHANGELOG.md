@@ -2,6 +2,42 @@
 
 ## Unreleased (post-3.1.8)
 
+**Glassmorphism redesign.** The app had a glass *component set* on a light-blue palette with
+near-opaque cards over a near-black ground — which is a dark theme, not glassmorphism. Frosted
+glass only reads as glass when something varied shows through it.
+
+- **Palette → violet aurora.** Both themes move to one violet/magenta/teal family (dark canvas
+  `#130C26`, accent `#A78BFA`; light `#F6F3FE`/`#7C3AED`). Glass fills become genuinely
+  translucent (`0x8C`/`0xA6`, from `0xF2`) so the background comes through them.
+- **Background → an aurora mesh.** `SpatialBackground`'s two accent orbs are replaced by five
+  overlapping radial blobs on independent drift phases, with a vertical scrim keeping text
+  legible at the bar and composer edges. Still fully gated on `rememberReduceMotion`.
+- **New component kit** (`ui/components/GlassUiKit.kt`): badge pill, app mark, social-proof row,
+  presence dot, glass icon button, greeting header, hero prompt card, section header with
+  action, capability tile, history row, chat status header, author chip, and a code block.
+- **Home** opens on a hero card ("What can I help you create?") with a primary CTA, then a
+  2×2 capability grid, one-tap starters, and a HISTORY list derived from the existing thread
+  (it hides itself when there is nothing to show rather than rendering an empty heading).
+- **Chat** gains a status header with presence, author chips, and — the substantive one —
+  **fenced code replies now render as syntax-highlighted code blocks** inside the bubble instead
+  of wrapped prose. New `CodeHighlighter` (a small, presentation-only tokenizer) and
+  `MessageSegment.split`, both covered by unit tests whose central assertion is that neither ever
+  alters or drops the source.
+- **Onboarding** opens on an eyebrow badge, a glass app mark, the wordmark and a trust line.
+- The composer gains a leading attach affordance.
+
+**CI no longer runs on every commit.** `pull_request` was using its default trigger set, which
+includes `synchronize` — the event GitHub fires for each new commit on an open PR — so a
+four-commit branch burned four full ~7-minute runs, three of them on work still in progress. The
+workflow now triggers on `opened`, `reopened`, `ready_for_review` and `workflow_dispatch`, plus
+the existing post-merge `push: [main]`. The intended loop is: push freely to a **draft** PR, run
+the identical gate locally, then mark it ready — which runs CI once, against finished work.
+
+**Appium.** New `appium/test_glass_ui.py` covers the redesigned structure, since the redesign
+moved most of what the older files drove. It has **not been run**: the SDK is installed now, but
+`/dev/kvm` is absent and the CPU reports no virtualisation flags, so no emulator can start and no
+device is attached. `appium/README.md` records that precisely rather than the stale "no adb".
+
 **Professional-UI pass.** A design review of the shipped build against real screenshots, plus
 the first Compose renders this repo has had at 360dp and in light mode. Four visible defects,
 all with concrete causes:

@@ -111,17 +111,20 @@ data class VestraPalette(
 
 val LocalVestraPalette = staticCompositionLocalOf { LightPalette }
 
-// lookbookweb light theme: background #F2F8FC · card #FFFFFF · foreground #111419 · accent #1F7DCF
+/**
+ * Violet-aurora light theme — the same hue family as [DarkPalette], lifted onto a pale lilac
+ * ground so the two read as one system rather than two unrelated designs.
+ */
 private val LightPalette = VestraPalette(
-    canvas = Color(0xFFF2F8FC),
-    surface = Color(0xFFEBEDEF),
+    canvas = Color(0xFFF6F3FE),
+    surface = Color(0xFFEDE8FB),
     surfaceRaised = Color(0xFFFFFFFF),
-    surfaceFloating = Color(0xFFEBEDEF),
-    ink = Color(0xFF111419),
-    inkMuted = Color(0xFF575B62),
-    accent = Color(0xFF1F7DCF),
-    accentSoft = Color(0xFF4E9BDB),
-    accentGlow = Color(0x331F7DCF),
+    surfaceFloating = Color(0xFFEDE8FB),
+    ink = Color(0xFF1B1430),
+    inkMuted = Color(0xFF5F5680),
+    accent = Color(0xFF7C3AED),
+    accentSoft = Color(0xFF9B6BF2),
+    accentGlow = Color(0x337C3AED),
     // These were a literal port of lookbookweb's `--glass-*` tokens: white at 95%/98% fill and
     // white at 70%/85% for the border and highlight. That works on the *web* app, whose glass
     // sits over a tinted canvas — but this app draws glass on white cards
@@ -131,10 +134,10 @@ private val LightPalette = VestraPalette(
     // rim beside bordered ones. The fill is now a step off white and the border a low-alpha ink,
     // so every glass surface has an edge in both palettes. Dark mode is untouched — its
     // white-alpha values were always visible against a dark ground.
-    glassFill = Color(0xFFF3F6F9),
-    glassFillStrong = Color(0xFFFFFFFF),
-    glassBorder = Color(0x1F111419),
-    glassHighlight = Color(0x0D111419),
+    glassFill = Color(0xCCFFFFFF),
+    glassFillStrong = Color(0xE6FFFFFF),
+    glassBorder = Color(0x1F1B1430),
+    glassHighlight = Color(0x0D1B1430),
     glassShadow = Color(0x1A111419),
     danger = Color(0xFFD01C29),
     // atelierCanvas/atelierContainer/ivory/ivoryMuted are theme-independent by original design
@@ -148,44 +151,50 @@ private val LightPalette = VestraPalette(
     atelierContainer = Color(0xFF21242A),
     ivory = Color(0xFFF4F5F7),
     ivoryMuted = Color(0xFFA7ABB3),
-    saffronDeep = Color(0xFF009C7B),
-    silkMist = Color(0xFFEBEDEF),
-    modalityImage = Color(0xFF1F7DCF),
-    modalityVideo = Color(0xFFDD503F),
-    modalityCode = Color(0xFF009C7B),
-    modalityAudio = Color(0xFFE8179B),
+    saffronDeep = Color(0xFF0D9488),
+    silkMist = Color(0xFFEDE8FB),
+    modalityImage = Color(0xFF7C3AED),
+    modalityVideo = Color(0xFFEA580C),
+    modalityCode = Color(0xFF0D9488),
+    modalityAudio = Color(0xFFDB2777),
     isDark = false,
 )
 
-// lookbookweb dark theme: background #0C0D11 · card #16181D · foreground #F4F5F7 · accent #6A99FF
+/**
+ * Violet-aurora dark theme. The canvas is a deep indigo rather than near-black so the mesh
+ * gradient behind the glass has something to sit on, and the glass fills are **translucent**
+ * (0x8C / 0x66 alpha, not the old 0xF2 near-opaque) — frosted glass only reads as glass when the
+ * colour behind it comes through. The old dark palette was a near-black ground under 95%-opaque
+ * cards, which is a dark theme, not glassmorphism.
+ */
 private val DarkPalette = VestraPalette(
-    canvas = Color(0xFF0C0D11),
-    surface = Color(0xFF21242A),
-    surfaceRaised = Color(0xFF16181D),
-    surfaceFloating = Color(0xFF21242A),
-    ink = Color(0xFFF4F5F7),
-    inkMuted = Color(0xFFA7ABB3),
-    accent = Color(0xFF6A99FF),
-    accentSoft = Color(0xFF8FB2FF),
-    accentGlow = Color(0x406A99FF),
-    // glass-border/highlight: white at 18%/22% alpha (dark theme)
-    glassFill = Color(0xF216181D),
-    glassFillStrong = Color(0xF821242A),
-    glassBorder = Color(0x2EFFFFFF),
-    glassHighlight = Color(0x38FFFFFF),
-    glassShadow = Color(0x66000000),
-    danger = Color(0xFFF97066),
+    canvas = Color(0xFF130C26),
+    surface = Color(0xFF1A1430),
+    surfaceRaised = Color(0xFF171129),
+    surfaceFloating = Color(0xFF221A3D),
+    ink = Color(0xFFF3EEFF),
+    inkMuted = Color(0xFFB4A9D4),
+    accent = Color(0xFFA78BFA),
+    accentSoft = Color(0xFFC4B5FD),
+    accentGlow = Color(0x4DA78BFA),
+    // Translucent by design — these sit over the aurora mesh and must let it through.
+    glassFill = Color(0x8C2A2150),
+    glassFillStrong = Color(0xA6332764),
+    glassBorder = Color(0x33FFFFFF),
+    glassHighlight = Color(0x45FFFFFF),
+    glassShadow = Color(0x73000000),
+    danger = Color(0xFFFF8A93),
     // Same theme-independent fixed values as LightPalette — see the comment there.
     atelierCanvas = Color(0xFF111419),
     atelierContainer = Color(0xFF21242A),
     ivory = Color(0xFFF4F5F7),
     ivoryMuted = Color(0xFFA7ABB3),
-    saffronDeep = Color(0xFF2DC5A6),
-    silkMist = Color(0xFF21242A),
-    modalityImage = Color(0xFF709FFF),
-    modalityVideo = Color(0xFFFA8C58),
-    modalityCode = Color(0xFF2DC5A6),
-    modalityAudio = Color(0xFFFC65B6),
+    saffronDeep = Color(0xFF2DD4BF),
+    silkMist = Color(0xFF221A3D),
+    modalityImage = Color(0xFFA78BFA),
+    modalityVideo = Color(0xFFFB923C),
+    modalityCode = Color(0xFF2DD4BF),
+    modalityAudio = Color(0xFFF472B6),
     isDark = true,
 )
 

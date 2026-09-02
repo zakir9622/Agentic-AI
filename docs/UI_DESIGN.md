@@ -52,6 +52,34 @@ Chat (`NewsChatScreen`) follows the same conversation pattern independently, wit
 richer chat bubbles, a typing indicator, an empty state, a headlines bar, and a quick-prompt
 carousel (all ported from the GoogleLookBookUI source in Era 6 of the project history).
 
+## Redesign: glassmorphism (post-professional-UI pass)
+
+The app already had `Glass*` components, but on a light-blue palette with ~95%-opaque fills over
+a near-black ground. That is a dark theme wearing glass component names: a blur has nothing to
+work with when everything behind it is one flat colour.
+
+Three changes make it actually glassmorphic, in dependency order:
+
+1. **Palette.** One violet/magenta/teal family across both themes, and glass fills dropped from
+   `0xF2` to `0x8C`/`0xA6` alpha so surfaces are see-through.
+2. **`SpatialBackground` → aurora mesh.** Five overlapping radial blobs drifting on independent
+   periods, over a lifted indigo canvas, under a vertical scrim at the bar/composer edges. This
+   is what the translucent fills reveal.
+3. **`GlassUiKit.kt`** — one file holding every new surface (greeting header, hero card,
+   capability tile, history row, chat status header, author chip, code block, badge pill, app
+   mark, social-proof row). They share one treatment deliberately; the previous UI ended up with
+   three different card styles precisely because that language lived in three places.
+
+Screen-level: Home opens on a hero card and a capability grid rather than an empty canvas; Chat
+renders fenced replies as **syntax-highlighted code blocks** (`CodeHighlighter` +
+`MessageSegment.split`, both unit-tested on the invariant that they never alter the source);
+Onboarding opens on badge → app mark → wordmark → trust line.
+
+A verification gap this exposed: `RedesignScreenshotTest`'s `shoot()` painted a flat
+`colorScheme.background`, so the first violet render showed the palette but *not* the mesh — a
+card can look right there and flat in the app. `shoot()` now takes `spatial = true` to render
+inside the real `SpatialBackground`, and every case judging glass uses it.
+
 ## Redesign: professional-UI pass (post-3.1.8)
 
 A review against the shipped build found the home screen reading as a debug console rather

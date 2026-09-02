@@ -56,98 +56,121 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.content.LookbookCopy
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.theme.LocalVestraPalette
 import com.zakir.vestra.ui.theme.RadiusTokens
 import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.theme.SpatialElevation
 import com.zakir.vestra.ui.theme.VestraColors
 import com.zakir.vestra.ui.util.rememberReduceMotion
 
-/** Full-screen spatial canvas with breathing saffron orbs behind content. */
+/**
+ * Full-screen aurora mesh behind every screen's content.
+ *
+ * Five soft radial blobs on the violet→magenta→teal ramp, drifting on independent phases and
+ * overlapping so their edges dissolve into each other. That overlap is the point: frosted glass
+ * only reads as glass when there is something varied behind it to blur, and the previous version
+ * — two accent orbs on a near-black ground under 95%-opaque cards — gave the blur nothing to work
+ * with. The palette's glass fills are translucent now so this shows through them.
+ *
+ * Every blob's motion is gated on [rememberReduceMotion]; with it on, the mesh renders as a still
+ * composition rather than freezing mid-drift.
+ */
 @Composable
 fun SpatialBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val reduceMotion = rememberReduceMotion()
-    val infinite = rememberInfiniteTransition(label = "spatial")
+    val infinite = rememberInfiniteTransition(label = "aurora")
+
+    /** One drift channel. Independent periods keep the blobs from pulsing in lockstep. */
+    @Composable
+    fun drift(periodMs: Int, range: Float, label: String): Float {
+        val v by infinite.animateFloat(
+            initialValue = if (reduceMotion) 0f else -range,
+            targetValue = if (reduceMotion) 0f else range,
+            animationSpec = infiniteRepeatable(
+                animation = tween(if (reduceMotion) 1 else periodMs, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = label,
+        )
+        return v
+    }
+
+    val d1 = drift(11_000, 40f, "d1")
+    val d2 = drift(14_500, 52f, "d2")
+    val d3 = drift(9_500, 34f, "d3")
     val breathe by infinite.animateFloat(
-        initialValue = if (reduceMotion) 1f else 0.9f,
-        targetValue = if (reduceMotion) 1f else 1.1f,
+        initialValue = if (reduceMotion) 1f else 0.92f,
+        targetValue = if (reduceMotion) 1f else 1.08f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (reduceMotion) 1 else 5600, easing = LinearEasing),
+            animation = tween(if (reduceMotion) 1 else 7200, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
-        label = "orbBreathe",
+        label = "breathe",
     )
-    val drift by infinite.animateFloat(
-        initialValue = if (reduceMotion) 0f else -18f,
-        targetValue = if (reduceMotion) 0f else 18f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (reduceMotion) 1 else 8800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "orbDrift",
-    )
-    val density = LocalDensity.current
+    val palette = LocalVestraPalette.current
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(VestraColors.Canvas),
     ) {
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .offset(
-                    x = with(density) { (36f + drift).toDp() },
-                    y = (-48).dp,
-                )
-                .size((300 * breathe).dp)
-                .graphicsLayer { alpha = 0.5f }
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            VestraColors.AccentSoft.copy(alpha = 0.32f),
-                            VestraColors.Accent.copy(alpha = 0.06f),
-                            Color.Transparent,
-                        ),
-                    ),
-                    shape = CircleShape,
-                ),
-        )
-        Box(
-            Modifier
-                .align(Alignment.BottomStart)
-                .offset(
-                    x = (-72).dp,
-                    y = with(density) { (64f - drift * 0.5f).toDp() },
-                )
-                .size((340 * (2f - breathe).coerceIn(0.92f, 1.15f)).dp)
-                .graphicsLayer { alpha = 0.42f }
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            VestraColors.Accent.copy(alpha = 0.2f),
-                            Color.Transparent,
-                        ),
-                    ),
-                    shape = CircleShape,
-                ),
-        )
+        // Blob alpha is much lower in light mode: the same strength that reads as a rich aurora
+        // on a deep indigo ground turns a pale lilac canvas muddy.
+        val strength = if (palette.isDark) 1f else 0.42f
+        AuroraBlob(Alignment.TopStart, (-70).dp + d1.dp, (-90).dp + d3.dp, 340.dp * breathe, palette.accent, strength)
+        AuroraBlob(Alignment.TopEnd, 60.dp + d2.dp, (-40).dp + d1.dp, 300.dp * breathe, palette.modalityAudio, strength)
+        AuroraBlob(Alignment.CenterStart, (-100).dp + d3.dp, (-30).dp + d2.dp, 380.dp * breathe, palette.accentSoft, strength)
+        AuroraBlob(Alignment.CenterEnd, 90.dp + d1.dp, 60.dp + d3.dp, 320.dp * breathe, palette.saffronDeep, strength * 0.8f)
+        AuroraBlob(Alignment.BottomStart, (-40).dp + d2.dp, 80.dp + d1.dp, 360.dp * breathe, palette.modalityAudio, strength * 0.9f)
+
+        // A vertical scrim keeps text legible over whatever the mesh happens to be doing at the
+        // top and bottom edges, where bars and composers sit.
         Box(
             Modifier
                 .matchParentSize()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
+                            VestraColors.Canvas.copy(alpha = if (palette.isDark) 0.40f else 0.30f),
                             Color.Transparent,
-                            VestraColors.Canvas.copy(alpha = 0.38f),
+                            VestraColors.Canvas.copy(alpha = if (palette.isDark) 0.50f else 0.40f),
                         ),
                     ),
                 ),
         )
         content()
     }
+}
+
+/** One soft radial blob of the aurora mesh. Edges fade fully to transparent so blobs blend. */
+@Composable
+private fun BoxScope.AuroraBlob(
+    align: Alignment,
+    offsetX: Dp,
+    offsetY: Dp,
+    size: Dp,
+    color: Color,
+    strength: Float,
+) {
+    Box(
+        Modifier
+            .align(align)
+            .offset(x = offsetX, y = offsetY)
+            .size(size)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        color.copy(alpha = 0.78f * strength),
+                        color.copy(alpha = 0.30f * strength),
+                        Color.Transparent,
+                    ),
+                ),
+                shape = CircleShape,
+            ),
+    )
 }
 
 /**

@@ -1,12 +1,28 @@
 name: Android CI
 
-# PR checks + main push checks. Does NOT publish GitHub Releases —
-# see release-apk.yml (main merges / pushes only).
+# Runs when a pull request is *presented for review*, not on every commit pushed to it.
+# Does NOT publish GitHub Releases — see release-apk.yml (main merges / pushes only).
+#
+# `synchronize` is deliberately absent from the trigger list. That is the event GitHub fires
+# for every new commit on an open PR, and including it (the default when `types:` is omitted)
+# meant a four-commit branch burned four full ~7-minute matrix runs — three of them on code
+# that was still being iterated on. The full gate is meant to run against finished work.
+#
+# The intended loop: push commits freely to a **draft** PR, run the same checks locally
+# (`./gradlew :composeApp:detekt :shared:testDebugUnitTest :composeApp:testSideloadDebugUnitTest
+# :composeApp:lintSideloadDebug`), then click "Ready for review" — which fires `ready_for_review`
+# and runs CI once against the finished branch. `workflow_dispatch` re-runs it on demand without
+# needing an empty commit.
+#
+# `push: branches: [main]` is kept: post-merge validation of what actually landed is the one
+# run that cannot be replaced by a local gate, and it is one run per merge, not per commit.
 
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

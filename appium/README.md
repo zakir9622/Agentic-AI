@@ -3,12 +3,16 @@
 Real, executable Appium (UiAutomator2) tests against `com.zakir.vestra`, written against the
 stable `testTag`s catalogued in `composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`.
 
-**Honesty note, not a formality:** these tests have never been run. No Android device, emulator,
-or Appium server exists in the environment that authored them — that environment has no `adb`,
-no `ANDROID_HOME`, and no Appium binary (verified directly, not assumed). Writing tests you
-cannot execute is not the same as verifying them; treat every test here as a first draft that
-needs a real run on a real device before it's trusted. If a locator or a timing assumption is
-wrong, expect to find that out on the first real run, not before.
+**Honesty note, not a formality:** these tests have never been run — including the newest file.
+Writing tests you cannot execute is not the same as verifying them; treat every test here as a
+first draft that needs a real run on a real device before it's trusted.
+
+The blocker has been re-checked, not assumed. An Android SDK *is* installed now
+(`ANDROID_HOME=/root/android-sdk`, with `platform-tools/adb`), so the earlier "no `adb`" note is
+out of date. What is still missing is anything for `adb` to talk to: **`/dev/kvm` does not exist
+and `/proc/cpuinfo` reports no `vmx`/`svm` flags**, so an emulator cannot start in that
+environment at any speed, and no physical device is attached. The suite is one `appium` install
+and one connected device away from running; it is not one command away.
 
 ## What's covered
 
@@ -17,6 +21,7 @@ wrong, expect to find that out on the first real run, not before.
 | `test_prompt_isolation.py` | Prompts stay isolated per studio tab (Image/Video/Code/Audio); direct regression test for a real bug found and fixed this session — tapping a News headline used to overwrite whatever prompt was typed in the currently-active studio tab. **Stale as of the unified-screen redesign** — it still references `bottom_bar_chat`/`bottom_bar_home`, which no longer exist; needs a rewrite against the modality chips on the unified main screen. |
 | `test_generation_flows.py` | Local image generation, local code generation (streaming → ready), local chat reach a genuine terminal state — a real result or a legible failure, never a hang or a raw stack trace. Also references `bottom_bar_chat` and needs the same update. |
 | `test_image_edit.py` | The image-to-image/edit entry point (attach a reference photo on the Image tab) actually works: attach → thumbnail appears → clear → thumbnail disappears → generation with a reference reaches a terminal state. |
+| `test_glass_ui.py` | **Current with the glassmorphism redesign.** Structure of the reworked surfaces: greeting header, hero card and its CTA, capabilities section, HISTORY hiding itself on a cold install, every modality chip, the composer's attach button, the model chip *not* containing a blocked-reason sentence, a fenced reply rendering as a code block, and the Settings hub rows. Structural only — whether the glass *looks* right is what `RedesignScreenshotTest` renders and a human reviews. |
 
 **Removed:** `test_bottom_bar.py` — the bottom dock it tested (Home/Library/Settings tabs) no longer
 exists; the app now opens directly into one unified screen with Library/Settings reached via two
@@ -24,7 +29,7 @@ top-right icons instead (`unified_library_button`/`unified_settings_button`). `t
 and `test_model_packs.py` also reference now-removed `bottom_bar_*` tags and need the same pass —
 none of this has been re-verified on a device yet.
 
-**Also stale as of the professional-UI pass:** `top_model_selector` no longer exists — the home
+**Also stale as of the professional-UI pass and the glass redesign:** `top_model_selector` no longer exists — the home
 top bar's service chip and its dropdown were removed, and model selection happens entirely
 through the composer's `composer_model_chip`. Settings is a hub now, so anything reaching a
 model or key setting must first tap `settings_row_models` (then `models_provider_row_<PLATFORM>`

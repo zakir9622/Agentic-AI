@@ -75,6 +75,16 @@ import com.zakir.vestra.ui.ChatViewModel
 import com.zakir.vestra.ui.GenerativeViewModel
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.ApiUsageDashboardCard
+import androidx.compose.material.icons.automirrored.outlined.Chat
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Movie
+import androidx.compose.material.icons.outlined.PhotoCamera
+import com.zakir.vestra.ui.components.CapabilityTile
+import com.zakir.vestra.ui.components.GreetingHeader
+import com.zakir.vestra.ui.components.HeroPromptCard
+import com.zakir.vestra.ui.components.HistoryRow
+import com.zakir.vestra.ui.components.SectionHeaderRow
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.components.GlassErrorBanner
 import com.zakir.vestra.ui.components.InterruptedJobsBanner
@@ -110,6 +120,12 @@ internal enum class ComposerMode(
     val emptyStatePrompt: String,
     /** One-tap starters for the empty state. Tapping one fills the composer and sends. */
     val suggestions: List<String>,
+    /** Label on the hero card's primary button for this mode. */
+    val heroCta: String,
+    /** How this mode reads as a capability tile when a *different* mode is active. */
+    val capabilityTitle: String,
+    val capabilitySubtitle: String,
+    val icon: ImageVector,
 ) {
     CHAT(
         "Chat",
@@ -120,6 +136,10 @@ internal enum class ComposerMode(
             "What colours flatter a warm skin tone?",
             "Suggest three outfits for a winter wedding",
         ),
+        heroCta = "Start Chat",
+        capabilityTitle = "Ask Anything",
+        capabilitySubtitle = "Advice & ideas",
+        icon = Icons.AutoMirrored.Outlined.Chat,
     ),
     IMAGE(
         "Image",
@@ -130,6 +150,10 @@ internal enum class ComposerMode(
             "Editorial street style, oversized wool coat, overcast city",
             "Silk scarf detail, macro shot, soft window light",
         ),
+        heroCta = "Create Image",
+        capabilityTitle = "Image Studio",
+        capabilitySubtitle = "Render a look",
+        icon = Icons.Outlined.AutoAwesome,
     ),
     VIDEO(
         "Video",
@@ -140,6 +164,10 @@ internal enum class ComposerMode(
             "Fabric catching the light as it falls",
             "A model turning to camera, golden hour",
         ),
+        heroCta = "Create Clip",
+        capabilityTitle = "Clip Maker",
+        capabilitySubtitle = "Short motion",
+        icon = Icons.Outlined.Movie,
     ),
     CODE(
         "Code",
@@ -150,6 +178,10 @@ internal enum class ComposerMode(
             "Explain this Compose recomposition problem",
             "A SQL query for top sellers by category",
         ),
+        heroCta = "Write Code",
+        capabilityTitle = "Code Wizard",
+        capabilitySubtitle = "Debug & generate",
+        icon = Icons.Outlined.Code,
     ),
     AUDIO(
         "Audio",
@@ -160,6 +192,10 @@ internal enum class ComposerMode(
             "Narrate a thirty-second product description",
             "Speak a friendly welcome message",
         ),
+        heroCta = "Speak It",
+        capabilityTitle = "Voice Over",
+        capabilitySubtitle = "Text to speech",
+        icon = Icons.Outlined.GraphicEq,
     ),
     ;
 
@@ -332,6 +368,22 @@ fun UnifiedMainScreen(
     }
     val composerBlockedReason = mode.capability?.let(generativeViewModel::blockedReason)
 
+    // Recent activity for Home's HISTORY section, derived from the thread that already exists
+    // rather than a second store. Empty on a cold install, which is why the section hides itself.
+    val recentHistory = remember(allTurns, chatMessages) {
+        (allTurns.map { it.prompt to it.timestampMs } + chatMessages.filter { it.role == "user" }.map { it.text to it.timestampMs })
+            .sortedByDescending { it.second }
+            .take(3)
+            .mapIndexed { index, (text, ts) ->
+                HomeHistoryEntry(
+                    id = "h$index-$ts",
+                    title = text.take(48),
+                    subtitle = "Tap to reuse this prompt",
+                    timeLabel = relativeTime(ts),
+                )
+            }
+    }
+
     fun send(text: String) {
         when (mode) {
             ComposerMode.CHAT -> chatViewModel.send(text)
@@ -379,6 +431,9 @@ fun UnifiedMainScreen(
                             mode = mode,
                             suggestions = mode.suggestions,
                             onSuggestion = ::sendSuggestion,
+                            history = recentHistory,
+                            onHistory = { entry -> generativeViewModel.setPrompt(entry.title) },
+                            onExploreAll = { showModelPicker = true },
                         )
                     }
                 }
@@ -523,56 +578,37 @@ fun UnifiedMainScreen(
 internal fun UnifiedTopBar(
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
+    greeting: String = LookbookCopy.PRODUCT_NAME,
+    statusLine: String = LookbookCopy.HOME_STATUS_LINE,
 ) {
-    // Three unweighted children under `SpaceBetween` used to demand ~423dp of a 324dp content
-    // width here: a brand block with no maxLines, a model chip capped at 130dp showing a
-    // compound "service · model" string that therefore always ellipsized, and a fixed 120dp
-    // action row. The chip is gone — the composer already owns model selection, and one model
-    // control beats two — so the brand can take `weight(1f)` and the actions their natural size.
+    // Was a brand wordmark plus three icon buttons that could not fit the row. It is a greeting
+    // with presence now — the screen reads as the user's workspace rather than a product page —
+    // and the brand block still takes `weight(1f)` so the actions always have their space.
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = SpacingTokens.section, vertical = SpacingTokens.sm),
-        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(RadiusTokens.sm))
-                    .background(VestraColors.Accent),
-            )
-            Spacer(Modifier.width(SpacingTokens.sm))
-            Text(
-                LookbookCopy.PRODUCT_NAME,
-                style = MaterialTheme.typography.titleLarge,
-                color = VestraColors.Ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TopBarIconButton(
-                icon = Icons.Outlined.Checkroom,
-                contentDescription = "Open Library",
-                testTag = TestTags.UNIFIED_LIBRARY_BUTTON,
-                onClick = onOpenLibrary,
-            )
-            TopBarIconButton(
-                icon = Icons.Outlined.Settings,
-                contentDescription = "Open Settings",
-                testTag = TestTags.UNIFIED_SETTINGS_BUTTON,
-                onClick = onOpenSettings,
-            )
-        }
+        GreetingHeader(
+            greeting = greeting,
+            statusLine = statusLine,
+            online = true,
+            modifier = Modifier.weight(1f),
+        )
+        TopBarIconButton(
+            icon = Icons.Outlined.Checkroom,
+            contentDescription = "Open Library",
+            testTag = TestTags.UNIFIED_LIBRARY_BUTTON,
+            onClick = onOpenLibrary,
+        )
+        TopBarIconButton(
+            icon = Icons.Outlined.Settings,
+            contentDescription = "Open Settings",
+            testTag = TestTags.UNIFIED_SETTINGS_BUTTON,
+            onClick = onOpenSettings,
+        )
     }
 }
 
@@ -610,27 +646,65 @@ internal fun HomeEmptyState(
     mode: ComposerMode,
     suggestions: List<String>,
     onSuggestion: (String) -> Unit,
+    history: List<HomeHistoryEntry> = emptyList(),
+    onHistory: (HomeHistoryEntry) -> Unit = {},
+    onExploreAll: () -> Unit = {},
 ) {
     Column(
         Modifier
             .fillMaxWidth()
             .testTag(TestTags.HOME_EMPTY_STATE)
-            .padding(top = SpacingTokens.xxl, bottom = SpacingTokens.md),
-        horizontalAlignment = Alignment.Start,
+            .padding(top = SpacingTokens.md, bottom = SpacingTokens.md),
     ) {
-        Text(
-            LookbookCopy.HOME_GREETING,
-            style = MaterialTheme.typography.headlineMedium,
-            color = VestraColors.Ink,
-        )
-        Spacer(Modifier.height(SpacingTokens.xs))
-        Text(
-            mode.emptyStatePrompt,
-            style = MaterialTheme.typography.bodyLarge,
-            color = VestraColors.InkMuted,
+        HeroPromptCard(
+            title = LookbookCopy.HOME_GREETING,
+            body = mode.emptyStatePrompt,
+            primaryLabel = mode.heroCta,
+            onPrimary = { suggestions.firstOrNull()?.let(onSuggestion) },
+            secondaryIcon = Icons.Outlined.PhotoCamera,
+            secondaryContentDescription = "Attach an image",
+            onSecondary = { suggestions.firstOrNull()?.let(onSuggestion) },
         )
         Spacer(Modifier.height(SpacingTokens.xl))
-        GlassSectionLabel("TRY ONE OF THESE", color = VestraColors.InkMuted)
+
+        Box(Modifier.testTag(TestTags.HOME_CAPABILITIES_SECTION)) {
+            Column {
+                SectionHeaderRow(
+                    label = "CAPABILITIES",
+                    actionLabel = "Explore All",
+                    onAction = onExploreAll,
+                )
+                Spacer(Modifier.height(SpacingTokens.sm))
+                // Two per row, chunked rather than a Grid: this sits inside a LazyColumn item,
+                // and a nested lazy grid there has no bounded height to measure against.
+                ComposerMode.entries.filter { it != mode }.take(4).chunked(2).forEach { pair ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
+                    ) {
+                        pair.forEach { candidate ->
+                            CapabilityTile(
+                                icon = candidate.icon,
+                                title = candidate.capabilityTitle,
+                                subtitle = candidate.capabilitySubtitle,
+                                accent = candidate.accent,
+                                onClick = { onSuggestion(candidate.suggestions.first()) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag(TestTags.homeCapabilityTile(candidate.name.lowercase())),
+                            )
+                        }
+                        // Keeps a lone tile at half width instead of stretching it across the row.
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(SpacingTokens.sm))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(SpacingTokens.sm))
+        SectionHeaderRow(label = "TRY ONE OF THESE")
+        Spacer(Modifier.height(SpacingTokens.sm))
         suggestions.forEachIndexed { index, suggestion ->
             SuggestionCard(
                 text = suggestion,
@@ -640,8 +714,37 @@ internal fun HomeEmptyState(
             )
             Spacer(Modifier.height(SpacingTokens.xs))
         }
+
+        if (history.isNotEmpty()) {
+            Spacer(Modifier.height(SpacingTokens.lg))
+            Box(Modifier.testTag(TestTags.HOME_HISTORY_SECTION)) {
+                Column {
+                    SectionHeaderRow(label = "HISTORY")
+                    Spacer(Modifier.height(SpacingTokens.sm))
+                    history.forEachIndexed { index, entry ->
+                        HistoryRow(
+                            icon = Icons.AutoMirrored.Outlined.Chat,
+                            title = entry.title,
+                            subtitle = entry.subtitle,
+                            timeLabel = entry.timeLabel,
+                            onClick = { onHistory(entry) },
+                            modifier = Modifier.testTag(TestTags.homeHistoryRow(index)),
+                        )
+                        Spacer(Modifier.height(SpacingTokens.xs))
+                    }
+                }
+            }
+        }
     }
 }
+
+/** One recent-activity row on Home. [timeLabel] is pre-formatted — the row does no date maths. */
+data class HomeHistoryEntry(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val timeLabel: String,
+)
 
 @Composable
 private fun SuggestionCard(text: String, accent: Color, index: Int, onClick: () -> Unit) {
@@ -651,7 +754,7 @@ private fun SuggestionCard(text: String, accent: Color, index: Int, onClick: () 
             .fillMaxWidth()
             .testTag(TestTags.homeSuggestion(index))
             .clip(shape)
-            .background(VestraColors.GlassFillStrong)
+            .background(VestraColors.GlassFill)
             .border(1.dp, VestraColors.GlassBorder, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = SpacingTokens.md, vertical = SpacingTokens.sm),
@@ -717,6 +820,17 @@ internal fun ModalityChipRow(selected: ComposerMode, onSelect: (ComposerMode) ->
                 )
             }
         }
+    }
+}
+
+/** Coarse "2h ago" style stamp for history rows. Precision past the hour is not useful here. */
+private fun relativeTime(timestampMs: Long): String {
+    val deltaMin = ((System.currentTimeMillis() - timestampMs) / 60_000L).coerceAtLeast(0)
+    return when {
+        deltaMin < 1 -> "now"
+        deltaMin < 60 -> "${deltaMin}m ago"
+        deltaMin < 60 * 24 -> "${deltaMin / 60}h ago"
+        else -> "${deltaMin / (60 * 24)}d ago"
     }
 }
 

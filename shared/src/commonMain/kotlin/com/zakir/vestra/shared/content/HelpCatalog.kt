@@ -10,8 +10,18 @@ object LookbookCopy {
         "Modest fashion atelier with true on-device AI. Try-on, Image Create/Edit, Video still-clips, " +
             "Code (Gemma), and Speak run offline after you download Model packs — cloud studios stay optional."
 
-    /** Home's empty-state headline — the first line on a cold install. */
-    const val HOME_GREETING = "What are we making?"
+    /** Home's hero headline — the first line on a cold install. */
+    const val HOME_GREETING = "What can I help you create?"
+
+    /** Sits under the greeting in Home's header, next to the presence dot. */
+    const val HOME_STATUS_LINE = "ASSISTANT ACTIVE"
+
+    /**
+     * Trust line under the first-run CTA. Deliberately about the app's stance rather than a user
+     * count — this app has no accounts and no analytics, so a "trusted by N users" figure would
+     * be invented.
+     */
+    const val ONBOARDING_SOCIAL_PROOF = "Runs on your device · no account needed"
 
     const val STUDIO_HOME = "Atelier"
     const val STUDIO_TRY_ON = "Virtual try-on"

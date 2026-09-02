@@ -175,6 +175,19 @@ object TestTags {
     // Default-model-per-modality screen (DefaultModelsScreen.kt).
     fun defaultModelRow(capability: String): String = "default_model_row_$capability"
 
+    // Glass UI kit (GlassUiKit.kt) — the redesigned home and chat surfaces.
+    const val HOME_GREETING_HEADER = "home_greeting_header"
+    const val HOME_NOTIFICATIONS_BUTTON = "home_notifications_button"
+    const val HOME_HERO_CARD = "home_hero_card"
+    const val HOME_HERO_PRIMARY = "home_hero_primary"
+    const val HOME_CAPABILITIES_SECTION = "home_capabilities_section"
+    fun homeCapabilityTile(id: String): String = "home_capability_$id"
+    const val HOME_HISTORY_SECTION = "home_history_section"
+    fun homeHistoryRow(index: Int): String = "home_history_row_$index"
+    const val CHAT_STATUS_HEADER = "chat_status_header"
+    const val CHAT_CODE_BLOCK = "chat_code_block"
+    const val COMPOSER_ATTACH_BUTTON = "composer_attach_button"
+
     // Notifications screen (NotificationsScreen.kt).
     const val NOTIFICATIONS_PERMISSION_CARD = "notifications_permission_card"
     const val NOTIFY_GENERATION_COMPLETE_SWITCH = "notify_generation_complete_switch"
