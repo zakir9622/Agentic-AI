@@ -52,6 +52,12 @@ import com.zakir.vestra.ui.screens.settings.ProviderModelsScreen
 import com.zakir.vestra.shared.cloud.CloudPlatform
 import com.zakir.vestra.ui.screens.settings.DiagnosticsScreen
 import com.zakir.vestra.ui.screens.settings.SettingsScreen
+import com.zakir.vestra.ui.screens.settings.ApiKeysScreen
+import com.zakir.vestra.ui.screens.settings.SafetyScreen
+import com.zakir.vestra.ui.screens.settings.AppearanceScreen
+import com.zakir.vestra.ui.screens.settings.StoragePrivacyScreen
+import com.zakir.vestra.ui.screens.settings.MemoryScreen
+import com.zakir.vestra.ui.screens.settings.AboutScreen
 import com.zakir.vestra.ui.screens.home.UnifiedMainScreen
 import com.zakir.vestra.shared.news.NewsRepository
 import com.zakir.vestra.shared.platformHttpClient
@@ -78,6 +84,12 @@ object Routes {
     const val SETTINGS_DEFAULT_MODELS = "settings/models/defaults"
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_API_MONITOR = "settings/api-monitor"
+    const val SETTINGS_API_KEYS = "settings/api-keys"
+    const val SETTINGS_SAFETY = "settings/safety"
+    const val SETTINGS_APPEARANCE = "settings/appearance"
+    const val SETTINGS_STORAGE = "settings/storage"
+    const val SETTINGS_MEMORY = "settings/memory"
+    const val SETTINGS_ABOUT = "settings/about"
 
     /** [SETTINGS_MODELS_PROVIDER] takes the [CloudPlatform] enum name as its one argument. */
     const val SETTINGS_MODELS_PROVIDER = "settings/models/provider"
@@ -372,20 +384,59 @@ fun VestraNavHost(
             deepLinks = listOf(navDeepLink { uriPattern = Routes.deepLink(Routes.SETTINGS) }),
         ) {
             SettingsScreen(
-                appSettings = appSettings,
                 packManager = packManager,
+                onOpenModels = { navController.navigate(Routes.SETTINGS_MODELS) },
+                onOpenApiKeys = { navController.navigate(Routes.SETTINGS_API_KEYS) },
+                onOpenDefaultModels = { navController.navigate(Routes.SETTINGS_DEFAULT_MODELS) },
+                onOpenNotifications = { navController.navigate(Routes.SETTINGS_NOTIFICATIONS) },
+                onOpenApiMonitor = { navController.navigate(Routes.SETTINGS_API_MONITOR) },
+                onOpenSafety = { navController.navigate(Routes.SETTINGS_SAFETY) },
+                onOpenAppearance = { navController.navigate(Routes.SETTINGS_APPEARANCE) },
+                onOpenStorage = { navController.navigate(Routes.SETTINGS_STORAGE) },
+                // The memory row is hidden rather than shown inert when the repository is absent
+                // — an empty "what the assistant remembers" page is worse than no row.
+                onOpenMemory = memoryRepository?.let { { navController.navigate(Routes.SETTINGS_MEMORY) } },
+                onOpenAbout = { navController.navigate(Routes.SETTINGS_ABOUT) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS_API_KEYS) {
+            ApiKeysScreen(
+                appSettings = appSettings,
                 freeCloudDiscovery = freeCloudDiscovery,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS_SAFETY) {
+            SafetyScreen(appSettings = appSettings, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.SETTINGS_APPEARANCE) {
+            AppearanceScreen(appSettings = appSettings, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.SETTINGS_STORAGE) {
+            StoragePrivacyScreen(
+                appSettings = appSettings,
                 usageLedger = usageLedger,
-                memoryRepository = memoryRepository,
-                onOpenPacks = { navController.navigate(Routes.PACKS) },
+                // Clearing keys from here jumps to the page that owns them, so the destructive
+                // confirm lives beside the fields it empties rather than being duplicated.
+                onConfirmClearTokens = { navController.navigate(Routes.SETTINGS_API_KEYS) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SETTINGS_MEMORY) {
+            val repo = memoryRepository
+            if (repo == null) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            } else {
+                MemoryScreen(appSettings = appSettings, memory = repo, onBack = { navController.popBackStack() })
+            }
+        }
+        composable(Routes.SETTINGS_ABOUT) {
+            AboutScreen(
                 onOpenHelp = { navController.navigate(Routes.HELP) },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
                 onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
                 onOpenDiagnostics = { navController.navigate(Routes.SETTINGS_DIAGNOSTICS) },
-                onOpenModels = { navController.navigate(Routes.SETTINGS_MODELS) },
-                onOpenDefaultModels = { navController.navigate(Routes.SETTINGS_DEFAULT_MODELS) },
-                onOpenNotifications = { navController.navigate(Routes.SETTINGS_NOTIFICATIONS) },
-                onOpenApiMonitor = { navController.navigate(Routes.SETTINGS_API_MONITOR) },
                 onBack = { navController.popBackStack() },
             )
         }

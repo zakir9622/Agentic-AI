@@ -838,6 +838,20 @@ class GenerativeViewModel(
         refreshAllTurns()
     }
 
+    /**
+     * Empties every studio's timeline — the generative half of "New chat".
+     *
+     * Deliberately not a cancel: a generation the user started in a backgrounded studio keeps
+     * running (that is the whole point of [StudioBag]), and its result will append into the fresh
+     * thread when it lands. Stopping in-flight work here would make starting a new conversation
+     * silently destroy a video render the user is still waiting on.
+     */
+    fun clearAllTurns() {
+        bags.values.forEach { it.turns = emptyList() }
+        _turns.value = emptyList()
+        refreshAllTurns()
+    }
+
     private fun appendLive(line: String) {
         val stamped = line.take(160)
         _liveLog.value = (_liveLog.value + stamped).takeLast(40)

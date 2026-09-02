@@ -52,6 +52,61 @@ Chat (`NewsChatScreen`) follows the same conversation pattern independently, wit
 richer chat bubbles, a typing indicator, an empty state, a headlines bar, and a quick-prompt
 carousel (all ported from the GoogleLookBookUI source in Era 6 of the project history).
 
+## Redesign: one chatbox (current shell)
+
+The shell was measured against the Gemini app, and lost on the thing that matters most: how many
+controls stand between opening the app and sending a message.
+
+**Before:** a top bar with a greeting block, a five-chip modality row, and a composer carrying an
+"Attach Reference" chip row *and* a leading attach button *and* a model chip. In Image mode both
+attach affordances rendered at once, with the chip overlapping the placeholder, and the model
+chip read `FLUX.1 Schnell · Ready · verified 6m ago` in about 150dp. Above all of it, an empty
+state stacking a hero card, a 2×2 capability grid, three starters and a history list.
+
+**After:** one `+`, one field, one send button.
+
+| Concern | Where it lives now |
+|---|---|
+| Attach a photo, camera shot or file | The `+` sheet's source row |
+| Switch generator (Chat/Images/Videos/Canvas/Audio) | The `+` sheet's tool list |
+| Which generator is active | A dismissible chip in the composer — absent for Chat |
+| Which model runs it | The top bar's selector |
+| Start over | The top bar's new-chat icon — hidden while the thread is empty |
+| Why generation is gated | Its own hint row in the composer |
+
+The rule that produced this: **a control the user changes rarely does not get permanent screen
+space.** The chip row cost 40dp on every screen to expose a choice most messages never make; the
+capability grid offered the same five generators the `+` sheet does, in different words, from a
+second place. Both are gone. What is left is on screen because it is used, or because hiding it
+would hide state (the active tool, an attachment, a blocked reason).
+
+Every source in the sheet is wired to something real: Photos through the photo picker, Camera
+through the existing `FileProvider` capture behind the same permission gate as garment capture,
+Files with a persistable read grant so the URI still resolves when generation runs. Dictation
+uses the system recogniser (`RecognizerIntent`), which needs no `RECORD_AUDIO` grant — and the
+mic is hidden rather than disabled where no recogniser is installed.
+
+**Replies changed shape too.** Assistant turns have no bubble: a reply is the longest content the
+app renders and the bubble was spending 28dp of horizontal padding plus a 32dp avatar gutter on
+it. What gives the turn its identity instead is the model name above and an action row below —
+copy, regenerate, read aloud (platform TTS), share. User turns stay as short right-aligned pills.
+
+**Markdown renders** (`ui/components/Markdown.kt`). Every reply in the app previously showed its
+markers literally — the first assistant message of every conversation arrived as
+`- **Fashion try-on** features and tips`. The parser covers headings, bullets, ordered items,
+quotes, rules and inline emphasis; fenced code still splits out to `CodeBlock` first. Unmatched
+markers degrade to literal text rather than swallowing the rest of the line, and the tests pin
+that no visible text is ever lost — a wrong colour is cosmetic, a dropped clause is damage.
+
+**Settings is a hub and only a hub.** The previous pass added four navigable rows and then left
+appearance, storage, permissions, safety, four API-key fields, durable-storage status, about and
+memory inline *around* them — the same six screen-heights, now with navigation stranded in the
+middle. There are ten rows now, grouped GENERATION / APP / YOUR DATA, and every setting is on a
+page: `ApiKeysScreen`, `SafetyScreen`, `AppearanceScreen`, `StoragePrivacyScreen`, `MemoryScreen`,
+`AboutScreen`. Each page calls the same `LazyListScope` section function the hub used to call
+inline, so the split moved no setting logic at all — which is what makes it reviewable against
+"nothing was lost", the failure mode the previous restructure actually hit.
+
 ## Redesign: glassmorphism (post-professional-UI pass)
 
 The app already had `Glass*` components, but on a light-blue palette with ~95%-opaque fills over

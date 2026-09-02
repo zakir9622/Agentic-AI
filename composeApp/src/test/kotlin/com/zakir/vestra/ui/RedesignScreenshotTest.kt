@@ -24,8 +24,6 @@ import com.zakir.vestra.storage.ApiKeyDataStore
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import com.zakir.vestra.shared.chat.ChatMessage
-import com.zakir.vestra.ui.components.AuthorChip
-import com.zakir.vestra.ui.components.ChatStatusHeader
 import com.zakir.vestra.ui.screens.news.ChatMessageBubble
 import com.zakir.vestra.ui.components.GlassAppMark
 import com.zakir.vestra.ui.components.GlassBadgePill
@@ -33,11 +31,14 @@ import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.SocialProofRow
 import com.zakir.vestra.ui.components.ApiUsageDashboardCard
 import com.zakir.vestra.ui.components.PromptComposer
+import com.zakir.vestra.ui.theme.VestraColors
+import com.zakir.vestra.ui.components.ActiveTool
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Movie
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.screens.home.ComposerMode
 import com.zakir.vestra.ui.screens.home.HomeEmptyState
 import com.zakir.vestra.ui.screens.home.HomeHistoryEntry
-import com.zakir.vestra.ui.screens.home.ModalityChipRow
 import com.zakir.vestra.ui.screens.home.UnifiedTopBar
 import com.zakir.vestra.ui.screens.settings.ApiMonitorScreen
 import com.zakir.vestra.ui.screens.settings.DefaultModelsScreen
@@ -251,11 +252,12 @@ class RedesignScreenshotTest {
         }
     }
 
-    // ── The composer: model name vs blocked reason ───────────────────────────────────────
+    // ── The single chatbox ──────────────────────────────────────────────────────────────
 
     /**
-     * The exact regression from the reported screenshots: this consent sentence used to be passed
-     * as `modelLabel` and rendered as "Pick a cloud model in the model pi…" inside the chip.
+     * The exact regression from the reported screenshots: this consent sentence used to be
+     * passed as `modelLabel` and rendered as "Pick a cloud model in the model pi…" inside the
+     * chip. The chip is gone entirely now — the reason has the row to itself.
      */
     @Test
     @Config(qualifiers = "w360dp-h800dp-xxhdpi")
@@ -265,34 +267,44 @@ class RedesignScreenshotTest {
             PromptComposer(
                 prompt = prompt,
                 onPromptChange = { prompt = it },
-                modelLabel = "FLUX.1 schnell",
                 blockedReason = "Pick a cloud model in the model picker, or add a free API key in " +
                     "Settings, to use Hugging Face — nothing is sent to the network until you do.",
                 busy = false,
                 enabled = true,
                 onSend = {},
                 onStop = {},
-                onModelClick = {},
-                placeholder = "Ask Lookbook to create anything…",
+                onOpenTools = {},
+                onDictate = {},
             )
         }
     }
 
+    /**
+     * Image mode with a tool chip and text. The defect this replaces: an "Attach Reference" chip
+     * row *and* a leading attach button both rendered here, with the chip sitting on top of the
+     * placeholder. There is one attach affordance now and the field is unobstructed.
+     */
     @Test
     @Config(qualifiers = "w360dp-h800dp-xxhdpi")
-    fun `35 composer ready narrow light`() {
-        shoot("35-composer-ready-360-light", dark = false, spatial = true) {
+    fun `35 composer with active tool narrow light`() {
+        shoot("35-composer-tool-360-light", dark = false, spatial = true) {
             PromptComposer(
                 prompt = "A flowing linen abaya in warm sand, studio lighting",
                 onPromptChange = {},
-                modelLabel = "Bonsai Image 4B (LiteRT) · Ready offline",
                 busy = false,
                 enabled = true,
                 onSend = {},
                 onStop = {},
-                onModelClick = {},
-                onAddReference = {},
-                placeholder = "Ask Lookbook to create anything…",
+                onOpenTools = {},
+                onDictate = {},
+                accent = VestraColors.ModalityImage,
+                placeholder = "Describe an image to create",
+                activeTool = ActiveTool(
+                    label = "Images",
+                    icon = Icons.Outlined.AutoAwesome,
+                    accent = VestraColors.ModalityImage,
+                    onClear = {},
+                ),
             )
         }
     }
@@ -303,32 +315,59 @@ class RedesignScreenshotTest {
             PromptComposer(
                 prompt = "Slow pan across a rack of autumn coats",
                 onPromptChange = {},
-                modelLabel = "LTX Video (ZeroGPU)",
                 busy = true,
                 enabled = true,
                 onSend = {},
                 onStop = {},
-                onModelClick = {},
+                onOpenTools = {},
+                accent = VestraColors.ModalityVideo,
+                activeTool = ActiveTool(
+                    label = "Videos",
+                    icon = Icons.Outlined.Movie,
+                    accent = VestraColors.ModalityVideo,
+                    onClear = {},
+                ),
             )
         }
     }
 
-    // ── Home: top bar, empty state, modality chips ───────────────────────────────────────
+    /** The empty composer — the state the app opens on, and the one that must look like one control. */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xxhdpi")
+    fun `36b composer idle narrow`() {
+        shoot("36b-composer-idle-360", spatial = true) {
+            PromptComposer(
+                prompt = "",
+                onPromptChange = {},
+                busy = false,
+                enabled = true,
+                onSend = {},
+                onStop = {},
+                onOpenTools = {},
+                onDictate = {},
+            )
+        }
+    }
+
+    // ── Home: top bar and empty state ────────────────────────────────────────────────────
 
     @Test
     @Config(qualifiers = "w360dp-h1600dp-xxhdpi")
     fun `37 home empty state narrow`() {
         shoot("37-home-empty-360", spatial = true) {
             Column(Modifier.fillMaxWidth()) {
-                UnifiedTopBar(onOpenLibrary = {}, onOpenSettings = {})
+                UnifiedTopBar(
+                    onOpenLibrary = {},
+                    onOpenSettings = {},
+                    modelLabel = "FLUX.1 Schnell",
+                    onModelClick = {},
+                )
                 HomeEmptyState(
                     mode = ComposerMode.IMAGE,
                     suggestions = ComposerMode.IMAGE.suggestions,
                     onSuggestion = {},
                     history = sampleHistory(),
                 )
-                Spacer(Modifier.height(12.dp))
-                ModalityChipRow(selected = ComposerMode.IMAGE, onSelect = {})
             }
         }
     }
@@ -338,29 +377,44 @@ class RedesignScreenshotTest {
     fun `38 home empty state narrow light`() {
         shoot("38-home-empty-360-light", dark = false, spatial = true) {
             Column(Modifier.fillMaxWidth()) {
-                UnifiedTopBar(onOpenLibrary = {}, onOpenSettings = {})
+                UnifiedTopBar(
+                    onOpenLibrary = {},
+                    onOpenSettings = {},
+                    modelLabel = "Local Qwen3 0.6B (offline)",
+                    onModelClick = {},
+                )
                 HomeEmptyState(
                     mode = ComposerMode.CHAT,
                     suggestions = ComposerMode.CHAT.suggestions,
                     onSuggestion = {},
-                    history = sampleHistory(),
                 )
-                Spacer(Modifier.height(12.dp))
-                ModalityChipRow(selected = ComposerMode.CHAT, onSelect = {})
             }
         }
     }
 
-    /** Every mode selected in turn — the five chips must fit one row at 360dp in all cases. */
+    /**
+     * The top bar with the longest model name the catalog can produce. This is where the old
+     * composer chip failed — it had roughly 150dp and truncated to "Local". Up here the name has
+     * the row, and the render is the check that it still does at 360dp.
+     */
     @Test
     @Config(qualifiers = "w360dp-h800dp-xxhdpi")
-    fun `39 modality chips all states narrow`() {
-        shoot("39-modality-chips-360") {
+    fun `39 top bar long model name narrow`() {
+        shoot("39-top-bar-long-model-360", spatial = true) {
             Column(Modifier.fillMaxWidth()) {
-                ComposerMode.entries.forEach { mode ->
-                    ModalityChipRow(selected = mode, onSelect = {})
-                    Spacer(Modifier.height(10.dp))
-                }
+                UnifiedTopBar(
+                    onOpenLibrary = {},
+                    onOpenSettings = {},
+                    modelLabel = "Bonsai Image 4B (LiteRT)",
+                    onModelClick = {},
+                )
+                Spacer(Modifier.height(10.dp))
+                UnifiedTopBar(
+                    onOpenLibrary = {},
+                    onOpenSettings = {},
+                    modelLabel = "Llama 3.3 70B Versatile (Groq)",
+                    onModelClick = {},
+                )
             }
         }
     }
@@ -406,26 +460,57 @@ class RedesignScreenshotTest {
         }
     }
 
-    // ── Chat: the reference's status header, author chips and in-bubble code ─────────────
+    // ── Chat: markdown, the action row, and in-bubble code ──────────────────────────────
+
+    /**
+     * The exact reply the shipped app rendered with its markers intact — bullets as hyphens and
+     * `**bold**` as four asterisks — on the first message of every conversation. This render is
+     * the check that it now reads as a list.
+     */
+    @Test
+    @Config(qualifiers = "w360dp-h1000dp-xxhdpi")
+    fun `48b chat markdown reply`() {
+        shoot("48b-chat-markdown-360", spatial = true) {
+            Column(Modifier.fillMaxWidth()) {
+                ChatMessageBubble(
+                    message = ChatMessage(
+                        id = "m0",
+                        role = "user",
+                        text = "hi",
+                        timestampMs = 1_756_000_000_000,
+                    ),
+                    index = 0,
+                )
+                ChatMessageBubble(
+                    message = ChatMessage(
+                        id = "m1",
+                        role = "assistant",
+                        providerId = "openrouter-free",
+                        text = "Hi there! 👋\n\nWelcome to The Lookbook. I can help you with:\n\n" +
+                            "- **Fashion try-on** features and tips\n" +
+                            "- **On-device AI** (Lite/Pro packs) vs cloud models\n" +
+                            "- **Headlines & updates** about the app\n" +
+                            "- General questions about how things work\n\n" +
+                            "What can I help you with today?",
+                        timestampMs = 1_756_000_030_000,
+                    ),
+                    index = 1,
+                    onRegenerate = {},
+                )
+            }
+        }
+    }
 
     @Test
     @Config(qualifiers = "w360dp-h1400dp-xxhdpi")
     fun `49 chat thread with code block`() {
         shoot("49-chat-code-360", spatial = true) {
             Column(Modifier.fillMaxWidth()) {
-                ChatStatusHeader(
-                    title = "Neural Assistant",
-                    online = true,
-                    onBack = {},
-                    onMenu = {},
-                )
-                Spacer(Modifier.height(16.dp))
-                AuthorChip(Icons.Outlined.AutoAwesome, "AI ASSISTANT")
                 ChatMessageBubble(
                     message = ChatMessage(
                         id = "m1",
                         role = "assistant",
-                        text = "Hello Robert! I've analyzed your request for a glassmorphism design. " +
+                        text = "Hello! I've analyzed your request for a glassmorphism design. " +
                             "Would you like me to generate some color palettes that complement the " +
                             "frosted glass effect?",
                         timestampMs = 1_756_000_000_000,
@@ -441,7 +526,6 @@ class RedesignScreenshotTest {
                     ),
                     index = 1,
                 )
-                AuthorChip(Icons.Outlined.AutoAwesome, "AI ASSISTANT")
                 ChatMessageBubble(
                     message = ChatMessage(
                         id = "m3",
@@ -458,6 +542,7 @@ class RedesignScreenshotTest {
                         timestampMs = 1_756_000_120_000,
                     ),
                     index = 2,
+                    onRegenerate = {},
                 )
             }
         }
@@ -467,9 +552,6 @@ class RedesignScreenshotTest {
     fun `50 chat thread with code block light`() {
         shoot("50-chat-code-411-light", dark = false, spatial = true) {
             Column(Modifier.fillMaxWidth()) {
-                ChatStatusHeader(title = "Neural Assistant", online = true, onBack = {}, onMenu = {})
-                Spacer(Modifier.height(16.dp))
-                AuthorChip(Icons.Outlined.AutoAwesome, "AI ASSISTANT")
                 ChatMessageBubble(
                     message = ChatMessage(
                         id = "m1",
@@ -478,6 +560,7 @@ class RedesignScreenshotTest {
                         timestampMs = 1_756_000_000_000,
                     ),
                     index = 0,
+                    onRegenerate = {},
                 )
             }
         }

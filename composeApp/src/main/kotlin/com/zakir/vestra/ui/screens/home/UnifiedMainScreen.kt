@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Checkroom
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -80,9 +81,6 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.PhotoCamera
-import com.zakir.vestra.ui.components.CapabilityTile
-import com.zakir.vestra.ui.components.GreetingHeader
-import com.zakir.vestra.ui.components.HeroPromptCard
 import com.zakir.vestra.ui.components.HistoryRow
 import com.zakir.vestra.ui.components.SectionHeaderRow
 import com.zakir.vestra.ui.components.GlassSectionLabel
@@ -91,6 +89,15 @@ import com.zakir.vestra.ui.components.InterruptedJobsBanner
 import com.zakir.vestra.ui.components.ModelPickerSheet
 import com.zakir.vestra.ui.components.OnDevicePickerEntry
 import com.zakir.vestra.ui.components.PromptComposer
+import com.zakir.vestra.ui.components.ActiveTool
+import com.zakir.vestra.ui.components.ComposerSource
+import com.zakir.vestra.ui.components.ComposerTool
+import com.zakir.vestra.ui.components.ComposerToolsSheet
+import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.components.StudioTurnBubble
 import com.zakir.vestra.ui.screens.news.ChatMessageBubble
@@ -126,6 +133,11 @@ internal enum class ComposerMode(
     val capabilityTitle: String,
     val capabilitySubtitle: String,
     val icon: ImageVector,
+    /** The composer's placeholder while this tool is active. */
+    val placeholder: String,
+    /** How this tool reads in the composer's `+` sheet. */
+    val toolLabel: String,
+    val toolDescription: String,
 ) {
     CHAT(
         "Chat",
@@ -140,6 +152,9 @@ internal enum class ComposerMode(
         capabilityTitle = "Ask Anything",
         capabilitySubtitle = "Advice & ideas",
         icon = Icons.AutoMirrored.Outlined.Chat,
+        placeholder = "Ask Lookbook",
+        toolLabel = "Chat",
+        toolDescription = "Ask anything, get an answer",
     ),
     IMAGE(
         "Image",
@@ -154,6 +169,9 @@ internal enum class ComposerMode(
         capabilityTitle = "Image Studio",
         capabilitySubtitle = "Render a look",
         icon = Icons.Outlined.AutoAwesome,
+        placeholder = "Describe an image to create",
+        toolLabel = "Images",
+        toolDescription = "Create and edit",
     ),
     VIDEO(
         "Video",
@@ -168,6 +186,9 @@ internal enum class ComposerMode(
         capabilityTitle = "Clip Maker",
         capabilitySubtitle = "Short motion",
         icon = Icons.Outlined.Movie,
+        placeholder = "Describe a short clip",
+        toolLabel = "Videos",
+        toolDescription = "Bring ideas to life",
     ),
     CODE(
         "Code",
@@ -182,6 +203,9 @@ internal enum class ComposerMode(
         capabilityTitle = "Code Wizard",
         capabilitySubtitle = "Debug & generate",
         icon = Icons.Outlined.Code,
+        placeholder = "Ask for code",
+        toolLabel = "Canvas",
+        toolDescription = "Code, write, or explain",
     ),
     AUDIO(
         "Audio",
@@ -196,6 +220,9 @@ internal enum class ComposerMode(
         capabilityTitle = "Voice Over",
         capabilitySubtitle = "Text to speech",
         icon = Icons.Outlined.GraphicEq,
+        placeholder = "Type something to hear it spoken",
+        toolLabel = "Audio",
+        toolDescription = "Make audio tracks",
     ),
     ;
 
@@ -231,6 +258,7 @@ fun UnifiedMainScreen(
         )
     }
     var chatInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
     val listState = rememberLazyListState()
 
     val allTurns by generativeViewModel.allTurns.collectAsState()
@@ -315,6 +343,9 @@ fun UnifiedMainScreen(
     val latestIdByCapability = remember(allTurns) {
         allTurns.groupBy { it.capability }.mapValues { (_, turns) -> turns.maxBy { it.timestampMs }.id }
     }
+    val newestAssistantId = remember(chatMessages) {
+        chatMessages.lastOrNull { it.role.equals("assistant", ignoreCase = true) }?.id
+    }
     val showChatTyping = chatBusy &&
         chatMessages.lastOrNull()?.role?.equals("assistant", ignoreCase = true) != true
 
@@ -358,6 +389,61 @@ fun UnifiedMainScreen(
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         generativeViewModel.setReference(uri?.toString())
     }
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        // Persist the read grant: the reference is held as a string across recompositions and
+        // process death, and without this the URI is unreadable by the time generation runs.
+        uri?.let {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            generativeViewModel.setReference(it.toString())
+        }
+    }
+    var pendingCaptureUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val captureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        if (saved) pendingCaptureUri?.let { generativeViewModel.setReference(it.toString()) }
+        pendingCaptureUri = null
+    }
+    fun openCamera() {
+        val captures = java.io.File(context.filesDir, "captures").apply { mkdirs() }
+        val file = java.io.File(captures, "reference_${System.currentTimeMillis()}.jpg")
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file,
+        )
+        pendingCaptureUri = uri
+        captureLauncher.launch(uri)
+    }
+    val launchCamera = com.zakir.vestra.ui.util.rememberCameraGatedAction(
+        onGranted = { openCamera() },
+        onDenied = {
+            com.zakir.vestra.ui.components.GlassSnackbar.show(
+                "Camera permission is needed to take a reference photo",
+                com.zakir.vestra.ui.components.SnackbarLevel.WARNING,
+            )
+        },
+    )
+
+    // Dictation runs in the system's own recogniser activity, so it needs no RECORD_AUDIO grant.
+    // A device with no recogniser installed returns null here and the composer hides its mic
+    // rather than offering a button that opens nothing.
+    val dictateIntent = remember { com.zakir.vestra.ui.util.dictationIntent(context, "Speak your prompt") }
+    val dictate = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val spoken = result.data
+            ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+        if (spoken.isNotEmpty()) {
+            if (mode == ComposerMode.CHAT) chatInput = spoken else generativeViewModel.setPrompt(spoken)
+        }
+    }
+
+    var showToolsSheet by remember { mutableStateOf(false) }
 
     // The chip names the model; the hint row underneath explains why it can't run, if it can't.
     // Folding both into one string is what produced "Pick a cloud model in the model pi…".
@@ -413,6 +499,22 @@ fun UnifiedMainScreen(
             UnifiedTopBar(
                 onOpenLibrary = onOpenLibrary,
                 onOpenSettings = onOpenSettings,
+                modelLabel = composerModelLabel,
+                onModelClick = { showModelPicker = true },
+                // Hidden on an empty thread rather than disabled: a "new chat" button on a
+                // conversation that is already new is a control that does nothing.
+                onNewChat = if (entries.isNotEmpty()) {
+                    {
+                        chatViewModel.clearHistory()
+                        generativeViewModel.clearAllTurns()
+                        chatInput = ""
+                        generativeViewModel.setPrompt("")
+                        generativeViewModel.setReference(null)
+                        mode = ComposerMode.CHAT
+                    }
+                } else {
+                    null
+                },
             )
 
             Box(Modifier.padding(horizontal = SpacingTokens.section)) {
@@ -432,8 +534,13 @@ fun UnifiedMainScreen(
                             suggestions = mode.suggestions,
                             onSuggestion = ::sendSuggestion,
                             history = recentHistory,
-                            onHistory = { entry -> generativeViewModel.setPrompt(entry.title) },
-                            onExploreAll = { showModelPicker = true },
+                            onHistory = { entry ->
+                                if (mode == ComposerMode.CHAT) {
+                                    chatInput = entry.title
+                                } else {
+                                    generativeViewModel.setPrompt(entry.title)
+                                }
+                            },
                         )
                     }
                 }
@@ -448,7 +555,17 @@ fun UnifiedMainScreen(
                     },
                 ) { index, entry ->
                     when (entry) {
-                        is ThreadEntry.Chat -> ChatMessageBubble(message = entry.message, index = index)
+                        is ThreadEntry.Chat -> ChatMessageBubble(
+                            message = entry.message,
+                            index = index,
+                            // Only the newest assistant turn can be regenerated — re-running an
+                            // older one would have to discard every reply after it.
+                            onRegenerate = if (entry.message.id == newestAssistantId && !chatBusy) {
+                                chatViewModel::regenerate
+                            } else {
+                                null
+                            },
+                        )
                         is ThreadEntry.Generative -> {
                             val isLatest = entry.turn.id == latestIdByCapability[entry.turn.capability]
                             StudioTurnBubble(
@@ -491,24 +608,14 @@ fun UnifiedMainScreen(
                 }
             }
 
-            Column(Modifier.padding(horizontal = SpacingTokens.section, vertical = 10.dp)) {
-                ModalityChipRow(
-                    selected = mode,
-                    onSelect = { next ->
-                        mode = next
-                        next.capability?.let(generativeViewModel::bindStudio)
-                    },
-                )
-                Spacer(Modifier.height(10.dp))
+            Column(Modifier.padding(horizontal = SpacingTokens.section, vertical = 8.dp)) {
                 PromptComposer(
                     prompt = if (mode == ComposerMode.CHAT) chatInput else genPrompt,
                     onPromptChange = {
                         if (mode == ComposerMode.CHAT) chatInput = it else generativeViewModel.setPrompt(it)
                     },
-                    modelLabel = composerModelLabel,
                     blockedReason = composerBlockedReason,
                     busy = if (mode == ComposerMode.CHAT) chatBusy else genBusy,
-                    onModelClick = { showModelPicker = true },
                     enabled = true,
                     onSend = {
                         val text = chatInput
@@ -517,17 +624,61 @@ fun UnifiedMainScreen(
                     },
                     onStop = { if (mode == ComposerMode.CHAT) chatViewModel.cancel() else generativeViewModel.forceStop() },
                     accent = mode.accent,
-                    placeholder = "Ask Lookbook to create anything…",
-                    referenceUri = if (mode == ComposerMode.IMAGE) genReference else null,
-                    onAddReference = if (mode == ComposerMode.IMAGE) {
-                        { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                    } else {
+                    placeholder = mode.placeholder,
+                    onOpenTools = { showToolsSheet = true },
+                    onDictate = dictateIntent?.let { intent -> { dictate.launch(intent) } },
+                    activeTool = if (mode == ComposerMode.CHAT) {
                         null
+                    } else {
+                        ActiveTool(
+                            label = mode.label,
+                            icon = mode.icon,
+                            accent = mode.accent,
+                            onClear = { mode = ComposerMode.CHAT },
+                        )
                     },
-                    onClearReference = if (mode == ComposerMode.IMAGE) {
-                        { generativeViewModel.setReference(null) }
-                    } else {
-                        null
+                    referenceUri = genReference,
+                    onClearReference = { generativeViewModel.setReference(null) },
+                )
+                Spacer(Modifier.height(SpacingTokens.xxs))
+                Text(
+                    LookbookCopy.COMPOSER_DISCLAIMER,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = VestraColors.InkMuted.copy(alpha = 0.75f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+
+            if (showToolsSheet) {
+                ComposerToolsSheet(
+                    onDismiss = { showToolsSheet = false },
+                    sources = listOf(
+                        ComposerSource("photos", "Photos", Icons.Outlined.Image) {
+                            pickImage.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        },
+                        ComposerSource("camera", "Camera", Icons.Outlined.PhotoCamera) { launchCamera() },
+                        ComposerSource("files", "Files", Icons.Outlined.AttachFile) {
+                            pickFile.launch(arrayOf("image/*"))
+                        },
+                    ),
+                    tools = ComposerMode.entries.map { candidate ->
+                        ComposerTool(
+                            id = candidate.name.lowercase(),
+                            label = candidate.toolLabel,
+                            description = candidate.toolDescription,
+                            icon = candidate.icon,
+                            accent = candidate.accent,
+                            selected = candidate == mode,
+                            onClick = {
+                                mode = candidate
+                                candidate.capability?.let(generativeViewModel::bindStudio)
+                            },
+                        )
                     },
                 )
             }
@@ -578,25 +729,35 @@ fun UnifiedMainScreen(
 internal fun UnifiedTopBar(
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
-    greeting: String = LookbookCopy.PRODUCT_NAME,
-    statusLine: String = LookbookCopy.HOME_STATUS_LINE,
+    modelLabel: String,
+    onModelClick: () -> Unit,
+    /** Clears the thread. Null while it is already empty, so the control is never a no-op. */
+    onNewChat: (() -> Unit)? = null,
 ) {
-    // Was a brand wordmark plus three icon buttons that could not fit the row. It is a greeting
-    // with presence now — the screen reads as the user's workspace rather than a product page —
-    // and the brand block still takes `weight(1f)` so the actions always have their space.
+    // The model selector is the top bar's primary control, as it is in the reference app. It
+    // used to sit in the composer's action row, where a 360dp phone gave it about 150dp and it
+    // rendered "FLUX.1 Schnell · Ready · verified 6m ago" into that — three facts truncated to
+    // one useless one. Up here it has the width for a name, and the composer got its row back.
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = SpacingTokens.section, vertical = SpacingTokens.sm),
+            .padding(horizontal = SpacingTokens.section, vertical = SpacingTokens.xs),
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GreetingHeader(
-            greeting = greeting,
-            statusLine = statusLine,
-            online = true,
+        TopModelSelector(
+            label = modelLabel,
+            onClick = onModelClick,
             modifier = Modifier.weight(1f),
         )
+        if (onNewChat != null) {
+            TopBarIconButton(
+                icon = Icons.Outlined.EditNote,
+                contentDescription = "Start a new chat",
+                testTag = TestTags.NEW_CHAT_BUTTON,
+                onClick = onNewChat,
+            )
+        }
         TopBarIconButton(
             icon = Icons.Outlined.Checkroom,
             contentDescription = "Open Library",
@@ -610,6 +771,61 @@ internal fun UnifiedTopBar(
             onClick = onOpenSettings,
         )
     }
+}
+
+/**
+ * The active model's name, one tap from the picker.
+ *
+ * No app mark beside it, deliberately. A 28dp glyph plus its gap took 36dp of a 360dp phone's
+ * top bar, and the first render of this control spent it: "Bonsai Image 4B (LiteRT)" came out as
+ * "Bonsai Image 4B (Li…" — the mark cost exactly the characters that name the model. The user
+ * knows which app they opened; they do not know which of forty models is about to run.
+ */
+@Composable
+private fun TopModelSelector(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier
+            .testTag(TestTags.TOP_MODEL_SELECTOR)
+            .heightIn(min = ControlTokens.iconButton)
+            .clip(shape)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = "Model: $label. Opens the model picker." }
+            .padding(horizontal = SpacingTokens.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            shortModelName(label),
+            style = MaterialTheme.typography.titleSmall,
+            color = VestraColors.Ink,
+            maxLines = 1,
+            // The full, unshortened name stays in the row's contentDescription, so neither the
+            // trim above nor an ellipsis here can hide which model is selected from a reader.
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Icon(
+            Icons.Outlined.ArrowDropDown,
+            contentDescription = null,
+            tint = VestraColors.InkMuted,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/**
+ * Drops a trailing parenthetical from a model name for display: "Llama 3.3 70B (Groq)" → "Llama
+ * 3.3 70B".
+ *
+ * Catalog names carry their runtime in parentheses — `(Groq)`, `(LiteRT)`, `(ZeroGPU)`,
+ * `(free models)`. That is the least useful part of the string in a one-line control and the
+ * first part worth losing: the runtime is visible on the picker sheet the control opens, and
+ * keeping it is what pushed the actual model number off the end.
+ */
+internal fun shortModelName(label: String): String {
+    val open = label.lastIndexOf(" (")
+    val trimmed = if (open > 0 && label.endsWith(")")) label.substring(0, open) else label
+    return trimmed.trim().ifEmpty { label }
 }
 
 @Composable
@@ -634,12 +850,20 @@ private fun TopBarIconButton(
 }
 
 /**
- * What the user sees before their first generation. This slot used to hold the API usage
- * dashboard — a token counter as the hero of an otherwise empty screen. It is a greeting and
- * four one-tap starters now; the monitor moved to Settings, where telemetry belongs.
+ * What the user sees before their first message.
  *
- * Tapping a starter fills the composer and fires immediately, so a cold install reaches its
- * first result in two taps: pick a mode, tap a starter.
+ * The reference app puts exactly three things here: its mark, one greeting line, and the
+ * composer. This screen previously stacked a hero card, a 2×2 grid of capability tiles, three
+ * suggestion cards and a history list above the composer — four competing calls to action on a
+ * screen whose job is to get out of the way of one text field.
+ *
+ * The tiles in particular were pure duplication once the `+` sheet existed: they offered the same
+ * five generators, from a second place, in different words. What survives is the mark, the
+ * greeting, and one row of starters — starters earn their space because a cold install has
+ * nothing in the thread to imply what the app can be asked for.
+ *
+ * History moved into the same principle: it renders only once there *is* history, and as compact
+ * rows rather than a titled section competing with the greeting.
  */
 @Composable
 internal fun HomeEmptyState(
@@ -648,64 +872,50 @@ internal fun HomeEmptyState(
     onSuggestion: (String) -> Unit,
     history: List<HomeHistoryEntry> = emptyList(),
     onHistory: (HomeHistoryEntry) -> Unit = {},
-    onExploreAll: () -> Unit = {},
 ) {
     Column(
         Modifier
             .fillMaxWidth()
             .testTag(TestTags.HOME_EMPTY_STATE)
-            .padding(top = SpacingTokens.md, bottom = SpacingTokens.md),
+            .padding(top = 48.dp, bottom = SpacingTokens.md),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        HeroPromptCard(
-            title = LookbookCopy.HOME_GREETING,
-            body = mode.emptyStatePrompt,
-            primaryLabel = mode.heroCta,
-            onPrimary = { suggestions.firstOrNull()?.let(onSuggestion) },
-            secondaryIcon = Icons.Outlined.PhotoCamera,
-            secondaryContentDescription = "Attach an image",
-            onSecondary = { suggestions.firstOrNull()?.let(onSuggestion) },
-        )
-        Spacer(Modifier.height(SpacingTokens.xl))
-
-        Box(Modifier.testTag(TestTags.HOME_CAPABILITIES_SECTION)) {
-            Column {
-                SectionHeaderRow(
-                    label = "CAPABILITIES",
-                    actionLabel = "Explore All",
-                    onAction = onExploreAll,
-                )
-                Spacer(Modifier.height(SpacingTokens.sm))
-                // Two per row, chunked rather than a Grid: this sits inside a LazyColumn item,
-                // and a nested lazy grid there has no bounded height to measure against.
-                ComposerMode.entries.filter { it != mode }.take(4).chunked(2).forEach { pair ->
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
-                    ) {
-                        pair.forEach { candidate ->
-                            CapabilityTile(
-                                icon = candidate.icon,
-                                title = candidate.capabilityTitle,
-                                subtitle = candidate.capabilitySubtitle,
-                                accent = candidate.accent,
-                                onClick = { onSuggestion(candidate.suggestions.first()) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag(TestTags.homeCapabilityTile(candidate.name.lowercase())),
-                            )
-                        }
-                        // Keeps a lone tile at half width instead of stretching it across the row.
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(SpacingTokens.sm))
-                }
-            }
+        Box(
+            Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(VestraColors.Accent, VestraColors.SaffronDeep),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.AutoAwesome,
+                contentDescription = null,
+                tint = VestraColors.Ivory,
+                modifier = Modifier.size(26.dp),
+            )
         }
+        Spacer(Modifier.height(SpacingTokens.md))
+        Text(
+            LookbookCopy.HOME_GREETING,
+            style = MaterialTheme.typography.headlineSmall,
+            color = VestraColors.Ink,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        Spacer(Modifier.height(SpacingTokens.xs))
+        Text(
+            mode.emptyStatePrompt,
+            style = MaterialTheme.typography.bodyMedium,
+            color = VestraColors.InkMuted,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = SpacingTokens.md),
+        )
 
-        Spacer(Modifier.height(SpacingTokens.sm))
-        SectionHeaderRow(label = "TRY ONE OF THESE")
-        Spacer(Modifier.height(SpacingTokens.sm))
-        suggestions.forEachIndexed { index, suggestion ->
+        Spacer(Modifier.height(SpacingTokens.xl))
+        suggestions.take(3).forEachIndexed { index, suggestion ->
             SuggestionCard(
                 text = suggestion,
                 accent = mode.accent,
@@ -719,7 +929,7 @@ internal fun HomeEmptyState(
             Spacer(Modifier.height(SpacingTokens.lg))
             Box(Modifier.testTag(TestTags.HOME_HISTORY_SECTION)) {
                 Column {
-                    SectionHeaderRow(label = "HISTORY")
+                    SectionHeaderRow(label = "RECENT")
                     Spacer(Modifier.height(SpacingTokens.sm))
                     history.forEachIndexed { index, entry ->
                         HistoryRow(
@@ -781,45 +991,6 @@ private fun SuggestionCard(text: String, accent: Color, index: Int, onClick: () 
             tint = VestraColors.InkMuted,
             modifier = Modifier.size(16.dp),
         )
-    }
-}
-
-@Composable
-internal fun ModalityChipRow(selected: ComposerMode, onSelect: (ComposerMode) -> Unit) {
-    // Five short chips fit every phone this app supports, so the row distributes width evenly
-    // rather than sitting in a `horizontalScroll` that offered no affordance and silently
-    // stopped the chips from ever sharing the available space.
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xxs + 2.dp),
-    ) {
-        ComposerMode.entries.forEach { candidate ->
-            val isSelected = candidate == selected
-            val shape = RoundedCornerShape(50)
-            Box(
-                Modifier
-                    .weight(1f)
-                    .testTag(TestTags.modalityChip(candidate.name.lowercase()))
-                    .height(ControlTokens.chip)
-                    .clip(shape)
-                    // Selection reads from a filled accent against a flat surface, not from a
-                    // 16%-vs-0% alpha shift that was nearly invisible at chip size.
-                    .background(if (isSelected) candidate.accent else VestraColors.GlassFillStrong)
-                    .then(
-                        if (isSelected) Modifier else Modifier.border(1.dp, VestraColors.GlassBorder, shape),
-                    )
-                    .clickable { onSelect(candidate) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    candidate.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isSelected) VestraColors.Ivory else VestraColors.InkMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
     }
 }
 
