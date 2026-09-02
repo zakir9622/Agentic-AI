@@ -72,6 +72,7 @@ import com.zakir.vestra.shared.chat.ChatMessage
 import com.zakir.vestra.shared.chat.ContextBudget
 import com.zakir.vestra.shared.news.NewsItem
 import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.components.CodeBlock
 import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.theme.RadiusTokens
@@ -253,11 +254,26 @@ fun ChatMessageBubble(
 
                 Spacer(Modifier.height(6.dp))
 
-                Text(
-                    text = message.text.ifBlank { "…" },
-                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, letterSpacing = 0.2.sp),
-                    color = if (isUser) Color.White else VestraColors.Ink,
-                )
+                // A reply that contains a fenced block is split so the code renders as a real
+                // code block — monospace, syntax-coloured, horizontally scrollable — instead of
+                // as prose. Before this, a generated snippet arrived as one wrapped grey
+                // paragraph, which is unreadable at bubble width and the thing the Code studio
+                // exists to produce.
+                val segments = remember(message.text) { MessageSegment.split(message.text.ifBlank { "…" }) }
+                segments.forEachIndexed { segmentIndex, segment ->
+                    if (segmentIndex > 0) Spacer(Modifier.height(8.dp))
+                    when (segment) {
+                        is MessageSegment.Prose -> Text(
+                            text = segment.text,
+                            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, letterSpacing = 0.2.sp),
+                            color = if (isUser) Color.White else VestraColors.Ink,
+                        )
+                        is MessageSegment.Code -> CodeBlock(
+                            code = segment.code,
+                            language = segment.language,
+                        )
+                    }
+                }
             }
         }
 
@@ -278,6 +294,43 @@ fun ChatMessageBubble(
                     tint = VestraColors.Ink,
                 )
             }
+        }
+    }
+}
+
+/**
+ * One run of a message: prose, or a fenced code block.
+ *
+ * Splitting is deliberately literal — it looks for ``` fences and nothing else. A message with no
+ * fences yields exactly one [Prose] segment, so the common case costs one allocation and behaves
+ * exactly as before. An unterminated fence takes the rest of the message as code rather than
+ * silently dropping it.
+ */
+sealed interface MessageSegment {
+    data class Prose(val text: String) : MessageSegment
+    data class Code(val code: String, val language: String?) : MessageSegment
+
+    companion object {
+        fun split(text: String): List<MessageSegment> {
+            if (!text.contains("```")) return listOf(Prose(text))
+            val out = mutableListOf<MessageSegment>()
+            var i = 0
+            while (i < text.length) {
+                val open = text.indexOf("```", i)
+                if (open == -1) {
+                    text.substring(i).takeIf { it.isNotBlank() }?.let { out += Prose(it.trim()) }
+                    break
+                }
+                text.substring(i, open).takeIf { it.isNotBlank() }?.let { out += Prose(it.trim()) }
+                val langEnd = text.indexOf('\n', open + 3).let { if (it == -1) text.length else it }
+                val language = text.substring(open + 3, langEnd).trim().takeIf { it.isNotBlank() }
+                val close = text.indexOf("```", langEnd)
+                val codeEnd = if (close == -1) text.length else close
+                val code = text.substring(langEnd, codeEnd).trim('\n')
+                if (code.isNotBlank()) out += Code(code, language)
+                i = if (close == -1) text.length else close + 3
+            }
+            return out.ifEmpty { listOf(Prose(text)) }
         }
     }
 }

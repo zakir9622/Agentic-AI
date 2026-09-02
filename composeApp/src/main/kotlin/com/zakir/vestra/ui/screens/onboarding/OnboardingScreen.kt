@@ -33,6 +33,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.content.LookbookCopy
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
+import com.zakir.vestra.ui.components.GlassAppMark
+import com.zakir.vestra.ui.components.GlassBadgePill
+import com.zakir.vestra.ui.components.SocialProofRow
+import com.zakir.vestra.ui.theme.SpacingTokens
 import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.SpatialBackground
 import com.zakir.vestra.ui.theme.VestraColors
@@ -83,18 +89,32 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(SpacingTokens.xxl))
+
+            // Reference-style first viewport: eyebrow badge, glass app mark, wordmark, promise.
+            // The old header stacked a wordmark and tagline flush-left above a collage strip;
+            // this centres the identity so the first screen reads as a product opening rather
+            // than a page heading.
+            GlassBadgePill("NEXT-GEN INTELLIGENCE")
+            Spacer(Modifier.height(SpacingTokens.xl))
+            GlassAppMark(
+                icon = Icons.Outlined.AutoAwesome,
+                contentDescription = null,
+            )
+            Spacer(Modifier.height(SpacingTokens.xl))
             Text(
-                LookbookCopy.PRODUCT_NAME,
+                LookbookCopy.PRODUCT_NAME.uppercase(),
                 style = MaterialTheme.typography.displaySmall,
                 color = VestraColors.Ink,
-                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
             )
+            Spacer(Modifier.height(SpacingTokens.xs))
             Text(
                 LookbookCopy.PRODUCT_TAGLINE,
-                style = MaterialTheme.typography.labelLarge,
-                color = VestraColors.Accent,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = VestraColors.InkMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Spacer(Modifier.height(16.dp))
@@ -209,6 +229,15 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                         appSettings.setOnboardingComplete()
                         onDone()
                     },
+                )
+                Spacer(Modifier.height(SpacingTokens.md))
+                SocialProofRow(
+                    avatarColors = listOf(
+                        VestraColors.Accent,
+                        VestraColors.ModalityAudio,
+                        VestraColors.SaffronDeep,
+                    ),
+                    text = LookbookCopy.ONBOARDING_SOCIAL_PROOF,
                 )
             }
             Spacer(Modifier.height(24.dp))

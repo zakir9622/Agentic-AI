@@ -273,6 +273,26 @@ fun PromptComposer(
             // weighted Spacer, which squeezed the label so hard that "Local tiny-SD (offline)"
             // clipped to "Local" — the chip named the wrong model. Dropping the spacer keeps
             // the send orb right-aligned anyway, since the chip now fills the gap.
+            // Leading "+" — the reference design's attach affordance, and the one place a
+            // reference image can be added once the composer is in a non-image mode.
+            if (onAddReference != null) {
+                Box(
+                    Modifier
+                        .size(ControlTokens.chip)
+                        .testTag(TestTags.COMPOSER_ATTACH_BUTTON)
+                        .clip(CircleShape)
+                        .background(VestraColors.Canvas)
+                        .clickable(enabled = !busy, onClick = onAddReference),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.AddPhotoAlternate,
+                        contentDescription = "Attach a reference image",
+                        tint = VestraColors.InkMuted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
             ModelChip(
                 label = modelLabel,
                 onClick = onModelClick,
