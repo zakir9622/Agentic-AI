@@ -135,6 +135,8 @@ fun ApiUsageDashboardCard(
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                     color = VestraColors.Accent,
                                     fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false,
                                 )
                             }
                         }
@@ -177,7 +179,7 @@ fun ApiUsageDashboardCard(
                     modifier = Modifier.weight(1f),
                 )
                 QuickStatPill(
-                    label = "Requests",
+                    label = "Runs",
                     value = "${data.totalRequests}",
                     accent = VestraColors.SaffronDeep,
                     icon = Icons.Outlined.Cloud,
@@ -209,6 +211,7 @@ fun ApiUsageDashboardCard(
                     HorizontalDivider(color = VestraColors.GlassBorder)
                     Spacer(Modifier.height(12.dp))
 
+                    if (data.services.isNotEmpty()) {
                     Text(
                         "CONFIGURED CLOUD SERVICES",
                         style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
@@ -237,8 +240,9 @@ fun ApiUsageDashboardCard(
                             )
                         }
                     }
-
                     Spacer(Modifier.height(16.dp))
+                    }
+
 
                     // Recent Session History
                     Row(
