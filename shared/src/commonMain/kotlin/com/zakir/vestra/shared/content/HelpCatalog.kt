@@ -257,11 +257,30 @@ object HelpCatalog {
     }
 
     /** Live catalog readiness lines for Help — kept in sync with CloudModelContracts. */
-    fun modelReadinessLines(): List<String> =
+    /**
+     * One readiness row per curated model, kept as fields rather than a pre-joined string.
+     *
+     * It used to return `List<String>` of `"name · Status · note"`. Rendered, that produced
+     * twenty-two lines of identical grey text in which the one word a reader is actually
+     * looking for — Ready, Degraded, Unsupported — was indistinguishable from the schema
+     * trivia beside it. Splitting the fields lets the screen give the status its own chip.
+     */
+    fun modelReadiness(): List<ModelReadinessRow> =
         com.zakir.vestra.shared.cloud.CloudModelCatalog.providers.map { provider ->
             val c = com.zakir.vestra.shared.cloud.CloudModelContracts.forProvider(provider)
-            "${provider.displayName} · ${
-                c.support.name.lowercase().replaceFirstChar { ch -> ch.uppercaseChar() }
-            } · ${c.schemaNote}"
+            ModelReadinessRow(
+                name = provider.displayName,
+                support = c.support,
+                note = c.schemaNote,
+            )
         }
+}
+
+data class ModelReadinessRow(
+    val name: String,
+    val support: com.zakir.vestra.shared.cloud.ModelSupportLevel,
+    val note: String,
+) {
+    val statusLabel: String
+        get() = support.name.lowercase().replaceFirstChar { it.uppercaseChar() }
 }

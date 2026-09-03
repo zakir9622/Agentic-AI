@@ -120,6 +120,7 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
     usageLedger: UsageLedger,
     permissionEpoch: Int,
     onOpenApiKeys: () -> Unit,
+    onClearConversations: () -> Unit,
 ) {
     item(key = "storage") {
         val context = LocalContext.current
@@ -167,6 +168,16 @@ internal fun LazyListScope.settingsStoragePermissionsSection(
             // A cross-link, not the action. The clear itself — and its confirm — belong on the
             // page that holds the fields; a button here labelled "Clear API keys" that only
             // navigated would promise a destructive action and quietly do something else.
+            // Conversations are the app's primary on-device data and had no erase path at all:
+            // the screen offered to clear caches and the usage ledger, but not what you had
+            // actually said to the assistant.
+            OutlinedButton(
+                onClick = onClearConversations,
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.SETTINGS_CLEAR_CONVERSATIONS),
+            ) {
+                Text("Clear all conversations")
+            }
+            Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onOpenApiKeys,
                 modifier = Modifier.fillMaxWidth().testTag(TestTags.SETTINGS_OPEN_API_KEYS_BUTTON),
