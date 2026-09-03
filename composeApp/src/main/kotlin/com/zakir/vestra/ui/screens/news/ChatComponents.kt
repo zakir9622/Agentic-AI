@@ -36,6 +36,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Done
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Newspaper
@@ -105,8 +111,9 @@ import java.util.Locale
  * visible defect because it was on the first reply of every conversation. Fenced code still
  * splits out to [CodeBlock] first, via [MessageSegment].
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-@Suppress("LongMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 fun ChatMessageBubble(
     message: ChatMessage,
     index: Int,
@@ -114,11 +121,16 @@ fun ChatMessageBubble(
     modelDisplayName: String? = null,
     /** Re-runs the last exchange. Only supplied for the newest assistant turn. */
     onRegenerate: (() -> Unit)? = null,
+    /** Puts this user turn back in the composer for editing. Newest user turn only. */
+    onEdit: ((String) -> Unit)? = null,
+    /** Removes this turn from the thread. Offered in the long-press menu. */
+    onDelete: (() -> Unit)? = null,
 ) {
     val isUser = message.role.equals("user", ignoreCase = true)
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val speaker = rememberSpeaker()
+    val haptics = LocalHapticFeedback.current
     var copied by remember { mutableStateOf(false) }
 
     val formattedTime = remember(message.timestampMs) {
@@ -136,6 +148,7 @@ fun ChatMessageBubble(
         Row(
             modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
                 // Uniform, no tail. A tail is a speech-bubble convention and this thread has
@@ -155,16 +168,56 @@ fun ChatMessageBubble(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
                 )
             }
+            // Edit sits outside the bubble rather than inside it: a pill sized to two characters
+            // has no room for a control, and putting one there would set the bubble's minimum
+            // width for every short message in the thread.
+            if (onEdit != null) {
+                Spacer(Modifier.width(2.dp))
+                IconButton(
+                    onClick = { onEdit(message.text) },
+                    modifier = Modifier.size(30.dp).testTag(TestTags.messageEdit(index)),
+                ) {
+                    Icon(
+                        Icons.Outlined.Edit,
+                        contentDescription = "Edit and re-send this message",
+                        modifier = Modifier.size(15.dp),
+                        tint = VestraColors.InkMuted,
+                    )
+                }
+            }
         }
         return
     }
 
+    var showMenu by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TestTags.chatMessageBubble(index, message.role))
+            // Long-press is the platform gesture for "what else can I do with this", and it is
+            // where select-text and delete belong: neither earns a permanent icon in the action
+            // row, but both are unreachable without it.
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showMenu = true
+                },
+            )
             .padding(horizontal = 2.dp, vertical = 6.dp),
     ) {
+        if (showMenu) {
+            MessageActionSheet(
+                canDelete = onDelete != null,
+                onCopy = {
+                    clipboardManager.setText(AnnotatedString(message.text))
+                    GlassSnackbar.show("Copied to clipboard", SnackbarLevel.SUCCESS)
+                },
+                onShare = { shareText(context, message.text) },
+                onDelete = { onDelete?.invoke() },
+                onDismiss = { showMenu = false },
+            )
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
@@ -712,5 +765,75 @@ fun NewsHeadlinesBar(
                 }
             }
         }
+    }
+}
+
+/**
+ * The long-press menu for one turn.
+ *
+ * Deliberately short. Copy and Share duplicate the action row on purpose — a long-press is a
+ * discovery path, and a menu that omits the obvious options reads as broken. Delete is the one
+ * thing that exists *only* here, because a permanent delete icon beside every reply is an invitation
+ * to lose work by mis-tap.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun MessageActionSheet(
+    canDelete: Boolean,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = VestraColors.SurfaceRaised,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.MESSAGE_ACTION_SHEET)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            MessageActionRow(Icons.Outlined.ContentCopy, "Copy text", TestTags.MESSAGE_MENU_COPY) {
+                onCopy(); onDismiss()
+            }
+            MessageActionRow(Icons.Outlined.Share, "Share", TestTags.MESSAGE_MENU_SHARE) {
+                onShare(); onDismiss()
+            }
+            if (canDelete) {
+                MessageActionRow(
+                    Icons.Outlined.DeleteOutline,
+                    "Delete this message",
+                    TestTags.MESSAGE_MENU_DELETE,
+                    tint = VestraColors.Danger,
+                ) { onDelete(); onDismiss() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    testTag: String,
+    tint: Color = VestraColors.Ink,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .testTag(testTag)
+            .clip(RoundedCornerShape(RadiusTokens.lg))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        Text(label, style = MaterialTheme.typography.titleSmall, color = tint)
     }
 }

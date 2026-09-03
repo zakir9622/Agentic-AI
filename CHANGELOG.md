@@ -2,6 +2,39 @@
 
 ## Unreleased (post-3.1.8)
 
+**Conversations, streaming, and the thread affordances that were missing.**
+
+*"New chat" was a delete button.* It shipped for two releases with no history behind it, so it
+called `ChatRepository.clear()`, which did `settings.remove(KEY)` — an unconfirmed, permanent
+delete of the only conversation the app could hold, one tap from the top bar. On top of that,
+turn 81 silently evicted turn 1.
+
+- **`ChatRepository` stores conversations.** Records with an id, a title derived from the first
+  user turn, and their own message list. New chat *files* the current one; a `ChatHistoryDrawer`
+  behind the top bar's menu button lists them, with search (above six conversations) and
+  per-conversation delete. Migration wraps any pre-existing single-thread history as one
+  conversation and **leaves the legacy key in place**, so a rollback costs the user nothing.
+- **Two real bugs surfaced by the new tests before any of this shipped**: conversation ids were
+  `"c${nowMs()}"` and collided for two conversations created in the same millisecond, so deleting
+  one deleted the other; and the streaming client never sent a request at all, because
+  `LlmClient` sets a `JsonObject` body that only serialises with `ContentNegotiation` installed.
+
+**Cloud replies stream.** `LlmClient.chatStream` — one SSE reader for Groq, OpenRouter, Gemini and
+the HF router, since all four speak the OpenAI chat-completions dialect. Streaming is a parameter
+on `chatWithFallback`, not a second copy of its fallback chain. The app already streamed *local*
+replies token by token and waited in silence for cloud ones, so a 70B cloud model felt slower than
+a 0.6B on-device one.
+
+**Thread affordances**, all of which the reference app has and this one did not:
+
+- scroll-to-bottom, rendered only while the thread can actually scroll further
+- follow-up chips under a settled reply — static per-mode copy, not a second model round trip
+- edit a sent prompt and re-run, dropping the replies that answered the old wording
+- long-press any turn for copy / share / delete
+- share the whole conversation, from the drawer
+- haptics on the thread, matching what the capture and generation screens already did
+
+
 **Three defects found on device.**
 
 - **A generated image is now just the image.** The thread wrapped every result in a card

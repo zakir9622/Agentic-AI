@@ -25,6 +25,11 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
+            // LlmClient sets a JsonObject body, which only serialises with ContentNegotiation
+            // installed — the test client has to match platformHttpClient() or every request
+            // fails before it reaches the code under test.
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)

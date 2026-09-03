@@ -53,6 +53,56 @@ class ChatViewModel(
         _error.value = null
     }
 
+    val conversations = chat.conversations
+    val activeConversationId = chat.activeId
+
+    /** Rows for the history drawer. Recomputed on demand; the store is bounded. */
+    fun conversationSummaries() = chat.summaries()
+
+    /** Files the current conversation and starts an empty one. Never destructive. */
+    fun newConversation() {
+        cancel()
+        chat.newConversation()
+        _error.value = null
+        logStateManager.clear()
+    }
+
+    fun openConversation(id: String) {
+        cancel()
+        chat.openConversation(id)
+        _error.value = null
+        logStateManager.clear()
+    }
+
+    fun deleteConversation(id: String) {
+        if (id == chat.activeId.value) cancel()
+        chat.deleteConversation(id)
+    }
+
+    /**
+     * Prepares a user turn for editing: drops it and everything after it.
+     *
+     * The caller has already put the text in the composer, so sending is the normal path — this
+     * only clears what that turn produced. Those replies answered the *old* wording; leaving them
+     * would mislead the reader and feed the model a history its next answer contradicts.
+     */
+    fun beginEdit(messageId: String) {
+        if (_busy.value) return
+        chat.truncateFrom(messageId)
+    }
+
+    /** Removes one turn from the thread — the long-press menu's delete. */
+    fun deleteMessage(messageId: String) {
+        if (_busy.value) return
+        chat.deleteMessage(messageId)
+    }
+
+    /** The whole active conversation as plain text, for the system share sheet. */
+    fun conversationAsText(): String = chat.messages.value.joinToString("\n\n") { message ->
+        val who = if (message.role.equals("user", ignoreCase = true)) "You" else "The Lookbook"
+        "$who:\n${message.text}"
+    }
+
     fun clearHistory() {
         chat.clear()
         _error.value = null
@@ -139,6 +189,8 @@ class ChatViewModel(
         )
 
         job?.cancel()
+        // Declared outside the try so the catch below can clean up a placeholder created mid-stream.
+        var streamedIdRef: String? = null
         job = viewModelScope.launch {
             try {
                 if (localChat) {
@@ -161,13 +213,35 @@ class ChatViewModel(
                     logStateManager.warn(LogSource.LITERT, "Local session unavailable, falling back to cloud...")
                 }
                 logStateManager.info(LogSource.CLOUD_API, "Connecting to ${provider.displayName} (${provider.platform.name})...")
+                // Stream the cloud reply into a live bubble, exactly as streamLocalReply does for
+                // on-device models. Before this the app streamed local replies token by token and
+                // sat in silence for cloud ones, so a 70B cloud model felt slower than a 0.6B
+                // local one.
+                //
+                // The placeholder is created lazily, on the first delta rather than up front: a
+                // provider that fails its preflight or 401s should fall through the chain without
+                // leaving an empty bubble on screen for the time that takes.
+                val streamed = StringBuilder()
                 val (result, used) = generative.chatWithFallback(
                     prompt = composedPrompt,
                     system = system,
                     capability = AiCapability.CODE,
                     temperature = 0.4,
-                )
-                chat.append("assistant", result.text, used.id)
+                ) { delta ->
+                    val id = streamedIdRef ?: chat.appendPlaceholder("assistant", provider.id).also { streamedIdRef = it }
+                    streamed.append(delta)
+                    chat.updateMessage(id, streamed.toString())
+                }
+                val liveId = streamedIdRef
+                if (liveId != null) {
+                    // The stream already put the text on screen; this only pins the final value
+                    // and the provider that actually served it, which the fallback chain may have
+                    // changed after the placeholder was made.
+                    chat.updateMessage(liveId, result.text, persist = true)
+                    chat.retagMessage(liveId, used.id)
+                } else {
+                    chat.append("assistant", result.text, used.id)
+                }
                 logStateManager.info(
                     LogSource.CLOUD_API,
                     "Reply received from ${used.id} · tokens ${result.tokensIn}+${result.tokensOut}",
@@ -178,6 +252,16 @@ class ChatViewModel(
                 )
                 maybeExtractMemory(text, result.text)
             } catch (e: Exception) {
+                // A partial stream is still the model's answer and is left on screen; only a
+                // placeholder that never received a single token is removed, since an empty
+                // bubble next to an error banner is just noise.
+                streamedIdRef?.let { id ->
+                    if (chat.messages.value.firstOrNull { it.id == id }?.text.isNullOrBlank()) {
+                        chat.removeMessage(id)
+                    } else {
+                        chat.updateMessage(id, chat.messages.value.first { it.id == id }.text, persist = true)
+                    }
+                }
                 val rawMsg = e.message?.take(280) ?: "Chat failed"
                 // Thread the diagnostics run's own id into the on-screen message for local chat
                 // failures so it's look-up-able in Settings → Diagnostics — the record already

@@ -32,6 +32,11 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.zakir.vestra.ui.components.ChatHistoryDrawer
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -138,6 +143,8 @@ internal enum class ComposerMode(
     /** How this tool reads in the composer's `+` sheet. */
     val toolLabel: String,
     val toolDescription: String,
+    /** Offered under a settled reply as one-tap next moves. */
+    val followUps: List<String> = emptyList(),
 ) {
     CHAT(
         "Chat",
@@ -155,6 +162,7 @@ internal enum class ComposerMode(
         placeholder = "Ask Lookbook",
         toolLabel = "Chat",
         toolDescription = "Ask anything, get an answer",
+        followUps = listOf("Show me an example", "Make it shorter", "What would you change?"),
     ),
     IMAGE(
         "Image",
@@ -172,6 +180,7 @@ internal enum class ComposerMode(
         placeholder = "Describe an image to create",
         toolLabel = "Images",
         toolDescription = "Create and edit",
+        followUps = listOf("Try another angle", "Warmer lighting", "Same look in linen"),
     ),
     VIDEO(
         "Video",
@@ -189,6 +198,7 @@ internal enum class ComposerMode(
         placeholder = "Describe a short clip",
         toolLabel = "Videos",
         toolDescription = "Bring ideas to life",
+        followUps = listOf("Slower pan", "Golden hour", "Closer on the fabric"),
     ),
     CODE(
         "Code",
@@ -206,6 +216,7 @@ internal enum class ComposerMode(
         placeholder = "Ask for code",
         toolLabel = "Canvas",
         toolDescription = "Code, write, or explain",
+        followUps = listOf("Explain this line by line", "Add error handling", "Write a test for it"),
     ),
     AUDIO(
         "Audio",
@@ -223,6 +234,7 @@ internal enum class ComposerMode(
         placeholder = "Type something to hear it spoken",
         toolLabel = "Audio",
         toolDescription = "Make audio tracks",
+        followUps = listOf("Slower delivery", "Warmer tone", "Read it again"),
     ),
     ;
 
@@ -259,6 +271,7 @@ fun UnifiedMainScreen(
     }
     var chatInput by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
     val allTurns by generativeViewModel.allTurns.collectAsState()
@@ -343,8 +356,22 @@ fun UnifiedMainScreen(
     val latestIdByCapability = remember(allTurns) {
         allTurns.groupBy { it.capability }.mapValues { (_, turns) -> turns.maxBy { it.timestampMs }.id }
     }
+    // Offered only on a settled thread: chips that appear mid-stream compete with the reply the
+    // user is still reading, and the mode's own starters already cover an empty thread.
+    val followUps = remember(chatMessages, chatBusy, mode) {
+        if (chatBusy || chatMessages.isEmpty()) {
+            emptyList()
+        } else if (chatMessages.last().role.equals("assistant", ignoreCase = true)) {
+            mode.followUps
+        } else {
+            emptyList()
+        }
+    }
     val newestAssistantId = remember(chatMessages) {
         chatMessages.lastOrNull { it.role.equals("assistant", ignoreCase = true) }?.id
+    }
+    val newestUserId = remember(chatMessages) {
+        chatMessages.lastOrNull { it.role.equals("user", ignoreCase = true) }?.id
     }
     val showChatTyping = chatBusy &&
         chatMessages.lastOrNull()?.role?.equals("assistant", ignoreCase = true) != true
@@ -444,6 +471,10 @@ fun UnifiedMainScreen(
     }
 
     var showToolsSheet by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val conversations by chatViewModel.conversations.collectAsState()
+    val activeConversationId by chatViewModel.activeConversationId.collectAsState()
 
     // The chip names the model; the hint row underneath explains why it can't run, if it can't.
     // Folding both into one string is what produced "Pick a cloud model in the model pi…".
@@ -501,11 +532,16 @@ fun UnifiedMainScreen(
                 onOpenSettings = onOpenSettings,
                 modelLabel = composerModelLabel,
                 onModelClick = { showModelPicker = true },
+                onOpenHistory = { showHistory = true },
                 // Hidden on an empty thread rather than disabled: a "new chat" button on a
                 // conversation that is already new is a control that does nothing.
+                //
+                // This *files* the conversation now. It used to call clearHistory(), which did
+                // settings.remove(KEY) — an unconfirmed permanent delete of the only conversation
+                // the app could hold, one tap from the top bar.
                 onNewChat = if (entries.isNotEmpty()) {
                     {
-                        chatViewModel.clearHistory()
+                        chatViewModel.newConversation()
                         generativeViewModel.clearAllTurns()
                         chatInput = ""
                         generativeViewModel.setPrompt("")
@@ -521,9 +557,10 @@ fun UnifiedMainScreen(
                 InterruptedJobsBanner(localJobStore)
             }
 
+            Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = SpacingTokens.section, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -565,6 +602,17 @@ fun UnifiedMainScreen(
                             } else {
                                 null
                             },
+                            // Editing an older turn would have to discard every reply after it,
+                            // so only the newest is offered — same rule as regenerate.
+                            onEdit = if (entry.message.id == newestUserId && !chatBusy) {
+                                { text ->
+                                    chatInput = text
+                                    chatViewModel.beginEdit(entry.message.id)
+                                }
+                            } else {
+                                null
+                            },
+                            onDelete = { chatViewModel.deleteMessage(entry.message.id) },
                         )
                         is ThreadEntry.Generative -> {
                             val isLatest = entry.turn.id == latestIdByCapability[entry.turn.capability]
@@ -594,6 +642,39 @@ fun UnifiedMainScreen(
                         ChatTypingIndicator(modelLabel = chatModelLabel(chatViewModel, appSettings))
                     }
                 }
+                if (followUps.isNotEmpty()) {
+                    item(key = "follow_ups") {
+                        FollowUpRow(
+                            prompts = followUps,
+                            accent = mode.accent,
+                            onSelect = { text ->
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (mode == ComposerMode.CHAT) chatInput = "" else generativeViewModel.setPrompt(text)
+                                send(text)
+                            },
+                        )
+                    }
+                }
+            }
+
+            // Only while there is somewhere to scroll *to*. A jump button on a thread already at
+            // the bottom is a permanently inert control floating over the conversation.
+            val canScrollDown by remember {
+                derivedStateOf { listState.canScrollForward }
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = canScrollDown,
+                enter = androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SpacingTokens.sm),
+            ) {
+                ScrollToBottomButton {
+                    scope.launch {
+                        val last = entries.size - 1 + if (showChatTyping) 1 else 0
+                        if (last >= 0) listState.animateScrollToItem(last)
+                    }
+                }
+            }
             }
 
             val error = if (mode == ComposerMode.CHAT) chatError else genPreflight
@@ -649,6 +730,35 @@ fun UnifiedMainScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+
+            if (showHistory) {
+                ChatHistoryDrawer(
+                    conversations = remember(conversations) { chatViewModel.conversationSummaries() },
+                    activeId = activeConversationId,
+                    onOpen = { id ->
+                        chatViewModel.openConversation(id)
+                        generativeViewModel.clearAllTurns()
+                        chatInput = ""
+                        mode = ComposerMode.CHAT
+                    },
+                    onNewChat = {
+                        chatViewModel.newConversation()
+                        generativeViewModel.clearAllTurns()
+                        chatInput = ""
+                        generativeViewModel.setPrompt("")
+                        generativeViewModel.setReference(null)
+                        mode = ComposerMode.CHAT
+                    },
+                    onDelete = chatViewModel::deleteConversation,
+                    onShareActive = if (chatMessages.isNotEmpty()) {
+                        { com.zakir.vestra.ui.util.shareText(context, chatViewModel.conversationAsText()) }
+                    } else {
+                        null
+                    },
+                    onDismiss = { showHistory = false },
+                    relativeTime = ::relativeTime,
                 )
             }
 
@@ -731,8 +841,10 @@ internal fun UnifiedTopBar(
     onOpenSettings: () -> Unit,
     modelLabel: String,
     onModelClick: () -> Unit,
-    /** Clears the thread. Null while it is already empty, so the control is never a no-op. */
+    /** Files the thread and starts a fresh one. Null while it is already empty. */
     onNewChat: (() -> Unit)? = null,
+    /** Opens the conversation list. */
+    onOpenHistory: (() -> Unit)? = null,
 ) {
     // The model selector is the top bar's primary control, as it is in the reference app. It
     // used to sit in the composer's action row, where a 360dp phone gave it about 150dp and it
@@ -745,6 +857,14 @@ internal fun UnifiedTopBar(
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (onOpenHistory != null) {
+            TopBarIconButton(
+                icon = Icons.Outlined.Menu,
+                contentDescription = "Chat history",
+                testTag = TestTags.CHAT_HISTORY_BUTTON,
+                onClick = onOpenHistory,
+            )
+        }
         TopModelSelector(
             label = modelLabel,
             onClick = onModelClick,
@@ -1014,3 +1134,68 @@ private fun relativeTime(timestampMs: Long): String {
 private fun chatModelLabel(chatViewModel: ChatViewModel, appSettings: AppSettings): String =
     LocalModelCatalog.byId(chatViewModel.currentModelId())?.displayName
         ?: appSettings.selectedProvider(AiCapability.CODE).displayName
+
+/**
+ * One-tap next moves under a settled reply.
+ *
+ * Deliberately per-mode static copy rather than model-generated suggestions: asking the model
+ * what to ask next costs a second round trip and a second bill for every reply, on free tiers
+ * this app is built around. Three fixed, obviously-editable openers do the same job — get the
+ * user's next message started — at no cost and with no latency.
+ */
+@Composable
+private fun FollowUpRow(prompts: List<String>, accent: Color, onSelect: (String) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(top = SpacingTokens.xxs),
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.xs),
+    ) {
+        prompts.forEachIndexed { index, prompt ->
+            val shape = RoundedCornerShape(50)
+            Row(
+                Modifier
+                    .testTag(TestTags.followUpChip(index))
+                    .heightIn(min = 34.dp)
+                    .clip(shape)
+                    .background(VestraColors.GlassFillStrong)
+                    .border(1.dp, VestraColors.GlassBorder, shape)
+                    .clickable { onSelect(prompt) }
+                    .padding(horizontal = SpacingTokens.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(SpacingTokens.xxs + 2.dp))
+                Text(prompt, style = MaterialTheme.typography.labelSmall, color = VestraColors.Ink, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Jump to the newest turn. Only rendered while the thread can actually scroll further. */
+@Composable
+private fun ScrollToBottomButton(onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(36.dp)
+            .testTag(TestTags.SCROLL_TO_BOTTOM)
+            .clip(CircleShape)
+            .background(VestraColors.SurfaceFloating)
+            .border(1.dp, VestraColors.GlassBorder, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Outlined.KeyboardArrowDown,
+            contentDescription = "Jump to the latest message",
+            tint = VestraColors.Ink,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
