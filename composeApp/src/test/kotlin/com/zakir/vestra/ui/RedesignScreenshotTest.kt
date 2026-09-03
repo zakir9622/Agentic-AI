@@ -23,6 +23,13 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.storage.ApiKeyDataStore
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Text
+import com.zakir.vestra.ui.screens.settings.SettingsNavRow
 import com.zakir.vestra.shared.chat.ChatMessage
 import com.zakir.vestra.ui.screens.news.ChatMessageBubble
 import com.zakir.vestra.ui.components.GlassAppMark
@@ -676,4 +683,150 @@ class RedesignScreenshotTest {
             ApiMonitorScreen(onBack = {}, onOpenKeys = {})
         }
     }
+
+    // ── Surfaces that shipped without ever being rendered ────────────────────────────────
+
+    /**
+     * The Settings hub.
+     *
+     * It was rewritten twice and screenshot zero times — the pass that made it a pure list of
+     * destinations was verified by reading the diff. This is the render that would have caught
+     * the "Clear API keys" button that navigated instead of clearing.
+     */
+    @Test
+    @Config(qualifiers = "w360dp-h1600dp-xxhdpi")
+    fun `52 settings hub narrow`() {
+        shoot("52-settings-hub-360", spatial = true) {
+            Column(Modifier.fillMaxWidth()) {
+                com.zakir.vestra.ui.components.GlassTopBar(
+                    title = "Settings",
+                    subtitle = "Models · keys · privacy",
+                )
+                Spacer(Modifier.height(16.dp))
+                SettingsNavRow(
+                    icon = Icons.Outlined.Memory,
+                    title = "Models",
+                    testTag = "settings_row_models",
+                    description = "Cloud services and on-device packs.",
+                    onClick = {},
+                )
+                Spacer(Modifier.height(10.dp))
+                SettingsNavRow(
+                    icon = Icons.Outlined.Key,
+                    title = "API keys",
+                    testTag = "settings_row_api_keys",
+                    description = "Hugging Face, Groq, OpenRouter and Gemini credentials.",
+                    onClick = {},
+                )
+                Spacer(Modifier.height(10.dp))
+                SettingsNavRow(
+                    icon = Icons.Outlined.Security,
+                    title = "Safety & content",
+                    testTag = "settings_row_safety",
+                    description = "Prompt guards and phrasing assists for Image and Video.",
+                    onClick = {},
+                )
+            }
+        }
+    }
+
+    /** The same hub in light mode, where the previous switch defaults disappeared. */
+    @Test
+    fun `53 settings hub wide light`() {
+        shoot("53-settings-hub-411-light", dark = false, spatial = true) {
+            Column(Modifier.fillMaxWidth()) {
+                com.zakir.vestra.ui.components.GlassTopBar(
+                    title = "Settings",
+                    subtitle = "Models · keys · privacy",
+                )
+                Spacer(Modifier.height(16.dp))
+                SettingsNavRow(
+                    icon = Icons.Outlined.Palette,
+                    title = "Appearance",
+                    testTag = "settings_row_appearance",
+                    description = "Light, dark, or follow the system.",
+                    onClick = {},
+                )
+            }
+        }
+    }
+
+    /**
+     * Switch states in both palettes, side by side.
+     *
+     * Every toggle in the app used Material's default colours, which sit within a few percent of
+     * this system's white card — so in light mode "off" rendered as a pale blob with no border
+     * and was near-indistinguishable from "on". This case is the one that makes that visible.
+     */
+    @Test
+    @Config(qualifiers = "w360dp-h400dp-xxhdpi")
+    fun `54 switch states light`() {
+        shoot("54-switch-states-360-light", dark = false, spatial = true) {
+            Column(Modifier.fillMaxWidth()) {
+                com.zakir.vestra.ui.components.GlassCard {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("On", modifier = Modifier.weight(1f))
+                        com.zakir.vestra.ui.components.VestraSwitch(checked = true, onCheckedChange = {})
+                    }
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("Off", modifier = Modifier.weight(1f))
+                        com.zakir.vestra.ui.components.VestraSwitch(checked = false, onCheckedChange = {})
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h400dp-xxhdpi")
+    fun `55 switch states dark`() {
+        shoot("55-switch-states-360", spatial = true) {
+            Column(Modifier.fillMaxWidth()) {
+                com.zakir.vestra.ui.components.GlassCard {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("On", modifier = Modifier.weight(1f))
+                        com.zakir.vestra.ui.components.VestraSwitch(checked = true, onCheckedChange = {})
+                    }
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("Off", modifier = Modifier.weight(1f))
+                        com.zakir.vestra.ui.components.VestraSwitch(checked = false, onCheckedChange = {})
+                    }
+                }
+            }
+        }
+    }
+
+    /** The conversation drawer — shipped in the last PR, never rendered. */
+    @Test
+    @Config(qualifiers = "w360dp-h1200dp-xxhdpi")
+    fun `56 chat history drawer narrow`() {
+        shoot("56-history-drawer-360", spatial = true) {
+            com.zakir.vestra.ui.components.ChatHistoryDrawer(
+                conversations = listOf(
+                    com.zakir.vestra.shared.chat.ConversationSummary(
+                        id = "c1",
+                        title = "Build me a capsule wardrobe for a week of travel",
+                        updatedAtMs = 0,
+                        messageCount = 6,
+                        preview = "Five pieces, one palette — start with the coat.",
+                    ),
+                    com.zakir.vestra.shared.chat.ConversationSummary(
+                        id = "c2",
+                        title = "What colours flatter a warm skin tone?",
+                        updatedAtMs = 0,
+                        messageCount = 2,
+                        preview = "Warm tones sit best with…",
+                    ),
+                ),
+                activeId = "c1",
+                onOpen = {},
+                onNewChat = {},
+                onDelete = {},
+                onShareActive = {},
+                onDismiss = {},
+                relativeTime = { "2h ago" },
+            )
+        }
+    }
+
 }

@@ -21,6 +21,7 @@ import com.zakir.vestra.VestraApp
 import com.zakir.vestra.storage.ApiKeyDataStore
 import com.zakir.vestra.ui.components.ApiUsageDashboardCard
 import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassScreen
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.theme.SpacingTokens
@@ -53,38 +54,49 @@ fun ApiMonitorScreen(onBack: () -> Unit, onOpenKeys: () -> Unit) {
         subtitle = "Requests · tokens · reliability",
         onBack = onBack,
     ) {
-        GlassCard {
-            GlassSectionLabel("RELIABILITY")
-            if (data.totalRequests == 0) {
+        // One empty state, not three. With nothing recorded the screen used to stack a
+        // RELIABILITY card saying "Nothing recorded yet…", a dashboard of three zeros, and a
+        // RECENT SESSION RUNS card saying "No session runs recorded yet…" — the same sentence
+        // twice, around a row of noughts. An empty screen gets one invitation to act.
+        if (data.totalRequests == 0) {
+            GlassCard {
+                GlassSectionLabel("NOTHING RECORDED YET")
                 Text(
-                    "Nothing recorded yet. Generate an image, clip, answer or audio and every run " +
-                        "shows up here with its token count, latency and outcome.",
+                    "Every image, clip, answer and audio run lands here with its token count, " +
+                        "latency and outcome. Nothing has run on this device so far.",
                     style = MaterialTheme.typography.bodySmall,
                     color = VestraColors.InkMuted,
                 )
-            } else {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
-                ) {
-                    HeadlineStat(
-                        // successRate is null only when totalRequests is 0, handled above —
-                        // a fresh install must never read as "0% success".
-                        value = data.successRate?.let { "${(it * 100).roundToInt()}%" } ?: "—",
-                        label = "Succeeded",
-                        modifier = Modifier.weight(1f),
-                    )
-                    HeadlineStat(
-                        value = if (data.avgLatencyMs > 0) "${data.avgLatencyMs} ms" else "—",
-                        label = "Avg latency",
-                        modifier = Modifier.weight(1f),
-                    )
-                    HeadlineStat(
-                        value = "${data.totalTokensIn}/${data.totalTokensOut}",
-                        label = "Tokens in/out",
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                Spacer(Modifier.height(SpacingTokens.sm))
+                GlassSecondaryButton(text = "Manage API keys", onClick = onOpenKeys)
+            }
+            Spacer(Modifier.height(SpacingTokens.xxl))
+            return@GlassScreen
+        }
+
+        GlassCard {
+            GlassSectionLabel("RELIABILITY")
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.sm),
+            ) {
+                HeadlineStat(
+                    // successRate is null only when totalRequests is 0, returned above —
+                    // a fresh install must never read as "0% success".
+                    value = data.successRate?.let { "${(it * 100).roundToInt()}%" } ?: "—",
+                    label = "Succeeded",
+                    modifier = Modifier.weight(1f),
+                )
+                HeadlineStat(
+                    value = if (data.avgLatencyMs > 0) "${data.avgLatencyMs} ms" else "—",
+                    label = "Avg latency",
+                    modifier = Modifier.weight(1f),
+                )
+                HeadlineStat(
+                    value = "${data.totalTokensIn}/${data.totalTokensOut}",
+                    label = "Tokens in/out",
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
         Spacer(Modifier.height(SpacingTokens.sm))

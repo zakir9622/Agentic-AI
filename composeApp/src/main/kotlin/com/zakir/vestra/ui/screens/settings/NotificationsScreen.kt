@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.zakir.vestra.ui.components.VestraSwitch
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,6 +32,7 @@ import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
 import com.zakir.vestra.ui.components.GlassScreen
+import com.zakir.vestra.ui.components.GlassPrimaryButton
 import com.zakir.vestra.ui.components.GlassSecondaryButton
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.theme.SpacingTokens
@@ -101,7 +102,10 @@ fun NotificationsScreen(appSettings: AppSettings, onBack: () -> Unit) {
             // No SDK guard: minSdk is 35, so POST_NOTIFICATIONS is always a runtime permission
             // here. An `SDK_INT >= 33` check is dead code and lint flags it as such.
             if (!granted) {
-                GlassSecondaryButton(text = "Allow notifications", onClick = { showRationale = true })
+                // Filled, while the escape hatch below stays outlined. Both were outlined, so
+                // the screen offered two equal-looking buttons and said nothing about which one
+                // actually grants the permission.
+                GlassPrimaryButton(text = "Allow notifications", onClick = { showRationale = true })
                 Spacer(Modifier.height(SpacingTokens.xs))
             }
             GlassSecondaryButton(
@@ -195,7 +199,7 @@ private fun NotificationToggle(
             Text(title, style = MaterialTheme.typography.titleSmall, color = VestraColors.Ink)
             Text(description, style = MaterialTheme.typography.bodySmall, color = VestraColors.InkMuted)
         }
-        Switch(
+        VestraSwitch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             // Disabled without the OS grant rather than hidden: the preference is still real and

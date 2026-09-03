@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.zakir.vestra.ui.theme.VestraColors
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -177,7 +178,7 @@ fun PacksScreen(
                 style = MaterialTheme.typography.labelMedium,
                 color = when (handshakeBannerOk) {
                     true -> MaterialTheme.colorScheme.primary
-                    false -> MaterialTheme.colorScheme.error
+                    false -> VestraColors.Danger
                     null -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
@@ -291,7 +292,7 @@ private fun PackCard(
                         ?: "Research-licensed weights. Private testing only; never ships in the published app."
                     ),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error,
+                color = VestraColors.Danger,
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -333,7 +334,7 @@ private fun PackCard(
                         style = MaterialTheme.typography.labelLarge,
                         color = when {
                             state.isReady() -> MaterialTheme.colorScheme.primary
-                            state.verifyError != null -> MaterialTheme.colorScheme.error
+                            state.verifyError != null -> VestraColors.Danger
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         modifier = Modifier
@@ -360,7 +361,7 @@ private fun PackCard(
                         color = if (hs.ok) {
                             MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.error
+                            VestraColors.Danger
                         },
                     )
                 }
@@ -375,7 +376,7 @@ private fun PackCard(
                 Text(
                     incompatibleChecklist ?: "",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = VestraColors.Danger,
                 )
             }
         }

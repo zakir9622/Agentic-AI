@@ -16,9 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.zakir.vestra.ui.components.VestraSwitch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -84,7 +84,7 @@ internal fun LazyListScope.settingsSafetySection(appSettings: AppSettings) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Prompt clarity assist", style = MaterialTheme.typography.titleSmall)
-                Switch(
+                VestraSwitch(
                     checked = enabled,
                     onCheckedChange = appSettings::setBypassFilterEnabled,
                     modifier = Modifier.testTag(TestTags.PROMPT_CLARITY_ASSIST_SWITCH),
@@ -114,7 +114,7 @@ internal fun LazyListScope.settingsSafetySection(appSettings: AppSettings) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Reduce fashion false positives", style = MaterialTheme.typography.titleSmall)
-                Switch(
+                VestraSwitch(
                     checked = enabled,
                     onCheckedChange = appSettings::setMatureFashionAssistEnabled,
                     modifier = Modifier.testTag(TestTags.MATURE_FASHION_ASSIST_SWITCH),
@@ -142,7 +142,7 @@ internal fun LazyListScope.settingsSafetySection(appSettings: AppSettings) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Analyze reference image", style = MaterialTheme.typography.titleSmall)
-                Switch(
+                VestraSwitch(
                     checked = enabled,
                     onCheckedChange = appSettings::setAnalyzeReferenceEnabled,
                     modifier = Modifier.testTag(TestTags.ANALYZE_REFERENCE_SWITCH),

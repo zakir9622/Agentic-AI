@@ -52,6 +52,37 @@ Chat (`NewsChatScreen`) follows the same conversation pattern independently, wit
 richer chat bubbles, a typing indicator, an empty state, a headlines bar, and a quick-prompt
 carousel (all ported from the GoogleLookBookUI source in Era 6 of the project history).
 
+## Render pass: controls, status colour, and coverage
+
+The design system had two systemic holes that no amount of code review would have surfaced,
+because both are invisible in a diff and obvious in a screenshot.
+
+**Controls had no palette.** Every `Switch` in the app was a bare Material 3 switch. Its defaults
+come from `colorScheme.surfaceVariant` and `outline`; in this violet scheme those sit within a few
+percent of the white card a settings row uses, so light mode rendered "off" as a pale blob with no
+border. `VestraSwitch` fixes it at the component, and the rule it encodes is worth keeping:
+**on is accent-filled, off is outlined.** A fill/no-fill difference survives a glance, a dim
+screen and colour-blindness; a hue difference survives none of them.
+
+**Status had no colour of its own.** Six places used `MaterialTheme.colorScheme.error` — Material's
+stock red, the only colour on those screens from outside the violet/teal family. `VestraColors.Danger`
+replaces all of them, and `StatusColor` gives the good/bad/neutral triple one home.
+
+Both fixes are one-line-per-call-site because the kit already had the right shapes; what it lacked
+was anyone using them. The same was true of buttons: `GlassPrimaryButton` existed, and the
+Notifications screen rendered its primary action as a `GlassSecondaryButton` beside an identical
+one, so the screen offered two equal-looking buttons and said nothing about which grants the
+permission.
+
+**Coverage was the real gap.** Five surfaces had shipped with no screenshot case: the Settings hub
+(rewritten twice, rendered zero times), the conversation drawer, and switch states in each palette.
+Adding them immediately paid for itself — the drawer's rows were displaying a message count while
+the `preview` string the summary already carried went unused, so a thread was identified by the
+first ~28 characters of its opening question. Rows show the title and the last reply now.
+
+The lesson this repo keeps re-learning, written down: **a surface with no render is a surface with
+no review.** Every defect in this pass was visible in a picture and invisible in a diff.
+
 ## Conversations and streaming (current)
 
 Two gaps measured against the reference app, one of which was a bug the redesign itself

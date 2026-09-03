@@ -117,11 +117,18 @@ fun ApiUsageDashboardCard(
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // The title yields, not the badge. The badge is four words of
+                            // fixed text with no overflow set, so when the title took the row's
+                            // width first it hard-clipped to "DataStor" — a truncation with no
+                            // ellipsis, which reads as a rendering fault rather than as elision.
                             Text(
                                 "Cloud API & Token Monitor",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = VestraColors.Ink,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
                             )
                             Spacer(Modifier.width(6.dp))
                             Box(
