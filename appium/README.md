@@ -3,16 +3,66 @@
 Real, executable Appium (UiAutomator2) tests against `com.zakir.vestra`, written against the
 stable `testTag`s catalogued in `composeApp/src/main/kotlin/com/zakir/vestra/ui/TestTags.kt`.
 
-**Honesty note, not a formality:** these tests have never been run — including the newest file.
-Writing tests you cannot execute is not the same as verifying them; treat every test here as a
-first draft that needs a real run on a real device before it's trusted.
+## These tests have now been run — and most of them fail on stale locators
 
-The blocker has been re-checked, not assumed. An Android SDK *is* installed now
-(`ANDROID_HOME=/root/android-sdk`, with `platform-tools/adb`), so the earlier "no `adb`" note is
-out of date. What is still missing is anything for `adb` to talk to: **`/dev/kvm` does not exist
-and `/proc/cpuinfo` reports no `vmx`/`svm` flags**, so an emulator cannot start in that
-environment at any speed, and no physical device is attached. The suite is one `appium` install
-and one connected device away from running; it is not one command away.
+The long-standing "never executed" note above this section was based on a wrong conclusion, and
+the correction is worth stating plainly. `/dev/kvm` really is absent and `/proc/cpuinfo` really
+does report no `vmx`/`svm` flags — but that rules out *hardware-accelerated* emulation, not
+emulation. QEMU's TCG interpreter needs neither, ships with the SDK, and runs Android fine, just
+slowly. The suite executed end-to-end for the first time under it: **46 tests collected, with
+real passes and real failures.**
+
+The failures are overwhelmingly this suite's fault, not the app's. Roughly 28 of the tags
+referenced here **do not exist in `TestTags.kt`** — `bottom_bar_*` and `home_tab_*` name controls
+that were deleted in the unified-screen redesign, and `prompt_input` / `send_button` were renamed
+to `composer_prompt_input` / `composer_send_button`. The sections below already flagged some of
+this as suspected; running it turned the suspicion into a list. Until those locators are
+repaired, a red result here means "the test is out of date", which is exactly the failure mode
+that makes a suite worthless — fix them before trusting any signal from this directory.
+
+## Running it on a machine without KVM
+
+The four things that make the difference, in order — omit the third and the app is ANR-killed at
+startup every single time:
+
+```bash
+export ANDROID_HOME=/root/android-sdk
+sdkmanager "emulator" "platform-tools" "system-images;android-35;aosp_atd;x86_64"
+avdmanager create avd -n lookbook -k "system-images;android-35;aosp_atd;x86_64" -d pixel_5
+
+# 1. TCG software emulation — no KVM required. Budget ~5-8 min to boot.
+$ANDROID_HOME/emulator/emulator -avd lookbook -no-accel -no-window -no-audio \
+    -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 3072 -cores 4 &
+
+# 2. AOT-compile the app: interpreted class verification costs 180-500ms *per method* here.
+adb install -r -g composeApp/build/outputs/apk/sideload/debug/composeApp-sideload-debug.apk
+adb shell cmd package compile -m speed -f com.zakir.vestra
+
+# 3. Scale Android's own watchdogs. The process-start timeout is 10s; a cold start of this app
+#    measures ~97s under TCG, so without this every launch ends in
+#    "ANR ... failed to complete startup". The emulator rejects this via -prop (qemu.* only),
+#    so set it at runtime — a ro. property can be written once while unset — then restart the
+#    framework, which re-reads it. `stop`/`start` is a framework restart, not a reboot, and the
+#    property survives it.
+adb shell setprop ro.hw_timeout_multiplier 20
+adb shell stop && adb shell start
+
+# 4. Pre-install the UiAutomator2 server; installing it per session overruns adb's timeout.
+adb install -r -g /root/.appium/node_modules/appium-uiautomator2-driver/node_modules/\
+appium-uiautomator2-server/apks/appium-uiautomator2-server-v10.6.2.apk
+
+appium --address 127.0.0.1 --port 4723 &
+APPIUM_DEVICE_NAME=emulator-5554 python3 -m pytest test_glass_ui.py -v
+```
+
+`conftest.py` raises Appium's timeouts to match (see `APPIUM_*_TIMEOUT_MS` there). Those are
+ceilings rather than waits, so they cost a real device nothing and are left on by default.
+
+**What this setup can and cannot tell you.** It exercises real Android: real view hierarchy, real
+touch dispatch, real lifecycle. It is far too slow to gate CI on, and its timing is nothing like a
+phone's — so a *timing*-dependent failure here is not evidence of a bug on real hardware. For
+pre-release confidence on real devices, Firebase Test Lab or a Play pre-launch report against the
+APK that CI already builds remains the better instrument.
 
 ## What's covered
 
