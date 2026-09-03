@@ -31,6 +31,25 @@ APP_PATH = os.environ.get("APPIUM_APP_PATH")
 NO_RESET = os.environ.get("APPIUM_NO_RESET", "true").lower() != "false"
 
 
+# Emulators without KVM (QEMU TCG software emulation) run roughly 10-20x slower than a real
+# device: installing the UiAutomator2 server alone overran the driver's stock 20s adb timeout,
+# and a cold app start measured 97s. These are ceilings, not waits — a fast device still
+# finishes in the same time it always did — so they are safe to keep on by default and can be
+# lowered per-run through the environment.
+def _timeout(name: str, default: int) -> int:
+    return int(os.environ.get(name, default))
+
+
+ADB_EXEC_TIMEOUT_MS = _timeout("APPIUM_ADB_EXEC_TIMEOUT_MS", 600_000)
+UIA2_INSTALL_TIMEOUT_MS = _timeout("APPIUM_UIA2_INSTALL_TIMEOUT_MS", 600_000)
+# 300_000 was not enough: a later session failed with "the instrumentation process cannot be
+# initialized within 300000ms" on the same emulator that had already run the suite once, so
+# the margin here is genuinely thin rather than generous.
+UIA2_LAUNCH_TIMEOUT_MS = _timeout("APPIUM_UIA2_LAUNCH_TIMEOUT_MS", 900_000)
+APP_WAIT_TIMEOUT_MS = _timeout("APPIUM_APP_WAIT_TIMEOUT_MS", 300_000)
+ANDROID_INSTALL_TIMEOUT_MS = _timeout("APPIUM_ANDROID_INSTALL_TIMEOUT_MS", 900_000)
+
+
 @pytest.fixture(scope="session")
 def driver():
     options = UiAutomator2Options()
@@ -39,7 +58,16 @@ def driver():
     options.app_package = APP_PACKAGE
     options.app_activity = APP_ACTIVITY
     options.no_reset = NO_RESET
-    options.new_command_timeout = 120
+    options.new_command_timeout = 300
+    options.adb_exec_timeout = ADB_EXEC_TIMEOUT_MS
+    options.uiautomator2_server_install_timeout = UIA2_INSTALL_TIMEOUT_MS
+    options.uiautomator2_server_launch_timeout = UIA2_LAUNCH_TIMEOUT_MS
+    options.android_install_timeout = ANDROID_INSTALL_TIMEOUT_MS
+    options.app_wait_activity = "*"
+    options.app_wait_duration = APP_WAIT_TIMEOUT_MS
+    # Reuse an already-installed server rather than reinstalling it per session: on a software
+    # emulator that install is minutes, and it is identical every time.
+    options.skip_server_installation = os.environ.get("APPIUM_SKIP_SERVER_INSTALL", "true").lower() != "false"
     if APP_PATH:
         options.app = APP_PATH
 
@@ -58,7 +86,7 @@ def _reset_to_home(driver):
         pass
 
 
-def by_tag(driver, tag: str, timeout: float = 15.0):
+def by_tag(driver, tag: str, timeout: float = float(os.environ.get("APPIUM_FIND_TIMEOUT_S", "45"))):
     """Find one element by its Compose testTag (exposed as resource-id via testTagsAsResourceId)."""
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
