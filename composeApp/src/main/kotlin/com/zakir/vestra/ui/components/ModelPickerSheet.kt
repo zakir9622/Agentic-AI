@@ -26,6 +26,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -256,6 +257,11 @@ fun ModelPickerSheet(
         Column(
             Modifier
                 .fillMaxWidth()
+            // adjustNothing means the window never resizes for the keyboard, so every
+            // surface owns its own IME inset. A sheet is its own window and does not
+            // inherit the host screen's safeDrawingPadding — without this its search
+            // field sits under the keyboard the moment it is focused.
+                .imePadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
         ) {

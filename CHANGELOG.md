@@ -2,6 +2,30 @@
 
 ## Unreleased (post-3.1.8)
 
+**Three defects found on device.**
+
+- **A generated image is now just the image.** The thread wrapped every result in a card
+  carrying a "RESULT" label, two provenance pills and four full-width buttons — roughly 300dp of
+  chrome around 320dp of picture, on the one surface where the picture is the point. Save,
+  Share, Privacy blur and Report moved into `FullScreenImageViewer`, which is where a user who
+  wants to act on an image already is; tapping the image opens it. The AI-generated marker stays,
+  redrawn as a small badge *on* the image: it is a disclosure rather than a control, and a
+  synthetic image of a person has to be labelled where it is seen. The fixed 320dp `Fit` box also
+  went — a portrait result rendered as a narrow strip between two grey bands.
+- **The composer no longer floats above the keyboard.** `enableEdgeToEdge()` was on but the
+  activity declared no `windowSoftInputMode`, so the window resized for the IME *and*
+  `safeDrawingPadding()` applied the same inset again. The composer ended up roughly one
+  keyboard-height too high, with the thread squeezed hard enough to run under the status bar.
+  `android:windowSoftInputMode="adjustNothing"` makes Compose the single source of truth. A
+  `Dialog`/`ModalBottomSheet` is its own window and does not inherit the host screen's padding,
+  so `ModelPickerSheet` and `PromptDirectorSheet` take an explicit `imePadding()`.
+- **The top-bar model name was still a compound.** `modelLabel()` returns
+  "FLUX.1 Schnell · Ready · verified just now"; the previous fix only stripped a trailing
+  `(Groq)`-style parenthetical, so the status tail still truncated the name. It now cuts at the
+  first " · " too. Liveness is on the picker sheet the control opens, and the full label stays in
+  `contentDescription`.
+
+
 **One chatbox.** The shell had five always-visible modality chips, a composer that carried both
 an "Attach Reference" row and a leading attach button at the same time (the chip sat on top of
 the placeholder), a model chip that rendered "FLUX.1 Schnell · Ready · verified 6m ago" into

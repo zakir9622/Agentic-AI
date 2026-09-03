@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.BlurOn
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Report
 import androidx.compose.material.icons.outlined.SaveAlt
@@ -79,6 +80,7 @@ fun FullScreenImageViewer(
     onDismiss: () -> Unit,
     onRemix: (() -> Unit)? = null,
     onReport: (() -> Unit)? = null,
+    onPrivacyBlur: (() -> Unit)? = null,
     onEditIntent: ((ImageEditIntent) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -334,13 +336,24 @@ fun FullScreenImageViewer(
                                     testTag = "viewer_share_button",
                                 )
 
-                                // 4. REPORT Button
+                                // 4. PRIVACY BLUR — moved here with the rest of the actions when
+                                // the thread card was reduced to the image alone.
+                                if (onPrivacyBlur != null) {
+                                    ViewerActionButton(
+                                        icon = Icons.Outlined.BlurOn,
+                                        label = "Blur",
+                                        onClick = onPrivacyBlur,
+                                        testTag = com.zakir.vestra.ui.TestTags.PRIVACY_BLUR_BUTTON,
+                                    )
+                                }
+
+                                // 5. REPORT Button
                                 if (onReport != null) {
                                     ViewerActionButton(
                                         icon = Icons.Outlined.Report,
                                         label = "Report",
                                         onClick = onReport,
-                                        testTag = "viewer_report_button",
+                                        testTag = com.zakir.vestra.ui.TestTags.REPORT_BUTTON,
                                     )
                                 }
                             }

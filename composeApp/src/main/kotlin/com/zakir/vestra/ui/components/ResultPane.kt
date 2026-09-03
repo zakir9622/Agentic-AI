@@ -10,6 +10,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material3.Icon
+import com.zakir.vestra.ui.theme.RadiusTokens
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -61,6 +74,17 @@ fun ResultPane(
         FullScreenImageViewer(
             imagePath = path,
             onDismiss = { fullscreenPath = null },
+            // Both close the viewer first: PrivacyBlurSheet and the report dialog are their own
+            // windows, and stacking one over a full-screen Dialog leaves the viewer's black
+            // scrim between the sheet and the image it is about to edit.
+            onPrivacyBlur = {
+                fullscreenPath = null
+                privacyBlurPath = path
+            },
+            onReport = {
+                fullscreenPath = null
+                reportPath = path
+            },
         )
     }
 
@@ -144,61 +168,27 @@ fun ResultPane(
         // they'd need a verified content-URI conversion for a plain generation path this session
         // has no device to confirm). All candidates are already saved to the Wardrobe (see
         // GenerativeViewModel.ingestImageBatch).
-        is GenerativeState.ImageBatchReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
-            GlassSectionLabel("RESULT · ${state.batch.candidates.size} OPTIONS")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GlassPill(text = "AI-generated", active = true)
-                GlassPill(text = "In looks gallery", active = true, accent = accent)
-            }
-            Spacer(Modifier.height(8.dp))
+        // Same rule as the single result below: candidates only, actions in the viewer.
+        is GenerativeState.ImageBatchReady -> Box(Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
             ImageCandidateGrid(
                 batch = state.batch,
                 selectedCandidateId = state.batch.selectedCandidateId,
                 onOpenCandidate = { candidate -> fullscreenPath = candidate.path },
             )
         }
-        is GenerativeState.ImageReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_IMAGE_READY)) {
-            GlassSectionLabel("RESULT")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GlassPill(text = "AI-generated", active = true)
-                GlassPill(text = "In looks gallery", active = true, accent = accent)
-            }
-            Spacer(Modifier.height(8.dp))
-            AsyncImage(
-                model = File(state.path),
-                contentDescription = "Generated look. Tap to view fullscreen.",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(320.dp)
-                    .clickable { fullscreenPath = state.path },
-                contentScale = ContentScale.Fit,
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                GlassSecondaryButton(
-                    text = "Save to Photos",
-                    onClick = { MediaExport.saveImageToGallery(context, File(state.path)) },
-                    modifier = Modifier.weight(1f),
-                )
-                GlassSecondaryButton(
-                    text = LookbookCopy.ACTION_SHARE,
-                    onClick = { MediaExport.share(context, File(state.path), "Share image") },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            GlassSecondaryButton(
-                text = "Privacy blur",
-                onClick = { privacyBlurPath = state.path },
-                modifier = Modifier.testTag(TestTags.PRIVACY_BLUR_BUTTON),
-            )
-            Spacer(Modifier.height(10.dp))
-            GlassSecondaryButton(
-                text = LookbookCopy.ACTION_REPORT,
-                onClick = { reportPath = state.path },
-                modifier = Modifier.testTag(TestTags.REPORT_BUTTON),
-            )
-        }
+        // A result is a picture, so the thread shows a picture. It used to arrive wrapped in a
+        // card carrying a "RESULT" label, two provenance pills and four full-width buttons —
+        // roughly 300dp of chrome around 320dp of image, on the one surface where the image is
+        // the entire point. Save / Share / Privacy blur / Report all moved into the full-screen
+        // viewer, which is where a user who wants to act on an image already is.
+        //
+        // The one thing that does *not* move is the AI-generated marker. It is a provenance
+        // disclosure, not a control, and a synthetic image of a person needs to be labelled
+        // where it is seen rather than one tap away — so it renders on the image itself.
+        is GenerativeState.ImageReady -> GeneratedImageResult(
+            path = state.path,
+            onOpen = { fullscreenPath = state.path },
+        )
         is GenerativeState.VideoReady -> GlassCard(modifier = Modifier.testTag(TestTags.RESULT_VIDEO_READY)) {
             GlassSectionLabel("VIDEO READY")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -364,3 +354,62 @@ fun ResultPane(
     }
 }
 
+/**
+ * A generated image in the thread: the picture, an AI-generated marker, and nothing else.
+ *
+ * [ContentScale.FillWidth] with an unconstrained height rather than the old fixed 320dp box —
+ * a portrait result in a 320dp-tall Fit box rendered as a narrow strip floating in two grey
+ * bands, which reads as a layout bug rather than as a photograph. The cap only exists so a very
+ * tall image cannot push the composer off screen.
+ *
+ * The marker stays on the image deliberately. Every other control moved into the viewer, but a
+ * synthetic image of a person has to be labelled where it is seen — a disclosure one tap away is
+ * not a disclosure. It is drawn as part of the picture, not as chrome around it.
+ */
+@Composable
+private fun GeneratedImageResult(path: String, onOpen: () -> Unit) {
+    val shape = RoundedCornerShape(RadiusTokens.lg)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .testTag(TestTags.RESULT_IMAGE_READY)
+            .clip(shape)
+            .clickable(onClick = onOpen),
+    ) {
+        AsyncImage(
+            model = File(path),
+            contentDescription = "Generated look. Tap to open full screen.",
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 520.dp),
+            contentScale = ContentScale.FillWidth,
+        )
+        AiGeneratedMarker(Modifier.align(Alignment.BottomStart).padding(10.dp))
+    }
+}
+
+/** Provenance badge drawn over the image. Reads on any picture, light or dark. */
+@Composable
+private fun AiGeneratedMarker(modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.55f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.AutoAwesome,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(12.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            "AI-generated",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            maxLines = 1,
+        )
+    }
+}

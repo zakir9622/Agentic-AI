@@ -814,17 +814,23 @@ private fun TopModelSelector(label: String, onClick: () -> Unit, modifier: Modif
 }
 
 /**
- * Drops a trailing parenthetical from a model name for display: "Llama 3.3 70B (Groq)" → "Llama
- * 3.3 70B".
+ * Reduces a catalog label to the model's actual name for the top bar.
  *
- * Catalog names carry their runtime in parentheses — `(Groq)`, `(LiteRT)`, `(ZeroGPU)`,
- * `(free models)`. That is the least useful part of the string in a one-line control and the
- * first part worth losing: the runtime is visible on the picker sheet the control opens, and
- * keeping it is what pushed the actual model number off the end.
+ * [GenerativeViewModel.modelLabel] returns a *compound* — "FLUX.1 Schnell · Ready · verified just
+ * now", "Llama 3.3 70B (Groq)" — because it also carries liveness. That is three facts, and a
+ * one-line control shows the first one or none of them: the shipped build rendered the whole
+ * string and truncated it. Both suffix forms go:
+ *
+ * - everything from the first " · " (the status tail)
+ * - a trailing parenthetical (the runtime: `(Groq)`, `(LiteRT)`, `(free models)`)
+ *
+ * Neither is lost to the user — liveness is on the picker sheet this control opens, and the full
+ * uncut label stays in the row's contentDescription for a screen reader.
  */
 internal fun shortModelName(label: String): String {
-    val open = label.lastIndexOf(" (")
-    val trimmed = if (open > 0 && label.endsWith(")")) label.substring(0, open) else label
+    val untilStatus = label.substringBefore(" · ")
+    val open = untilStatus.lastIndexOf(" (")
+    val trimmed = if (open > 0 && untilStatus.endsWith(")")) untilStatus.substring(0, open) else untilStatus
     return trimmed.trim().ifEmpty { label }
 }
 
