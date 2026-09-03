@@ -58,6 +58,12 @@ APPIUM_DEVICE_NAME=emulator-5554 python3 -m pytest test_glass_ui.py -v
 `conftest.py` raises Appium's timeouts to match (see `APPIUM_*_TIMEOUT_MS` there). Those are
 ceilings rather than waits, so they cost a real device nothing and are left on by default.
 
+The margins are thin, not generous. A five-minute `uiautomator2ServerLaunchTimeout` was enough
+for one session and then failed on the next — *on the same emulator, with the server already
+installed* — as "the instrumentation process cannot be initialized within 300000ms". It is 15
+minutes now. If a session dies during startup here, raise the ceiling before suspecting the app:
+under TCG, slow and broken look identical from the outside.
+
 **What this setup can and cannot tell you.** It exercises real Android: real view hierarchy, real
 touch dispatch, real lifecycle. It is far too slow to gate CI on, and its timing is nothing like a
 phone's — so a *timing*-dependent failure here is not evidence of a bug on real hardware. For

@@ -42,7 +42,10 @@ def _timeout(name: str, default: int) -> int:
 
 ADB_EXEC_TIMEOUT_MS = _timeout("APPIUM_ADB_EXEC_TIMEOUT_MS", 600_000)
 UIA2_INSTALL_TIMEOUT_MS = _timeout("APPIUM_UIA2_INSTALL_TIMEOUT_MS", 600_000)
-UIA2_LAUNCH_TIMEOUT_MS = _timeout("APPIUM_UIA2_LAUNCH_TIMEOUT_MS", 300_000)
+# 300_000 was not enough: a later session failed with "the instrumentation process cannot be
+# initialized within 300000ms" on the same emulator that had already run the suite once, so
+# the margin here is genuinely thin rather than generous.
+UIA2_LAUNCH_TIMEOUT_MS = _timeout("APPIUM_UIA2_LAUNCH_TIMEOUT_MS", 900_000)
 APP_WAIT_TIMEOUT_MS = _timeout("APPIUM_APP_WAIT_TIMEOUT_MS", 300_000)
 ANDROID_INSTALL_TIMEOUT_MS = _timeout("APPIUM_ANDROID_INSTALL_TIMEOUT_MS", 900_000)
 
