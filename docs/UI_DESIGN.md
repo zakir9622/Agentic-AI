@@ -107,6 +107,33 @@ page: `ApiKeysScreen`, `SafetyScreen`, `AppearanceScreen`, `StoragePrivacyScreen
 inline, so the split moved no setting logic at all — which is what makes it reviewable against
 "nothing was lost", the failure mode the previous restructure actually hit.
 
+### Result cards, and the keyboard
+
+Two defects the one-chatbox pass did not touch, both found on a real device rather than in a
+render.
+
+**A result is a picture.** The thread wrapped every generated image in a card: a "RESULT" label,
+an "AI-generated" pill, an "In looks gallery" pill, and Save / Share / Privacy blur / Report as
+four full-width buttons. That is ~300dp of chrome around 320dp of image, and it pushed the next
+turn off screen. All four actions moved into `FullScreenImageViewer` — tap the image to get them.
+
+The one thing that stayed is the AI-generated marker, redrawn as a small translucent badge on the
+image itself. The distinction that decides it: **the buttons are controls, the marker is a
+disclosure.** A control can live one tap away; a label on a synthetic image of a person cannot,
+because the person who needs it is the one scrolling past, not the one who opened the viewer.
+
+**The keyboard.** `enableEdgeToEdge()` was on and the activity declared no
+`windowSoftInputMode`, so two layers each handled the IME: the window resized, and Compose's
+`safeDrawingPadding()` (which includes `WindowInsets.ime`) applied the inset again on top. The
+composer came to rest roughly one keyboard-height above the keyboard, and the thread was squeezed
+hard enough that its content ran under the status bar.
+
+`android:windowSoftInputMode="adjustNothing"` makes Compose the only layer that moves anything.
+The cost, paid once: a `Dialog` or `ModalBottomSheet` is its own window and does not inherit the
+host screen's padding, so any sheet with a text field needs an explicit `imePadding()` —
+`ModelPickerSheet` and `PromptDirectorSheet` have one. Screens are already covered, because
+`GlassScreen` and every hub page use `safeDrawingPadding()`.
+
 ## Redesign: glassmorphism (post-professional-UI pass)
 
 The app already had `Glass*` components, but on a light-blue palette with ~95%-opaque fills over

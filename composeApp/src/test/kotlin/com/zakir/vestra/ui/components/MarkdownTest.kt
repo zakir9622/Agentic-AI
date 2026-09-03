@@ -161,29 +161,36 @@ class MarkdownTest {
  */
 class ShortModelNameTest {
 
+    private fun short(label: String) = com.zakir.vestra.ui.screens.home.shortModelName(label)
+
     @Test
-    fun `a trailing runtime parenthetical is dropped`() {
-        assertEquals("Llama 3.3 70B Versatile", com.zakir.vestra.ui.screens.home.shortModelName("Llama 3.3 70B Versatile (Groq)"))
-        assertEquals("Bonsai Image 4B", com.zakir.vestra.ui.screens.home.shortModelName("Bonsai Image 4B (LiteRT)"))
+    fun `a status tail is dropped`() {
+        // The exact string the shipped build rendered into the top bar.
+        assertEquals("FLUX.1 Schnell", short("FLUX.1 Schnell · Ready · verified just now"))
+        assertEquals("Bonsai Image 4B", short("Bonsai Image 4B (LiteRT) · Ready offline"))
     }
 
     @Test
-    fun `a name with no parenthetical is untouched`() {
-        assertEquals("FLUX.1 Schnell", com.zakir.vestra.ui.screens.home.shortModelName("FLUX.1 Schnell"))
+    fun `a trailing runtime parenthetical is dropped`() {
+        assertEquals("Llama 3.3 70B Versatile", short("Llama 3.3 70B Versatile (Groq)"))
+        assertEquals("Bonsai Image 4B", short("Bonsai Image 4B (LiteRT)"))
+    }
+
+    @Test
+    fun `a name with no suffix is untouched`() {
+        assertEquals("FLUX.1 Schnell", short("FLUX.1 Schnell"))
     }
 
     @Test
     fun `a parenthetical that is not at the end stays`() {
         // Only a *trailing* group is runtime noise. One in the middle is part of the name.
-        assertEquals(
-            "SDXL (turbo) refiner",
-            com.zakir.vestra.ui.screens.home.shortModelName("SDXL (turbo) refiner"),
-        )
+        assertEquals("SDXL (turbo) refiner", short("SDXL (turbo) refiner"))
     }
 
     @Test
-    fun `a name that is nothing but a parenthetical is left alone`() {
+    fun `a name that is nothing but a suffix is left alone`() {
         // Trimming to an empty string would render a selector with no label at all.
-        assertEquals("(LiteRT)", com.zakir.vestra.ui.screens.home.shortModelName("(LiteRT)"))
+        assertEquals("(LiteRT)", short("(LiteRT)"))
+        assertEquals("· Ready", short("· Ready"))
     }
 }

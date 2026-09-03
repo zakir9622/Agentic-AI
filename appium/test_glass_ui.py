@@ -183,6 +183,70 @@ class TestChatSurface:
             pytest.skip("no code model reached a reply in this environment")
 
 
+class TestImageResult:
+    """A generated image in the thread is a picture; its actions live in the viewer."""
+
+    ACTION_TAGS = ("privacy_blur_button", "report_button")
+
+    def _generate(self, driver):
+        by_tag(driver, COMPOSER_ATTACH_BUTTON).click()
+        by_tag(driver, "composer_tool_image").click()
+        by_tag(driver, PROMPT_INPUT).send_keys("a linen abaya in warm sand, studio lighting")
+        by_tag(driver, SEND_BUTTON).click()
+        try:
+            return by_tag(driver, "result_image_ready", timeout=180.0)
+        except Exception:
+            pytest.skip("no image model reached a result in this environment")
+
+    def test_the_thread_card_carries_no_action_buttons(self, driver):
+        """The defect this replaces: ~300dp of chrome wrapped around 320dp of image.
+
+        Save / Share / Privacy blur / Report were four full-width buttons under every result,
+        pushing the next turn off screen. They moved into the full-screen viewer.
+        """
+        self._generate(driver)
+        for tag in self.ACTION_TAGS:
+            assert not tag_exists(driver, tag), (
+                f"{tag} is back in the thread — image result actions belong in the viewer"
+            )
+
+    def test_tapping_the_image_opens_the_viewer_with_the_actions(self, driver):
+        self._generate(driver).click()
+        assert tag_exists(driver, "full_screen_image"), "tapping a result must open it full screen"
+        for tag in ("viewer_save_button", "viewer_share_button") + self.ACTION_TAGS:
+            assert tag_exists(driver, tag), f"missing viewer action: {tag}"
+
+    def test_the_viewer_closes_back_to_the_thread(self, driver):
+        self._generate(driver).click()
+        by_tag(driver, "close_full_screen_button").click()
+        assert tag_exists(driver, PROMPT_COMPOSER)
+
+
+class TestKeyboardInsets:
+    """The composer tracks the keyboard exactly once."""
+
+    def test_composer_sits_against_the_keyboard_not_a_gap_above_it(self, driver):
+        """Regression: the composer floated roughly one keyboard-height above the keyboard.
+
+        `enableEdgeToEdge()` was on but the activity declared no `windowSoftInputMode`, so the
+        window resized for the IME *and* Compose added the same inset again via
+        `safeDrawingPadding()`. Geometric rather than semantic, because both the composer and
+        the keyboard existed and were "correct" — only their spacing was wrong.
+        """
+        screen_h = driver.get_window_size()["height"]
+        before = by_tag(driver, PROMPT_COMPOSER).rect
+        by_tag(driver, PROMPT_INPUT).click()
+        after = by_tag(driver, PROMPT_COMPOSER).rect
+        assert after["y"] < before["y"], "the composer must rise above the opened keyboard"
+        # With the inset applied once, the composer's bottom edge sits near the keyboard's top.
+        # Double-counting left a band of roughly one keyboard height between them.
+        gap = screen_h - (after["y"] + after["height"])
+        assert gap < screen_h * 0.55, (
+            f"{gap}px between the composer and the bottom of the screen — the IME inset looks "
+            "applied twice"
+        )
+
+
 class TestHomeStructure:
     """The empty state a cold install opens on."""
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -50,7 +51,8 @@ fun PromptDirectorSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = VestraColors.Canvas,
-        modifier = Modifier.navigationBarsPadding(),
+        // See ModelPickerSheet: a sheet is its own window and owns its IME inset.
+        modifier = Modifier.navigationBarsPadding().imePadding(),
     ) {
         Column(
             modifier = Modifier

@@ -77,7 +77,8 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:enableOnBackInvokedCallback="true"
-            android:theme="@style/Theme.Vestra">
+            android:theme="@style/Theme.Vestra"
+            android:windowSoftInputMode="adjustNothing">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
