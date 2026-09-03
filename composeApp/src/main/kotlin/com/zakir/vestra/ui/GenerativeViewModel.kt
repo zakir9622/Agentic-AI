@@ -810,7 +810,7 @@ class GenerativeViewModel(
         activeLocalJobId = null
         appendLive("Stopped by user")
         if (showStopped) {
-            val stopped = GenerativeState.Failed("Stopped. Tap Generate to run again.")
+            val stopped = GenerativeState.Failed("Stopped before it finished.")
             _state.value = stopped
             // Otherwise a user-cancelled generation leaves its turn stuck showing the typing
             // indicator forever — nothing else transitions turn.result once the flow stops
@@ -924,12 +924,19 @@ class GenerativeViewModel(
         if (local) com.zakir.vestra.shared.diagnostics.EngineLogHook.addActiveRunId(runId)
         // Captured once at generation start (not re-read at completion) so an edit to the prompt
         // box while this generation is still running can't attach the wrong creative direction to
-        // the resulting Wardrobe entry — the composer stays editable during generation.
+        // the resulting Wardrobe entry.
         val capturedPrompt = _prompt.value
         appendTurn(
             studioKey,
             StudioTurn(id = runId, prompt = capturedPrompt, timestampMs = startedAt, capability = studioKey),
         )
+        // Empty the composer now that the turn owns the text. It used to stay behind on the
+        // grounds that "the composer stays editable during generation" — but the capture above
+        // is what protects the Wardrobe entry, not the leftover text, so all leaving it did was
+        // show the same sentence twice: once as the bubble just sent, once as pending input.
+        // Sending again then silently re-ran the identical prompt.
+        _prompt.value = ""
+        bag(studioKey).prompt = ""
         job = viewModelScope.launch {
             var lastStageAt = System.currentTimeMillis()
             try {
