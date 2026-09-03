@@ -194,6 +194,26 @@ object TestTags {
     const val COMPOSER_MIC_BUTTON = "composer_mic_button"
     const val COMPOSER_TOOLS_SHEET = "composer_tools_sheet"
     const val NEW_CHAT_BUTTON = "new_chat_button"
+
+    // Conversation history (ChatHistoryDrawer.kt). "New chat" shipped for two releases with no
+    // history behind it, so it deleted the only conversation that existed; these are the surface
+    // that makes it non-destructive.
+    const val CHAT_HISTORY_BUTTON = "chat_history_button"
+    const val CHAT_HISTORY_DRAWER = "chat_history_drawer"
+    const val DRAWER_NEW_CHAT = "drawer_new_chat"
+    const val DRAWER_SEARCH_FIELD = "drawer_search_field"
+    const val DRAWER_SHARE_CHAT = "drawer_share_chat"
+    fun conversationRow(id: String): String = "conversation_row_$id"
+    fun conversationDelete(id: String): String = "conversation_delete_$id"
+
+    // Thread affordances (UnifiedMainScreen.kt / ChatComponents.kt).
+    const val SCROLL_TO_BOTTOM = "scroll_to_bottom"
+    fun followUpChip(index: Int): String = "follow_up_chip_$index"
+    fun messageEdit(index: Int): String = "message_edit_$index"
+    const val MESSAGE_ACTION_SHEET = "message_action_sheet"
+    const val MESSAGE_MENU_COPY = "message_menu_copy"
+    const val MESSAGE_MENU_SHARE = "message_menu_share"
+    const val MESSAGE_MENU_DELETE = "message_menu_delete"
     fun composerSource(id: String): String = "composer_source_$id"
     fun composerTool(id: String): String = "composer_tool_$id"
 

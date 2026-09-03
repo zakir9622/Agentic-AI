@@ -1370,6 +1370,14 @@ class GenerativeCloudService(
         capability: AiCapability = AiCapability.CODE,
         temperature: Double = 0.4,
         assists: GenerativeAssists = GenerativeAssists(),
+        /**
+         * Receives each token run as it arrives, or null to wait for the whole reply.
+         *
+         * The fallback chain, preflight, key handling, usage recording and error copy are
+         * identical either way, so streaming is a parameter here rather than a second copy of
+         * this loop — a duplicate would have drifted the moment one of them gained a provider.
+         */
+        onDelta: ((String) -> Unit)? = null,
     ): Pair<LlmResult, CloudModelProvider> {
         val provider = settings.selectedProvider(capability)
         val candidates by lazy { CloudModelRouting.codeFallbackChain(provider, settings) }
@@ -1420,14 +1428,26 @@ class GenerativeCloudService(
             requireKeyIfNeeded(candidate)
             val key = settings.apiKeyFor(candidate) ?: continue
             try {
-                val result = llm.chat(
-                    platform = candidate.platform,
-                    model = candidate.endpoint,
-                    prompt = prompt,
-                    apiKey = key,
-                    system = effectiveSystem,
-                    temperature = effectiveTemp,
-                )
+                val result = if (onDelta == null) {
+                    llm.chat(
+                        platform = candidate.platform,
+                        model = candidate.endpoint,
+                        prompt = prompt,
+                        apiKey = key,
+                        system = effectiveSystem,
+                        temperature = effectiveTemp,
+                    )
+                } else {
+                    llm.chatStream(
+                        platform = candidate.platform,
+                        model = candidate.endpoint,
+                        prompt = prompt,
+                        apiKey = key,
+                        system = effectiveSystem,
+                        temperature = effectiveTemp,
+                        onDelta = onDelta,
+                    )
+                }
                 if (result.text.isBlank()) error("Empty LLM response")
                 usage.record(
                     candidate,

@@ -280,3 +280,81 @@ class TestSettingsHub:
             assert not tag_exists(driver, stranded), (
                 f"{stranded} is on the hub — it belongs on its own page"
             )
+
+class TestConversationHistory:
+    """New chat must file a conversation, never delete one.
+
+    This is the suite's highest-value class: the button shipped for two releases calling
+    `ChatRepository.clear()`, which removed the store key outright. Every assertion below is the
+    difference between "started a new thread" and "lost the old one".
+    """
+
+    def test_history_button_opens_the_drawer(self, driver):
+        by_tag(driver, "chat_history_button").click()
+        assert tag_exists(driver, "chat_history_drawer")
+
+    def test_new_chat_files_the_previous_conversation(self, driver):
+        by_tag(driver, PROMPT_INPUT).send_keys("first conversation")
+        by_tag(driver, SEND_BUTTON).click()
+        by_tag(driver, "new_chat_button").click()
+
+        by_tag(driver, "chat_history_button").click()
+        drawer = by_tag(driver, "chat_history_drawer")
+        assert "first conversation" in (drawer.text or ""), (
+            "the previous conversation is gone — New chat deleted it instead of filing it"
+        )
+
+    def test_a_filed_conversation_reopens(self, driver):
+        by_tag(driver, PROMPT_INPUT).send_keys("reopen me")
+        by_tag(driver, SEND_BUTTON).click()
+        by_tag(driver, "new_chat_button").click()
+        by_tag(driver, "chat_history_button").click()
+        # Row ids are conversation ids, so match on the drawer's rendered text instead.
+        for row in driver.find_elements("xpath", "//*[contains(@resource-id,'conversation_row_')]"):
+            if "reopen me" in (row.text or ""):
+                row.click()
+                break
+        else:
+            raise AssertionError("no history row carried the filed conversation")
+        assert "reopen me" in (by_tag(driver, "prompt_composer").parent.page_source or "")
+
+    def test_search_appears_only_once_the_list_is_worth_filtering(self, driver):
+        by_tag(driver, "chat_history_button").click()
+        # Below the threshold scanning beats typing, so the field is absent by design on a
+        # fresh install rather than present and useless.
+        assert not tag_exists(driver, "drawer_search_field")
+
+
+class TestThreadAffordances:
+    """The controls the reference app has on every reply."""
+
+    def test_scroll_to_bottom_is_absent_on_a_short_thread(self, driver):
+        # A jump button on a thread already at the bottom is a permanently inert control.
+        assert not tag_exists(driver, "scroll_to_bottom")
+
+    def test_long_press_a_reply_opens_the_action_menu(self, driver):
+        by_tag(driver, PROMPT_INPUT).send_keys("hi")
+        by_tag(driver, SEND_BUTTON).click()
+        try:
+            bubble = by_tag(driver, "chat_message_1_assistant", timeout=120.0)
+        except Exception:
+            pytest.skip("no chat model reached a reply in this environment")
+        driver.execute_script("mobile: longClickGesture", {"elementId": bubble.id})
+        assert tag_exists(driver, "message_action_sheet")
+        for tag in ("message_menu_copy", "message_menu_share", "message_menu_delete"):
+            assert tag_exists(driver, tag), f"missing long-press action: {tag}"
+
+    def test_follow_up_chips_appear_under_a_settled_reply(self, driver):
+        by_tag(driver, PROMPT_INPUT).send_keys("hi")
+        by_tag(driver, SEND_BUTTON).click()
+        try:
+            by_tag(driver, "follow_up_chip_0", timeout=120.0)
+        except Exception:
+            pytest.skip("no chat model reached a reply in this environment")
+        assert tag_exists(driver, "follow_up_chip_0")
+
+    def test_the_newest_prompt_can_be_edited(self, driver):
+        by_tag(driver, PROMPT_INPUT).send_keys("teh typo")
+        by_tag(driver, SEND_BUTTON).click()
+        assert tag_exists(driver, "message_edit_0"), "the newest user turn must offer edit"
+

@@ -52,6 +52,42 @@ Chat (`NewsChatScreen`) follows the same conversation pattern independently, wit
 richer chat bubbles, a typing indicator, an empty state, a headlines bar, and a quick-prompt
 carousel (all ported from the GoogleLookBookUI source in Era 6 of the project history).
 
+## Conversations and streaming (current)
+
+Two gaps measured against the reference app, one of which was a bug the redesign itself
+introduced.
+
+**New chat had no history behind it.** The button was added with the one-chatbox pass; the store
+underneath was still a single list of messages under one key, so the button called `clear()` —
+`settings.remove(KEY)`. The app's most prominent action was an unconfirmed permanent delete.
+
+`ChatRepository` now holds `Conversation` records. The active conversation's messages are exposed
+with the same API the view model already used, so switching threads is the only new concept
+anything upstream had to learn. `ChatHistoryDrawer`, behind the top bar's menu button, is where
+filed conversations live: New chat, share-this-chat, a title/preview filter that appears above six
+conversations, and per-row delete.
+
+Three rules the store follows, each from a defect:
+
+| Rule | Why |
+|---|---|
+| An empty conversation is never filed | New chat tapped twice would otherwise litter the list with untitled empty rows |
+| A title comes from the *first* user turn and never changes | Deriving from the latest turn renames a thread as the conversation wanders |
+| Ids carry a counter, not just a millisecond | `"c${nowMs()}"` collided for two conversations created in the same millisecond — deleting one deleted the other |
+
+Migration wraps a pre-existing single-thread history as one conversation and leaves the legacy key
+in place, so a rollback still finds it.
+
+**Cloud replies stream now.** All four providers speak the OpenAI chat-completions dialect —
+Gemini through its `/v1beta/openai/` compatibility layer — so `LlmClient.chatStream` is one SSE
+reader for every one of them, and streaming is a parameter on `chatWithFallback` rather than a
+second copy of its fallback chain. Before this the app streamed local replies token by token and
+sat in silence for cloud ones, so a 70B cloud model felt slower than a 0.6B local one.
+
+The thread also gained the affordances the reference has: scroll-to-bottom (only while there is
+somewhere to scroll), follow-up chips under a settled reply, edit-and-re-run on the newest prompt,
+a long-press menu carrying copy / share / delete, and haptics.
+
 ## Redesign: one chatbox (current shell)
 
 The shell was measured against the Gemini app, and lost on the thing that matters most: how many
