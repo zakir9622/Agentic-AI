@@ -400,10 +400,19 @@ fun UnifiedMainScreen(
         if (requiresConfirm) showSafetyConfirm = capability else dispatchGenerate(capability)
     }
 
-    fun retryFor(capability: AiCapability) {
+    /**
+     * Re-run one turn, using **that turn's** prompt rather than whatever is in the composer.
+     *
+     * It used to just call [onGenerate], which reads the live composer text. That worked only
+     * because the composer was never cleared on send; now that it is, a retry would have re-run
+     * an empty prompt. Passing the turn's own text also makes retry correct for a turn that is
+     * no longer the most recent one.
+     */
+    fun retryTurn(capability: AiCapability, prompt: String) {
         generativeViewModel.bindStudio(capability)
         val normalized = if (capability == AiCapability.IMAGE_EDIT) AiCapability.IMAGE_GEN else capability
         mode = ComposerMode.entries.firstOrNull { it.capability == normalized } ?: mode
+        if (prompt.isNotBlank()) generativeViewModel.setPrompt(prompt)
         generativeViewModel.clearResult()
         onGenerate(capability)
     }
@@ -622,11 +631,12 @@ fun UnifiedMainScreen(
                                 isLatest = isLatest,
                                 accent = VestraColors.modalityAccent(entry.turn.capability),
                                 generationStartedAtMs = generationStartedAtMs,
-                                onRetry = if (isLatest) {
-                                    { retryFor(entry.turn.capability) }
-                                } else {
-                                    null
-                                },
+                                // Retry and dismiss on any settled turn, not only the newest.
+                                // Restricting them to `isLatest` meant that the moment you sent
+                                // anything else, a failed turn above became a dead end whose only
+                                // guidance was a message telling you to press a button that the
+                                // unified composer had already replaced.
+                                onRetry = { retryTurn(entry.turn.capability, entry.turn.prompt) },
                                 onDismiss = if (isLatest) {
                                     { dismiss(entry.turn.capability) }
                                 } else {

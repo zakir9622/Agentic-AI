@@ -22,8 +22,10 @@ import com.zakir.vestra.ui.screens.news.ChatTypingIndicator
  * rendering (image/video/audio/code/transcript/failure, and — since [GenerativeViewModel.updateLastTurn]
  * no longer filters it — the live `Running` stage/progress card too) rather than duplicating it.
  *
- * Retry/dismiss only make sense for the turn actively in flight — passed through as-is for
- * [isLatest], forced to `null` for every older turn so history stays view-only.
+ * Retry is offered on every turn that carries one: [ResultPane] only surfaces it on a
+ * [com.zakir.vestra.shared.cloud.GenerativeState.Failed] result, and a failure is worth re-running
+ * whether or not something newer has been sent since. Dismiss stays [isLatest]-only because it
+ * pops the most recent turn by definition.
  */
 @Composable
 fun StudioTurnBubble(
@@ -55,7 +57,7 @@ fun StudioTurnBubble(
             ResultPane(
                 state = result,
                 generationStartedAtMs = if (isLatest) generationStartedAtMs else null,
-                onRetry = if (isLatest) onRetry else null,
+                onRetry = onRetry,
                 onDismiss = if (isLatest) onDismiss else null,
                 retryLabel = retryLabel,
                 accent = accent,

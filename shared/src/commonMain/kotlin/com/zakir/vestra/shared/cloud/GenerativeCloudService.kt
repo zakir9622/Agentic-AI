@@ -1005,17 +1005,25 @@ class GenerativeCloudService(
         val candidates by lazy { CloudModelRouting.fallbackChain(provider, AiCapability.AUDIO, settings, health) }
         val safeKnobs = knobs.sanitized()
         val spoken = enrichAudioPrompt(prompt.trim(), assists)
-        // Mirrors the three unconditional local branches below (voice-changer, scribe, TTS —
-        // TTS is deliberately "always preferred" whenever ready, not gated by online/offline).
-        // Same fix as generateImage/generateCode/generateVideo: only announce the cloud
-        // provider once it's actually the one about to run.
+        // Device TTS is preferred only when the user actually asked for an on-device generator,
+        // or when there is no network to reach a cloud one — the same rule generateImage,
+        // generateCode and generateVideo apply via `prefersLocal`.
+        //
+        // It used to be a bare `localAudio.isReady()`, with a comment calling that deliberate.
+        // It was not defensible: system TTS is ready on essentially every Android device, so
+        // that branch always won and returned before the cloud loop below could run. Picking
+        // Edge-TTS or Kokoro in the model sheet therefore changed nothing at all — every run
+        // came back as `local-tts-system` with a null model id, while the sheet showed the
+        // cloud model ticked and the top bar showed its name.
+        val preferLocalTts = localAudio.isReady() &&
+            (!settings.networkLikelyAvailable() || settings.prefersLocal(AiCapability.AUDIO))
         val tryLocalFirst = (!referenceAudioUri.isNullOrBlank() && prompt.trim().equals("voice-change", ignoreCase = true)) ||
             (
                 settings.selectionId(AiCapability.AUDIO) == LiteRtLmPacks.AUDIO_SCRIBE &&
                     !referenceAudioUri.isNullOrBlank() &&
                     localTranscriber.isReady()
                 ) ||
-            localAudio.isReady()
+            preferLocalTts
         if (!tryLocalFirst) {
             emit(GenerativeState.Preparing("Connecting to ${provider.displayName}"))
         }
@@ -1058,7 +1066,7 @@ class GenerativeCloudService(
                 }
             }
             val networkOk = settings.networkLikelyAvailable()
-            if (localAudio.isReady()) {
+            if (preferLocalTts) {
                 emit(GenerativeState.Running(0.08f, "Generating speech on-device…"))
                 when (val local = localAudio.generate(spoken, persona, safeKnobs)) {
                     is LocalAudioResult.Ok -> {
@@ -1088,6 +1096,24 @@ class GenerativeCloudService(
                 return@flow
             }
             if (candidates.none { settings.cloudUsable(it) }) {
+                // Falling back to device TTS beats refusing outright, but say which model was
+                // asked for and did not run — silently substituting the engine is what made the
+                // picker look broken in the first place.
+                if (localAudio.isReady()) {
+                    emit(
+                        GenerativeState.Running(
+                            0.08f,
+                            "${provider.displayName} unavailable — using device TTS…",
+                        ),
+                    )
+                    when (val local = localAudio.generate(spoken, persona, safeKnobs)) {
+                        is LocalAudioResult.Ok -> {
+                            emit(GenerativeState.AudioReady(local.audioPath, "local-tts-system"))
+                            return@flow
+                        }
+                        is LocalAudioResult.Unavailable -> Unit
+                    }
+                }
                 emit(GenerativeState.Failed(settings.cloudBlockedReason(provider)))
                 return@flow
             }

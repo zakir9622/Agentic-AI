@@ -533,6 +533,74 @@ class GenerativeCloudServiceTest {
     }
 
     @Test
+    fun audioGenHonoursSelectedCloudModelInsteadOfAlwaysUsingDeviceTts() = runTest {
+        // The shipped bug: `generateAudio` short-circuited on a bare `localAudio.isReady()`,
+        // and system TTS is ready on essentially every Android device. Every audio run therefore
+        // came back as `local-tts-system`, no matter which model the picker showed as selected —
+        // a real diagnostics bundle recorded tier=LITE / "Device TTS (offline)" while the sheet
+        // had Edge-TTS ticked. Local TTS must win only when the user picked it, or offline.
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings())
+        settings.setHfToken("hf_test_token")
+        settings.confirmCloudConsentFromApiKeyEntry()
+        settings.setAudioProvider(CloudModelCatalog.defaultAudioId)
+        settings.networkProbe = { true }
+
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localAudio = FakeLocalAudio(),
+        )
+        val states = service.generateAudio(
+            prompt = "sing me something",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+        ).toList()
+
+        assertTrue(
+            states.filterIsInstance<GenerativeState.AudioReady>().none { it.providerId == "local-tts-system" },
+            "device TTS must not pre-empt the cloud model the user selected: $states",
+        )
+        assertTrue(httpCalled, "the selected cloud audio model should have been contacted: $states")
+    }
+
+    @Test
+    fun audioGenStillUsesDeviceTtsWhenTheUserPicksIt() = runTest {
+        // The other half of the same rule: choosing "Device TTS (system)" must keep everything
+        // on-device, with no network call, even when a token and consent are present.
+        var httpCalled = false
+        val engine = MockEngine {
+            httpCalled = true
+            respond("{}", HttpStatusCode.OK)
+        }
+        val settings = AppSettings(TestMemorySettings())
+        settings.setHfToken("hf_test_token")
+        settings.confirmCloudConsentFromApiKeyEntry()
+        settings.setLocalGenerator(AiCapability.AUDIO, "local-tts-system")
+        settings.networkProbe = { true }
+
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localAudio = FakeLocalAudio(),
+        )
+        val ready = service.generateAudio(
+            prompt = "read this out",
+            persona = VoiceCatalog.byId(VoiceCatalog.defaultId),
+        ).toList().filterIsInstance<GenerativeState.AudioReady>().single()
+
+        assertEquals("local-tts-system", ready.providerId)
+        assertTrue(!httpCalled, "an explicit on-device pick must not reach the network")
+    }
+
+    @Test
     fun voiceChangeUsesLocalChangerWithoutHttp() = runTest {
         var httpCalled = false
         val engine = MockEngine {
