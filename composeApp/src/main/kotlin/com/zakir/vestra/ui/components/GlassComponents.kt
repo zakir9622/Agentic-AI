@@ -326,10 +326,14 @@ fun GlassTopBar(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        // Bottom, not Center. Centring aligned the back arrow to the midpoint of a two-line
+        // block, which left the eyebrow hanging above it with empty space to its left on every
+        // sub-page in the app. Anchoring both to the baseline of the title puts the arrow beside
+        // the word it goes back from.
+        verticalAlignment = Alignment.Bottom,
     ) {
         navigation()
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).padding(bottom = 2.dp)) {
             if (subtitle != null) {
                 // Bounded for the same reason the title is: an over-long subtitle wrapped to a
                 // second line at 360dp and shoved the screen title down past the back arrow.
@@ -662,7 +666,7 @@ fun GlassErrorBanner(
     retryLabel: String = LookbookCopy.ACTION_RETRY,
 ) {
     GlassCard(modifier = Modifier.testTag(TestTags.RESULT_FAILED)) {
-        Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = VestraColors.Danger)
         Spacer(Modifier.padding(top = 8.dp))
         Row {
             if (onRetry != null) {

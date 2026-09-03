@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -250,22 +251,40 @@ private fun ConversationRow(
             .padding(horizontal = SpacingTokens.sm, vertical = SpacingTokens.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Title and last reply, the way a mail app lists threads.
+        //
+        // The row used to read "title / 2h ago · 6 messages" — which meant a conversation was
+        // identified by the first ~28 characters of its opening question, and the `preview` the
+        // summary already carries was computed, passed in, and never drawn. A message count is
+        // not a way to tell two threads apart; the last thing said in one is.
         Column(Modifier.weight(1f)) {
-            Text(
-                conversation.title,
-                style = MaterialTheme.typography.titleSmall,
-                color = VestraColors.Ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                "$timeLabel · ${conversation.messageCount} messages",
-                style = MaterialTheme.typography.labelSmall,
-                color = VestraColors.InkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    conversation.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VestraColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(SpacingTokens.xs))
+                Text(
+                    timeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = VestraColors.InkMuted,
+                    maxLines = 1,
+                )
+            }
+            if (conversation.preview.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    conversation.preview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VestraColors.InkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Box(
             Modifier

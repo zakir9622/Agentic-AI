@@ -17,9 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.zakir.vestra.ui.components.VestraSwitch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -173,7 +173,7 @@ fun ModelsScreen(
                         color = VestraColors.InkMuted,
                     )
                 }
-                Switch(checked = preferNnapi, onCheckedChange = appSettings::setPreferNnapi)
+                VestraSwitch(checked = preferNnapi, onCheckedChange = appSettings::setPreferNnapi)
             }
         }
         GlassCard(modifier = Modifier.testTag(TestTags.MODELS_ON_DEVICE_SECTION)) {

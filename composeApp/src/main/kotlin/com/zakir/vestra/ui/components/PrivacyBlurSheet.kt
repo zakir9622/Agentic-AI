@@ -19,7 +19,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -176,7 +175,7 @@ internal fun PrivacyBlurContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Auto-blur faces", style = MaterialTheme.typography.bodyMedium, color = VestraColors.Ink)
-            Switch(
+            VestraSwitch(
                 checked = autoBlur,
                 onCheckedChange = { autoBlur = it },
                 modifier = Modifier.testTag(TestTags.PRIVACY_BLUR_TOGGLE),

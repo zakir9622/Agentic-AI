@@ -2,6 +2,38 @@
 
 ## Unreleased (post-3.1.8)
 
+**A render pass over the whole app.** Eight defects, every one found by looking at a screenshot
+rather than by reading code — including three on surfaces that had shipped without ever being
+rendered at all.
+
+- **Every switch in the app used Material's default colours.** Not one of the six call sites
+  passed a palette, and M3's defaults derive from `surfaceVariant`/`outline`, which in this
+  violet system land within a few percent of the white card a settings toggle sits on. In light
+  mode the off state was a pale blob with no border, near-indistinguishable from on — a control
+  whose only job is to show one bit of state was showing none. `VestraSwitch` makes on
+  accent-filled and off a hollow track with a visible rim: fill versus no-fill survives a glance,
+  a dim screen and colour-blindness, which hue alone does not.
+- **Material's stock red had leaked into six places.** On a violet-and-teal screen it was the one
+  colour from outside the system, so "Blocked" read as a rendering fault rather than as status.
+  All six use `VestraColors.Danger` now.
+- **The back arrow was centred on the eyebrow-plus-title block** in `GlassTopBar`, so on every
+  sub-page in the app the eyebrow floated above it with empty space to its left. Both anchor to
+  the title's baseline now.
+- **"DataStore" hard-clipped to "DataStor"** — the badge had `maxLines = 1` with the default
+  `Clip` overflow and lost the race for width against the card title. The title yields now.
+- **Notifications offered two identical outlined buttons**, so nothing said which one grants the
+  permission. The primary action is filled; the system-settings detour stays outlined.
+- **The API monitor said "nothing recorded yet" twice**, in two cards, around a row of noughts.
+  One empty state with one action.
+- **The history drawer never displayed its own `preview`.** Rows read "title / 2h ago · 6
+  messages", so a conversation was identified by the first ~28 characters of its opening
+  question, and a message count is not a way to tell two threads apart. Title and last reply now,
+  the way a mail app lists threads.
+- **Five surfaces had no screenshot coverage at all** — the Settings hub (rewritten twice,
+  rendered zero times), the conversation drawer, and switch states in both palettes. All five
+  render now; the drawer's `preview` bug was found the moment it did.
+
+
 **Conversations, streaming, and the thread affordances that were missing.**
 
 *"New chat" was a delete button.* It shipped for two releases with no history behind it, so it

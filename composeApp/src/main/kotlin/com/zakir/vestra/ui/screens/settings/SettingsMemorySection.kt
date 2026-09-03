@@ -16,7 +16,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
@@ -31,6 +30,7 @@ import com.zakir.vestra.shared.chat.MemoryRepository
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.ui.TestTags
 import com.zakir.vestra.ui.components.GlassCard
+import com.zakir.vestra.ui.components.VestraSwitch
 import com.zakir.vestra.ui.components.GlassSectionLabel
 import com.zakir.vestra.ui.theme.VestraColors
 
@@ -60,7 +60,7 @@ internal fun LazyListScope.settingsMemorySection(appSettings: AppSettings, memor
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Remember new facts", style = MaterialTheme.typography.titleSmall)
-                Switch(
+                VestraSwitch(
                     checked = enabled,
                     onCheckedChange = appSettings::setMemoryEnabled,
                     modifier = Modifier.testTag(TestTags.MEMORY_ENABLED_SWITCH),
