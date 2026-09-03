@@ -418,6 +418,7 @@ fun VestraNavHost(
                 appSettings = appSettings,
                 usageLedger = usageLedger,
                 onOpenApiKeys = { navController.navigate(Routes.SETTINGS_API_KEYS) },
+                onClearConversations = chatRepository::clearAllConversations,
                 onBack = { navController.popBackStack() },
             )
         }

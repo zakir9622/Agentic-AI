@@ -22,6 +22,7 @@ import com.russhwolf.settings.Settings
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.storage.ApiKeyDataStore
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Memory
@@ -826,6 +827,109 @@ class RedesignScreenshotTest {
                 onDismiss = {},
                 relativeTime = { "2h ago" },
             )
+        }
+    }
+
+
+    // ── The top bar, across every shape it actually takes ────────────────────────────────
+
+    /**
+     * `GlassTopBar` on one screenshot, at the range of title and subtitle lengths the app really
+     * produces.
+     *
+     * The last pass changed this component's vertical alignment, which altered **eighteen**
+     * screens — and only the six with screenshot cases were looked at. Rendering the component
+     * across its input range is the cheap way to cover the other twelve: a per-screen case for
+     * each would need each screen's view models, and would still only prove the bar renders once.
+     *
+     * Longest real strings, taken from the screens themselves, so a change that fits the short
+     * ones and breaks the long ones fails here.
+     */
+    @Test
+    @Config(qualifiers = "w360dp-h900dp-xxhdpi")
+    fun `57 top bar matrix narrow`() {
+        shoot("57-top-bar-matrix-360", spatial = true) { TopBarMatrix() }
+    }
+
+    @Test
+    fun `58 top bar matrix wide light`() {
+        shoot("58-top-bar-matrix-411-light", dark = false, spatial = true) { TopBarMatrix() }
+    }
+
+    @Composable
+    private fun TopBarMatrix() {
+        val back: @Composable () -> Unit = {
+            androidx.compose.material3.IconButton(onClick = {}) {
+                androidx.compose.material3.Icon(
+                    Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = VestraColors.Ink,
+                )
+            }
+        }
+        Column(Modifier.fillMaxWidth()) {
+            // Shortest: one word, no subtitle. The arrow has nothing to align against but the title.
+            com.zakir.vestra.ui.components.GlassTopBar(title = "Models", navigation = back)
+            Spacer(Modifier.height(20.dp))
+            // The common case.
+            com.zakir.vestra.ui.components.GlassTopBar(
+                title = "API monitor",
+                subtitle = "Requests · tokens · reliability",
+                navigation = back,
+            )
+            Spacer(Modifier.height(20.dp))
+            // Longest title in the app.
+            com.zakir.vestra.ui.components.GlassTopBar(
+                title = "Storage & privacy",
+                subtitle = "Caches · permissions",
+                navigation = back,
+            )
+            Spacer(Modifier.height(20.dp))
+            // The two longest subtitles that actually ship. The bound on this Text ellipsizes
+            // rather than wrapping, so the thing worth checking is not that clipping works but
+            // that no real string reaches it — these two are the ones that would, if any did.
+            com.zakir.vestra.ui.components.GlassTopBar(
+                title = "Downloads",
+                subtitle = "On-device · resumable · survives reinstall",
+                navigation = back,
+            )
+            Spacer(Modifier.height(20.dp))
+            com.zakir.vestra.ui.components.GlassTopBar(
+                title = "Diagnostics",
+                subtitle = "Crashes · runs · auto-troubleshooting",
+                navigation = back,
+            )
+            Spacer(Modifier.height(20.dp))
+            // No back arrow — the root Settings screen shape.
+            com.zakir.vestra.ui.components.GlassTopBar(
+                title = "Settings",
+                subtitle = "Models · keys · privacy",
+            )
+        }
+    }
+
+    // ── Screens that had no coverage at all ──────────────────────────────────────────────
+
+    @Test
+    @Config(qualifiers = "w360dp-h1600dp-xxhdpi")
+    fun `59 privacy screen narrow`() {
+        shoot("59-privacy-360", spatial = true) {
+            com.zakir.vestra.ui.screens.privacy.PrivacyScreen(onBack = {})
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1600dp-xxhdpi")
+    fun `60 help screen narrow`() {
+        shoot("60-help-360", spatial = true) {
+            com.zakir.vestra.ui.screens.help.HelpScreen(onBack = {}, onOpenSettings = {})
+        }
+    }
+
+    @Test
+    fun `61 help screen wide light`() {
+        shoot("61-help-411-light", dark = false, spatial = true) {
+            com.zakir.vestra.ui.screens.help.HelpScreen(onBack = {}, onOpenSettings = {})
         }
     }
 

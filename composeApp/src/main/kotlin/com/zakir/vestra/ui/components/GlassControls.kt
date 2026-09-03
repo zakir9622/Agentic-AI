@@ -1,12 +1,19 @@
 package com.zakir.vestra.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchColors
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.zakir.vestra.ui.theme.VestraColors
 
 /**
@@ -58,23 +65,48 @@ fun vestraSwitchColors(): SwitchColors = SwitchDefaults.colors(
 )
 
 /**
- * Status text — "Blocked", "Verification failed", "Allowed".
+ * A small tinted capsule for a one-word state — "Ready", "Degraded", "Unsupported".
  *
- * Six places styled these with `MaterialTheme.colorScheme.error`, which is Material's stock red.
- * On a violet-and-teal screen that red is the only colour from outside the system, so a status
- * line read as a rendering fault rather than as information. [VestraColors.Danger] is the
- * system's own alarm colour and still clears contrast on both palettes.
+ * Written for the Help screen's model-readiness list, which rendered twenty-two rows of
+ * `"name · Status · schema note"` as one grey text style. The status was the only part a
+ * reader scans for and it was the hardest part to find. The chip pulls it out of the
+ * sentence and colours it, so the list can be read by shape instead of word by word.
+ *
+ * Tinted fill rather than a solid one: a row of saturated badges down the left edge of a
+ * long list is louder than the content it labels.
  */
-object StatusColor {
-    val bad: Color @Composable get() = VestraColors.Danger
-    val good: Color @Composable get() = VestraColors.SaffronDeep
-    val neutral: Color @Composable get() = VestraColors.InkMuted
-
-    /** Success or failure in one call, for a `when` that would otherwise repeat the pair. */
-    @Composable
-    fun of(ok: Boolean): Color = if (ok) good else bad
+@Composable
+fun StatusChip(text: String, tone: StatusTone, modifier: Modifier = Modifier) {
+    val color = tone.color
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.14f))
+            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
 }
 
-/** Body copy tinted to the current surface. Kept beside the controls that pair with it. */
-@Composable
-fun mutedBodyColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
+/**
+ * The good / warning / bad triple, resolved against the app palette rather than Material's.
+ *
+ * `MaterialTheme.colorScheme.error` is stock red; on a violet-and-teal screen it is the only
+ * colour from outside the system, so an error line reads as a rendering fault rather than as
+ * information. These three are the system's own.
+ */
+enum class StatusTone {
+    GOOD,
+    WARN,
+    BAD,
+    ;
+
+    val color: Color
+        @Composable get() = when (this) {
+            GOOD -> VestraColors.Success
+            WARN -> VestraColors.Warning
+            BAD -> VestraColors.Danger
+        }
+}

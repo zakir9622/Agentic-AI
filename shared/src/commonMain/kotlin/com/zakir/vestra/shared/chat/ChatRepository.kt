@@ -128,12 +128,6 @@ class ChatRepository(private val settings: Settings) {
         persistActive()
     }
 
-    /** Replaces a user turn's text — the composer's "edit and re-send". */
-    fun editMessage(id: String, text: String) {
-        _messages.value = _messages.value.map { if (it.id == id) it.copy(text = text.trim()) else it }
-        persistActive()
-    }
-
     /** Removes a message by id — e.g. an empty streaming placeholder that never got a result. */
     fun removeMessage(id: String) {
         _messages.value = _messages.value.filterNot { it.id == id }
@@ -206,7 +200,14 @@ class ChatRepository(private val settings: Settings) {
         writeStore()
     }
 
-    /** Wipes every conversation. Only reachable behind an explicit confirm in Storage & privacy. */
+    /**
+     * Wipes every conversation, behind the confirm in Storage & privacy.
+     *
+     * This KDoc described that screen before the screen called it — the function sat here with
+     * no caller while conversations quietly became the app's primary on-device data with no way
+     * to erase them. Clearing caches and the usage ledger was offered; clearing what you had
+     * actually said was not.
+     */
     fun clearAllConversations() {
         _conversations.value = emptyList()
         _activeId.value = newId()

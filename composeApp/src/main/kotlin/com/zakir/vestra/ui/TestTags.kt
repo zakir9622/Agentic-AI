@@ -102,6 +102,8 @@ object TestTags {
     // Settings screen (SettingsScreen.kt) — destructive/confirm actions.
     const val SETTINGS_CLEAR_TOKENS_BUTTON = "settings_clear_tokens_button"
     const val SETTINGS_OPEN_API_KEYS_BUTTON = "settings_open_api_keys_button"
+    const val SETTINGS_CLEAR_CONVERSATIONS = "settings_clear_conversations"
+    const val SETTINGS_CLEAR_CONVERSATIONS_CONFIRM = "settings_clear_conversations_confirm"
     const val SETTINGS_CLEAR_TOKENS_CONFIRM = "settings_clear_tokens_confirm"
     const val SETTINGS_CLEAR_TOKENS_CANCEL = "settings_clear_tokens_cancel"
 

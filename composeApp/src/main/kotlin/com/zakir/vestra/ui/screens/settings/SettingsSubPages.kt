@@ -10,7 +10,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -29,7 +33,10 @@ import com.zakir.vestra.shared.chat.MemoryRepository
 import com.zakir.vestra.shared.settings.AppSettings
 import com.zakir.vestra.shared.usage.UsageLedger
 import com.zakir.vestra.storage.DurableStorage
+import com.zakir.vestra.ui.TestTags
+import com.zakir.vestra.ui.components.GlassSnackbar
 import com.zakir.vestra.ui.components.GlassTopBar
+import com.zakir.vestra.ui.components.SnackbarLevel
 import com.zakir.vestra.ui.components.SpatialBackground
 
 /**
@@ -107,9 +114,11 @@ fun StoragePrivacyScreen(
     appSettings: AppSettings,
     usageLedger: UsageLedger,
     onOpenApiKeys: () -> Unit,
+    onClearConversations: () -> Unit,
     onBack: () -> Unit,
 ) {
     var clearingCache by remember { mutableStateOf(false) }
+    var confirmClearConversations by remember { mutableStateOf(false) }
     var permissionEpoch by remember { mutableIntStateOf(0) }
     var durableReady by remember { mutableStateOf(DurableStorage.hasAllFilesAccess()) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -124,6 +133,32 @@ fun StoragePrivacyScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    if (confirmClearConversations) {
+        AlertDialog(
+            onDismissRequest = { confirmClearConversations = false },
+            title = { Text("Clear every conversation?") },
+            text = {
+                Text(
+                    "Deletes all saved chats on this device, not just the one on screen. " +
+                        "This cannot be undone.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onClearConversations()
+                        confirmClearConversations = false
+                        GlassSnackbar.show("All conversations cleared", SnackbarLevel.SUCCESS)
+                    },
+                    modifier = Modifier.testTag(TestTags.SETTINGS_CLEAR_CONVERSATIONS_CONFIRM),
+                ) { Text("Delete all") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearConversations = false }) { Text("Keep them") }
+            },
+        )
+    }
+
     SettingsSubPage(title = "Storage & privacy", subtitle = "Caches · permissions", onBack = onBack) {
         settingsStoragePermissionsSection(
             clearingCache = clearingCache,
@@ -131,6 +166,7 @@ fun StoragePrivacyScreen(
             usageLedger = usageLedger,
             permissionEpoch = permissionEpoch,
             onOpenApiKeys = onOpenApiKeys,
+            onClearConversations = { confirmClearConversations = true },
         )
         settingsDurableStatusSection(appSettings = appSettings, durableReady = durableReady)
     }

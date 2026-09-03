@@ -98,6 +98,17 @@ data class VestraPalette(
     val ivoryMuted: Color,
     val saffronDeep: Color,
     val silkMist: Color,
+    /**
+     * Status green — a state that is fine.
+     *
+     * Deliberately not an alias of [modalityCode] or [saffronDeep]. Those two are the same
+     * teal, so binding "good" to either made a good/warning pair render as one colour, and
+     * binding a *status* to a *modality* colour would have meant "Ready" and "this is the
+     * Code studio" sharing a swatch.
+     */
+    val success: Color,
+    /** Status amber — degraded but usable. The palette had no warm mid-tone before this. */
+    val warning: Color,
     /** Per-modality accent — Create/Image Studio. Brass-family, same as the base [accent]. */
     val modalityImage: Color,
     /** Per-modality accent — Video Studio. Warm copper shift off the brass family. */
@@ -140,6 +151,8 @@ private val LightPalette = VestraPalette(
     glassHighlight = Color(0x0D1B1430),
     glassShadow = Color(0x1A111419),
     danger = Color(0xFFD01C29),
+    success = Color(0xFF0F7A52),
+    warning = Color(0xFFB45309),
     // atelierCanvas/atelierContainer/ivory/ivoryMuted are theme-independent by original design
     // (call sites like GenerationScreen.kt use AtelierCanvas as a fixed dark scrim behind
     // generation previews with Ivory text drawn on top, regardless of the app's light/dark
@@ -184,6 +197,8 @@ private val DarkPalette = VestraPalette(
     glassHighlight = Color(0x45FFFFFF),
     glassShadow = Color(0x73000000),
     danger = Color(0xFFFF8A93),
+    success = Color(0xFF34D399),
+    warning = Color(0xFFFBBF24),
     // Same theme-independent fixed values as LightPalette — see the comment there.
     atelierCanvas = Color(0xFF111419),
     atelierContainer = Color(0xFF21242A),
@@ -225,6 +240,8 @@ object VestraColors {
     val GlassHighlight get() = active.glassHighlight
     val GlassShadow get() = active.glassShadow
     val Danger get() = active.danger
+    val Success get() = active.success
+    val Warning get() = active.warning
     val AtelierCanvas get() = active.atelierCanvas
     val AtelierContainer get() = active.atelierContainer
     val Ivory get() = active.ivory
