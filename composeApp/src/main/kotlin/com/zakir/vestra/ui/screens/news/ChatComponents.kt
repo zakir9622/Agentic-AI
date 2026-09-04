@@ -39,6 +39,8 @@ import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -789,6 +791,8 @@ private fun MessageActionSheet(
         onDismissRequest = onDismiss,
         sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = VestraColors.SurfaceRaised,
+        // Its own window, its own composition root — MainActivity's opt-in does not reach here.
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
     ) {
         Column(
             Modifier
