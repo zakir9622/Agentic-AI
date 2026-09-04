@@ -86,11 +86,25 @@ installed* — as "the instrumentation process cannot be initialized within 3000
 minutes now. If a session dies during startup here, raise the ceiling before suspecting the app:
 under TCG, slow and broken look identical from the outside.
 
+**Do not use an ATD system image.** `aosp_atd` boots fastest and was the first choice here, and
+under it the app held focus, ran, and drew *nothing* — a screenshot came back as a single colour
+across all 2,527,200 pixels. ATD images are stripped for headless automation and are not a
+surface an app renders on. Use `system-images;android-35;default;x86_64`.
+
+That failure is worth understanding even if you never use ATD, because of how it presented: the
+suite reported **22 failed, 6 passed** — and five of those six passes were
+`assert not tag_exists(...)` checks. "The modality chip row is gone" is satisfied exactly as well
+by a blank screen as by correct UI. A blank app does not fail a negative assertion; it flatters
+it. `conftest.py` now checks for a positive anchor (`prompt_composer`) before every test and
+stops the run when the app is in front but has drawn nothing, because a run that reports passes
+while the app is blank is worse than one that reports nothing — the passes get quoted.
+
 **What this setup can and cannot tell you.** It exercises real Android: real view hierarchy, real
-touch dispatch, real lifecycle. It is far too slow to gate CI on, and its timing is nothing like a
-phone's — so a *timing*-dependent failure here is not evidence of a bug on real hardware. For
-pre-release confidence on real devices, Firebase Test Lab or a Play pre-launch report against the
-APK that CI already builds remains the better instrument.
+touch dispatch, real lifecycle. It is far too slow to gate CI on — one test file took 39 minutes,
+and there are six — and its timing is nothing like a phone's, so a *timing*-dependent failure here
+is not evidence of a bug on real hardware. Treat it as a one-off "does this actually work"
+check. For pre-release confidence on real devices, Firebase Test Lab or a Play pre-launch report
+against the APK that CI already builds remains the better instrument.
 
 ## What's covered
 

@@ -94,6 +94,7 @@ def _reset_to_home(driver):
     """
     _require_app_foreground(driver)
     _dismiss_onboarding(driver)
+    _require_app_rendering(driver)
     yield
     try:
         # Dismiss a sheet or dialog if one is open, but never navigate out of the app: if
@@ -122,6 +123,36 @@ def _require_app_foreground(driver):
         f"{APP_PACKAGE} is not in the foreground (current: {driver.current_package!r}). "
         "Every negative assertion in this suite would pass vacuously against another app, "
         "so the run is stopped here rather than reporting misleading successes."
+    )
+
+
+RENDER_ANCHOR = os.environ.get("APPIUM_RENDER_ANCHOR", "prompt_composer")
+
+
+def _require_app_rendering(driver):
+    """Fail when the app is in front but has drawn nothing.
+
+    The foreground guard above was necessary and not sufficient. On a software-emulated device
+    the app held focus, its process was alive, and it rendered a completely black screen — one
+    distinct colour across every pixel. Under that, twenty-two tests failed and *six passed*, of
+    which five were `assert not tag_exists(...)` checks: "the chip row is gone" is satisfied
+    just as well by nothing being drawn at all.
+
+    A run that reports passes while the app is blank is worse than a run that reports nothing,
+    because the passes get quoted. One positive anchor closes it: if the composer cannot be
+    found on the app's own main screen, no assertion in this suite means anything, and the test
+    says so instead of scoring it.
+
+    Set APPIUM_RENDER_ANCHOR to a different tag for a suite that starts somewhere else.
+    """
+    if tag_exists(driver, RENDER_ANCHOR):
+        return
+    raise AssertionError(
+        f"{APP_PACKAGE} is in the foreground but '{RENDER_ANCHOR}' was not found, so the app "
+        "has most likely drawn nothing. Every negative assertion in this suite would pass "
+        "against a blank screen, so the run is stopped rather than reporting those as successes. "
+        "On an emulator, check that the system image actually renders (ATD images are stripped "
+        "for headless automation) before suspecting the app."
     )
 
 
