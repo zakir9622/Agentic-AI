@@ -3,6 +3,7 @@ package com.zakir.vestra.shared.cloud
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import com.zakir.vestra.shared.domain.PersonSource
 import com.zakir.vestra.shared.engine.lite.LiteEngineIo
@@ -11,6 +12,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -35,6 +38,26 @@ class AndroidCloudIo(
 
     override fun toDataUrl(jpegBytes: ByteArray): String =
         "data:image/jpeg;base64,${Base64.getEncoder().encodeToString(jpegBytes)}"
+
+    /**
+     * Read a recording verbatim — no decode, no re-encode.
+     *
+     * Unlike the image path above, which normalises everything to JPEG, audio is passed through
+     * byte for byte: re-encoding a waveform to reach a Space would degrade the very signal the
+     * model is being asked to analyse. The MIME type is taken from the resolver when it knows it
+     * and falls back to wav, which is what both audio Spaces in the catalogue accept.
+     */
+    override suspend fun loadAudioDataUrl(uri: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val parsed = Uri.parse(uri)
+            val mime = context.contentResolver.getType(parsed)?.takeIf { it.startsWith("audio/") }
+                ?: "audio/wav"
+            val bytes = context.contentResolver.openInputStream(parsed)?.use { it.readBytes() }
+                ?: return@runCatching null
+            if (bytes.isEmpty()) return@runCatching null
+            "data:$mime;base64,${Base64.getEncoder().encodeToString(bytes)}"
+        }.getOrNull()
+    }
 
     override suspend fun downloadResult(urlOrPath: String, spaceHost: String?): String {
         val resolved = resolveUrl(urlOrPath, spaceHost)

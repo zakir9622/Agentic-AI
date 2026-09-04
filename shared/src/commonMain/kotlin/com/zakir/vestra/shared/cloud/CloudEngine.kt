@@ -187,4 +187,16 @@ interface CloudImageIo {
     suspend fun downloadResult(urlOrPath: String, spaceHost: String? = null): String
     /** Resolve content/file URI to a local filesystem path for on-device vision assist. */
     fun resolveLocalPath(uri: String): String? = null
+
+    /**
+     * Read an audio clip as a `data:audio/...;base64,` URL for upload to a Space.
+     *
+     * Audio had no upload path at all: every audio model the app knew about took text, so the
+     * only thing that ever touched a recording was the on-device voice changer, which reads a
+     * URI directly. Voice conversion needs to send the waveform somewhere, hence this.
+     *
+     * Defaults to null so a platform that cannot read the URI degrades to "unsupported" rather
+     * than to a malformed upload.
+     */
+    suspend fun loadAudioDataUrl(uri: String): String? = null
 }

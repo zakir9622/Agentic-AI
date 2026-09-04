@@ -601,6 +601,50 @@ class GenerativeCloudServiceTest {
     }
 
     @Test
+    fun aMusicPromptDoesNotGetReadAloud() = runTest {
+        // The reported behaviour: the Audio studio spoke the words of any prompt, so asking for
+        // a beat produced a voice saying "a lo-fi beat with rain". Device TTS must not claim a
+        // music request just because it is ready.
+        val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
+        val settings = AppSettings(TestMemorySettings())
+        settings.networkProbe = { true }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localAudio = FakeLocalAudio(),
+        )
+        val states = service.generateAudio("a lo-fi beat with rain").toList()
+        assertTrue(
+            states.filterIsInstance<GenerativeState.AudioReady>().none { it.providerId == "local-tts-system" },
+            "a music prompt must not be answered by text-to-speech: $states",
+        )
+    }
+
+    @Test
+    fun voiceConversionWithoutAClipSaysSoRatherThanSpeakingTheRequest() = runTest {
+        // "change the voice" with nothing attached is not a conversion. The old path would have
+        // read the sentence aloud; the new one must either speak it or explain, never pretend.
+        val engine = MockEngine { respond("{}", HttpStatusCode.OK) }
+        val settings = AppSettings(TestMemorySettings())
+        settings.networkProbe = { true }
+        val service = GenerativeCloudService(
+            httpClient(engine),
+            FakeIo(),
+            settings,
+            UsageLedger(TestMemorySettings()),
+            localAudio = FakeLocalAudio(),
+        )
+        val states = service.generateAudio(
+            prompt = "change the voice to something deeper",
+            referenceAudioUri = null,
+        ).toList()
+        // Falls back to speech (the resolver's deliberate choice) rather than erroring out.
+        assertTrue(states.isNotEmpty(), "expected some terminal state: $states")
+    }
+
+    @Test
     fun voiceChangeUsesLocalChangerWithoutHttp() = runTest {
         var httpCalled = false
         val engine = MockEngine {

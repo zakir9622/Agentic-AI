@@ -21,6 +21,7 @@ import com.zakir.vestra.shared.engine.local.UnimplementedLocalVisionAssist
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalAudioTranscriber
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalVideoGenerator
+import com.zakir.vestra.shared.audio.AudioIntent
 import com.zakir.vestra.shared.audio.VoiceCatalog
 import com.zakir.vestra.shared.audio.VoiceKnobs
 import com.zakir.vestra.shared.audio.VoicePersona
@@ -993,13 +994,36 @@ class GenerativeCloudService(
     }.flowOn(Dispatchers.Default)
 
     @OptIn(ExperimentalEncodingApi::class)
+    /**
+     * [targetVoiceUri] is a sample of the voice to convert *into*, required only for
+     * [AudioIntent.VOICE_CONVERT]. Zero-shot conversion has no "make it deeper" without a target
+     * timbre to aim at, so this is a second input the caller must collect, not an optional
+     * refinement of the first.
+     */
     fun generateAudio(
         prompt: String,
         persona: VoicePersona = VoiceCatalog.byId(VoiceCatalog.defaultId),
         knobs: VoiceKnobs = VoiceKnobs.Default,
         referenceAudioUri: String? = null,
+        targetVoiceUri: String? = null,
         assists: GenerativeAssists = GenerativeAssists(),
     ): Flow<GenerativeState> = flow {
+        // What the user asked for, rather than assuming speech. The studio used to read every
+        // prompt aloud, including prompts that were plainly asking for music.
+        val intent = AudioIntent.resolve(prompt, hasReferenceAudio = !referenceAudioUri.isNullOrBlank())
+        AudioIntent.missingReferenceMessage(intent, hasReferenceAudio = !referenceAudioUri.isNullOrBlank())
+            ?.let {
+                emit(GenerativeState.Failed(it))
+                return@flow
+            }
+        if (intent == AudioIntent.MUSIC) {
+            emitMusic(prompt.trim())
+            return@flow
+        }
+        if (intent == AudioIntent.VOICE_CONVERT && !referenceAudioUri.isNullOrBlank() && !targetVoiceUri.isNullOrBlank()) {
+            emitVoiceConversion(referenceAudioUri, targetVoiceUri)
+            return@flow
+        }
         val provider = settings.selectedProvider(AiCapability.AUDIO)
         var attempted = provider
         val candidates by lazy { CloudModelRouting.fallbackChain(provider, AiCapability.AUDIO, settings, health) }
@@ -1347,6 +1371,141 @@ class GenerativeCloudService(
             }
         }
         return if (extras.isEmpty()) prompt else "$prompt. ${extras.joinToString(". ")}"
+    }
+
+    /**
+     * Text to music via MusicGen. Separate from the TTS path rather than folded into it: the
+     * payload, the model and the failure modes have nothing in common with speech beyond
+     * producing a wav.
+     */
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<GenerativeState>.emitMusic(prompt: String) {
+        val provider = CloudModelCatalog.byId("musicgen-hf")
+        if (provider == null || !settings.cloudUsable(provider)) {
+            emit(
+                GenerativeState.Failed(
+                    "Music generation needs the free MusicGen Space, which is a cloud model. " +
+                        "Enable cloud use in Settings to generate music.",
+                ),
+            )
+            return
+        }
+        val budget = GenerationBudget.forAudio()
+        emit(GenerativeState.Running(0.1f, "Queued · MusicGen", deadlineEpochMs = budget.deadlineMs))
+        try {
+            val result = hf.predict(
+                spaceHost = provider.endpoint,
+                apiName = CloudModelContracts.effectiveApiName(provider),
+                data = SpacePayloads.forMusic(provider.id, prompt),
+                hfToken = settings.hfToken.value,
+                maxPolls = budget.maxPolls(pollDelayMs = 2_000, floor = 3, ceiling = 20),
+                pollDelayMs = 2_000,
+                deadlineMs = budget.deadlineMs,
+                pollRequestTimeoutMs = GenerationBudget.GRADIO_POLL_REQUEST_TIMEOUT_MS,
+                onPoll = { pollIndex, maxPolls ->
+                    budget.throwIfExpired()
+                    emit(
+                        GenerativeState.Running(
+                            CreepingProgress.forPoll(pollIndex, maxPolls, floor = 0.2f, span = 0.65f),
+                            "Composing · poll ${pollIndex + 1}/$maxPolls",
+                            deadlineEpochMs = budget.deadlineMs,
+                        ),
+                    )
+                },
+            )
+            val path = io.downloadResult(extractRef(result), spaceHost = provider.endpoint)
+            usage.record(provider, success = true, note = "music")
+            health.recordSuccess(provider.id)
+            emit(GenerativeState.AudioReady(path, provider.id))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            usage.record(provider, success = false, note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()))
+            health.recordFailure(provider.id, ModelHealthTracker.FailureKind.GENERIC)
+            emit(
+                GenerativeState.Failed(
+                    CloudModelContracts.friendlyFailure(
+                        provider,
+                        e.message.orEmpty(),
+                        "Music generation",
+                        selectedDisplayName = provider.displayName,
+                    ),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Real voice conversion via Seed-VC — a model that re-synthesises the speaker, as opposed to
+     * the local voice changer, which shifts pitch and formants on the existing waveform and can
+     * never make one person sound like another.
+     */
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<GenerativeState>.emitVoiceConversion(
+        sourceUri: String,
+        targetUri: String,
+    ) {
+        val provider = CloudModelCatalog.byId("seed-vc-hf")
+        if (provider == null || !settings.cloudUsable(provider)) {
+            emit(
+                GenerativeState.Failed(
+                    "Voice conversion needs the free Seed-VC Space, which is a cloud model. " +
+                        "Enable cloud use in Settings, or use the on-device voice knobs instead.",
+                ),
+            )
+            return
+        }
+        val budget = GenerationBudget.forAudio()
+        emit(GenerativeState.Running(0.1f, "Queued · Seed-VC", deadlineEpochMs = budget.deadlineMs))
+        try {
+            val source = io.loadAudioDataUrl(sourceUri)
+            val target = io.loadAudioDataUrl(targetUri)
+            if (source == null || target == null) {
+                emit(
+                    GenerativeState.Failed(
+                        "One of those recordings couldn't be read. Re-record or pick another clip.",
+                    ),
+                )
+                return
+            }
+            val result = hf.predict(
+                spaceHost = provider.endpoint,
+                apiName = CloudModelContracts.effectiveApiName(provider),
+                data = SpacePayloads.forVoiceConvert(provider.id, source, target),
+                hfToken = settings.hfToken.value,
+                maxPolls = budget.maxPolls(pollDelayMs = 2_000, floor = 3, ceiling = 20),
+                pollDelayMs = 2_000,
+                deadlineMs = budget.deadlineMs,
+                pollRequestTimeoutMs = GenerationBudget.GRADIO_POLL_REQUEST_TIMEOUT_MS,
+                onPoll = { pollIndex, maxPolls ->
+                    budget.throwIfExpired()
+                    emit(
+                        GenerativeState.Running(
+                            CreepingProgress.forPoll(pollIndex, maxPolls, floor = 0.2f, span = 0.65f),
+                            "Converting · poll ${pollIndex + 1}/$maxPolls",
+                            deadlineEpochMs = budget.deadlineMs,
+                        ),
+                    )
+                },
+            )
+            val path = io.downloadResult(extractRef(result), spaceHost = provider.endpoint)
+            usage.record(provider, success = true, note = "voice-convert")
+            health.recordSuccess(provider.id)
+            emit(GenerativeState.AudioReady(path, provider.id))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            usage.record(provider, success = false, note = CloudModelContracts.usageFailureNote(provider, e.message.orEmpty()))
+            health.recordFailure(provider.id, ModelHealthTracker.FailureKind.GENERIC)
+            emit(
+                GenerativeState.Failed(
+                    CloudModelContracts.friendlyFailure(
+                        provider,
+                        e.message.orEmpty(),
+                        "Voice conversion",
+                        selectedDisplayName = provider.displayName,
+                    ),
+                ),
+            )
+        }
     }
 
     /** Optional voiceover framing for TTS scripts when the Advanced toggle is on. */
