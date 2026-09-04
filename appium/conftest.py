@@ -148,11 +148,18 @@ def _require_app_rendering(driver):
     if tag_exists(driver, RENDER_ANCHOR):
         return
     raise AssertionError(
-        f"{APP_PACKAGE} is in the foreground but '{RENDER_ANCHOR}' was not found, so the app "
-        "has most likely drawn nothing. Every negative assertion in this suite would pass "
-        "against a blank screen, so the run is stopped rather than reporting those as successes. "
-        "On an emulator, check that the system image actually renders (ATD images are stripped "
-        "for headless automation) before suspecting the app."
+        f"{APP_PACKAGE} is in the foreground but '{RENDER_ANCHOR}' was not found, so the suite "
+        "is not looking at the app's main screen. Every negative assertion here would pass "
+        "against whatever is actually showing, so the run is stopped rather than reporting "
+        "those as successes.\n"
+        "Likely causes, in the order they have actually happened:\n"
+        "  1. the app is parked on a screen that is not the composer — onboarding is the usual "
+        "one, and it is silent: the app renders perfectly, just not the screen the tests want;\n"
+        "  2. the app has drawn nothing at all (a screenshot comes back one flat colour) — on an "
+        "emulator that means the system image does not render, e.g. an ATD image, which is "
+        "stripped for headless automation.\n"
+        "Take a screenshot before assuming either: they are indistinguishable from here, and the "
+        "first version of this message asserted the second cause when the first was true."
     )
 
 
@@ -172,25 +179,59 @@ def _dismiss_onboarding(driver):
 
     Skip is preferred over walking the pages: this suite is not onboarding's test, and the
     fewer taps between install and a testable state, the fewer ways a run can go wrong.
+
+    Driven off the *buttons*, not the screen container. The first version gated on
+    ONBOARDING_SCREEN and returned early when it was absent — and it was absent, because that
+    tag sits on a plain Column, which Compose can merge away rather than exposing as its own
+    node. So the helper found no screen, concluded onboarding was not showing, and did nothing,
+    while the device sat on page one of onboarding for the whole run. The buttons are real
+    interactive nodes and surface reliably; keying on them removes the dependency on a
+    container tag that may or may not exist.
     """
-    for _ in range(len(_ONBOARDING_MAX_PAGES)):
-        if not tag_exists(driver, ONBOARDING_SCREEN):
-            return
-        for tag in (ONBOARDING_SKIP, ONBOARDING_GET_STARTED, ONBOARDING_CONTINUE):
-            if tag_exists(driver, tag):
-                by_tag(driver, tag).click()
-                break
-        else:
-            raise AssertionError(
-                "onboarding is showing but none of its buttons could be found — the app cannot "
-                "be driven past its first-run gate, so no result from this run is meaningful."
-            )
-        time.sleep(1)
-    if tag_exists(driver, ONBOARDING_SCREEN):
-        raise AssertionError("onboarding did not complete after several attempts")
+    for _ in _ONBOARDING_MAX_PAGES:
+        target = next(
+            (t for t in (ONBOARDING_SKIP, ONBOARDING_GET_STARTED, ONBOARDING_CONTINUE) if tag_exists(driver, t)),
+            None,
+        )
+        if target is None:
+            return  # no onboarding button on screen: either past it, or never showed it
+        by_tag(driver, target).click()
+        time.sleep(2)
+    still_showing = any(
+        tag_exists(driver, t) for t in (ONBOARDING_SKIP, ONBOARDING_GET_STARTED, ONBOARDING_CONTINUE)
+    )
+    if still_showing:
+        raise AssertionError(
+            "onboarding did not complete after several attempts — the app cannot be driven past "
+            "its first-run gate, so no result from this run would be meaningful."
+        )
 
 
 _ONBOARDING_MAX_PAGES = range(8)
+
+
+def _tag_locator(tag: str):
+    """Locator for a Compose testTag exposed as a resource-id.
+
+    **Not `AppiumBy.ID`.** That is what this file used from the day it was written, and the
+    module docstring flagged it as the one assumption it could not verify without a device.
+    Verified now, and it was wrong. Against a live session showing a screen whose page source
+    contains `resource-id="onboarding_skip"`:
+
+        AppiumBy.ID  "onboarding_skip"                             -> 0 matches
+        AppiumBy.ID  "com.zakir.vestra:id/onboarding_skip"         -> 0 matches
+        UiSelector().resourceId("onboarding_skip")                 -> 1 match
+        //*[@resource-id="onboarding_skip"]                        -> 1 match
+
+    `AppiumBy.ID` resolves against real Android resource ids, and a Compose testTag surfaced
+    through `testTagsAsResourceId` is not one — it is a bare string with no package and no entry
+    in the resource table.
+
+    This single line is why every result this suite has ever produced was meaningless: no
+    `by_tag` call could match anything, so every positive assertion failed and every
+    `assert not tag_exists(...)` passed. It is also why the failures looked like app problems.
+    """
+    return (AppiumBy.ANDROID_UIAUTOMATOR, f'new UiSelector().resourceId("{tag}")')
 
 
 def by_tag(driver, tag: str, timeout: float = float(os.environ.get("APPIUM_FIND_TIMEOUT_S", "45"))):
@@ -198,12 +239,11 @@ def by_tag(driver, tag: str, timeout: float = float(os.environ.get("APPIUM_FIND_
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
 
-    locator = (AppiumBy.ID, tag)
-    return WebDriverWait(driver, timeout).until(EC.presence_of_element_located(locator))
+    return WebDriverWait(driver, timeout).until(EC.presence_of_element_located(_tag_locator(tag)))
 
 
 def all_by_tag(driver, tag: str):
-    return driver.find_elements(AppiumBy.ID, tag)
+    return driver.find_elements(*_tag_locator(tag))
 
 
 def tag_exists(driver, tag: str) -> bool:
