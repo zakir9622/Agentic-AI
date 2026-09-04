@@ -19,7 +19,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from appium.webdriver.common.appiumby import AppiumBy
 
-from conftest import by_tag, select_tool, tag_exists
+from conftest import by_tag, select_tool, tag_exists, tag_text
 
 # Studio tabs and the bottom dock are gone — see `select_tool` in conftest.
 PROMPT_INPUT = "composer_prompt_input"
@@ -70,7 +70,7 @@ class TestImageGeneration:
 
         if outcome == RESULT_FAILED:
             failed = by_tag(driver, RESULT_FAILED)
-            message = failed.text
+            message = tag_text(driver, RESULT_FAILED)
             assert message.strip(), "Failed state rendered with no message at all"
             # A legible failure must not leak a raw stack trace or hostname to the user — this
             # app has its own typed-failure/CloudFailure discipline for exactly this reason.
@@ -113,13 +113,14 @@ class TestCodeGeneration:
         )
 
         if outcome == RESULT_FAILED:
-            message = by_tag(driver, RESULT_FAILED).text
+            message = tag_text(driver, RESULT_FAILED)
             pytest.fail(f"Local code generation failed: {message!r}")
 
         code_card = by_tag(driver, RESULT_CODE_READY)
-        assert len(code_card.text.strip()) > 20, "CodeReady state rendered with near-empty output"
+        assert len(tag_text(driver, RESULT_CODE_READY).strip()) > 20, "CodeReady state rendered with near-empty output"
         # A real generated function should not literally echo the prompt back unchanged.
-        assert "def " in code_card.text or "function" in code_card.text.lower(), (
+        code_text = tag_text(driver, RESULT_CODE_READY)
+        assert "def " in code_text or "function" in code_text.lower(), (
             "Generated output doesn't look like code — possible model/prompt-template regression"
         )
 
@@ -134,7 +135,7 @@ class TestVideoGeneration:
         )
 
         if outcome == RESULT_FAILED:
-            message = by_tag(driver, RESULT_FAILED).text
+            message = tag_text(driver, RESULT_FAILED)
             assert message.strip(), "Failed state rendered with no message at all"
             assert "Exception" not in message and "\tat " not in message, (
                 f"Failure message looks like a raw stack trace, not a user-facing string: {message!r}"
@@ -149,7 +150,7 @@ class TestVideoGeneration:
         # RESULT_VIDEO_READY reached — the card shows the saved file path as proof of a real
         # written artifact, not just a static "done" label (see ResultPane.kt's VideoReady branch).
         video_card = by_tag(driver, RESULT_VIDEO_READY)
-        assert video_card.text.strip(), "VideoReady state rendered with no path/content text"
+        assert tag_text(driver, RESULT_VIDEO_READY).strip(), "VideoReady state rendered with no path/content text"
 
 
 class TestAudioAndChat:
@@ -165,7 +166,7 @@ class TestAudioAndChat:
         )
 
         if outcome == RESULT_FAILED:
-            message = by_tag(driver, RESULT_FAILED).text
+            message = tag_text(driver, RESULT_FAILED)
             assert message.strip(), "Failed state rendered with no message at all"
             assert "Exception" not in message and "\tat " not in message, (
                 f"Failure message looks like a raw stack trace, not a user-facing string: {message!r}"
@@ -177,7 +178,7 @@ class TestAudioAndChat:
             )
 
         audio_card = by_tag(driver, RESULT_AUDIO_READY)
-        assert audio_card.text.strip(), "AudioReady state rendered with no path/content text"
+        assert tag_text(driver, RESULT_AUDIO_READY).strip(), "AudioReady state rendered with no path/content text"
 
 
     def test_local_chat_reply_appears_for_a_real_question(self, driver):

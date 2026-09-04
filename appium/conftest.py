@@ -270,6 +270,42 @@ def all_by_tag(driver, tag: str):
     return driver.find_elements(*_tag_locator(tag))
 
 
+def tag_text(driver, tag: str) -> str:
+    """All visible text inside a tagged element, including its descendants.
+
+    **Not `by_tag(...).text`.** A Compose `Modifier.testTag` usually sits on a *container* —
+    a Column or Box — and the words live in `Text` children underneath it. UiAutomator reports
+    a container's own `text` as empty, so reading `.text` off the tagged node returns `''` no
+    matter what is on screen.
+
+    That produced a confident false positive: four generation tests failed with
+    "Failed state rendered with no message at all", which reads like the app showing a blank
+    error. Measured against the live tree, the message was right there inside the banner —
+
+        result_failed bounds: (50, 446, 1030, 858)
+        INSIDE (100, 496, 980, 654)  "Pick a cloud model in the model picker, or add a free
+                                      API key in Settings, to use FLUX.1 Schnell — ..."
+        INSIDE (470, 716, 611, 768)  "Dismiss"
+
+    — and the app was behaving correctly the whole time. Collect from descendants instead.
+    """
+    joined = []
+    for el in driver.find_elements(
+        AppiumBy.XPATH,
+        f'//*[@resource-id="{tag}"]//*[string-length(@text) > 0]',
+    ):
+        t = (el.text or "").strip()
+        if t:
+            joined.append(t)
+    if not joined:
+        els = all_by_tag(driver, tag)
+        if els:
+            own = (els[0].text or "").strip()
+            if own:
+                joined.append(own)
+    return " ".join(joined)
+
+
 def tag_exists(driver, tag: str) -> bool:
     return len(all_by_tag(driver, tag)) > 0
 
