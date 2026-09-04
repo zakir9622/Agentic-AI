@@ -210,17 +210,40 @@ def _dismiss_onboarding(driver):
 _ONBOARDING_MAX_PAGES = range(8)
 
 
+def _tag_locator(tag: str):
+    """Locator for a Compose testTag exposed as a resource-id.
+
+    **Not `AppiumBy.ID`.** That is what this file used from the day it was written, and the
+    module docstring flagged it as the one assumption it could not verify without a device.
+    Verified now, and it was wrong. Against a live session showing a screen whose page source
+    contains `resource-id="onboarding_skip"`:
+
+        AppiumBy.ID  "onboarding_skip"                             -> 0 matches
+        AppiumBy.ID  "com.zakir.vestra:id/onboarding_skip"         -> 0 matches
+        UiSelector().resourceId("onboarding_skip")                 -> 1 match
+        //*[@resource-id="onboarding_skip"]                        -> 1 match
+
+    `AppiumBy.ID` resolves against real Android resource ids, and a Compose testTag surfaced
+    through `testTagsAsResourceId` is not one — it is a bare string with no package and no entry
+    in the resource table.
+
+    This single line is why every result this suite has ever produced was meaningless: no
+    `by_tag` call could match anything, so every positive assertion failed and every
+    `assert not tag_exists(...)` passed. It is also why the failures looked like app problems.
+    """
+    return (AppiumBy.ANDROID_UIAUTOMATOR, f'new UiSelector().resourceId("{tag}")')
+
+
 def by_tag(driver, tag: str, timeout: float = float(os.environ.get("APPIUM_FIND_TIMEOUT_S", "45"))):
     """Find one element by its Compose testTag (exposed as resource-id via testTagsAsResourceId)."""
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
 
-    locator = (AppiumBy.ID, tag)
-    return WebDriverWait(driver, timeout).until(EC.presence_of_element_located(locator))
+    return WebDriverWait(driver, timeout).until(EC.presence_of_element_located(_tag_locator(tag)))
 
 
 def all_by_tag(driver, tag: str):
-    return driver.find_elements(AppiumBy.ID, tag)
+    return driver.find_elements(*_tag_locator(tag))
 
 
 def tag_exists(driver, tag: str) -> bool:
