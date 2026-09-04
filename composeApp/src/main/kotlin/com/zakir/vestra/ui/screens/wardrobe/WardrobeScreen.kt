@@ -250,7 +250,7 @@ fun WardrobeScreen(
                 onValueChange = { query = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("wardrobe_search"),
+                    .testTag(com.zakir.vestra.ui.TestTags.WARDROBE_SEARCH),
                 singleLine = true,
                 leadingIcon = {
                     Icon(

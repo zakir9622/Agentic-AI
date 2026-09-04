@@ -257,6 +257,9 @@ fun ModelPickerSheet(
         Column(
             Modifier
                 .fillMaxWidth()
+                // The sheet's rows carried tags but the sheet did not, so a test could assert a
+                // model row exists without being able to assert the picker had opened at all.
+                .testTag(TestTags.MODEL_PICKER_SHEET)
             // adjustNothing means the window never resizes for the keyboard, so every
             // surface owns its own IME inset. A sheet is its own window and does not
             // inherit the host screen's safeDrawingPadding — without this its search

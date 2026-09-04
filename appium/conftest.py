@@ -101,3 +101,60 @@ def all_by_tag(driver, tag: str):
 
 def tag_exists(driver, tag: str) -> bool:
     return len(all_by_tag(driver, tag)) > 0
+
+
+# ── Navigation ────────────────────────────────────────────────────────────────────────────
+#
+# The app used to have a bottom dock (Home/Chat/Library/Settings) and a row of studio tabs
+# (`home_tab_image` and friends). Both are gone: there is one unified screen, the generator is
+# chosen from the `+` sheet, and Library/Settings are two icons in the top bar. Four test files
+# each had their own `_goto_tab` helper clicking tags that no longer exist, which is why they
+# failed at the first click rather than on anything they meant to assert.
+#
+# One helper each, here, so the next redesign breaks one place instead of four.
+
+TOOLS_SHEET_TRIGGER = "composer_attach_button"
+TOOLS_SHEET = "composer_tools_sheet"
+ACTIVE_TOOL_CHIP = "composer_active_tool"
+
+
+def select_tool(driver, mode: str):
+    """Switch the composer to a generator: `+` -> sheet -> `composer_tool_<mode>`.
+
+    Replaces the old `home_tab_<mode>` click. "chat" is the default mode and is reached by
+    clearing the active tool rather than by picking it, so it is routed to `clear_tool`.
+    """
+    if mode == "chat":
+        clear_tool(driver)
+        return
+    by_tag(driver, TOOLS_SHEET_TRIGGER).click()
+    by_tag(driver, TOOLS_SHEET)
+    by_tag(driver, f"composer_tool_{mode}").click()
+
+
+def clear_tool(driver):
+    """Return the composer to plain chat by dismissing the active-tool chip, if one is shown."""
+    if tag_exists(driver, ACTIVE_TOOL_CHIP):
+        by_tag(driver, ACTIVE_TOOL_CHIP).click()
+
+
+def attach_from(driver, source: str):
+    """Open the `+` sheet and pick an attachment source (photos / camera / files)."""
+    by_tag(driver, TOOLS_SHEET_TRIGGER).click()
+    by_tag(driver, TOOLS_SHEET)
+    by_tag(driver, f"composer_source_{source}").click()
+
+
+def open_settings(driver):
+    """Settings is a top-bar icon now, not a dock tab."""
+    by_tag(driver, "unified_settings_button").click()
+
+
+def open_library(driver):
+    """Library (Wardrobe) is a top-bar icon now, not a dock tab."""
+    by_tag(driver, "unified_library_button").click()
+
+
+def back(driver):
+    """Hardware back — how you leave a sub-screen now that there is no dock to tap."""
+    driver.press_keycode(4)

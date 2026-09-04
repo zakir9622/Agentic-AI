@@ -151,7 +151,7 @@ fun FullScreenImageViewer(
                             translationX = offset.x,
                             translationY = offset.y,
                         )
-                        .testTag("full_screen_image"),
+                        .testTag(com.zakir.vestra.ui.TestTags.FULL_SCREEN_IMAGE),
                     contentScale = ContentScale.Fit,
                 )
             }
@@ -185,7 +185,7 @@ fun FullScreenImageViewer(
                             .clip(CircleShape)
                             .background(Color.Black.copy(alpha = 0.5f))
                             .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
-                            .testTag("close_full_screen_button"),
+                            .testTag(com.zakir.vestra.ui.TestTags.CLOSE_FULL_SCREEN_BUTTON),
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
@@ -279,7 +279,7 @@ fun FullScreenImageViewer(
                                             onDismiss()
                                             onEditIntent(intent)
                                         },
-                                        testTag = "viewer_edit_${intent.id}",
+                                        testTag = com.zakir.vestra.ui.TestTags.viewerEdit(intent.id),
                                     )
                                 }
                             }
@@ -309,7 +309,7 @@ fun FullScreenImageViewer(
                                     icon = Icons.Outlined.SaveAlt,
                                     label = "Save",
                                     onClick = { MediaExport.saveImageToGallery(context, imageFile) },
-                                    testTag = "viewer_save_button",
+                                    testTag = com.zakir.vestra.ui.TestTags.VIEWER_SAVE_BUTTON,
                                 )
 
                                 // 2. REMIX Button (Gemini-style)
@@ -322,7 +322,7 @@ fun FullScreenImageViewer(
                                             onDismiss()
                                             onRemix()
                                         },
-                                        testTag = "viewer_remix_button",
+                                        testTag = com.zakir.vestra.ui.TestTags.VIEWER_REMIX_BUTTON,
                                     )
                                 }
 
@@ -333,7 +333,7 @@ fun FullScreenImageViewer(
                                     onClick = {
                                         MediaExport.share(context, imageFile, "Share look")
                                     },
-                                    testTag = "viewer_share_button",
+                                    testTag = com.zakir.vestra.ui.TestTags.VIEWER_SHARE_BUTTON,
                                 )
 
                                 // 4. PRIVACY BLUR — moved here with the rest of the actions when

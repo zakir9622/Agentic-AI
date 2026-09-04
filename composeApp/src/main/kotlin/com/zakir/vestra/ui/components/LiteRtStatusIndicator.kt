@@ -126,7 +126,7 @@ fun LiteRtStatusIndicator(
 
     Box(
         modifier = modifier
-            .testTag("litert_status_indicator")
+            .testTag(com.zakir.vestra.ui.TestTags.LITERT_STATUS_INDICATOR)
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(containerBackground)

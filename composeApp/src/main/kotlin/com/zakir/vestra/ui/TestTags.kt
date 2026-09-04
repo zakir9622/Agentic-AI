@@ -219,6 +219,24 @@ object TestTags {
     fun composerSource(id: String): String = "composer_source_$id"
     fun composerTool(id: String): String = "composer_tool_$id"
 
+    // Full-screen viewer (FullScreenImageViewer.kt) and the model sheet (ModelPickerSheet.kt).
+    //
+    // These tags already existed in the UI — as bare string literals written inline at the call
+    // site, bypassing this file entirely. That is exactly the drift this catalogue exists to
+    // prevent: a rename in the component could not fail a build, and nothing here recorded that
+    // the tags were in use. Running the Appium suite for the first time is what surfaced them.
+    // MODEL_PICKER_SHEET is the one genuinely new tag: the sheet's rows were tagged but the
+    // sheet itself never was, so a test could assert on a row and not on the sheet being open.
+    const val FULL_SCREEN_IMAGE = "full_screen_image"
+    const val CLOSE_FULL_SCREEN_BUTTON = "close_full_screen_button"
+    const val VIEWER_SAVE_BUTTON = "viewer_save_button"
+    const val VIEWER_REMIX_BUTTON = "viewer_remix_button"
+    const val VIEWER_SHARE_BUTTON = "viewer_share_button"
+    const val MODEL_PICKER_SHEET = "model_picker_sheet"
+    const val WARDROBE_SEARCH = "wardrobe_search"
+    const val LITERT_STATUS_INDICATOR = "litert_status_indicator"
+    fun viewerEdit(intentId: String): String = "viewer_edit_$intentId"
+
 
     // Assistant reply actions (ChatComponents.kt): copy, regenerate, speak, share.
     fun messageAction(action: String, index: Int): String = "message_action_${action}_$index"

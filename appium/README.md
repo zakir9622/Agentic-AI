@@ -12,13 +12,35 @@ emulation. QEMU's TCG interpreter needs neither, ships with the SDK, and runs An
 slowly. The suite executed end-to-end for the first time under it: **46 tests collected, with
 real passes and real failures.**
 
-The failures are overwhelmingly this suite's fault, not the app's. Roughly 28 of the tags
-referenced here **do not exist in `TestTags.kt`** — `bottom_bar_*` and `home_tab_*` name controls
-that were deleted in the unified-screen redesign, and `prompt_input` / `send_button` were renamed
-to `composer_prompt_input` / `composer_send_button`. The sections below already flagged some of
-this as suspected; running it turned the suspicion into a list. Until those locators are
-repaired, a red result here means "the test is out of date", which is exactly the failure mode
-that makes a suite worthless — fix them before trusting any signal from this directory.
+The failures were overwhelmingly this suite's fault, not the app's, and they have now been
+repaired. **The locators are fixed; the count in the first write-up of this (28) was wrong.**
+That number came from a script that compared test literals against `const val` declarations only,
+so every tag built by a helper — `followUpChip(0)`, `chatMessageBubble(1, "assistant")`,
+`wardrobeGalleryItem(id)`, `composerTool(mode)` and a dozen more — was counted as missing when it
+was not. The real figure was **15**, and two of those (`home_hero_card`,
+`home_capabilities_section`) were never broken at all: they appear in `assert not tag_exists(...)`
+checks whose entire purpose is that the control is gone.
+
+What was genuinely broken, and what replaced it:
+
+| Was | Now |
+|---|---|
+| `home_tab_{image,video,code,audio}` | `select_tool(driver, mode)` — `+` sheet -> `composer_tool_<mode>` |
+| `bottom_bar_{home,chat}` | one unified screen; `select_tool(driver, "chat")` clears the tool |
+| `bottom_bar_settings` / `bottom_bar_library` | `open_settings(driver)` / `open_library(driver)` |
+| `prompt_input` / `send_button` | `composer_prompt_input` / `composer_send_button` |
+| `model_picker_sheet` | now exists — the sheet's rows were tagged but the sheet was not |
+
+Four files each had their own `_goto_tab` helper clicking a dead tag, which is why they failed on
+the first click rather than on anything they meant to assert. Navigation now lives once in
+`conftest.py`, so the next redesign breaks one place instead of four.
+
+Running the suite also exposed the reverse drift: **seven tags existed in the UI as bare string
+literals**, written inline at the call site and never recorded here — `full_screen_image`,
+`close_full_screen_button`, the three `viewer_*` buttons, `wardrobe_search` and
+`litert_status_indicator`. This file claims to be the single catalogue of test tags; it was not.
+They are constants now, and every `testTag(...)` in `composeApp/ui/` resolves through
+`TestTags.kt`.
 
 ## Running it on a machine without KVM
 

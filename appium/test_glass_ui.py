@@ -24,8 +24,8 @@ from conftest import by_tag, tag_exists
 HOME_EMPTY_STATE = "home_empty_state"
 HOME_HISTORY_SECTION = "home_history_section"
 PROMPT_COMPOSER = "prompt_composer"
-PROMPT_INPUT = "prompt_input"
-SEND_BUTTON = "send_button"
+PROMPT_INPUT = "composer_prompt_input"
+SEND_BUTTON = "composer_send_button"
 COMPOSER_ATTACH_BUTTON = "composer_attach_button"
 COMPOSER_TOOLS_SHEET = "composer_tools_sheet"
 COMPOSER_ACTIVE_TOOL = "composer_active_tool"
@@ -150,7 +150,7 @@ class TestTopBar:
 
     def test_model_selector_opens_the_picker(self, driver):
         by_tag(driver, TOP_MODEL_SELECTOR).click()
-        assert tag_exists(driver, "model_picker_sheet") or tag_exists(driver, PROMPT_INPUT)
+        assert tag_exists(driver, "model_picker_sheet"), "tapping the top-bar model chip must open the picker sheet"
 
 
 class TestChatSurface:
