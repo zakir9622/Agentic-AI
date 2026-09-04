@@ -173,8 +173,14 @@ class TestAudioAndChat:
             )
             pytest.fail(
                 f"Local audio generation failed (legibly) rather than succeeding: {message!r}. "
-                "System TTS should work with no pack installed — if this fails on a fresh "
-                "device it is more likely a real bug than a missing-pack state."
+                "System TTS needs a TTS *engine*, which is not the same thing as a model pack. "
+                "A real phone ships one; a bare AOSP emulator image does not — measured on one "
+                "where `pm list packages | grep tts` was empty, TTS_SERVICE resolved to no "
+                "services, and tts_default_synth was null. There, localAudioReady() is correctly "
+                "false, preflight blocks, and this refusal is right behaviour. Check for an "
+                "engine before treating this as a defect: the earlier wording said System TTS "
+                "'should work with no pack installed', which sent one investigation hunting an "
+                "app bug that did not exist."
             )
 
         audio_card = by_tag(driver, RESULT_AUDIO_READY)
