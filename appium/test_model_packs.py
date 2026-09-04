@@ -16,9 +16,8 @@ import time
 
 from appium.webdriver.common.appiumby import AppiumBy
 
-from conftest import by_tag, tag_exists
+from conftest import by_tag, open_settings, tag_exists
 
-OPEN_SETTINGS_BUTTON = "bottom_bar_settings"
 SETTINGS_OPEN_PACKS_BUTTON = "settings_open_packs_button"
 DURABLE_STORAGE_ENABLE_BUTTON = "durable_storage_enable_button"
 
@@ -33,7 +32,7 @@ HANDSHAKE_TIMEOUT_SECONDS = 60  # a real handshake opens an ONNX/LiteRT session 
 
 
 def _open_packs_screen(driver):
-    by_tag(driver, OPEN_SETTINGS_BUTTON).click()
+    open_settings(driver)
     time.sleep(1)
     by_tag(driver, SETTINGS_OPEN_PACKS_BUTTON).click()
     time.sleep(1)

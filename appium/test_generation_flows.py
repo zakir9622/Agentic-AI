@@ -19,14 +19,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from appium.webdriver.common.appiumby import AppiumBy
 
-from conftest import by_tag, tag_exists
+from conftest import by_tag, select_tool, tag_exists
 
-HOME_TAB_IMAGE = "home_tab_image"
-HOME_TAB_VIDEO = "home_tab_video"
-HOME_TAB_CODE = "home_tab_code"
-HOME_TAB_AUDIO = "home_tab_audio"
-BOTTOM_BAR_CHAT = "bottom_bar_chat"
-
+# Studio tabs and the bottom dock are gone — see `select_tool` in conftest.
 PROMPT_INPUT = "composer_prompt_input"
 SEND_BUTTON = "composer_send_button"
 LIVE_CONSOLE = "result_live_console"
@@ -41,10 +36,6 @@ RESULT_FAILED = "result_failed"
 RESULT_RETRY_BUTTON = "result_retry_button"
 
 GENERATION_TIMEOUT_SECONDS = 360  # local diffusion/LLM cold loads can be slow — see module docstring
-
-
-def _goto_tab(driver, tab_tag: str):
-    by_tag(driver, tab_tag).click()
 
 
 def _generate(driver, prompt: str):
@@ -70,7 +61,7 @@ def _wait_for_any_tag(driver, tags: list[str], timeout: int):
 
 class TestImageGeneration:
     def test_local_image_generation_reaches_a_terminal_state(self, driver):
-        _goto_tab(driver, HOME_TAB_IMAGE)
+        select_tool(driver, "image")
         _generate(driver, "a modest emerald abaya, soft studio light, editorial photograph")
 
         outcome = _wait_for_any_tag(
@@ -102,7 +93,7 @@ class TestImageGeneration:
 
 class TestCodeGeneration:
     def test_local_code_generation_streams_then_completes(self, driver):
-        _goto_tab(driver, HOME_TAB_CODE)
+        select_tool(driver, "code")
         _generate(driver, "Write a Python function that reverses a linked list, with a docstring.")
 
         # Streaming should start well before the full generation completes — assert we actually
@@ -135,7 +126,7 @@ class TestCodeGeneration:
 
 class TestVideoGeneration:
     def test_local_video_generation_reaches_a_terminal_state(self, driver):
-        _goto_tab(driver, HOME_TAB_VIDEO)
+        select_tool(driver, "video")
         _generate(driver, "a slow pan across a modest emerald abaya on a mannequin, studio light")
 
         outcome = _wait_for_any_tag(
@@ -166,7 +157,7 @@ class TestAudioAndChat:
         # Audio Studio's PromptComposer drives the TTS-first path (type text, get speech) —
         # the same composer used by Image/Code, distinct from the mic-record/voice-changer flow
         # which needs real microphone hardware and isn't covered here.
-        _goto_tab(driver, HOME_TAB_AUDIO)
+        select_tool(driver, "audio")
         _generate(driver, "Welcome to The Lookbook, your on-device styling assistant.")
 
         outcome = _wait_for_any_tag(
@@ -191,7 +182,7 @@ class TestAudioAndChat:
 
     def test_local_chat_reply_appears_for_a_real_question(self, driver):
         # Chat is a standalone bottom-dock destination (A3), not a studio pager tab.
-        _goto_tab(driver, BOTTOM_BAR_CHAT)
+        select_tool(driver, "chat")
         # NewsChatScreen's own message bubbles are tagged chat_message_{index}_{role}.
         chat_input_tag = PROMPT_INPUT  # NewsChatScreen reuses PromptComposer for its input
         if not tag_exists(driver, chat_input_tag):

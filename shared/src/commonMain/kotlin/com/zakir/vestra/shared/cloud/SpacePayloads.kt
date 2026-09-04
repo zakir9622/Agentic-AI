@@ -19,13 +19,22 @@ import kotlinx.serialization.json.put
  */
 object SpacePayloads {
 
-    fun forImageGen(providerId: String, prompt: String): List<JsonElement> = when (providerId) {
+    /**
+     * [spec] carries the frame the prompt asked for (see [ImageOutputStyle]). Width and height
+     * were hardcoded 1024x1024 here, so every generation came back square regardless of subject
+     * — a portrait crammed into a square frame, with no way for a caller to say otherwise.
+     */
+    fun forImageGen(
+        providerId: String,
+        prompt: String,
+        spec: ImageOutputStyle.Spec = ImageOutputStyle.resolve(prompt),
+    ): List<JsonElement> = when (providerId) {
         "flux-schnell-hf" -> listOf(
             JsonPrimitive(prompt),
             JsonPrimitive(0), // seed
             JsonPrimitive(true), // randomize
-            JsonPrimitive(1024), // width
-            JsonPrimitive(1024), // height
+            JsonPrimitive(spec.width),
+            JsonPrimitive(spec.height),
             JsonPrimitive(4), // steps
         )
         "sdxl-lightning-hf" -> listOf(
@@ -125,6 +134,61 @@ object SpacePayloads {
 
     fun hasAudio(providerId: String): Boolean =
         providerId == "kokoro-tts-hf" || providerId == "edge-tts-hf"
+
+    /**
+     * MusicGen `/predict_batched`, read from the live Space schema:
+     * `texts: str`, `melodies: filepath | null` -> `Generated Music: filepath`.
+     *
+     * [melodyDataUrl] is the optional melody conditioning input — null for plain text-to-music.
+     */
+    fun forMusic(providerId: String, prompt: String, melodyDataUrl: String? = null): List<JsonElement> =
+        when (providerId) {
+            "musicgen-hf" -> listOf(
+                JsonPrimitive(prompt),
+                melodyDataUrl?.let { fileData(it) } ?: JsonNull,
+            )
+            else -> error("No hand-tuned music payload for $providerId — use GradioSchemaClient")
+        }
+
+    fun hasMusic(providerId: String): Boolean = providerId == "musicgen-hf"
+
+    /**
+     * Seed-VC `/predict`, read from the live Space schema. Eleven positional arguments; the
+     * defaults below are the Space's own, which matter because a wrong arity fails Gradio
+     * validation before the model runs and streams back an empty error.
+     *
+     * Two clips are required, not one: [sourceDataUrl] is the recording to convert and
+     * [targetDataUrl] a sample of the voice to convert *into*. That is a real constraint of
+     * zero-shot conversion, not an implementation shortcut — there is no "make it deeper"
+     * without a target timbre to aim at. Callers must collect both.
+     */
+    fun forVoiceConvert(
+        providerId: String,
+        sourceDataUrl: String,
+        targetDataUrl: String,
+        diffusionSteps: Int = 30,
+        lengthAdjust: Double = 1.0,
+        similarityCfgRate: Double = 0.7,
+        convertStyle: Boolean = false,
+        anonymizationOnly: Boolean = false,
+    ): List<JsonElement> = when (providerId) {
+        "seed-vc-hf" -> listOf(
+            fileData(sourceDataUrl), // source_audio_path
+            fileData(targetDataUrl), // target_audio_path
+            JsonPrimitive(diffusionSteps), // diffusion_steps
+            JsonPrimitive(lengthAdjust), // length_adjust
+            JsonPrimitive(0.0), // intelligebility_cfg_rate (Space's own default)
+            JsonPrimitive(similarityCfgRate), // similarity_cfg_rate
+            JsonPrimitive(0.9), // top_p
+            JsonPrimitive(1.0), // temperature
+            JsonPrimitive(1.0), // repetition_penalty
+            JsonPrimitive(convertStyle), // convert_style
+            JsonPrimitive(anonymizationOnly), // anonymization_only
+        )
+        else -> error("No hand-tuned voice-conversion payload for $providerId — use GradioSchemaClient")
+    }
+
+    fun hasVoiceConvert(providerId: String): Boolean = providerId == "seed-vc-hf"
 
     /**
      * Virtual try-on payloads. Throws with a model-specific message when the

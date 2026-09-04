@@ -14,9 +14,8 @@ import time
 import pytest
 from appium.webdriver.common.appiumby import AppiumBy
 
-from conftest import by_tag, tag_exists
+from conftest import by_tag, select_tool, tag_exists
 
-HOME_TAB_IMAGE = "home_tab_image"
 PROMPT_INPUT = "composer_prompt_input"
 SEND_BUTTON = "composer_send_button"
 ADD_REFERENCE_BUTTON = "composer_add_reference"
@@ -27,13 +26,9 @@ RESULT_FAILED = "result_failed"
 GENERATION_TIMEOUT_SECONDS = 360
 
 
-def _goto_tab(driver, tab_tag: str):
-    by_tag(driver, tab_tag).click()
-
-
 class TestImageEdit:
     def test_attaching_a_reference_photo_shows_a_thumbnail(self, driver):
-        _goto_tab(driver, HOME_TAB_IMAGE)
+        select_tool(driver, "image")
         assert tag_exists(driver, ADD_REFERENCE_BUTTON), (
             "Add-reference button not found on the Image tab — image-edit entry point missing"
         )
@@ -53,7 +48,7 @@ class TestImageEdit:
         )
 
     def test_clearing_the_reference_returns_to_text_to_image(self, driver):
-        _goto_tab(driver, HOME_TAB_IMAGE)
+        select_tool(driver, "image")
         if not tag_exists(driver, REFERENCE_IMAGE_THUMB):
             pytest.skip("No reference image attached — run the attach test first or attach manually")
 
@@ -66,7 +61,7 @@ class TestImageEdit:
         )
 
     def test_edit_generation_with_reference_reaches_a_terminal_state(self, driver):
-        _goto_tab(driver, HOME_TAB_IMAGE)
+        select_tool(driver, "image")
         if not tag_exists(driver, REFERENCE_IMAGE_THUMB):
             by_tag(driver, ADD_REFERENCE_BUTTON).click()
             time.sleep(2)

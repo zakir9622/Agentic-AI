@@ -12,13 +12,35 @@ emulation. QEMU's TCG interpreter needs neither, ships with the SDK, and runs An
 slowly. The suite executed end-to-end for the first time under it: **46 tests collected, with
 real passes and real failures.**
 
-The failures are overwhelmingly this suite's fault, not the app's. Roughly 28 of the tags
-referenced here **do not exist in `TestTags.kt`** — `bottom_bar_*` and `home_tab_*` name controls
-that were deleted in the unified-screen redesign, and `prompt_input` / `send_button` were renamed
-to `composer_prompt_input` / `composer_send_button`. The sections below already flagged some of
-this as suspected; running it turned the suspicion into a list. Until those locators are
-repaired, a red result here means "the test is out of date", which is exactly the failure mode
-that makes a suite worthless — fix them before trusting any signal from this directory.
+The failures were overwhelmingly this suite's fault, not the app's, and they have now been
+repaired. **The locators are fixed; the count in the first write-up of this (28) was wrong.**
+That number came from a script that compared test literals against `const val` declarations only,
+so every tag built by a helper — `followUpChip(0)`, `chatMessageBubble(1, "assistant")`,
+`wardrobeGalleryItem(id)`, `composerTool(mode)` and a dozen more — was counted as missing when it
+was not. The real figure was **15**, and two of those (`home_hero_card`,
+`home_capabilities_section`) were never broken at all: they appear in `assert not tag_exists(...)`
+checks whose entire purpose is that the control is gone.
+
+What was genuinely broken, and what replaced it:
+
+| Was | Now |
+|---|---|
+| `home_tab_{image,video,code,audio}` | `select_tool(driver, mode)` — `+` sheet -> `composer_tool_<mode>` |
+| `bottom_bar_{home,chat}` | one unified screen; `select_tool(driver, "chat")` clears the tool |
+| `bottom_bar_settings` / `bottom_bar_library` | `open_settings(driver)` / `open_library(driver)` |
+| `prompt_input` / `send_button` | `composer_prompt_input` / `composer_send_button` |
+| `model_picker_sheet` | now exists — the sheet's rows were tagged but the sheet was not |
+
+Four files each had their own `_goto_tab` helper clicking a dead tag, which is why they failed on
+the first click rather than on anything they meant to assert. Navigation now lives once in
+`conftest.py`, so the next redesign breaks one place instead of four.
+
+Running the suite also exposed the reverse drift: **seven tags existed in the UI as bare string
+literals**, written inline at the call site and never recorded here — `full_screen_image`,
+`close_full_screen_button`, the three `viewer_*` buttons, `wardrobe_search` and
+`litert_status_indicator`. This file claims to be the single catalogue of test tags; it was not.
+They are constants now, and every `testTag(...)` in `composeApp/ui/` resolves through
+`TestTags.kt`.
 
 ## Running it on a machine without KVM
 
@@ -64,11 +86,25 @@ installed* — as "the instrumentation process cannot be initialized within 3000
 minutes now. If a session dies during startup here, raise the ceiling before suspecting the app:
 under TCG, slow and broken look identical from the outside.
 
+**Do not use an ATD system image.** `aosp_atd` boots fastest and was the first choice here, and
+under it the app held focus, ran, and drew *nothing* — a screenshot came back as a single colour
+across all 2,527,200 pixels. ATD images are stripped for headless automation and are not a
+surface an app renders on. Use `system-images;android-35;default;x86_64`.
+
+That failure is worth understanding even if you never use ATD, because of how it presented: the
+suite reported **22 failed, 6 passed** — and five of those six passes were
+`assert not tag_exists(...)` checks. "The modality chip row is gone" is satisfied exactly as well
+by a blank screen as by correct UI. A blank app does not fail a negative assertion; it flatters
+it. `conftest.py` now checks for a positive anchor (`prompt_composer`) before every test and
+stops the run when the app is in front but has drawn nothing, because a run that reports passes
+while the app is blank is worse than one that reports nothing — the passes get quoted.
+
 **What this setup can and cannot tell you.** It exercises real Android: real view hierarchy, real
-touch dispatch, real lifecycle. It is far too slow to gate CI on, and its timing is nothing like a
-phone's — so a *timing*-dependent failure here is not evidence of a bug on real hardware. For
-pre-release confidence on real devices, Firebase Test Lab or a Play pre-launch report against the
-APK that CI already builds remains the better instrument.
+touch dispatch, real lifecycle. It is far too slow to gate CI on — one test file took 39 minutes,
+and there are six — and its timing is nothing like a phone's, so a *timing*-dependent failure here
+is not evidence of a bug on real hardware. Treat it as a one-off "does this actually work"
+check. For pre-release confidence on real devices, Firebase Test Lab or a Play pre-launch report
+against the APK that CI already builds remains the better instrument.
 
 ## What's covered
 

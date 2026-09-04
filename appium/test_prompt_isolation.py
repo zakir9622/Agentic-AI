@@ -11,21 +11,12 @@ These tests exercise the underlying per-tab session isolation (`GenerativeViewMo
 either bug shows up as a real UI assertion failure, not just a code read.
 """
 
-from conftest import by_tag, tag_exists
+from conftest import by_tag, select_tool, tag_exists
 
-HOME_TAB_IMAGE = "home_tab_image"
-HOME_TAB_VIDEO = "home_tab_video"
-HOME_TAB_CODE = "home_tab_code"
-HOME_TAB_AUDIO = "home_tab_audio"
-BOTTOM_BAR_HOME = "bottom_bar_home"
-BOTTOM_BAR_CHAT = "bottom_bar_chat"
-
+# The studio tabs and the bottom dock these used to click are both gone — one unified screen,
+# generator picked from the `+` sheet. `select_tool` in conftest is the replacement for both.
 PROMPT_INPUT = "composer_prompt_input"
 CHAT_HEADLINE_0 = "chat_headline_0"
-
-
-def _goto_tab(driver, tab_tag: str):
-    by_tag(driver, tab_tag).click()
 
 
 def _read_prompt_text(driver) -> str:
@@ -44,23 +35,23 @@ class TestPromptIsolation:
     def test_prompt_does_not_leak_between_studio_tabs(self, driver):
         marker = "UNIQUE_IMAGE_PROMPT_7f3a"
 
-        _goto_tab(driver, HOME_TAB_IMAGE)
+        select_tool(driver, "image")
         _type_prompt(driver, marker)
         assert marker in _read_prompt_text(driver)
 
-        _goto_tab(driver, HOME_TAB_VIDEO)
+        select_tool(driver, "video")
         video_text = _read_prompt_text(driver)
         assert marker not in video_text, (
             f"Video tab's prompt box contains text from the Image tab: {video_text!r}"
         )
 
-        _goto_tab(driver, HOME_TAB_CODE)
+        select_tool(driver, "code")
         code_text = _read_prompt_text(driver)
         assert marker not in code_text, (
             f"Code tab's prompt box contains text from the Image tab: {code_text!r}"
         )
 
-        _goto_tab(driver, HOME_TAB_AUDIO)
+        select_tool(driver, "audio")
         audio_text = _read_prompt_text(driver)
         assert marker not in audio_text, (
             f"Audio tab's prompt box contains text from the Image tab: {audio_text!r}"
@@ -69,7 +60,7 @@ class TestPromptIsolation:
         # Isolation must also mean the Image tab's own text survives the round trip — not just
         # that it's absent elsewhere (a bug that clears everything on tab switch would also pass
         # the three assertions above).
-        _goto_tab(driver, HOME_TAB_IMAGE)
+        select_tool(driver, "image")
         assert marker in _read_prompt_text(driver), (
             "Image tab's own prompt was lost after switching away and back"
         )
@@ -83,16 +74,16 @@ class TestPromptIsolation:
         """
         marker = "UNIQUE_VIDEO_PROMPT_9c1e"
 
-        _goto_tab(driver, HOME_TAB_VIDEO)
+        select_tool(driver, "video")
         _type_prompt(driver, marker)
         assert marker in _read_prompt_text(driver)
 
-        _goto_tab(driver, BOTTOM_BAR_CHAT)
+        select_tool(driver, "chat")
         if tag_exists(driver, CHAT_HEADLINE_0):
             by_tag(driver, CHAT_HEADLINE_0).click()
 
-        _goto_tab(driver, BOTTOM_BAR_HOME)
-        _goto_tab(driver, HOME_TAB_VIDEO)
+        select_tool(driver, "chat")
+        select_tool(driver, "video")
         video_text = _read_prompt_text(driver)
         assert marker in video_text, (
             "Video tab's prompt was overwritten after visiting News/Chat and tapping a headline "

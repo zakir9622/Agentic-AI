@@ -12,9 +12,8 @@ import time
 import pytest
 from appium.webdriver.common.appiumby import AppiumBy
 
-from conftest import by_tag, tag_exists
+from conftest import by_tag, open_library, tag_exists
 
-BOTTOM_BAR_LIBRARY = "bottom_bar_library"
 WARDROBE_FILTER_ALL = "wardrobe_filter_all"
 WARDROBE_FILTER_FAVORITES = "wardrobe_filter_favorites"
 WARDROBE_DELETE_CONFIRM = "wardrobe_delete_confirm"
@@ -27,7 +26,7 @@ HISTORY_ROW_PREFIX = "wardrobe_history_row_"
 
 
 def _open_wardrobe(driver):
-    by_tag(driver, BOTTOM_BAR_LIBRARY).click()
+    open_library(driver)
     time.sleep(1)
 
 

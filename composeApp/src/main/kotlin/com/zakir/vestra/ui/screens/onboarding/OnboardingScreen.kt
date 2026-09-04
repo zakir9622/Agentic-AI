@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -52,11 +53,18 @@ import androidx.compose.animation.togetherWith
 
 private data class OnboardingPage(val title: String, val body: String)
 
+// Two of these pages described an app that no longer exists, and nothing caught it because
+// onboarding is the one screen a returning user never sees again. It was found by finally
+// running the app and reading the first thing it says: it promised "four studios, each opening
+// as a separate screen from Home", which is exactly the architecture the single-chatbox redesign
+// removed, and told people to "tap the model chip in any studio" after the chip moved to the top
+// bar. Copy that teaches a deleted UI is worse than no copy: it is a wrong map handed out at the
+// door.
 private val pages = listOf(
     OnboardingPage(
-        "Four studios, each on its own",
-        "Image, Video, Audio, and Code each open as a separate screen from Home — only one model " +
-            "is ever loaded at a time, so switching studios never mixes them together.",
+        "One box, every kind of output",
+        "Type what you want and send. Tap + to switch between chat, image, video, code and audio, " +
+            "or to attach a photo — it is the same conversation either way.",
     ),
     OnboardingPage(
         "First run loads the model",
@@ -65,8 +73,8 @@ private val pages = listOf(
     ),
     OnboardingPage(
         "Local by default, cloud if you want",
-        "Tap the model chip in any studio to switch between on-device and free cloud models. " +
-            "AUTO mode never picks cloud on its own — you always choose.",
+        "Tap the model name at the top to switch between on-device and free cloud models. " +
+            "Nothing reaches the network until you pick a cloud model or add a key.",
     ),
     OnboardingPage(
         "Cloud keys are optional",
@@ -84,6 +92,7 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
         Column(
             Modifier
                 .fillMaxSize()
+                .testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_SCREEN)
                 .safeDrawingPadding()
                 .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState()),
@@ -217,11 +226,15 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 GlassPrimaryButton(
                     text = "Continue",
                     onClick = { page += 1 },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_CONTINUE),
                 )
-                TextButton(onClick = {
-                    appSettings.setOnboardingComplete()
-                    onDone()
-                }) { Text("Skip") }
+                TextButton(
+                    onClick = {
+                        appSettings.setOnboardingComplete()
+                        onDone()
+                    },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_SKIP),
+                ) { Text("Skip") }
             } else {
                 GlassPrimaryButton(
                     text = "Get started",
@@ -229,6 +242,7 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                         appSettings.setOnboardingComplete()
                         onDone()
                     },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_GET_STARTED),
                 )
                 Spacer(Modifier.height(SpacingTokens.md))
                 SocialProofRow(
