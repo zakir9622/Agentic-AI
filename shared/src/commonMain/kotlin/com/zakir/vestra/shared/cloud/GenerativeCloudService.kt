@@ -21,6 +21,7 @@ import com.zakir.vestra.shared.engine.local.UnimplementedLocalVisionAssist
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalAudioTranscriber
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalImageGenerator
 import com.zakir.vestra.shared.engine.local.UnimplementedLocalVideoGenerator
+import com.zakir.vestra.shared.audio.AudioEditRequest
 import com.zakir.vestra.shared.audio.AudioIntent
 import com.zakir.vestra.shared.audio.VoiceCatalog
 import com.zakir.vestra.shared.audio.VoiceKnobs
@@ -1016,6 +1017,14 @@ class GenerativeCloudService(
                 emit(GenerativeState.Failed(it))
                 return@flow
             }
+        if (intent == AudioIntent.EDIT_AUDIO && !referenceAudioUri.isNullOrBlank()) {
+            emitAudioEdit(prompt.trim(), referenceAudioUri, safeKnobsFor(knobs))
+            return@flow
+        }
+        if (intent == AudioIntent.LYRICS) {
+            emitLyrics(prompt.trim(), assists)
+            return@flow
+        }
         if (intent == AudioIntent.MUSIC) {
             emitMusic(prompt.trim())
             return@flow
@@ -1373,6 +1382,77 @@ class GenerativeCloudService(
         return if (extras.isEmpty()) prompt else "$prompt. ${extras.joinToString(". ")}"
     }
 
+    private fun safeKnobsFor(knobs: VoiceKnobs): VoiceKnobs = knobs.sanitized()
+
+    /**
+     * Apply an edit instruction to an attached clip with the on-device DSP.
+     *
+     * Deliberately says what it cannot do. The knobs cover pitch, rate, formant and spectral
+     * balance; they do not cover trimming, denoising or normalising, and there is no processing
+     * in the app to route those to. Accepting "remove the background noise" and handing back an
+     * unchanged clip would read as a broken feature, so the shortfall is reported instead.
+     */
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<GenerativeState>.emitAudioEdit(
+        prompt: String,
+        clipUri: String,
+        currentKnobs: VoiceKnobs,
+    ) {
+        if (!localVoiceChanger.isReady()) {
+            emit(GenerativeState.Failed("On-device audio editing isn't available on this device."))
+            return
+        }
+        val resolved = AudioEditRequest.resolve(prompt, currentKnobs)
+        if (!resolved.changedAnything && resolved.unsupported.isNotEmpty()) {
+            emit(GenerativeState.Failed(AudioEditRequest.shortfallMessage(resolved) ?: "Nothing to change."))
+            return
+        }
+        emit(GenerativeState.Running(0.25f, "Editing audio on-device…"))
+        when (val changed = localVoiceChanger.transform(clipUri, resolved.knobs)) {
+            is LocalAudioResult.Ok -> {
+                AudioEditRequest.shortfallMessage(resolved)?.let {
+                    emit(GenerativeState.Running(0.9f, it))
+                }
+                emit(GenerativeState.AudioReady(changed.audioPath, "local-voice-changer"))
+            }
+            is LocalAudioResult.Unavailable -> emit(GenerativeState.Failed(changed.reason))
+        }
+    }
+
+    /**
+     * Lyrics are a language task, not an audio one.
+     *
+     * Writing or rewriting words goes to the same chat models the Code studio uses, which means
+     * it also works offline whenever the on-device model is ready — unlike everything else in
+     * this studio that leaves the device. The result is emitted as text rather than synthesised:
+     * speaking freshly written lyrics in a TTS voice is not what "write me a chorus" asks for,
+     * and the user can send the words on to music generation if that is what they wanted.
+     */
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<GenerativeState>.emitLyrics(
+        prompt: String,
+        assists: GenerativeAssists,
+    ) {
+        emit(GenerativeState.Running(0.15f, "Writing lyrics…"))
+        try {
+            val (result, provider) = chatWithFallback(
+                prompt = prompt,
+                system = LYRICS_SYSTEM,
+                capability = AiCapability.CODE,
+                temperature = 0.85, // words, not code: the default 0.4 produces flat, literal verses
+                assists = assists.copy(creative = true),
+            )
+            val text = result.text.trim()
+            if (text.isBlank()) {
+                emit(GenerativeState.Failed("The model returned no lyrics. Try again, or add more detail."))
+                return
+            }
+            emit(GenerativeState.TranscribeReady(text, provider.id))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emit(GenerativeState.Failed(e.message ?: "Lyric writing failed"))
+        }
+    }
+
     /**
      * Text to music via MusicGen. Separate from the TTS path rather than folded into it: the
      * payload, the model and the failure modes have nothing in common with speech beyond
@@ -1687,3 +1767,10 @@ private fun CloudFailure.allowsImageFallbackGrace(): Boolean = when (this) {
             raw.contains("404")
     else -> false
 }
+
+private const val LYRICS_SYSTEM =
+    "You write and rewrite song lyrics. Return only the lyrics, with section labels like " +
+        "[Verse 1] and [Chorus] where they help. No commentary, no explanation of your choices, " +
+        "no markdown fences. Keep the requested language, mood and rhyme scheme when one is " +
+        "given, and preserve the syllable count of the original when rewriting an existing line " +
+        "so the words still fit the tune."
