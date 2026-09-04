@@ -37,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -253,6 +255,13 @@ fun ModelPickerSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = VestraColors.SurfaceRaised,
+            // A ModalBottomSheet is its own window with its own composition root, so it does NOT
+        // inherit the `testTagsAsResourceId = true` set on the content root in MainActivity.
+        // Without this, every testTag inside the sheet is invisible to UiAutomator/Appium: a
+        // live probe showed the page source collapse from fifteen resource-ids on the main
+        // screen to a single `android:id/content` the moment the sheet opened. Each sheet has
+        // to opt in for itself.
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
     ) {
         Column(
             Modifier

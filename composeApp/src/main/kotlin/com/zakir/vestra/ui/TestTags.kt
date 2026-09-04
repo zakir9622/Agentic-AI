@@ -8,7 +8,11 @@ package com.zakir.vestra.ui
  *
  * Compose's `Modifier.testTag` is only visible to Compose UI tests by default; UiAutomator (and
  * therefore Appium's UiAutomator2 driver) only sees a tag once the app opts in via
- * `testTagsAsResourceId = true` (set once, at the root — see `MainActivity.kt`). Without that
+ * `testTagsAsResourceId = true`. That is set on the content root in `MainActivity.kt` **and
+ * again inside every `ModalBottomSheet`**: a sheet is its own window with its own composition
+ * root and does not inherit it. Measured on a device, the page source collapsed from fifteen
+ * resource-ids to a single `android:id/content` the moment a sheet opened, so every tag inside
+ * every sheet was invisible to automation. A new sheet must opt in for itself. Without that
  * flag every tag below exists in the semantics tree but is invisible to Appium.
  */
 object TestTags {

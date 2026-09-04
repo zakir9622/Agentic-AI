@@ -19,6 +19,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,7 +54,12 @@ fun PromptDirectorSheet(
         onDismissRequest = onDismiss,
         containerColor = VestraColors.Canvas,
         // See ModelPickerSheet: a sheet is its own window and owns its IME inset.
-        modifier = Modifier.navigationBarsPadding().imePadding(),
+        // A sheet is its own window and does not inherit MainActivity's
+        // `testTagsAsResourceId = true`; without this its testTags are invisible to Appium.
+        modifier = Modifier
+            .navigationBarsPadding()
+            .imePadding()
+            .semantics { testTagsAsResourceId = true },
     ) {
         Column(
             modifier = Modifier

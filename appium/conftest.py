@@ -129,6 +129,23 @@ def _require_app_foreground(driver):
 RENDER_ANCHOR = os.environ.get("APPIUM_RENDER_ANCHOR", "prompt_composer")
 
 
+def _dismiss_transient_overlay(driver):
+    """Close a sheet or dialog left open by whatever ran before this test.
+
+    BACK dismisses a ModalBottomSheet. If it instead leaves the app entirely — which it does on
+    the root screen — the app is re-activated, because losing the app is the failure this is
+    supposed to prevent, not cause.
+    """
+    try:
+        driver.press_keycode(4)
+        time.sleep(2)
+        if driver.current_package != APP_PACKAGE:
+            driver.activate_app(APP_PACKAGE)
+            time.sleep(2)
+    except Exception:
+        pass
+
+
 def _require_app_rendering(driver):
     """Fail when the app is in front but has drawn nothing.
 
@@ -145,6 +162,13 @@ def _require_app_rendering(driver):
 
     Set APPIUM_RENDER_ANCHOR to a different tag for a suite that starts somewhere else.
     """
+    if tag_exists(driver, RENDER_ANCHOR):
+        return
+    # A sheet or dialog left open by an earlier test hides the composer behind it. Test state
+    # leaks forward, and cleanup runs *after* a test, so it cannot help the one that inherits
+    # the mess — the check has to happen on the way in too. One attempt to clear it before
+    # calling the run unusable.
+    _dismiss_transient_overlay(driver)
     if tag_exists(driver, RENDER_ANCHOR):
         return
     raise AssertionError(
