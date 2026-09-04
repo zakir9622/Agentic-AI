@@ -237,6 +237,16 @@ object TestTags {
     const val LITERT_STATUS_INDICATOR = "litert_status_indicator"
     fun viewerEdit(intentId: String): String = "viewer_edit_$intentId"
 
+    // Onboarding (OnboardingScreen.kt). It had no tags at all, which made it invisible to the
+    // Appium suite: on a fresh install the app opens here, every test then ran against a screen
+    // it could not recognise or dismiss, and every `assert not ...` check passed for the wrong
+    // reason. A first-run gate that automation cannot get past is a first-run gate nothing can
+    // be tested behind.
+    const val ONBOARDING_SCREEN = "onboarding_screen"
+    const val ONBOARDING_CONTINUE = "onboarding_continue"
+    const val ONBOARDING_SKIP = "onboarding_skip"
+    const val ONBOARDING_GET_STARTED = "onboarding_get_started"
+
 
     // Assistant reply actions (ChatComponents.kt): copy, regenerate, speak, share.
     fun messageAction(action: String, index: Int): String = "message_action_${action}_$index"

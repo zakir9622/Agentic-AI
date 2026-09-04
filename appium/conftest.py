@@ -14,6 +14,7 @@ Claude session — no device or Appium server is available in that environment.
 """
 
 import os
+import time
 
 import pytest
 from appium import webdriver
@@ -78,12 +79,87 @@ def driver():
 
 @pytest.fixture(autouse=True)
 def _reset_to_home(driver):
-    """Best-effort: return to a known state (Home) before each test."""
+    """Return to a known state, and refuse to run a test against the wrong app.
+
+    This used to press BACK unconditionally after every test. On the app's root screen BACK
+    *leaves the app*, so the first test to finish on the root dropped the suite onto the
+    launcher and every test after it ran against a blank screen.
+
+    That did not merely cause failures — it manufactured passes. Every
+    `assert not tag_exists(...)` check in this suite is satisfied by an empty screen, so
+    assertions like "the modality chip row is gone" reported success while proving nothing.
+    A negative assertion with no positive anchor cannot tell "removed from the app" from
+    "no app". The pre-test guard below is the anchor: if the app under test is not in the
+    foreground, the test fails saying so, instead of passing for the wrong reason.
+    """
+    _require_app_foreground(driver)
+    _dismiss_onboarding(driver)
     yield
     try:
-        driver.press_keycode(4)  # KEYCODE_BACK, in case a dialog/sheet is still open
+        # Dismiss a sheet or dialog if one is open, but never navigate out of the app: if
+        # BACK would exit, re-activate instead.
+        driver.press_keycode(4)
+        if driver.current_package != APP_PACKAGE:
+            driver.activate_app(APP_PACKAGE)
     except Exception:
         pass
+
+
+def _require_app_foreground(driver):
+    """Bring the app under test to the front, and fail loudly if it will not come."""
+    try:
+        if driver.current_package == APP_PACKAGE:
+            return
+        driver.activate_app(APP_PACKAGE)
+    except Exception as exc:  # pragma: no cover - environment dependent
+        raise AssertionError(f"could not foreground {APP_PACKAGE}: {exc}") from exc
+    deadline = time.time() + float(os.environ.get("APPIUM_FOREGROUND_TIMEOUT_S", "120"))
+    while time.time() < deadline:
+        if driver.current_package == APP_PACKAGE:
+            return
+        time.sleep(2)
+    raise AssertionError(
+        f"{APP_PACKAGE} is not in the foreground (current: {driver.current_package!r}). "
+        "Every negative assertion in this suite would pass vacuously against another app, "
+        "so the run is stopped here rather than reporting misleading successes."
+    )
+
+
+ONBOARDING_SCREEN = "onboarding_screen"
+ONBOARDING_SKIP = "onboarding_skip"
+ONBOARDING_GET_STARTED = "onboarding_get_started"
+ONBOARDING_CONTINUE = "onboarding_continue"
+
+
+def _dismiss_onboarding(driver):
+    """Clear the first-run gate if it is showing.
+
+    On a fresh install the app opens on onboarding, not the composer. The suite had no idea
+    this screen existed — and neither did `TestTags.kt`, which carried no tags for it — so a
+    first-run device produced a full sheet of misleading results: positive assertions failed
+    because the composer was not there, and negative ones passed because nothing was.
+
+    Skip is preferred over walking the pages: this suite is not onboarding's test, and the
+    fewer taps between install and a testable state, the fewer ways a run can go wrong.
+    """
+    for _ in range(len(_ONBOARDING_MAX_PAGES)):
+        if not tag_exists(driver, ONBOARDING_SCREEN):
+            return
+        for tag in (ONBOARDING_SKIP, ONBOARDING_GET_STARTED, ONBOARDING_CONTINUE):
+            if tag_exists(driver, tag):
+                by_tag(driver, tag).click()
+                break
+        else:
+            raise AssertionError(
+                "onboarding is showing but none of its buttons could be found — the app cannot "
+                "be driven past its first-run gate, so no result from this run is meaningful."
+            )
+        time.sleep(1)
+    if tag_exists(driver, ONBOARDING_SCREEN):
+        raise AssertionError("onboarding did not complete after several attempts")
+
+
+_ONBOARDING_MAX_PAGES = range(8)
 
 
 def by_tag(driver, tag: str, timeout: float = float(os.environ.get("APPIUM_FIND_TIMEOUT_S", "45"))):

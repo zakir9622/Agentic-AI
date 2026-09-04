@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -84,6 +85,7 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
         Column(
             Modifier
                 .fillMaxSize()
+                .testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_SCREEN)
                 .safeDrawingPadding()
                 .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState()),
@@ -217,11 +219,15 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                 GlassPrimaryButton(
                     text = "Continue",
                     onClick = { page += 1 },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_CONTINUE),
                 )
-                TextButton(onClick = {
-                    appSettings.setOnboardingComplete()
-                    onDone()
-                }) { Text("Skip") }
+                TextButton(
+                    onClick = {
+                        appSettings.setOnboardingComplete()
+                        onDone()
+                    },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_SKIP),
+                ) { Text("Skip") }
             } else {
                 GlassPrimaryButton(
                     text = "Get started",
@@ -229,6 +235,7 @@ fun OnboardingScreen(appSettings: AppSettings, onDone: () -> Unit) {
                         appSettings.setOnboardingComplete()
                         onDone()
                     },
+                    modifier = Modifier.testTag(com.zakir.vestra.ui.TestTags.ONBOARDING_GET_STARTED),
                 )
                 Spacer(Modifier.height(SpacingTokens.md))
                 SocialProofRow(
