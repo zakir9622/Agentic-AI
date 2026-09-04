@@ -365,6 +365,39 @@ object CloudModelCatalog {
         ),
 
         // ── Audio / TTS (free HF Spaces + Inference) ────────────────────
+        // Music generation and voice conversion. The Audio studio could only speak text: a
+        // prompt asking for "a lo-fi beat" was read aloud as those words, and "change my voice"
+        // applied pitch/formant DSP rather than converting anything. These two are the models
+        // that make those asks real. Both endpoints and both Gradio schemas were read from the
+        // live Spaces rather than guessed — see SpacePayloads.forMusic / forVoiceConvert.
+        CloudModelProvider(
+            id = "musicgen-hf",
+            displayName = "MusicGen",
+            description = "Meta MusicGen — text (and optional melody) to music on a free Space.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.AUDIO,
+            endpoint = "facebook-musicgen.hf.space",
+            apiName = "predict_batched",
+            license = "CC-BY-NC 4.0 (weights) / MIT (code)",
+            requiresApiKey = false,
+            qualityScore = 82,
+            speedScore = 45,
+            usageNote = "Batched queue — a short clip can still take a minute on the free tier.",
+        ),
+        CloudModelProvider(
+            id = "seed-vc-hf",
+            displayName = "Seed-VC (voice conversion)",
+            description = "Zero-shot voice conversion: converts a recording to a target speaker from one sample.",
+            platform = CloudPlatform.HF_SPACE,
+            capability = AiCapability.AUDIO,
+            endpoint = "plachta-seed-vc.hf.space",
+            apiName = "predict",
+            license = "GPL-3.0",
+            requiresApiKey = false,
+            qualityScore = 84,
+            speedScore = 50,
+            usageNote = "Needs two clips: the recording to convert and a sample of the target voice.",
+        ),
         CloudModelProvider(
             id = "kokoro-tts-hf",
             displayName = "Kokoro TTS",

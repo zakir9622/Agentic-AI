@@ -231,6 +231,23 @@ object CloudModelContracts {
             schemaNote = "innoai Edge-TTS · tts_interface",
             failureHint = "Edge-TTS failed — switch to Kokoro or retry.",
         ),
+        // Music + voice conversion. Both schemas were read from the live Space /info endpoints
+        // (facebook/MusicGen predict_batched, Plachta/Seed-VC predict) rather than inferred, so
+        // these notes describe what the payload actually sends.
+        CloudModelContract(
+            providerId = "musicgen-hf",
+            support = ModelSupportLevel.DEGRADED,
+            requiredInputs = listOf("Textbox(prompt)", "Audio(optional melody)"),
+            schemaNote = "predict_batched · texts + optional melody FileData; batched queue is slow when free",
+            failureHint = "MusicGen's Space is queued. Try a shorter prompt, or again in a few minutes.",
+        ),
+        CloudModelContract(
+            providerId = "seed-vc-hf",
+            support = ModelSupportLevel.DEGRADED,
+            requiredInputs = listOf("Audio(source)", "Audio(target voice)", "Number(diffusion steps)"),
+            schemaNote = "predict · 11 args; needs BOTH a source clip and a target-voice sample",
+            failureHint = "Seed-VC needs two clips: the recording to convert and a sample of the voice to match.",
+        ),
         CloudModelContract(
             providerId = "mms-tts-eng-hf",
             support = ModelSupportLevel.DEGRADED,
