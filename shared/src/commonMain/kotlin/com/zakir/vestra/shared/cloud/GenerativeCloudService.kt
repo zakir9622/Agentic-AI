@@ -1303,9 +1303,13 @@ class GenerativeCloudService(
         // to become "modest fashion lookbook portrait", which silently rewrote what the user
         // asked for. Modest-wear framing belongs to try-on only.
         val base = prompt.trim().ifBlank { "a photograph" }
-        val rich = enrichVisualPrompt(base, assists)
+        // Photoreal finish by default, withheld when the prompt asks for something that is not a
+        // photograph (see ImageOutputStyle) — appending "ultra realistic, photographic" to
+        // "flat vector logo" gives the model two contradictory instructions.
+        val styled = ImageOutputStyle.styledPrompt(base)
+        val rich = enrichVisualPrompt(styled, assists)
         val soft = enrichVisualPrompt(
-            base,
+            styled,
             assists.copy(bypassFilter = true, detailBoost = false, qualityGuard = false),
         )
         val bare = base

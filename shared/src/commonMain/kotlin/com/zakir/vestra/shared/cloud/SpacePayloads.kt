@@ -19,13 +19,22 @@ import kotlinx.serialization.json.put
  */
 object SpacePayloads {
 
-    fun forImageGen(providerId: String, prompt: String): List<JsonElement> = when (providerId) {
+    /**
+     * [spec] carries the frame the prompt asked for (see [ImageOutputStyle]). Width and height
+     * were hardcoded 1024x1024 here, so every generation came back square regardless of subject
+     * — a portrait crammed into a square frame, with no way for a caller to say otherwise.
+     */
+    fun forImageGen(
+        providerId: String,
+        prompt: String,
+        spec: ImageOutputStyle.Spec = ImageOutputStyle.resolve(prompt),
+    ): List<JsonElement> = when (providerId) {
         "flux-schnell-hf" -> listOf(
             JsonPrimitive(prompt),
             JsonPrimitive(0), // seed
             JsonPrimitive(true), // randomize
-            JsonPrimitive(1024), // width
-            JsonPrimitive(1024), // height
+            JsonPrimitive(spec.width),
+            JsonPrimitive(spec.height),
             JsonPrimitive(4), // steps
         )
         "sdxl-lightning-hf" -> listOf(
