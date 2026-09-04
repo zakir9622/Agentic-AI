@@ -145,3 +145,29 @@ version of it that kept API keys and safety inline.
 Other tags worth covering: `prompt_composer`, `composer_context_row`, `composer_active_tool`,
 `composer_mic_button`, `new_chat_button`, `message_action_<action>_<index>`,
 `provider_refresh_models` and `provider_model_row_<id>`.
+
+## What a run on this emulator can and cannot prove
+
+Measured on the AOSP emulator this harness was brought up on, so nobody has to re-derive it
+from a failing test:
+
+| Capability | Result | Why |
+|---|---|---|
+| Local image / video / code | legible refusal | no model packs on device (`files/packs/` empty) |
+| Cloud, any capability | legible refusal | emulator has **no network** — only `lo` and `dummy0`, no default route |
+| Audio | legible refusal | the image ships **no TTS engine**: no tts packages, `TTS_SERVICE` resolves to no services, `tts_default_synth` is null |
+
+All four refusals name the specific model and the action to take, e.g.
+
+    Pick a cloud model in the model picker, or add a free API key in Settings,
+    to use FLUX.1 Schnell — nothing is sent to the network until you do.
+
+No stack traces, no raw exceptions. That is the app behaving correctly, and it is the *only*
+thing this environment can establish. `test_generation_flows.py` still reports these as
+failures by design — the tests exist to verify generation *succeeds*, and they say so in their
+failure text rather than passing on a refusal.
+
+So: five red tests here is the expected, correct result, and it is not evidence of a defect.
+To actually verify generation you need a device with model packs installed and real network —
+Firebase Test Lab or a physical phone. Do not read a green run here as "generation works",
+because there is no configuration of this emulator in which it could.
